@@ -1,0 +1,15 @@
+{
+  "name": "Red Velvet 嫂子模拟器",
+  "short_name": "RV嫂子",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0410",
+  "theme_color": "#e887b0",
+  "icons": [
+    {
+      "src": "/icons.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
