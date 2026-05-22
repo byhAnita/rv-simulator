@@ -1,0 +1,53 @@
+{
+  "group": {
+    "name": "组合名",
+    "fandom": "粉丝名",
+    "lightstick": "应援棒描述",
+    "debut": "出道日期",
+    "members_count": 5,
+    "social_platforms": ["bubble", "instagram", "weverse"],
+    "private_chat": "kakaotalk",
+    "timeline_start": "2024-01-01",
+    "timeline_end": "2026-12-31"
+  },
+  "members": [
+    {
+      "id": "member_id",
+      "emoji": "🐰",
+      "name": "英文名",
+      "name_kr": "韩文名",
+      "color": "#f0c8d8",
+      "accent": "#c2185b",
+      "animal": "动物塑",
+      "mbti": "ISFJ",
+      "role": "队内担当",
+      "birthday": "1990-01-01",
+      "birthplace": "出生地",
+      "ig": "instagram_id",
+      "public_image": "公开形象描述",
+      "private_personality": "私下性格描述",
+      "queer_texture": "女同恋爱中的特有质感",
+      "animal_plastic": "动物塑 — 一句话概括",
+      "hidden_conflict": "隐藏矛盾（可选）"
+    }
+  ],
+  "history": [
+    { "date": "2014-08-01", "event": "事件描述" }
+  ],
+  "game_settings": {
+    "kkt_threshold": 30,
+    "memory_rounds": 5,
+    "main_initial_affection": 20,
+    "sub_initial_affection_min": 0,
+    "sub_initial_affection_max": 10,
+    "stage_thresholds": [0, 16, 31, 51, 66, 81, 91, 101],
+    "stage_names": ["陌生人", "有印象", "产生兴趣", "暧昧期", "确认关系", "热恋期", "考验期"],
+    "stat_names": {
+      "selfId": { "icon": "🌈", "label": "自我认同" },
+      "secrecy": { "icon": "🔒", "label": "恋情保密度" },
+      "alert": { "icon": "👁", "label": "公司警觉度" },
+      "pressure": { "icon": "📊", "label": "事业压力" },
+      "mood": { "icon": "💫", "label": "心情值" }
+    }
+  }
+}
