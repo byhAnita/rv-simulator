@@ -42,10 +42,10 @@
       "birthday": "1994-02-10",
       "birthplace": "安山",
       "ig": "hi_sseulgi",
-      "public_image": "舞台上的全能ACE，跳舞时眼神凌厉。私底下却是公认的懵懂小熊，性格温和、大大咧咧，笑起来眼睛弯成月牙。",
+      "public_image": "舞台上的全能ACE, 跳舞时眼神凌厉。私底下却是公认的懵懂小熊，性格温和、大大咧咧，笑起来眼睛弯成月牙。",
       "private_personality": "纯粹的直球。没有那么多弯弯绕绕，喜欢就会体现在亮晶晶的眼神里。完美主义者，对自己要求极高，容易把压力藏在心里。",
       "queer_texture": "笨拙的勇敢。可能不太懂女团里这种感情的弯弯绕绕，但只要认准了你，就会像小熊护食一样，在练习室深夜的走廊里，把退烧药和手写纸条硬塞进你手里。",
-      "animal_plastic": "小熊 — 台上ACE全能，台下单纯幻灭反差"
+      "animal_plastic": "小熊 — 台上ACE全能, 台下单纯幻灭反差"
     },
     {
       "id": "wendy",
@@ -62,7 +62,7 @@
       "ig": "todayis_wendy",
       "public_image": "元气满满的主唱，随时随地散发正能量。情商极高，韩娱圈公认的天使。曾在加拿大留学，精通英语。",
       "private_personality": "过度的付出型人格。习惯性优先处理他人情绪，越难过越用笑声掩盖。拥有极高感知的细腻内心，但对自己需求极度克制。",
-      "queer_texture": "润物细无声的越界。会为了你学做你家乡的菜，在深夜录音室共用一副耳机听未公开Demo。当边界在她无底线的温柔里融化时，你才发现自己早已无处可逃。",
+      "queer_texture": "润物细无声的越界。会为了你学做你家乡的菜, 在深夜录音室共用一副耳机听未公开Demo。当边界在她无底线的温柔里融化时，你才发现自己早已无处可逃。",
       "animal_plastic": "松鼠 — 付出型人格，温暖治愈天使"
     },
     {
@@ -105,38 +105,22 @@
   ],
   "history": [
     { "date": "2014-08-01", "event": "Irene,Seulgi,Wendy,Joy 4人出道《Happiness》" },
-    { "date": "2015-03", "event": "Yeri加入，5人组《Ice Cream Cake》" },
+    { "date": "2015-03", "event": "Yeri加入, 5人组《Ice Cream Cake》" },
     { "date": "2015-09", "event": "《The Red》正规一辑" },
     { "date": "2017", "event": "《Rookie》《The Red Summer》《Perfect Velvet》回归" },
     { "date": "2018", "event": "《Bad Boy》大热" },
     { "date": "2019", "event": "The ReVe Festival系列" },
     { "date": "2019-12-25", "event": "Wendy SBS歌谣大战坠落事故(骨盆/面部骨折/手腕受伤)，休养约一年" },
     { "date": "2020", "event": "Irene&Seulgi小组合《Monster》" },
-    { "date": "2021", "event": "Wendy Solo《Like Water》；Joy Solo《Hello》" },
-    { "date": "2022", "event": "《Feel My Rhythm》《Birthday》回归；Seulgi Solo《28 Reasons》" },
+    { "date": "2021", "event": "Wendy Solo《Like Water》; Joy Solo《Hello》" },
+    { "date": "2022", "event": "《Feel My Rhythm》《Birthday》回归; Seulgi Solo《28 Reasons》" },
     { "date": "2023", "event": "《Chill Kill》正规三辑" },
     { "date": "2024-06", "event": "EP《Cosmic》" },
     { "date": "2024-08", "event": "十周年Fancon巡演'Happiness: My Dear, ReVeluv'" },
     { "date": "2024", "event": "Irene Solo《Like A Flower》" },
-    { "date": "2025-04", "event": "Wendy合约到期未续SM(仍参与团体活动)，加入ASND娱乐" },
-    { "date": "2025-05", "event": "Yeri合约到期未续SM(仍参与团体活动)，签约Blitzway Entertainment" },
+    { "date": "2025-04", "event": "Wendy合约到期未续SM(仍参与团体活动), 加入ASND娱乐" },
+    { "date": "2025-05", "event": "Yeri合约到期未续SM(仍参与团体活动),签约Blitzway Entertainment" },
     { "date": "2026", "event": "Irene Solo《Biggest Fan》" },
     { "date": "2026-05", "event": "SM宣布Q3回归新迷你专辑(阔别两年)，专辑筹备高压期" }
-  ],
-  "game_settings": {
-    "kkt_threshold": 30,
-    "memory_rounds": 5,
-    "main_initial_affection": 20,
-    "sub_initial_affection_min": 0,
-    "sub_initial_affection_max": 10,
-    "stage_thresholds": [0, 16, 31, 51, 66, 81, 91, 101],
-    "stage_names": ["陌生人", "有印象", "产生兴趣", "暧昧期", "确认关系", "热恋期", "考验期"],
-    "stat_names": {
-      "selfId": { "icon": "🌈", "label": "自我认同" },
-      "secrecy": { "icon": "🔒", "label": "恋情保密度" },
-      "alert": { "icon": "👁", "label": "公司警觉度" },
-      "pressure": { "icon": "📊", "label": "事业压力" },
-      "mood": { "icon": "💫", "label": "心情值" }
-    }
-  }
+  ]
 }
