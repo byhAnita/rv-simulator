@@ -11,12 +11,18 @@ export async function loadGroupConfig(groupName = "red_velvet", language = "zh")
   const suffix = language === "zh" ? "" : `_${language}`;
   const fileName = `${groupName}${suffix}.json`;
 
+  // 判断是否在生产环境（GitHub Pages）
+  const isProduction = !window.location.hostname.includes('localhost');
+  const base = isProduction ? '/rv-simulator/' : '/';
+  const url = `${base}groups/${fileName}`;
+
   try {
-    const response = await fetch(`/groups/${fileName}`);
+    const response = await fetch(url);
     if (!response.ok) {
       if (language !== "zh") {
         console.warn(`${fileName} not found, falling back to ${groupName}.json`);
-        const fallbackResponse = await fetch(`/groups/${groupName}.json`);
+        const fallbackUrl = `${base}groups/${groupName}.json`;
+        const fallbackResponse = await fetch(fallbackUrl);
         if (!fallbackResponse.ok) throw new Error(`Failed to load: HTTP ${fallbackResponse.status}`);
         const config = await fallbackResponse.json();
         return parseGroupConfig(config);
