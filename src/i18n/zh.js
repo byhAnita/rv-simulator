@@ -99,6 +99,22 @@ const zh = {
   },
   achievement: { continue: "继续游戏" },
   common: { error: "❌ 出错:", startFailed: "启动失败:", enterKey: "请输入 API Key", pleaseSelectMember: "请选择主线成员", pleaseSetKey: "请设置 API Key" },
+  
+  guide: {
+    title: "📖 如何获取 API Key",
+    steps: [
+      "① 打开 {platform} 官网",
+      "② 注册账号（免费）",
+      "③ 进入「API Keys」页面",
+      "④ 点击「创建新的 API Key」",
+      "⑤ 复制生成的 Key(格式为 {prefix}...)",
+      "⑥ 粘贴到上方输入框",
+    ],
+    warning: "⚠️ 请勿将 Key 分享给他人!Key 仅保存在你的浏览器中。",
+    pricing: "💰 注册即送免费额度。额度用完后可按需充值，费用极低。",
+    moreModels: "💡 如果某个模型不可用，可以切换到其他模型试试。",
+  },
+
 };
 
 export default zh;

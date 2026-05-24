@@ -99,6 +99,22 @@ const en = {
   },
   achievement: { continue: "Continue" },
   common: { error: "❌ Error:", startFailed: "Start failed:", enterKey: "Please enter API Key", pleaseSelectMember: "Please select main member", pleaseSetKey: "Please set API Key" },
+
+  guide: {
+    title: "📖 How to Get an API Key",
+    steps: [
+      "① Open the {platform} website",
+      "② Sign up for a free account",
+      "③ Go to the 'API Keys' page",
+      "④ Click 'Create new API Key'",
+      "⑤ Copy the generated Key (format: {prefix}...)",
+      "⑥ Paste it into the input box above",
+    ],
+    warning: "⚠️ Never share your Key with anyone! It is only stored in your browser.",
+    pricing: "💰 Free credits upon registration. Pay-as-you-go after that — very affordable.",
+    moreModels: "💡 If one model is unavailable, try switching to another.",
+  },
+
 };
 
 export default en;

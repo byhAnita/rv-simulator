@@ -269,28 +269,84 @@ export default function App() {
   }
 
   // ── Key Input Page ──
-  if (phase === "keyInput") return (
-    <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)" }}>
-      <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", padding: "30px 20px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.5)", overflowY: "auto" }}>
-        <NotificationBar />
-        <div style={{ fontSize: 36, marginBottom: 14 }}>API Key</div>
-        <h2 style={{ fontSize: 18, color: "#f8c8d8", marginBottom: 6 }}>Set API Key & Model</h2>
-        <p style={{ fontSize: 11, color: "#907080", marginBottom: 6, textAlign: "center" }}>Key is stored locally only, never uploaded</p>
-        <p style={{ fontSize: 9, color: "#605060", marginBottom: 16, textAlign: "center" }}>{MODEL_CONFIGS[selectedModel]?.keyHelp}</p>
-        <div style={{ width: "100%", marginBottom: 14 }}>
-          <p style={{ fontSize: 11, color: "#907080", marginBottom: 8, textAlign: "center" }}>Select AI Model</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-            {Object.values(MODEL_CONFIGS).map(c => <div key={c.id} onClick={() => handleModelSelect(c.id)} style={{ padding: "8px 10px", borderRadius: 10, border: `1px solid ${selectedModel === c.id ? c.color : "rgba(255,255,255,.1)"}`, background: selectedModel === c.id ? c.color + "15" : "rgba(255,255,255,.03)", cursor: "pointer", userSelect: "none" }}><div style={{ fontSize: 12, fontWeight: 700, color: selectedModel === c.id ? c.color : "#ccc" }}>{c.emoji} {c.name}</div><div style={{ fontSize: 9, color: "#807080", marginTop: 2 }}>{c.desc}</div></div>)}
+  if (phase === "keyInput") {
+    const currentPlatformName = MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("deepseek") ? "platform.deepseek.com"
+      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("google") ? "aistudio.google.com"
+      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("anthropic") ? "console.anthropic.com"
+      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("openai") ? "platform.openai.com"
+      : "the platform's website";
+
+    return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)" }}>
+        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.5)", overflowY: "auto" }}>
+          <NotificationBar />
+          <div style={{ fontSize: 36, marginBottom: 10 }}>🔑</div>
+          <h2 style={{ fontSize: 18, color: "#f8c8d8", marginBottom: 4 }}>{t.keyInput.title}</h2>
+          <p style={{ fontSize: 11, color: "#907080", marginBottom: 4, textAlign: "center" }}>{t.keyInput.desc}</p>
+          <p style={{ fontSize: 9, color: "#605060", marginBottom: 12, textAlign: "center" }}>💡 {MODEL_CONFIGS[selectedModel]?.keyHelp}</p>
+
+          {/* Model Selector */}
+          <div style={{ width: "100%", marginBottom: 12 }}>
+            <p style={{ fontSize: 11, color: "#907080", marginBottom: 6, textAlign: "center" }}>{t.keyInput.selectModel}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+              {Object.values(MODEL_CONFIGS).map(c => (
+                <div key={c.id} onClick={() => handleModelSelect(c.id)}
+                  style={{
+                    padding: "7px 9px", borderRadius: 10,
+                    border: `1px solid ${selectedModel === c.id ? c.color : "rgba(255,255,255,.1)"}`,
+                    background: selectedModel === c.id ? c.color + "15" : "rgba(255,255,255,.03)",
+                    cursor: "pointer", userSelect: "none",
+                  }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: selectedModel === c.id ? c.color : "#ccc" }}>{c.emoji} {c.name}</div>
+                  <div style={{ fontSize: 8, color: "#807080", marginTop: 1 }}>{c.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* API Key Guide */}
+          <div style={{
+            width: "100%", marginBottom: 12, padding: "10px 12px",
+            background: "rgba(255,255,255,.04)", borderRadius: 12,
+            border: "1px solid rgba(232,120,176,.15)",
+          }}>
+            <p style={{ fontSize: 12, color: "#f8c8d8", fontWeight: 700, marginBottom: 6 }}>
+              {t.guide?.title || "📖 How to Get an API Key"}
+            </p>
+            {(t.guide?.steps || []).map((step, i) => (
+              <p key={i} style={{ fontSize: 9, color: "#c898b8", marginBottom: 2, lineHeight: 1.5 }}>
+                {step.replace('{platform}', currentPlatformName).replace('{prefix}', MODEL_CONFIGS[selectedModel]?.keyPrefix || 'sk-')}
+              </p>
+            ))}
+            <p style={{ fontSize: 9, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>
+              {t.guide?.warning || "⚠️ Never share your Key!"}
+            </p>
+            <p style={{ fontSize: 8, color: "#907080", marginTop: 3 }}>
+              {t.guide?.pricing || ""}
+            </p>
+            <p style={{ fontSize: 8, color: "#907080", marginTop: 1 }}>
+              {t.guide?.moreModels || ""}
+            </p>
+          </div>
+
+          {/* Key Input */}
+          <input type="password" placeholder={(MODEL_CONFIGS[selectedModel]?.keyPrefix || "sk-") + "..."} value={apiKey} onChange={e => setApiKey(e.target.value)} autoFocus
+            style={{ width: "100%", padding: "11px 14px", borderRadius: 12, background: "rgba(255,255,255,.06)", border: `1px solid ${MODEL_CONFIGS[selectedModel]?.color || "rgba(232,120,176,.3)"}`, color: "#f5e6ef", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "'Courier New',monospace", marginBottom: 14 }} />
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { if (apiKey?.trim()) { saveApiKey(apiKey); setPhase("setup"); } else showNotif(t.common?.enterKey || "Please enter API Key", "error"); }} disabled={!apiKey?.trim()}
+              style={{ padding: "10px 28px", borderRadius: 40, border: "none", cursor: apiKey?.trim() ? "pointer" : "not-allowed", background: apiKey?.trim() ? `linear-gradient(135deg,${MODEL_CONFIGS[selectedModel]?.color || "#e887b0"},#c86dd0)` : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontWeight: 600 }}>
+              {t.keyInput.confirm}
+            </button>
+            <button onClick={() => setPhase("cover")}
+              style={{ padding: "10px 20px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
+              {t.keyInput.back}
+            </button>
           </div>
         </div>
-        <input type="password" placeholder={(MODEL_CONFIGS[selectedModel]?.keyPrefix || "sk-") + "..."} value={apiKey} onChange={e => setApiKey(e.target.value)} autoFocus style={{ width: "100%", padding: "12px 16px", borderRadius: 12, background: "rgba(255,255,255,.06)", border: `1px solid ${MODEL_CONFIGS[selectedModel]?.color || "rgba(232,120,176,.3)"}`, color: "#f5e6ef", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "'Courier New',monospace", marginBottom: 18 }} />
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => { if (apiKey?.trim()) { saveApiKey(apiKey); setPhase("setup"); } else showNotif("Please enter API Key", "error"); }} disabled={!apiKey?.trim()} style={{ padding: "11px 32px", borderRadius: 40, border: "none", cursor: apiKey?.trim() ? "pointer" : "not-allowed", background: apiKey?.trim() ? `linear-gradient(135deg,${MODEL_CONFIGS[selectedModel]?.color || "#e887b0"},#c86dd0)` : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontWeight: 600 }}>Confirm</button>
-          <button onClick={() => setPhase("cover")} style={{ padding: "11px 20px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>Back</button>
-        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   // ── Setup Page ──
   if (phase === "setup") {

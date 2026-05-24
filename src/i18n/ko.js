@@ -99,6 +99,22 @@ const ko = {
   },
   achievement: { continue: "계속하기" },
   common: { error: "❌ 오류:", startFailed: "시작 실패:", enterKey: "API 키를 입력하세요", pleaseSelectMember: "메인 멤버를 선택하세요", pleaseSetKey: "API 키를 설정하세요" },
+
+  guide: {
+    title: "📖 API 키 받는 방법",
+    steps: [
+      "① {platform} 웹사이트 열기",
+      "② 무료 계정으로 가입하기",
+      "③ 'API Keys' 페이지로 이동",
+      "④ '새 API 키 생성' 클릭",
+      "⑤ 생성된 키 복사 (형식: {prefix}...)",
+      "⑥ 위 입력 상자에 붙여넣기",
+    ],
+    warning: "⚠️ 키를 다른 사람과 공유하지 마세요! 키는 귀하의 브라우저에만 저장됩니다.",
+    pricing: "💰 가입 시 무료 크레딧이 제공됩니다. 이후 사용량에 따라 요금이 부과됩니다 — 매우 저렴합니다.",
+    moreModels: "💡 특정 모델을 사용할 수 없는 경우, 다른 모델로 전환해 보세요.",
+  },
+
 };
 
 export default ko;
