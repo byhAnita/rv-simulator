@@ -1,0 +1,18 @@
+{
+  "name": "Red Velvet 嫂嫂模拟器",
+  "short_name": "RV模拟器",
+  "start_url": "https://byhanita.github.io/rv-simulator/",
+  "scope": "https://byhanita.github.io/rv-simulator/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0410",
+  "theme_color": "#b71c1c",
+  "icons": [
+    {
+      "src": "https://byhanita.github.io/rv-simulator/icons.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
