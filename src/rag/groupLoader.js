@@ -8,7 +8,7 @@
 export async function loadGroupIndex() {
   const isProduction = !window.location.hostname.includes('localhost');
   const base = isProduction ? '/rv-simulator/' : '/';
-  const url = `${base}groups/_index.json`;
+  const url = `${base}groups/index.json`;
 
   try {
     const response = await fetch(url);
