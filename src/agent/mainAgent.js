@@ -87,6 +87,7 @@ ${lr.socialRule}
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Your ENTIRE response must be a single JSON object.
+CRITICAL: Ensure the JSON is COMPLETE. All arrays must be closed with ], all objects with }. Every " must have a matching ". No truncated content.
 First character: {  Last character: }
 NO introductory text, NO closing remarks, NO markdown code blocks.
 NO text before { or after }.
@@ -297,6 +298,14 @@ function parseLLMOutput(text) {
     text = text.replace(rawStory, escapedStory);
   }
 
+  // 尝试补全不完整的 JSON
+  if (!text.trim().endsWith('}')) {
+  // 找到最后一个完整的键值对
+  const lastBrace = text.lastIndexOf('}');
+  if (lastBrace > 0) {
+    text = text.substring(0, lastBrace + 1);
+  }
+  }
 
   // Try 1: Direct parse
   try {

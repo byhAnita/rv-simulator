@@ -142,7 +142,20 @@ export default function App() {
       // 立刻弹出上一轮社媒（玩家等待时查看）
       const prevSocial = popPendingSocial();
       if (prevSocial?.feeds) {
-        setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(prevSocial.feeds).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
+        setSocialFeeds(p => {
+          const updated = { ...p };
+          for (const [mid, feed] of Object.entries(prevSocial.feeds)) {
+            updated[mid] = {
+              ...(p[mid] || {}),
+              bubble: feed.bubble?.length ? feed.bubble : (p[mid]?.bubble || []),
+              instagram: feed.instagram || p[mid]?.instagram || null,
+              weverse: feed.weverse || p[mid]?.weverse || null,
+              timestamp: feed.timestamp || Date.now(),
+              lastUpdate: Date.now(),
+            };
+          }
+          return updated;
+        });
       }
       if (prevSocial?.notifs?.length) {
         setActiveNotifications(prevSocial.notifs);
@@ -152,7 +165,7 @@ export default function App() {
         playerChoice: "Game start",
         stats: initialStats,
         memory: mem,
-        form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
+        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId, subIds, groupConfig, apiKey, selectedModel,
         kktUnlocked: {}, language,
       });
@@ -160,7 +173,7 @@ export default function App() {
       setStats({ ...result.newStats });
       memoryRef.current = result.updatedMemory;
 
-      // KKT updates form current round context
+      // KKT updates from current round context
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
@@ -183,6 +196,7 @@ export default function App() {
     setSocialFeeds(save.socialFeeds || {});
     setKktMessages(save.kktMessages || {});
     setKktUnlocked(save.kktUnlocked || {});
+    setCurrentOptions(save.currentOptions || []);
     setActiveNotifications([]);
     setPhase("game");
     showNotif("Save loaded");
@@ -196,7 +210,20 @@ export default function App() {
       // 立刻弹出上一轮社媒（玩家等待时查看）
       const prevSocial = popPendingSocial();
       if (prevSocial?.feeds) {
-        setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(prevSocial.feeds).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
+        setSocialFeeds(p => {
+          const updated = { ...p };
+          for (const [mid, feed] of Object.entries(prevSocial.feeds)) {
+            updated[mid] = {
+              ...(p[mid] || {}),
+              bubble: feed.bubble?.length ? feed.bubble : (p[mid]?.bubble || []),
+              instagram: feed.instagram || p[mid]?.instagram || null,
+              weverse: feed.weverse || p[mid]?.weverse || null,
+              timestamp: feed.timestamp || Date.now(),
+              lastUpdate: Date.now(),
+            };
+          }
+          return updated;
+        });
       }
       if (prevSocial?.notifs?.length) {
         setActiveNotifications(prevSocial.notifs);
@@ -206,7 +233,7 @@ export default function App() {
         playerChoice: text,
         stats: statsRef.current,
         memory: memoryRef.current,
-        form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
+        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked, language,
       });
@@ -215,7 +242,6 @@ export default function App() {
       statsRef.current = newStats;
       setStats({ ...newStats });
       memoryRef.current = result.updatedMemory;
-      setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(result.socialFeedsUpdate || {}).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
@@ -317,6 +343,7 @@ export default function App() {
         {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{ct.continue}</button>}
         <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{ct.apiKey}</button>
       </div>
+      {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} onLoad={loadSave} onClose={() => setOverlay(null)} />}
     </div>
     );
   }
@@ -517,7 +544,26 @@ export default function App() {
             ))}
           </div>
 
-          <button onClick={startNewGame} disabled={!canStart} style={{ width: "100%", marginTop: 22, padding: 13, borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? "linear-gradient(135deg,#e887b0,#c86dd0)" : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontWeight: 700 }}>{canStart ? `Start with ${mainMember?.name || "..."}` : "Please complete all fields"}</button>
+          <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
+            <button onClick={() => setPhase("cover")}
+              style={{
+                padding: "13px 20px", borderRadius: 40,
+                border: "1px solid rgba(255,255,255,.15)", background: "transparent",
+                color: "#a07090", fontSize: 13, cursor: "pointer",
+              }}>
+              ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
+            </button>
+            <button onClick={startNewGame} disabled={!canStart}
+              style={{
+                flex: 1, padding: "13px", borderRadius: 40, border: "none",
+                cursor: canStart ? "pointer" : "not-allowed",
+                background: canStart ? "linear-gradient(135deg,#e887b0,#c86dd0)" : "rgba(255,255,255,.08)",
+                color: "#fff", fontSize: 14, fontWeight: 700,
+              }}>
+              {canStart ? `Start with ${mainMember?.name || "..."}` : "Please complete all fields"}
+            </button>
+        </div>
+
         </div>
       </div>
     );
@@ -586,7 +632,7 @@ export default function App() {
         </div>
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {achievement && (
           <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(232,135,176,.5)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.3)" }}>

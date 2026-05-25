@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage } from "../utils";
 
-export default function SaveOverlay({ stats, member, form, messages, socialFeeds, kktMessages, kktUnlocked, memory, onLoad, onClose, t }) {
+export default function SaveOverlay({ stats, member, form, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, onLoad, onClose, t }) {
   const [saves, setSaves] = useState(() => loadFromStorage(STORAGE_KEYS.SAVES) || []);
 
   const handleSave = () => {
@@ -9,7 +9,7 @@ export default function SaveOverlay({ stats, member, form, messages, socialFeeds
       id: Date.now(),
       name: `${t.stats.week.label} ${stats?.week || 1} - ${member?.name || "RV"}`,
       date: new Date().toLocaleDateString("zh-CN"),
-      stats, form, messages, socialFeeds, kktMessages, kktUnlocked, memory,
+      stats, form, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory,
     };
     const updated = [newSave, ...saves.filter(s => s.id !== newSave.id)].slice(0, 10);
     setSaves(updated);

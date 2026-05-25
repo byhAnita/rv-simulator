@@ -22,7 +22,7 @@ const ko = {
     keyMissing: "⚠️ 키 없음",
     change: "변경",
     mainMember: (aff) => `🌸 메인 멤버 (초기 호감도: ${aff})`,
-    subMember: (min, max) => `🌿 서브 멤버 (0~${max}명 선택, 초기: ${min}~${max})`,
+    subMember: (min, max, total) => `🌿 서브 멤버 (0~${total}명 선택, 초기: ${min}~${max})`,
     npcHint: "🤝 NPC 멤버 (필수 출연):",
     identity: "💼 신분",
     customIdentity: "직접 입력...",

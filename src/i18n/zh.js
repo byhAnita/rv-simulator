@@ -22,7 +22,7 @@ const zh = {
     keyMissing: "⚠️ Key 未配置",
     change: "修改",
     mainMember: (aff) => `🌸 主线成员 (初始好感${aff})`,
-    subMember: (min, max) => `🌿 支线成员 (可选0~${max}位，初始好感${min}~${max})`,
+    subMember: (min, max, total) => `🌿 支线成员 (可选0~${total}位，初始好感${min}~${max})`,
     npcHint: "🤝 NPC 成员 (必须出场):",
     identity: "💼 身份",
     customIdentity: "自定义身份...",
@@ -49,7 +49,7 @@ const zh = {
     "主线成员前女友": "主线成员前女友",
     "H": "[自定义]",
   },
-  starLevels: ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"],
+  starLevels: ["资深粉丝", "韩娱瓜众", "纯路人", "已脱粉"],
   paces: ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"],
   game: {
     generating: "生成开局剧情...",

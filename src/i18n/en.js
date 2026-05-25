@@ -22,7 +22,7 @@ const en = {
     keyMissing: "⚠️ Key missing",
     change: "Change",
     mainMember: (aff) => `🌸 Main Member (Initial Affection: ${aff})`,
-    subMember: (min, max) => `🌿 Sub Members (0~${max} selectable, Initial: ${min}~${max})`,
+    subMember: (min, max, total) => `🌿 Sub Members (0~${total} selectable, Initial: ${min}~${max})`,
     npcHint: "🤝 NPC Members (must appear):",
     identity: "💼 Identity",
     customIdentity: "Custom identity...",
