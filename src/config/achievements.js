@@ -5,7 +5,7 @@ const achievementDefs = {
   he_hidden_love: {
     id: "he_hidden_love",
     icon: "💗",
-    titles: { zh: "🏆 HE：隐秘而稳定的爱", en: "🏆 HE: Hidden Love, Stable Hearts", ko: "🏆 HE: 숨겨진 사랑, 안정된 마음" },
+    titles: { zh: "🏆 HE: 隐秘而稳定的爱", en: "🏆 HE: Hidden Love, Stable Hearts", ko: "🏆 HE: 숨겨진 사랑, 안정된 마음" },
     descs: {
       zh: "你们在无人知晓的角落里，守护着这份珍贵的感情。不被看见，却无比真实。",
       en: "In a corner no one knows, you've protected this precious love. Unseen, yet utterly real.",
@@ -16,7 +16,7 @@ const achievementDefs = {
   se_public_love: {
     id: "se_public_love",
     icon: "✨",
-    titles: { zh: "🌟 SE：公开恋爱", en: "🌟 SE: Public Love", ko: "🌟 SE: 공개 연애" },
+    titles: { zh: "🌟 SE: 公开恋爱", en: "🌟 SE: Public Love", ko: "🌟 SE: 공개 연애" },
     descs: {
       zh: "你们选择不再躲藏。舆论并不温柔，但终于不用假装陌生人了。",
       en: "You chose to stop hiding. Public opinion isn't gentle, but you no longer have to pretend to be strangers.",
@@ -27,7 +27,7 @@ const achievementDefs = {
   be_exposed_separation: {
     id: "be_exposed_separation",
     icon: "💔",
-    titles: { zh: "💔 BE：曝光后的分离", en: "💔 BE: Separation After Exposure", ko: "💔 BE: 노출 후의 이별" },
+    titles: { zh: "💔 BE: 曝光后的分离", en: "💔 BE: Separation After Exposure", ko: "💔 BE: 노출 후의 이별" },
     descs: {
       zh: "舆论的压力、公司的施压、粉丝的反对...最终，你们被迫分开了。",
       en: "Media pressure, company demands, fan backlash... In the end, you were forced apart.",
@@ -38,7 +38,7 @@ const achievementDefs = {
   oe_unspoken_waiting: {
     id: "oe_unspoken_waiting",
     icon: "🌙",
-    titles: { zh: "🌙 OE：未公开的等待", en: "🌙 OE: Unspoken Waiting", ko: "🌙 OE: 말하지 못한 기다림" },
+    titles: { zh: "🌙 OE: 未公开的等待", en: "🌙 OE: Unspoken Waiting", ko: "🌙 OE: 말하지 못한 기다림" },
     descs: {
       zh: "你们仍然相爱，却被现实隔开。或许有一天...但不是现在。",
       en: "You still love each other, but reality keeps you apart. Maybe someday... but not now.",
@@ -49,7 +49,7 @@ const achievementDefs = {
   be_you_left: {
     id: "be_you_left",
     icon: "🚶",
-    titles: { zh: "🚶 BE：你选择离开", en: "🚶 BE: You Chose to Leave", ko: "🚶 BE: 당신이 떠나기로 했습니다" },
+    titles: { zh: "🚶 BE: 你选择离开", en: "🚶 BE: You Chose to Leave", ko: "🚶 BE: 당신이 떠나기로 했습니다" },
     descs: {
       zh: "你决定退出这个光圈。重新建立自己的生活，也是一种勇敢。",
       en: "You decided to step out of the spotlight. Building a new life is its own kind of courage.",

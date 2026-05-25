@@ -1,6 +1,5 @@
 // src/agent/mainAgent.js
 // v11.1 修复版: 语言强制 + 社媒隔离 + 队友NPC不生成社媒 + JSON强化
-
 import { callLLM } from "../tools/llmTool";
 import { buildMemoryContext, updateMemory, getTopMember, createEmptyMemory } from "./memoryPool";
 import { pickPrimaryMember } from "./probabilityEngine";
@@ -8,6 +7,17 @@ import { getStageIdx, getStageName } from "../config/stageConfig";
 import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
+
+// 模块级全局变量：社媒延迟一轮显示
+let pendingSocialFeeds = null;
+let pendingNotifications = [];
+export function popPendingSocial() {
+  const result = { feeds: pendingSocialFeeds, notifs: pendingNotifications };
+  pendingSocialFeeds = null;
+  pendingNotifications = [];
+  return result;
+}
+
 
 // ============================================================
 // 构建系统提示
@@ -120,7 +130,7 @@ ${identityBg}
 ╔══════════════════════════════════════════╗
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
-- Bubble: SM fan platform, member-to-fan daily sharing. Style: warm, cute, casual. 1-3 posts.
+- Bubble: fan platform, member-to-fan daily sharing. Style: warm, cute, casual. 1-3 posts.
 - Instagram: Photo social. Style: aesthetic, short caption + emoji.
 - Weverse: Fan community. Style: friendly, natural.
 - KKT (KakaoTalk): Private chat, member-to-player 1-on-1. Style: flirty/caring/casual.
@@ -202,12 +212,12 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
 
   const backgrounds = {
     zh: {
-      "SM练习生": `【身份背景】你是SM公司的练习生后辈，与${name}在训练中自然相识。优势：接触自然，有共同训练记忆。劣势：公司内规严格，身份曝光影响双方前途。`,
-      "SM职员": `【身份背景】你是SM公司职员(造型/摄影/行政等岗位)，因工作频繁进入${name}的工作半径。优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
-      "韩娱艺人": `【身份背景】你是其他公司的韩娱艺人，因合作活动与${name}相识。优势：身份平等。劣势：公众关注度高，任何同框被粉丝解读，会产生CP粉和毒唯。`,
-      "粉丝": `【身份背景】你是${name}的粉丝，通过特殊事件与她建立了私下联系。优势：对她有深度了解。劣势：身份极其敏感，曝光会被粉圈放大审判。`,
-      "艺术留学生": `【身份背景】你是来韩留学的艺术生，因日常活动/声乐课/舞蹈课/共同朋友与${name}相识。优势：公众关注度低，有共同话题。劣势：身份差距、文化差异、思乡/学业压力。`,
-      "财阀独女": `【身份背景】你出身财阀家族，产业涉及娱乐/时尚行业，与SM高层相识。因商务活动(酒会/时装周/投资)与${name}相识。优势：充足资金和资源。劣势：公众关注度极高，身份差距大。`,
+      "练习生": `【身份背景】你是${name}的练习生后辈, 与${name}在训练中自然相识。优势：接触自然，有共同训练记忆。劣势：公司内规严格，身份曝光影响双方前途。`,
+      "Staff": `【身份背景】你是${name}的Staff(造型/摄影/行政等岗位)，因工作频繁进入${name}的工作半径。优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
+      "韩娱艺人": `【身份背景】你是其他公司的韩娱艺人，因合作活动与${name}相识。优势:身份平等，娱乐/时尚/影视合作机会。 劣势:公众关注度高,任何同框被粉丝解读, 会产生CP粉和毒唯。`,
+      "粉丝": `【身份背景】你是${name}的粉丝，通过特殊事件与她建立了私下联系。优势：对${name}有深度了解。劣势：身份极其敏感，曝光会被粉圈放大审判。`,
+      "留学生": `【身份背景】你是来韩留学的艺术生，因日常活动/共同朋友与${name}相识。优势：公众关注度低，有练舞/唱歌共同话题。劣势：身份差距、文化差异、思乡/学业压力。`,
+      "财阀": `【身份背景】你是女性财阀，可以给${name}提供娱乐/时尚资源，你与${name}公司高层相识。因商务活动(酒会/时装周/投资)与${name}相识。优势：充足资金和资源。劣势：公众关注度极高，身份差距大。`,
       "主线成员前女友": `【特殊身份背景-主线成员前女友】
 - 你和${name}曾是恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
 - 你至今保留着${keeps[Math.floor(Math.random()*4)]}
@@ -215,12 +225,12 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
 - 其他成员可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行`,
     },
     en: {
-      "SM练习生": `[Identity: SM Trainee] You are an SM trainee junior who naturally met ${name} through training. Advantage: natural contact, shared memories. Disadvantage: strict company rules, exposure affects both futures.`,
-      "SM职员": `[Identity: SM Staff] You work at SM (styling/photography/admin) and frequently enter ${name}'s work radius. Advantage: access to real off-stage state. Disadvantage: clear workplace boundaries, any ambiguity = misconduct.`,
-      "韩娱艺人": `[Identity: K-pop Artist] You are an artist from another company who met ${name} through collaboration. Advantage: equal status. Disadvantage: high public attention, any interaction analyzed by fans, creating both shippers and toxic solo stans.`,
-      "粉丝": `[Identity: Fan] You are ${name}'s fan who established private contact through special events. Advantage: deep knowledge of her. Disadvantage: extremely sensitive identity, exposure = fan trial.`,
-      "艺术留学生": `[Identity: Art Student Abroad] You are a foreign art student in Korea who met ${name} through daily activities/vocal class/dance class/mutual friends. Advantage: low public attention, common interests. Disadvantage: status gap, culture shock, homesickness/academic pressure.`,
-      "财阀独女": `[Identity: Chaebol Heiress] Your family business involves entertainment/fashion and has ties with SM executives. You met ${name} at business events (gala/fashion week/investment). Advantage: abundant resources. Disadvantage: extreme public attention, status gap.`,
+      "练习生": `[Identity: Trainee] You are a trainee junior who naturally met ${name} through training. Advantage: natural contact, shared memories. Disadvantage: strict company rules, exposure affects both futures.`,
+      "Staff": `[Identity: Staff] You work at  (styling/photography/admin) and frequently enter ${name}'s work radius. Advantage: access to real off-stage state. Disadvantage: clear workplace boundaries, any ambiguity = misconduct.`,
+      "韩娱艺人": `[Identity: K-pop Artist] You are an artist from another company who met ${name} through collaboration. Advantage: equal status, Entertainment/Fashion/Film collaboration chances. Disadvantage: high public attention, any interaction analyzed by fans, creating both shippers and toxic solo stans.`,
+      "粉丝": `[Identity: Fan] You are ${name}'s fan who established private contact through special events. Advantage: deep knowledge of ${name}. Disadvantage: extremely sensitive identity, exposure = fan trial.`,
+      "留学生": `[Identity: Student] You are a foreign student in Korea who met ${name} through daily activities/mutual friends. Advantage: low public attention, common dance/vocal interests. Disadvantage: status gap, culture shock, homesickness/academic pressure.`,
+      "财阀": `[Identity: Female chaebol] You can provide entertainment/fashion resources to ${name}. You met ${name} at business events (gala/fashion week/investment). Advantage: abundant resources. Disadvantage: extreme public attention, status gap.`,
       "主线成员前女友": `[Special Identity: Main Member's Ex-Girlfriend]
 - You and ${name} were lovers years ago, separated due to ${reasons[Math.floor(Math.random()*4)]}
 - You still keep ${keeps[Math.floor(Math.random()*4)]}
@@ -228,12 +238,12 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
 - Other members may or may not know your past. As the game progresses, may reconcile or move on.`,
     },
     ko: {
-      "SM练习生": `[신분: SM 연습생] 당신은 SM 연습생 후배로 ${name}와 훈련 중 자연스럽게 알게 되었습니다. 장점: 자연스러운 접촉, 공유된 훈련 기억. 단점: 엄격한 회사 규정, 신분 노출 시 양측의 미래에 영향.`,
-      "SM职员": `[신분: SM 직원] 당신은 SM 직원(스타일링/촬영/행정 등)으로 업무상 ${name}의 작업 반경에 자주 들어갑니다. 장점: 실제 무대 밖 모습에 접근 가능. 단점: 명확한 직장 경계, 모호한 관계는 직무 태만으로 간주될 수 있음.`,
-      "韩娱艺人": `[신분: K-pop 아티스트] 당신은 다른 회사의 아티스트로 협업 활동을 통해 ${name}를 알게 되었습니다. 장점: 동등한 지위. 단점: 높은 대중의 관심, 모든 상호작용이 팬들에게 분석되며 CP 팬과 독성 개인 팬이 생길 수 있음.`,
+      "练习生": `[신분: 연습생] 당신은 연습생 후배로 ${name}와 훈련 중 자연스럽게 알게 되었습니다. 장점: 자연스러운 접촉, 공유된 훈련 기억. 단점: 엄격한 회사 규정, 신분 노출 시 양측의 미래에 영향.`,
+      "Staff": `[신분: 직원] 당신은 직원(스타일링/촬영/행정 등)으로 업무상 ${name}의 작업 반경에 자주 들어갑니다. 장점: ${name}의 실제 생활을 알 수 있음. 단점: 명확한 직장 경계, 모호한 관계는 직무 태만으로 간주될 수 있음.`,
+      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 회사 소속 아티스트로, 협업을 통해 ${name}을 알게 됨. 장점: 동등한 지위, 엔터테인먼트/패션/영화 분야에서 협업 기회, 커플 팬층 확보 가능성. 단점: 대중의 높은 관심; 팬들은 모든 상호작용을 분석할 것이며, 이는 악의적인 팬으로 이어질 수 있습니다.`,
       "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로 특별한 이벤트를 통해 그녀와 개인적인 연락을 구축했습니다. 장점: 그녀에 대한 깊은 이해. 단점: 극도로 민감한 신분, 노출 시 팬덤의 재판을 받게 됨.`,
-      "艺术留学生": `[신분: 유학생] 당신은 한국에서 유학 중인 예술 학생으로 일상 활동/보컬 수업/댄스 수업/공통 친구를 통해 ${name}를 알게 되었습니다. 장점: 낮은 대중 관심, 공통된 관심사. 단점: 신분 격차, 문화 충격, 향수병/학업 압박.`,
-      "财阀独女": `[신분: 재벌 딸] 당신의 가족 사업은 엔터테인먼트/패션 업계에 관여하며 SM 경영진과 인연이 있습니다. 비즈니스 이벤트(갈라/패션위크/투자)에서 ${name}를 만났습니다. 장점: 풍부한 자원. 단점: 극도로 높은 대중 관심, 신분 격차.`,
+      "留学生": `[신분: 유학생] 당신은 한국에서 미술을 전공하는 학생입니다. 일상 활동이나 공통 지인을 통해 ${name}을 만났습니다. 장점: 대중적인 인지도가 낮고, 노래/춤에 대한 공통된 열정. 단점: 사회적 지위 차이, 문화적 충격, 향수병/학업 스트레스.`,
+      "财阀": `[신분: 여성 재벌] 당신은 ${name}에게 연예/패션 업계의 자원을 제공할 수 있으며, 연예계 고위 임원들과의 인맥이 있습니다. 비즈니스 행사(저녁 식사/패션 위크/투자)에서 ${name}을 만났습니다. 장점: 풍부한 자원. 단점: 매우 높은 대중적 인지도, 신분 차이.`,
       "主线成员前女友": `[특별 신분: 메인 멤버의 전 여자친구]
 - 당신과 ${name}는 몇 년 전 연인이었으나 ${reasons[Math.floor(Math.random()*4)]}로 인해 헤어졌습니다
 - 당신은 아직도 ${keeps[Math.floor(Math.random()*4)]}을/를 간직하고 있습니다
@@ -260,8 +270,8 @@ export function createInitialStats(mainId, subIds) {
     alert: Math.floor(Math.random() * 15) + 10,
     pressure: Math.floor(Math.random() * 20) + 45,
     mood: Math.floor(Math.random() * 20) + 50,
-    week: 1,
-    scene: "Seoul·SM Building",
+    week: 0,
+    scene: "Seoul·Entertainment Building",
     chapter: "start",
     multiAff,
   };
@@ -389,6 +399,12 @@ export async function executeRound({
   const memoryContext = buildMemoryContext(memory, members, mainId, MEMORY_ROUNDS);
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language);
 
+  // Step 1.5: 
+  // social content of previous round, to be displayed in current round
+    // Step 1.5: 初始化本轮变量（社媒读取和清空已移至 popPendingSocial）
+  let roundNotifs = [];
+  let socialFeedsUpdate = {};
+  
   // Step 2: LLM
   const llmInput = `Player choice: ${playerChoice}\nGenerate the next round. Output ONLY valid JSON.`;
   const llmOutput = await callLLM(llmInput, [], systemPrompt, apiKey, selectedModel);
@@ -436,7 +452,6 @@ export async function executeRound({
   const achievement = checkAchievement(newStats, currentAff, roundNum, language);
 
   // Step 4: Notifications (only main+sub, no NPC)
-  const roundNotifs = [];
   const socialContent = parsed.socialContent || {};
   for (const [mid, platforms] of Object.entries(socialContent)) {
     if (!allTargetIds.includes(mid)) continue; // 跳过 NPC
@@ -451,7 +466,6 @@ export async function executeRound({
   const topMember = getTopMember(members.filter(m => allTargetIds.includes(m.id)), currentAff);
 
   // Build social feeds (only main+sub)
-  const socialFeedsUpdate = {};
   for (const [mid, platforms] of Object.entries(socialContent)) {
     if (!allTargetIds.includes(mid)) continue;
     socialFeedsUpdate[mid] = {
@@ -461,6 +475,10 @@ export async function executeRound({
       timestamp: Date.now(), lastUpdate: Date.now(),
     };
   }
+
+  // 存入全局变量，供下一轮使用
+  pendingSocialFeeds = socialFeedsUpdate;
+  pendingNotifications = roundNotifs;
 
   // NPC appearances (track but no social)
   const npcAppearances = { ...memory.npcAppearances };

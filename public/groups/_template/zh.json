@@ -1,0 +1,55 @@
+{
+  "group": {
+    "name": "组合名称",
+    "fandom": "粉丝名",
+    "lightstick": "应援棒颜色",
+    "debut": "出道日期",
+    "members_count": 5,
+    "social_platforms": ["bubble", "instagram", "weverse"],
+    "private_chat": "kakaotalk",
+    "timeline_start": "2024-01-01",
+    "timeline_end": "2026-12-31"
+  },
+  "members": [
+    {
+      "id": "member_id_1",
+      "emoji": "🐰",
+      "name": "Member Name",
+      "name_kr": "韩文本名",
+      "color": "#f0c8d8",
+      "accent": "#c2185b",
+      "animal": "动物塑",
+      "mbti": "ISFJ",
+      "role": "队内担当",
+      "birthday": "1990-01-01",
+      "birthplace": "出生地",
+      "ig": "instagram_id",
+      "public_image": "公开形象描述 (1-2句话)",
+      "private_personality": "私下性格描述(1-2句话)",
+      "queer_texture": "女同恋爱中的特有质感描述(1-2句话)",
+      "animal_plastic": "动物塑 — 一句话概括"
+    },
+    {
+      "id": "member_id_2",
+      "emoji": "🐻",
+      "name": "Member Name",
+      "name_kr": "韩文本名",
+      "color": "#c5d8f0",
+      "accent": "#1565c0",
+      "animal": "动物塑",
+      "mbti": "ISFP",
+      "role": "队内担当",
+      "birthday": "1994-02-10",
+      "birthplace": "出生地",
+      "ig": "instagram_id",
+      "public_image": "公开形象描述",
+      "private_personality": "私下性格描述",
+      "queer_texture": "女同恋爱中的特有质感描述",
+      "animal_plastic": "动物塑 — 一句话概括"
+    }
+  ],
+  "history": [
+    { "date": "2020-01-01", "event": "出道/重要事件" },
+    { "date": "2021-06", "event": "回归/重要事件" }
+  ]
+}

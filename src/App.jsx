@@ -1,10 +1,10 @@
+import { createInitialStats, executeRound, popPendingSocial } from "./agent/mainAgent";
 import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { loadGroupConfig, buildMemberDetails, getNpcMembers } from "./rag/groupLoader";
+import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
 import { createEmptyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
-import { createInitialStats, executeRound } from "./agent/mainAgent";
 import { MODEL_CONFIGS } from "./config/modelConfigs";
 import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
@@ -18,12 +18,12 @@ import SaveOverlay from "./platforms/SaveOverlay";
 
 
 const IDENTITIES = [
-  { id: "SM练习生", label: "SM练习生" },
-  { id: "SM职员", label: "SM职员" },
+  { id: "练习生", label: "练习生" },
+  { id: "Staff", label: "Staff" },
   { id: "韩娱艺人", label: "韩娱艺人" },
   { id: "粉丝", label: "粉丝" },
-  { id: "艺术留学生", label: "艺术留学生" },
-  { id: "财阀独女", label: "财阀独女" },
+  { id: "留学生", label: "留学生" },
+  { id: "财阀", label: "财阀" },
   { id: "主线成员前女友", label: "主线成员前女友" },
   { id: "H", label: "[自定义]" },
 ];
@@ -52,6 +52,8 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
 export default function App() {
   const [language, setLanguage] = useState(() => loadFromStorage("rv_sim_language") || "zh");  // ← language 先声明
   const { t, interpolate } = useTranslation(language);  // ← 然后 useTranslation
+  const [selectedGroup, setSelectedGroup] = useState(() => loadFromStorage("rv_sim_group") || "red_velvet");
+  const [groupList, setGroupList] = useState([]);
   const [phase, setPhase] = useState("cover");
   const [apiKey, setApiKey] = useState(() => loadFromStorage(STORAGE_KEYS.API_KEY) || "");
   const [selectedModel, setSelectedModel] = useState(() => loadFromStorage(STORAGE_KEYS.SELECTED_MODEL) || "deepseek");
@@ -83,12 +85,25 @@ export default function App() {
   const allTargetMembers = [mainMember, ...subMembersList].filter(Boolean);
   const npcMembers = groupConfig ? getNpcMembers(members, form.mainMember, form.subMembers || []) : [];
 
+  // 在 useEffect 中加载组合列表：
   useEffect(() => {
-    loadGroupConfig("red_velvet", language).then(config => {
-      setGroupConfig(config);
-      setMembers(config.members);
+    loadGroupIndex().then(list => {
+      setGroupList(list);
+      if (!list.find(g => g.id === selectedGroup)) {
+        setSelectedGroup(list[0]?.id || "red_velvet");
+      }
     }).catch(console.error);
   }, []);
+
+  // 当 selectedGroup 变化时，重新加载 RAG：
+  useEffect(() => {
+    loadGroupConfig(selectedGroup, language).then(config => {
+      setGroupConfig(config);
+      setMembers(config.members);
+      setForm(f => ({ ...f, mainMember: null, subMembers: [] }));
+      saveToStorage("rv_sim_group", selectedGroup);
+    }).catch(console.error);
+  }, [selectedGroup, language]);
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -114,14 +129,25 @@ export default function App() {
     mem.playerStats = { selfId: initialStats.selfId, secrecy: initialStats.secrecy, alert: initialStats.alert, pressure: initialStats.pressure, mood: initialStats.mood, week: initialStats.week, scene: initialStats.scene, chapter: initialStats.chapter };
     mem.affections = { [mainId]: initialStats.affection, ...initialStats.multiAff };
     memoryRef.current = mem;
+    
     const initFeeds = {};
-    allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [{ content: "Today we worked hard too", hasPhoto: false }], instagram: { caption: "✨", likes: 800000 }, weverse: { content: "Hello everyone~", likes: 2000, comments: 100 }, timestamp: Date.now(), lastUpdate: Date.now() }; });
+    allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
+
     setSocialFeeds(initFeeds);
     setActiveNotifications([]);
     setKktUnlocked({});
     setKktMessages({});
     setTopMember(mainMember);
     try {
+      // 立刻弹出上一轮社媒（玩家等待时查看）
+      const prevSocial = popPendingSocial();
+      if (prevSocial?.feeds) {
+        setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(prevSocial.feeds).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
+      }
+      if (prevSocial?.notifs?.length) {
+        setActiveNotifications(prevSocial.notifs);
+      }
+      
       const result = await executeRound({
         playerChoice: "Game start",
         stats: initialStats,
@@ -133,8 +159,8 @@ export default function App() {
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
       memoryRef.current = result.updatedMemory;
-      setActiveNotifications(result.roundNotifs);
-      setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(result.socialFeedsUpdate || {}).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
+
+      // KKT updates form current round context
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
@@ -167,6 +193,15 @@ export default function App() {
     const um = { role: "user", content: text }, nh = [...messages, um];
     setMessages(nh); setInput(""); setLoading(true);
     try {
+      // 立刻弹出上一轮社媒（玩家等待时查看）
+      const prevSocial = popPendingSocial();
+      if (prevSocial?.feeds) {
+        setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(prevSocial.feeds).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
+      }
+      if (prevSocial?.notifs?.length) {
+        setActiveNotifications(prevSocial.notifs);
+      }
+
       const result = await executeRound({
         playerChoice: text,
         stats: statsRef.current,
@@ -180,7 +215,6 @@ export default function App() {
       statsRef.current = newStats;
       setStats({ ...newStats });
       memoryRef.current = result.updatedMemory;
-      setActiveNotifications(result.roundNotifs);
       setSocialFeeds(p => ({ ...p, ...Object.fromEntries(Object.entries(result.socialFeedsUpdate || {}).map(([k, v]) => [k, { ...(p[k] || {}), ...v }])) }));
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
@@ -222,22 +256,41 @@ export default function App() {
   const NotificationBar = () => notification ? <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: notification.type === "error" ? "rgba(220,50,50,.92)" : "rgba(50,180,100,.92)", color: "#fff", padding: "8px 20px", borderRadius: 20, fontSize: 12, fontWeight: 600, zIndex: 9999, pointerEvents: "none" }}>{notification.msg}</div> : null;
 
   // ── Cover Page ──
- if (phase === "cover") {
+  if (phase === "cover") {
     const coverTexts = {
       zh: { subtitle: "嫂嫂模拟器", desc: "AI文游·女团恋爱养成·v11.1 RAG", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
       en: { subtitle: "Idol Dating Simulator", desc: "AI Text Adventure · Idol Dating Sim · v11.1 RAG", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
       ko: { subtitle: "처형 시뮬레이터", desc: "AI 텍스트 어드벤처 · 여성 연애 시뮬레이션 · v11.1 RAG", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
-    const t = coverTexts[language] || coverTexts.zh;
+    const ct = coverTexts[language] || coverTexts.zh;
 
     return (
     <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(135deg,#0a0410,#1e0718,#0a0420)" }}>
       <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: "linear-gradient(135deg,#0a0410,#1e0718,#0a0420)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.5)", overflow: "hidden" }}>
         <NotificationBar />
         <div style={{ fontSize: 44, marginBottom: 14 }}>💗</div>
-        <h1 style={{ fontSize: "clamp(24px,6vw,44px)", fontWeight: 700, background: "linear-gradient(90deg,#f8c8d8,#e887b0,#c86dd0,#e887b0,#f8c8d8)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmerCover 4s linear infinite", marginBottom: 4 }}>Red Velvet</h1>
-        <h2 style={{ fontSize: "clamp(13px,2.5vw,20px)", letterSpacing: ".3em", color: "#d898b8", marginBottom: 4 }}>{t.subtitle}</h2>
-        <p style={{ fontSize: 10, color: "#806070", letterSpacing: ".1em", marginBottom: 20 }}>{t.desc}</p>
+        <h1 style={{ fontSize: "clamp(24px,6vw,44px)", fontWeight: 700, background: "linear-gradient(90deg,#f8c8d8,#e887b0,#c86dd0,#e887b0,#f8c8d8)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmerCover 4s linear infinite", marginBottom: 4 }}>Idol Dating</h1>
+        <h2 style={{ fontSize: "clamp(13px,2.5vw,20px)", letterSpacing: ".3em", color: "#d898b8", marginBottom: 4 }}>{ct.subtitle}</h2>
+        <p style={{ fontSize: 10, color: "#806070", letterSpacing: ".1em", marginBottom: 16 }}>{ct.desc}</p>
+
+        {/* Group Selection */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center", marginBottom: 16 }}>
+          {groupList.map(g => (
+            <button key={g.id}
+              onClick={() => setSelectedGroup(g.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 3,
+                padding: "4px 9px", borderRadius: 12,
+                border: `1px solid ${selectedGroup === g.id ? (g.color || "#e887b0") : "rgba(255,255,255,.15)"}`,
+                background: selectedGroup === g.id ? (g.color || "#e887b0") + "18" : "rgba(255,255,255,.04)",
+                color: selectedGroup === g.id ? "#fff" : "#aaa",
+                fontSize: 10, cursor: "pointer", whiteSpace: "nowrap",
+              }}>
+              <span style={{ fontSize: 12 }}>{g.emoji}</span>
+              <span style={{ fontWeight: selectedGroup === g.id ? 700 : 400 }}>{g.name}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Language Selection */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -260,9 +313,9 @@ export default function App() {
           ))}
         </div>
 
-        <button onClick={() => { if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput"); }} style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{t.newGame}</button>
-        {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{t.continue}</button>}
-        <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{t.apiKey}</button>
+        <button onClick={() => { if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput"); }} style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{ct.newGame}</button>
+        {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{ct.continue}</button>}
+        <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{ct.apiKey}</button>
       </div>
     </div>
     );
@@ -306,27 +359,22 @@ export default function App() {
 
           {/* API Key Guide */}
           <div style={{
-            width: "100%", marginBottom: 12, padding: "10px 12px",
+            width: "100%", marginBottom: 10, padding: "10px 12px",
             background: "rgba(255,255,255,.04)", borderRadius: 12,
             border: "1px solid rgba(232,120,176,.15)",
           }}>
-            <p style={{ fontSize: 12, color: "#f8c8d8", fontWeight: 700, marginBottom: 6 }}>
-              {t.guide?.title || "📖 How to Get an API Key"}
-            </p>
+            <p style={{ fontSize: 11, color: "#f8c8d8", fontWeight: 700, marginBottom: 4 }}>{t.guide?.title}</p>
+            <p style={{ fontSize: 9, color: "#c898b8", marginBottom: 6, lineHeight: 1.5 }}>{t.guide?.intro}</p>
             {(t.guide?.steps || []).map((step, i) => (
               <p key={i} style={{ fontSize: 9, color: "#c898b8", marginBottom: 2, lineHeight: 1.5 }}>
                 {step.replace('{platform}', currentPlatformName).replace('{prefix}', MODEL_CONFIGS[selectedModel]?.keyPrefix || 'sk-')}
               </p>
             ))}
-            <p style={{ fontSize: 9, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>
-              {t.guide?.warning || "⚠️ Never share your Key!"}
-            </p>
-            <p style={{ fontSize: 8, color: "#907080", marginTop: 3 }}>
-              {t.guide?.pricing || ""}
-            </p>
-            <p style={{ fontSize: 8, color: "#907080", marginTop: 1 }}>
-              {t.guide?.moreModels || ""}
-            </p>
+            <p style={{ fontSize: 9, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>{t.guide?.warning}</p>
+            <p style={{ fontSize: 8, color: "#907080", marginTop: 3 }}>{t.guide?.keyManagement}</p>
+            <p style={{ fontSize: 8, color: "#907080", marginTop: 2 }}>{t.guide?.billing}</p>
+            <p style={{ fontSize: 8, color: "#907080", marginTop: 2 }}>{t.guide?.moreModels}</p>
+            <p style={{ fontSize: 8, color: "#907080", marginTop: 2 }}>{t.guide?.noProfit}</p>
           </div>
 
           {/* Key Input */}
@@ -366,16 +414,31 @@ export default function App() {
             </div>
           </div>
 
-          {/* Main Member */}
-          <div className="s-l">Main Member (Initial Affection: {MAIN_INITIAL_AFFECTION})</div>
+          {/* ① Main Member */}
+          <div className="s-l">{t.setup.mainMember(MAIN_INITIAL_AFFECTION)}</div>
           {members.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#907080", padding: 20, fontSize: 12 }}>Loading members...</div>
+            <div style={{textAlign:"center",color:"#907080",padding:20,fontSize:12}}>{t.setup.loading}</div>
           ) : (
-            <div className="s-g2">{members.map(m => <div key={m.id} className={`s-c${form.mainMember === m.id ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, mainMember: m.id, subMembers: (f.subMembers || []).filter(id => id !== m.id) }))} style={{ borderColor: form.mainMember === m.id ? m.accent : undefined }}><span style={{ fontSize: 18 }}>{m.emoji}</span><div><div style={{ fontSize: 12, fontWeight: 700 }}>{m.name}</div><div style={{ fontSize: 9, color: "#a07090" }}>{m.name_kr} - {m.role}</div></div></div>)}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+              {members.map(m => (
+                <button key={m.id}
+                  onClick={() => setForm(f => ({ ...f, mainMember: m.id, subMembers: (f.subMembers || []).filter(id => id !== m.id) }))}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 4, padding: "6px 10px",
+                    borderRadius: 14, border: `1px solid ${form.mainMember === m.id ? m.accent : "rgba(255,255,255,.15)"}`,
+                    background: form.mainMember === m.id ? m.accent + "18" : "rgba(255,255,255,.04)",
+                    color: form.mainMember === m.id ? "#fff" : "#ccc",
+                    fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
+                  }}>
+                  <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                  <span style={{ fontWeight: form.mainMember === m.id ? 700 : 400 }}>{m.name_kr}</span>
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Sub Members */}
-          <div className="s-l">Sub Members (0~4, Initial: {SUB_INITIAL_AFFECTION_MIN}~{SUB_INITIAL_AFFECTION_MAX})</div>
+          <div className="s-l">{t.setup.subMember(SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, members.length - 1)}</div>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", color: "#907080", padding: 10, fontSize: 11 }}>Loading...</div>
           ) : (
@@ -383,26 +446,77 @@ export default function App() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
                 {members.filter(m => m.id !== form.mainMember).map(m => {
                   const sel = (form.subMembers || []).includes(m.id);
-                  return <span key={m.id} className={`s-ch${sel ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, subMembers: sel ? f.subMembers.filter(x => x !== m.id) : [...(f.subMembers || []), m.id].slice(0, 4) }))}>{m.emoji} {m.name}</span>;
+                  return <span key={m.id} className={`s-ch${sel ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, subMembers: sel ? f.subMembers.filter(x => x !== m.id) : [...(f.subMembers || []), m.id].slice(0, members.length - 1) }))}>{m.emoji} {m.name_kr}</span>;
                 })}
               </div>
-              {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).length > 0 && <p style={{ fontSize: 9, color: "#605060", marginBottom: 4 }}>NPC Members: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name).join(", ")}</p>}
+              {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).length > 0 && <p style={{ fontSize: 9, color: "#605060", marginBottom: 4 }}>NPC Members: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>}
             </>
           )}
 
           {/* Identity */}
-          <div className="s-l">Identity</div>
-          {IDENTITIES.map(id => <div key={id.id} className={`s-c${form.identity === id.id ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, identity: id.id }))}><span style={{ fontSize: 10, fontWeight: 800, color: "#e887b0", minWidth: 16 }}>{id.id === "H" ? "H" : ""}</span><span style={{ fontSize: 11 }}>{t.identities[id.id] || id.label}</span></div>)}
+          <div className="s-l">{t.setup.identity}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {IDENTITIES.map(id => (
+              <div key={id.id}
+                onClick={() => setForm(f => ({ ...f, identity: id.id }))}
+                style={{
+                  padding: "7px 10px", borderRadius: 10, textAlign: "center",
+                  border: `1px solid ${form.identity === id.id ? "#e887b0" : "rgba(255,255,255,.15)"}`,
+                  background: form.identity === id.id ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
+                  color: form.identity === id.id ? "#fff" : "#ccc",
+                  fontSize: 11, cursor: "pointer",
+                }}>
+                {t.identities[id.id] || id.label}
+              </div>
+            ))}
+          </div>
+          {form.identity === "H" && (
+            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity}
+              onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))}
+              style={{ marginTop: 4, marginBottom: 6 }} />
+          )}
+
 
           {/* Basic Info */}
           <div className="s-l">Basic Info</div>
           <div style={{ display: "flex", gap: 5, marginBottom: 5 }}><input className="s-in" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} /><input className="s-in" placeholder="Age" value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" /></div>
           <input className="s-in" placeholder="Nationality (default: Korea)" value={form.nationality} onChange={e => setForm(f => ({ ...f, nationality: e.target.value }))} style={{ marginBottom: 5 }} />
           <div style={{ display: "flex", gap: 5 }}><input className="s-in" placeholder={`Nickname for ${mainMember?.name || "her"}`} value={form.nickname} onChange={e => setForm(f => ({ ...f, nickname: e.target.value }))} /><input className="s-in" placeholder="Her nickname for you" value={form.herNickname} onChange={e => setForm(f => ({ ...f, herNickname: e.target.value }))} /></div>
-          <div className="s-l">Fan Level</div>
-          <div>{t.starLevels.map((s, i) => <span key={STAR_LEVELS[i]} className={`s-ch${form.starLevel === STAR_LEVELS[i] ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, starLevel: STAR_LEVELS[i] }))}>{s}</span>)}</div>
-          <div className="s-l">Story Pace</div>
-          <div>{t.paces.map((p, i) => <span key={PACES[i]} className={`s-ch${form.pace === PACES[i] ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, pace: PACES[i] }))}>{p}</span>)}</div>
+          
+          <div className="s-l">{t.setup.fanLevel}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {t.starLevels.map((s, i) => (
+              <div key={STAR_LEVELS[i]}
+                onClick={() => setForm(f => ({ ...f, starLevel: STAR_LEVELS[i] }))}
+                style={{
+                  padding: "7px 10px", borderRadius: 10, textAlign: "center",
+                  border: `1px solid ${form.starLevel === STAR_LEVELS[i] ? "#e887b0" : "rgba(255,255,255,.15)"}`,
+                  background: form.starLevel === STAR_LEVELS[i] ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
+                  color: form.starLevel === STAR_LEVELS[i] ? "#fff" : "#ccc",
+                  fontSize: 11, cursor: "pointer",
+                }}>
+                {s}
+              </div>
+            ))}
+          </div>
+
+          <div className="s-l">{t.setup.pace}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {t.paces.map((p, i) => (
+              <div key={PACES[i]}
+                onClick={() => setForm(f => ({ ...f, pace: PACES[i] }))}
+                style={{
+                  padding: "7px 10px", borderRadius: 10, textAlign: "center",
+                  border: `1px solid ${form.pace === PACES[i] ? "#e887b0" : "rgba(255,255,255,.15)"}`,
+                  background: form.pace === PACES[i] ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
+                  color: form.pace === PACES[i] ? "#fff" : "#ccc",
+                  fontSize: 11, cursor: "pointer",
+                }}>
+                {p}
+              </div>
+            ))}
+          </div>
+
           <button onClick={startNewGame} disabled={!canStart} style={{ width: "100%", marginTop: 22, padding: 13, borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? "linear-gradient(135deg,#e887b0,#c86dd0)" : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontWeight: 700 }}>{canStart ? `Start with ${mainMember?.name || "..."}` : "Please complete all fields"}</button>
         </div>
       </div>
@@ -414,19 +528,19 @@ export default function App() {
 
   return (
     <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "#000" }}>
-      <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, display: "flex", flexDirection: "column", background: "linear-gradient(180deg,#080310,#120818)", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.6)" }}>
+      <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, display: "flex", flexDirection: "column", background: "linear-gradient(180deg,#080310,#120818)", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", position: "relative", overflow: "overflow", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.6)" }}>
         <NotificationBar />
-        <style>{`::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(232,120,176,.2)}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes slideUp{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}.stat-item{cursor:help;transition:all .15s;position:relative}.stat-item:hover{transform:scale(1.05)}.stat-tooltip{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:rgba(30,5,40,.96);border:1px solid rgba(232,135,176,.5);border-radius:6px;padding:3px 8px;fontSize:9px;color:#f8c8d8;white-space:nowrap;pointer-events:none;z-index:50}.notification-dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite}`}</style>
-
+        <style>{`::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(232,120,176,.2)}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes slideUp{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}.stat-item{cursor:help;transition:all .15s;position:relative}.stat-item:hover{transform:scale(1.05)}.stat-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:rgba(30,5,40,.96);border:1px solid rgba(232,135,176,.5);border-radius:6px;padding:3px 8px;fontSize:9px;color:#f8c8d8;white-space:nowrap;pointer-events:none;z-index:999}.notification-dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite}`}</style>
+        
         {/* Top Bar */}
         <div style={{ background: "rgba(6,2,10,.96)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(232,120,176,.18)", padding: "5px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, zIndex: 10, gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg,${displayTopMember?.color || "#f0c8d8"},${displayTopMember?.accent || "#c2185b"})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{displayTopMember?.emoji || "💗"}</div>
             <div><div style={{ fontSize: 12, fontWeight: 700, color: "#f8c8d8", whiteSpace: "nowrap" }}>{displayTopMember?.name || "RV"}</div><span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: stageColor + "18", color: stageColor, border: `1px solid ${stageColor}33` }}>{stageLabel}</span></div>
           </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, flexWrap: "wrap", justifyContent: "center", overflow: "hidden" }}>
+          <div style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, flexWrap: "wrap", justifyContent: "center", overflow: "visible" }}>
             {stats && [{ key: "selfId", icon: "🌈", label: "Self Identity", value: stats.selfId }, { key: "secrecy", icon: "🔒", label: "Secrecy", value: stats.secrecy }, { key: "alert", icon: "👁", label: "Company Alert", value: stats.alert }, { key: "pressure", icon: "📊", label: "Work Pressure", value: stats.pressure }, { key: "mood", icon: "💫", label: "Mood", value: stats.mood }, { key: "week", icon: "📅", label: "Round", value: stats.week }].map(item => <div key={item.key} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: "#c898b8", position: "relative" }} onMouseEnter={() => setHoveredStat(item.key)} onMouseLeave={() => setHoveredStat(null)}><span style={{ fontSize: 10 }}>{item.icon}</span><span style={{ fontSize: 8 }}>{item.value}</span>{hoveredStat === item.key && <div className="stat-tooltip">{item.label}: {item.value}</div>}</div>)}
-            {allTargetMembers.map(m => { const aff = getAffection(m.id); return <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: "#c898b8", position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}><span style={{ fontSize: 10 }}>{m.emoji}</span><span style={{ fontSize: 8 }}>{aff}</span>{hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name} Affection: {aff} ({getStageName(aff)})</div>}</div>})}
+            {allTargetMembers.map(m => { const aff = getAffection(m.id); return <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: "#c898b8", position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}><span style={{ fontSize: 10 }}>{m.emoji}</span><span style={{ fontSize: 8 }}>{aff}</span>{hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({getStageName(aff)})</div>}</div>})}
           </div>
           <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
             {[{ icon: "💜", type: "bubble" }, { icon: "📸", type: "instagram" }, { icon: "🌿", type: "weverse" }, { icon: "💬", type: "kakao", locked: !kktUnlocked[form.mainMember] }].map(b => { const showDot = hasNotifDot(b.type) && !b.locked; return <button key={b.type} onClick={() => openSocialPlatform(b.type)} style={{ position: "relative", background: b.locked ? "rgba(255,255,255,.03)" : "rgba(255,255,255,.06)", border: `1px solid ${b.locked ? "rgba(255,255,255,.1)" : "rgba(232,120,176,.15)"}`, borderRadius: 5, padding: "3px 5px", color: b.locked ? "#555" : "#d0a8c0", fontSize: 11, cursor: b.locked ? "not-allowed" : "pointer", opacity: b.locked ? .5 : 1 }}>{b.icon}{showDot && <div className="notification-dot" />}</button>; })}
@@ -442,7 +556,7 @@ export default function App() {
       const pn = { bubble: "bubble", instagram: "IG", weverse: "Weverse", kakao: "KKT" };
       return (
         <span key={i} onClick={() => openSocialPlatform(n.platform, n.memberId)} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
-          {m?.name} {t.notif.updated} {pn[n.platform] || n.platform}
+          {m?.name_kr || m?.name} {t.notif.updated} {pn[n.platform] || n.platform}
         </span>
       );
     })}

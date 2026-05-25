@@ -1,0 +1,36 @@
+{
+  "group": {
+    "name": "Group Name",
+    "fandom": "Fandom Name",
+    "lightstick": "Lightstick Color",
+    "debut": "Debut Date",
+    "members_count": 5,
+    "social_platforms": ["bubble", "instagram", "weverse"],
+    "private_chat": "kakaotalk",
+    "timeline_start": "2024-01-01",
+    "timeline_end": "2026-12-31"
+  },
+  "members": [
+    {
+      "id": "member_id_1",
+      "emoji": "🐰",
+      "name": "Member Name",
+      "name_kr": "Korean Name",
+      "color": "#f0c8d8",
+      "accent": "#c2185b",
+      "animal": "Animal",
+      "mbti": "ISFJ",
+      "role": "Position",
+      "birthday": "1990-01-01",
+      "birthplace": "Birthplace",
+      "ig": "instagram_id",
+      "public_image": "Public image description (1-2 sentences)",
+      "private_personality": "Private personality description (1-2 sentences)",
+      "queer_texture": "Queer texture description (1-2 sentences)",
+      "animal_plastic": "Animal plastic — one sentence summary"
+    }
+  ],
+  "history": [
+    { "date": "2020-01-01", "event": "Debut/Key Event" }
+  ]
+}

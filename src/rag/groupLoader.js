@@ -1,27 +1,42 @@
 // src/rag/groupLoader.js
-// RAG 加载器：根据语言加载对应版本的 JSON 文档
+// src/rag/groupLoader.js
+
+/**
+ * 加载组合索引
+ * @returns {Promise<Array>} 组合列表 [{id, name, emoji, members_count, color}]
+ */
+export async function loadGroupIndex() {
+  const isProduction = !window.location.hostname.includes('localhost');
+  const base = isProduction ? '/rv-simulator/' : '/';
+  const url = `${base}groups/_index.json`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error("Group index load failed:", error);
+    return [{ id: "red_velvet", name: "Red Velvet", emoji: "💗", members_count: 5, color: "#e887b0" }];
+  }
+}
 
 /**
  * 加载女团设定文档
- * @param {string} groupName - 女团名称 (对应 /public/groups/ 下的文件名)
- * @param {string} language - 语言 (zh/en/ko)
+ * @param {string} groupId - 女团 ID（对应文件夹名）
+ * @param {string} language - zh/en/ko
  * @returns {Promise<object>} 解析后的团设定对象
  */
-export async function loadGroupConfig(groupName = "red_velvet", language = "zh") {
-  const suffix = language === "zh" ? "" : `_${language}`;
-  const fileName = `${groupName}${suffix}.json`;
-
-  // 判断是否在生产环境（GitHub Pages）
+export async function loadGroupConfig(groupId = "red_velvet", language = "zh") {
   const isProduction = !window.location.hostname.includes('localhost');
   const base = isProduction ? '/rv-simulator/' : '/';
-  const url = `${base}groups/${fileName}`;
+  const url = `${base}groups/${groupId}/${language}.json`;
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
       if (language !== "zh") {
-        console.warn(`${fileName} not found, falling back to ${groupName}.json`);
-        const fallbackUrl = `${base}groups/${groupName}.json`;
+        console.warn(`${groupId}/${language}.json not found, falling back to zh.json`);
+        const fallbackUrl = `${base}groups/${groupId}/zh.json`;
         const fallbackResponse = await fetch(fallbackUrl);
         if (!fallbackResponse.ok) throw new Error(`Failed to load: HTTP ${fallbackResponse.status}`);
         const config = await fallbackResponse.json();
@@ -41,7 +56,7 @@ export async function loadGroupConfig(groupName = "red_velvet", language = "zh")
  * 解析团设定 JSON 为游戏可用的 Background
  */
 function parseGroupConfig(config) {
-  const { group, members, history, game_settings } = config;
+  const { group, members, history } = config;
 
   const parsedMembers = members.map(m => ({
     id: m.id,
@@ -63,17 +78,16 @@ function parseGroupConfig(config) {
 
   const groupLore = buildGroupLore(group, parsedMembers, history);
 
-  const settings = {
-    kktThreshold: game_settings?.kkt_threshold || 30,
-    memoryRounds: game_settings?.memory_rounds || 5,
-    mainInitialAffection: game_settings?.main_initial_affection || 20,
-    subInitialAffectionMin: game_settings?.sub_initial_affection_min || 0,
-    subInitialAffectionMax: game_settings?.sub_initial_affection_max || 10,
-    stageThresholds: game_settings?.stage_thresholds || [0, 16, 31, 51, 66, 81, 91, 101],
-    stageNames: game_settings?.stage_names || ["Stranger", "Acquaintance", "Interest", "Flirting", "Confirmed", "Passionate", "Trial"],
+  return {
+    group: {
+      name: group.name,
+      fandom: group.fandom,
+      socialPlatforms: group.social_platforms || ["bubble", "instagram", "weverse"],
+      privateChat: group.private_chat || "kakaotalk",
+    },
+    members: parsedMembers,
+    groupLore,
   };
-
-  return { group: { name: group.name, fandom: group.fandom, socialPlatforms: group.social_platforms || ["bubble", "instagram", "weverse"], privateChat: group.private_chat || "kakaotalk" }, members: parsedMembers, groupLore, settings };
 }
 
 function buildGroupLore(group, members, history) {
@@ -86,12 +100,13 @@ function buildGroupLore(group, members, history) {
     if (m.private_personality) parts.push(`  Private: ${m.private_personality}`);
     if (m.queer_texture) parts.push(`  Queer Texture: ${m.queer_texture}`);
   });
-  parts.push("\n[History]");
-  history.forEach(h => parts.push(`- ${h.date}: ${h.event}`));
+  if (history?.length) {
+    parts.push("\n[History]");
+    history.forEach(h => parts.push(`- ${h.date}: ${h.event}`));
+  }
   return parts.join("\n");
 }
 
-export function buildMemberDetails(members, mainId, subIds) { /* unchanged */ }
 export function getNpcMembers(allMembers, mainId, subIds) {
   return allMembers.filter(m => m.id !== mainId && !subIds.includes(m.id));
 }

@@ -20,7 +20,7 @@ export default function MemberSelector({ currentId, onSelect, members, platform,
           }}
         >
           <span style={{ fontSize: 13 }}>{m.emoji}</span>
-          <span>{m.name}</span>
+          <span>{m.name_kr || m.name}</span>
           {platform === "kakao" && !kktUnlocked[m.id] && <span style={{ fontSize: 9, color: "#666" }}>🔒</span>}
           {platform === "kakao" && kktUnlocked[m.id] && <span style={{ fontSize: 9, color: "#6d9b6d" }}>✓</span>}
         </button>
