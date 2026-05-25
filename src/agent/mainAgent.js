@@ -298,14 +298,22 @@ function parseLLMOutput(text) {
     text = text.replace(rawStory, escapedStory);
   }
 
-  // 尝试补全不完整的 JSON
+    // 尝试补全不完整的 JSON
   if (!text.trim().endsWith('}')) {
-  // 找到最后一个完整的键值对
-  const lastBrace = text.lastIndexOf('}');
-  if (lastBrace > 0) {
-    text = text.substring(0, lastBrace + 1);
+    // 找到 options 字段之前的内容，补全默认 options
+    const optionsMatch = text.match(/"options"\s*:\s*\[/);
+    if (optionsMatch) {
+      // JSON 在 options 之前截断了，补全
+      text = text.substring(0, text.lastIndexOf('"options"')) + '"options": ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"]}';
+    } else {
+      // 完全找不到 options，尝试找到最后一个完整的 }
+      const lastBrace = text.lastIndexOf('}');
+      if (lastBrace > 0) {
+        text = text.substring(0, lastBrace + 1);
+      }
+    }
   }
-  }
+
 
   // Try 1: Direct parse
   try {
