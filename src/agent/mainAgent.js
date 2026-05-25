@@ -34,10 +34,10 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // 语言指令 - 强化版
   const langRules = {
     zh: {
-      lang: "Chinese",
-      rule: "ALL generated content MUST be in Chinese (中文). Korean words (like unnie, xi) may appear rarely with Chinese (中文) translation in parentheses. DO NOT output English characters.",
-      storyRule: "Story text must be in Chinese.",
-      socialRule: "Social media content must be in Chinese.",
+      lang: "Chinese (Simplified)",
+      rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean words (like unnie, xi) may appear rarely with Simplified Chinese translation in parentheses.",
+      storyRule: "Story text must be in Simplified Chinese.",
+      socialRule: "Social media content must be in Simplified Chinese.",
     },
     en: {
       lang: "English",
