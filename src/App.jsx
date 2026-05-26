@@ -204,7 +204,17 @@ export default function App() {
 
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return;
-    const um = { role: "user", content: text }, nh = [...messages, um];
+
+    // 清理文本：限制长度 + 移除可能破坏 JSON 的特殊字符
+    const cleanText = text
+      .replace(/——/g, '--')       // 中文破折号转英文双连字符
+      .replace(/[【】「」『』]/g, '') // 移除特殊括号
+      .replace(/\u200B/g, '')     // 移除零宽空格
+      .trim()
+      .substring(0, 300);         // 限制最大长度
+
+    const um = { role: "user", content: cleanText }, nh = [...messages, um];
+
     setMessages(nh); setInput(""); setLoading(true);
     try {
       // 立刻弹出上一轮社媒（玩家等待时查看）
@@ -623,12 +633,29 @@ export default function App() {
         </div>
 
         {/* Options */}
-        {quickOptions.length > 0 && !loading && <div style={{ padding: "5px 8px", display: "flex", flexWrap: "wrap", gap: 4, borderTop: "1px solid rgba(232,120,176,.08)", background: "rgba(6,2,10,.85)", flexShrink: 0 }}>{quickOptions.map(opt => <button key={opt.letter} onClick={() => sendMessage(opt.letter + ". " + opt.text)} style={{ padding: "5px 10px", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,135,176,.08)", color: "#f0dce8", fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}><span style={{ color: "#e887b0", fontWeight: 700 }}>{opt.letter}.</span> {opt.text}</button>)}</div>}
+        {quickOptions.length > 0 && !loading && (
+          <div style={{ padding: "5px 8px", display: "flex", flexWrap: "wrap", gap: 4, borderTop: "1px solid rgba(232,120,176,.08)", background: "rgba(6,2,10,.85)", flexShrink: 0 }}>
+            {quickOptions.map(opt => (
+              <button key={opt.letter}
+                onClick={() => sendMessage(opt.letter)}  // 只发字母，不发完整文本
+                style={{ padding: "5px 10px", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,135,176,.08)", color: "#f0dce8", fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}
+              >
+                <span style={{ color: "#e887b0", fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Input */}
         <div style={{ padding: "6px 8px", background: "rgba(6,2,10,.96)", borderTop: "1px solid rgba(232,120,176,.12)", display: "flex", gap: 5, alignItems: "flex-end", flexShrink: 0 }}>
-          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }} placeholder="Type your action or dialogue... (Enter to send)" disabled={loading} rows={1} style={{ flex: 1, padding: "8px 12px", borderRadius: 12, background: "rgba(255,255,255,.05)", border: "1px solid rgba(232,120,176,.18)", color: "#f5e6ef", fontSize: 12, outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.4, maxHeight: 70, overflowY: "auto" }} />
-          <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading} style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: input.trim() && !loading ? "linear-gradient(135deg,#e887b0,#c86dd0)" : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↑</button>
+          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
+            placeholder="Type your action or dialogue... (Enter to send)"
+            disabled={loading} rows={1}
+            maxLength={300}
+            style={{ flex: 1, padding: "8px 12px", borderRadius: 12, background: "rgba(255,255,255,.05)", border: "1px solid rgba(232,120,176,.18)", color: "#f5e6ef", fontSize: 12, outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.4, maxHeight: 70, overflowY: "auto" }} />
+          <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
+            style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: input.trim() && !loading ? "linear-gradient(135deg,#e887b0,#c86dd0)" : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↑</button>
         </div>
 
         {/* Overlays */}
