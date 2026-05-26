@@ -29,7 +29,59 @@
 
 ---
 
+## 📖 How to Play
+
+1. **Cover Page**: Select girl group → Choose language → Start new game or load save
+2. **Character Creation**: Main member + Sub members + Identity + Basic info
+3. **Game**: Read story → Make choices (ABCD) → View social media → Repeat!
+4. **Social Media**: Check Bubble/Instagram/Weverse/KKT for member updates
+5. **Save**: Click 💾 anytime to save progress
+
+---
+
+## 💰 API Cost
+
+| Model | Cost per Round | Free Tier |
+|-------|---------------|-----------|
+| DeepSeek V3 | ~¥0.006 | Signup credits |
+| Gemini 2.5 Flash | Free | 1500 req/day |
+| Claude 3.5 Haiku | ~$0.003 | — |
+| GPT-4o Mini | ~$0.002 | — |
+
+> 💡 **~10 RMB = ~1,500 rounds** — enough to play from strangers to marriage!
+
+---
+
+## 🎯 Tech Stack
+
+- **Frontend**: React 18 + Vite
+- **AI**: DeepSeek V3 / Gemini 2.5 Flash / Claude 3.5 Haiku / GPT-4o Mini
+- **i18n**: Custom translation engine (zh/en/ko)
+- **RAG**: Dynamic group config loading from JSON
+- **PWA**: Web App Manifest + iOS/Android fullscreen
+
+---
+
+## Project Structure
+
+rv-simulator-v11/
+├── public/
+│   └── groups/           ← Girl group JSON configs (zh/en/ko)
+├── src/
+│   ├── agent/            ← Agent core (Main Agent, Memory Pool, Probability Engine)
+│   ├── config/           ← Constants, Stage Config, Achievements, Relationship Events
+│   ├── i18n/             ← Translation engine (zh/en/ko)
+│   ├── platforms/        ← Social media UI components
+│   ├── rag/              ← RAG loader (groupLoader.js)
+│   └── tools/            ← LLM Tool
+├── index.html
+├── vite.config.js
+└── package.json
+
+---
+
 ## 🏗️ Architecture
+
 Context = Background (RAG) + Memory Pool (5 rounds)
 ↓
 LLM Agent (single API call)
@@ -38,6 +90,16 @@ JSON Output → Parse → Update UI
 ↓
 Social Media delayed display (check while waiting)
 
+---
+
+## 🔧 Development
+
+git clone https://github.com/byhAnita/rv-simulator.git
+cd rv-simulator-v11
+npm install
+npx vite
+
+---
 
 ### Full Architecture Diagram
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -179,106 +241,7 @@ Social Media delayed display (check while waiting)
 
 ---
 
-## 🎯 Tech Stack
-
-- **Frontend**: React 18 + Vite
-- **AI**: DeepSeek V3 / Gemini 2.5 Flash / Claude 3.5 Haiku / GPT-4o Mini
-- **i18n**: Custom translation engine (zh/en/ko)
-- **RAG**: Dynamic group config loading from JSON
-- **PWA**: Web App Manifest + iOS/Android fullscreen
-
----
-
-## 📖 How to Play
-
-1. **Cover Page**: Select girl group → Choose language → Start new game or load save
-2. **Character Creation**: Main member + Sub members + Identity + Basic info
-3. **Game**: Read story → Make choices (ABCD) → View social media → Repeat!
-4. **Social Media**: Check Bubble/Instagram/Weverse/KKT for member updates
-5. **Save**: Click 💾 anytime to save progress
-
----
-
-## 💰 API Cost
-
-| Model | Cost per Round | Free Tier |
-|-------|---------------|-----------|
-| DeepSeek V3 | ~¥0.006 | Signup credits |
-| Gemini 2.5 Flash | Free | 1500 req/day |
-| Claude 3.5 Haiku | ~$0.003 | — |
-| GPT-4o Mini | ~$0.002 | — |
-
-> 💡 **~10 RMB = ~1,500 rounds** — enough to play from strangers to marriage!
-
----
-
-## 🔧 Development
-
-```bash
-git clone https://github.com/byhAnita/rv-simulator.git
-cd rv-simulator-v11
-npm install
-npx vite
-
----
-
-## 🎯 Tech Stack
-
-- **Frontend**: React 18 + Vite
-- **AI**: DeepSeek V3 / Gemini 2.5 Flash / Claude 3.5 Haiku / GPT-4o Mini
-- **i18n**: Custom translation engine (zh/en/ko)
-- **RAG**: Dynamic group config loading from JSON
-- **PWA**: Web App Manifest + iOS/Android fullscreen
-
----
-
-## 📖 How to Play
-
-1. **Cover Page**: Select girl group → Choose language → Start new game or load save
-2. **Character Creation**: Main member + Sub members + Identity + Basic info
-3. **Game**: Read story → Make choices (ABCD) → View social media → Repeat!
-4. **Social Media**: Check Bubble/Instagram/Weverse/KKT for member updates
-5. **Save**: Click 💾 anytime to save progress
-
----
-
-## 💰 API Cost
-
-| Model | Cost per Round | Free Tier |
-|-------|---------------|-----------|
-| DeepSeek V3 | ~¥0.006 | Signup credits |
-| Gemini 2.5 Flash | Free | 1500 req/day |
-| Claude 3.5 Haiku | ~$0.003 | — |
-| GPT-4o Mini | ~$0.002 | — |
-
-> 💡 **~10 RMB = ~1,500 rounds** — enough to play from strangers to marriage!
-
----
-
-## 🔧 Development
-
-```bash
-git clone https://github.com/byhAnita/rv-simulator.git
-cd rv-simulator-v11
-npm install
-npx vite
-
-Project Structure
-rv-simulator-v11/
-├── public/
-│   └── groups/           ← Girl group JSON configs (zh/en/ko)
-├── src/
-│   ├── agent/            ← Agent core (Main Agent, Memory Pool, Probability Engine)
-│   ├── config/           ← Constants, Stage Config, Achievements, Relationship Events
-│   ├── i18n/             ← Translation engine (zh/en/ko)
-│   ├── platforms/        ← Social media UI components
-│   ├── rag/              ← RAG loader (groupLoader.js)
-│   └── tools/            ← LLM Tool
-├── index.html
-├── vite.config.js
-└── package.json
-
-📝 License
+## 📝 License
 MIT License — Fan-made non-profit project. All idol content is fictional parallel-universe creation and does not represent real artists.
 
 <p align="center">Made with 💗 by <a href="https://github.com/byhAnita">byhAnita</a></p> ``
