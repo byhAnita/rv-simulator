@@ -205,13 +205,15 @@ export default function App() {
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return;
 
-    // 清理文本：限制长度 + 移除可能破坏 JSON 的特殊字符
+    // 清理文本：限制长度 + 移除可能破坏 JSON 的字符
     const cleanText = text
-      .replace(/——/g, '--')       // 中文破折号转英文双连字符
-      .replace(/[【】「」『』]/g, '') // 移除特殊括号
-      .replace(/\u200B/g, '')     // 移除零宽空格
+      .replace(/——/g, '--')
+      .replace(/[【】「」『』]/g, '')
+      .replace(/[""〝〞]/g, '"')   // 统一引号
+      .replace(/\u200B/g, '')
+      .replace(/[\x00-\x1F\x7F]/g, '') // 移除所有控制字符
       .trim()
-      .substring(0, 300);         // 限制最大长度
+      .substring(0, 300);
 
     const um = { role: "user", content: cleanText }, nh = [...messages, um];
 
@@ -637,7 +639,7 @@ export default function App() {
           <div style={{ padding: "5px 8px", display: "flex", flexWrap: "wrap", gap: 4, borderTop: "1px solid rgba(232,120,176,.08)", background: "rgba(6,2,10,.85)", flexShrink: 0 }}>
             {quickOptions.map(opt => (
               <button key={opt.letter}
-                onClick={() => sendMessage(opt.letter)}  // 只发字母，不发完整文本
+                onClick={() => sendMessage(opt.letter + ". " + opt.text)}
                 style={{ padding: "5px 10px", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,135,176,.08)", color: "#f0dce8", fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}
               >
                 <span style={{ color: "#e887b0", fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
