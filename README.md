@@ -63,17 +63,16 @@
 ---
 
 ## Project Structure
-
 rv-simulator-v11/
 ├── public/
-│   └── groups/           <- Girl group JSON configs (zh/en/ko)
+│ └── groups/ <- Girl group JSON configs (zh/en/ko)
 ├── src/
-│   ├── agent/            <- Agent core (Main Agent, Memory Pool, Probability Engine)
-│   ├── config/           <- Constants, Stage Config, Achievements, Relationship Events
-│   ├── i18n/             <- Translation engine (zh/en/ko)
-│   ├── platforms/        <- Social media UI components
-│   ├── rag/              <- RAG loader (groupLoader.js)
-│   └── tools/            <- LLM Tool
+│ ├── agent/ <- Agent core (Main Agent, Memory Pool, Probability Engine)
+│ ├── config/ <- Constants, Stage Config, Achievements, Relationship Events
+│ ├── i18n/ <- Translation engine (zh/en/ko)
+│ ├── platforms/ <- Social media UI components
+│ ├── rag/ <- RAG loader (groupLoader.js)
+│ └── tools/ <- LLM Tool
 ├── index.html
 ├── vite.config.js
 └── package.json
@@ -81,7 +80,6 @@ rv-simulator-v11/
 ---
 
 ## 🔧 Development
-
 git clone https://github.com/byhAnita/rv-simulator.git
 cd rv-simulator-v11
 npm install
@@ -90,22 +88,21 @@ npx vite
 ---
 
 ## Deploy
-
-# Build
+Build
 rmdir dist /S /Q 2>nul & rmdir assets /S /Q 2>nul
 npx vite build
 
-# Copy
+Copy
 mkdir assets 2>nul
-copy dist\assets\*.js assets\ /Y
-copy dist\assets\*.css assets\ /Y
+copy dist\assets*.js assets\ /Y
+copy dist\assets*.css assets\ /Y
 rmdir groups /S /Q 2>nul
 xcopy public\groups groups\ /E /Y
 copy public\manifest.json manifest.json /Y
 copy public\icons.svg icons.svg /Y
 
-# Fix index.html (replace JS/CSS filename with actual names from dir assets)
-# Then push:
+Fix index.html (replace JS/CSS filename with actual names from dir assets)
+Then push:
 git add index.html assets/ groups/ manifest.json icons.svg src/
 git commit -m "vXX: Description"
 git push origin main
@@ -113,7 +110,6 @@ git push origin main
 ---
 
 ## 🏗️ Architecture
-
 Context = Background (RAG) + Memory Pool (5 rounds)
 |
 v
@@ -176,7 +172,6 @@ Social Media delayed display (check while waiting)
 ---
 
 ## 🔄 Round Flow
-
 +====================================================================+
 | v11.1 Round Flow |
 +====================================================================+
@@ -259,7 +254,7 @@ Social Media delayed display (check while waiting)
 +====================================================================+
 | Game Screen |
 | +----------------------------------------------------------------+ |
-| | Bunny Irene [Flirting] | Stats | Bear 15 Turtle 6 | Social Btns | |
+| | Bunny Irene [Flirting] | Stats | Bear 15 Turtle 6 | Social Btns| |
 | +----------------------------------------------------------------+ |
 | | Phone Irene updated bubble | Wendy updated bubble | |
 | +----------------------------------------------------------------+ |
@@ -278,6 +273,7 @@ Social Media delayed display (check while waiting)
 ---
 
 ## 📝 License
+
 MIT License — Fan-made non-profit project. All idol content is fictional parallel-universe creation and does not represent real artists.
 
-<p align="center">Made with 💗 by <a href="https://github.com/byhAnita">byhAnita</a></p> ```
+<p align="center">Made with 💗 by <a href="https://github.com/byhAnita">byhAnita</a></p>
