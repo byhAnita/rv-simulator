@@ -43,237 +43,229 @@
 
 | Model | Cost per Round | Free Tier |
 |-------|---------------|-----------|
-| DeepSeek V3 | ~¥0.006 | Signup credits |
+| DeepSeek V3 | ~$0.001 | Signup credits |
 | Gemini 2.5 Flash | Free | 1500 req/day |
 | Claude 3.5 Haiku | ~$0.003 | — |
 | GPT-4o Mini | ~$0.002 | — |
 
-> 💡 **~10 RMB = ~1,500 rounds** — enough to play from strangers to marriage!
+> 💡 **~1 USD = ~1,500 rounds** — enough to play from strangers to marriage!
 
 ---
 
 ## 🎯 Tech Stack
 
 - **Frontend**: React 18 + Vite
-- **AI**: DeepSeek V3 / Gemini 2.5 Flash / Claude 3.5 Haiku / GPT-4o Mini
+- **LLM**: DeepSeek V3 / Gemini 2.5 Flash / Claude 3.5 Haiku / GPT-4o Mini
 - **i18n**: Custom translation engine (zh/en/ko)
 - **RAG**: Dynamic group config loading from JSON
 - **PWA**: Web App Manifest + iOS/Android fullscreen
 
 ---
 
-## Project Structure
-rv-simulator-v11/
-├── public/
-│ └── groups/ <- Girl group JSON configs (zh/en/ko)
-├── src/
-│ ├── agent/ <- Agent core (Main Agent, Memory Pool, Probability Engine)
-│ ├── config/ <- Constants, Stage Config, Achievements, Relationship Events
-│ ├── i18n/ <- Translation engine (zh/en/ko)
-│ ├── platforms/ <- Social media UI components
-│ ├── rag/ <- RAG loader (groupLoader.js)
-│ └── tools/ <- LLM Tool
-├── index.html
-├── vite.config.js
-└── package.json
-
----
-
 ## 🔧 Development
+
+```bash
 git clone https://github.com/byhAnita/rv-simulator.git
 cd rv-simulator-v11
 npm install
 npx vite
+```
 
 ---
 
-## Deploy
-Build
-rmdir dist /S /Q 2>nul & rmdir assets /S /Q 2>nul
-npx vite build
+## 📁 Project Structure
 
-Copy
-mkdir assets 2>nul
-copy dist\assets*.js assets\ /Y
-copy dist\assets*.css assets\ /Y
-rmdir groups /S /Q 2>nul
-xcopy public\groups groups\ /E /Y
-copy public\manifest.json manifest.json /Y
-copy public\icons.svg icons.svg /Y
-
-Fix index.html (replace JS/CSS filename with actual names from dir assets)
-Then push:
-git add index.html assets/ groups/ manifest.json icons.svg src/
-git commit -m "vXX: Description"
-git push origin main
+```
+rv-simulator-v11/
+├── public/
+│   └── groups/           ← Girl group JSON configs (zh/en/ko)
+├── src/
+│   ├── agent/            ← Agent core (Main Agent, Memory Pool, Probability Engine)
+│   ├── config/           ← Constants, Stage Config, Achievements, Relationship Events
+│   ├── i18n/             ← Translation engine (zh/en/ko)
+│   ├── platforms/        ← Social media UI components
+│   ├── rag/              ← RAG loader (groupLoader.js)
+│   └── tools/            ← LLM Tool
+├── index.html
+├── vite.config.js
+└── package.json
+```
 
 ---
 
 ## 🏗️ Architecture
+
+```
+
 Context = Background (RAG) + Memory Pool (5 rounds)
-|
-v
+↓
 LLM Agent (single API call)
-|
-v
-JSON Output -> Parse -> Update UI
-|
-v
+↓
+JSON Output → Parse → Update UI
+↓
 Social Media delayed display (check while waiting)
 
----
+```
 
 ### Full Architecture Diagram
-+====================================================================+
-| Idol Dating Simulator v11.1 -- Final Architecture |
-| LLM Agent × RAG × Memory Pool × Multi-Group |
-+====================================================================+
-| |
-| [RAG Layer] |
-| |-- loadGroupIndex() -> Cover page group buttons |
-| |-- loadGroupConfig(id, lang) -> Trilingual JSON -> Background |
-| |-- /groups/{id}/{zh,en,ko}.json |
-| |
-| [Context = Background + Memory Pool] |
-| +---------------------------------------------------------------+ |
-| | Background (Static, RAG-loaded) | |
-| | |-- System instructions + Language rules | |
-| | |-- Member profiles (personality/queer texture) | |
-| | |-- Identity backgrounds (7+1 types) | |
-| | |-- Social platform rules (Bubble/INS/Weverse/KKT) | |
-| | |-- NPC rules + Game rules + Prohibitions | |
-| | |-- JSON Schema | |
-| | | |
-| | Memory Pool (5 rounds, refreshed) | |
-| | |-- Player stats | |
-| | |-- Member affections (main + sub) | |
-| | |-- Recent 5 rounds story + choices | |
-| | |-- Social media history | |
-| | |-- KKT private messages | |
-| | |-- NPC appearance frequency | |
-| +---------------------------------------------------------------+ |
-| |
-| [Multi-NPC Probability Engine] |
-| Probability = Affection(40%) + Balance(30%) + Cooldown(20%) + Random|
-| |
-| [4 Social Platform Simulation] |
-| |-- Bubble (Fan platform) |-- Instagram (Photo social) |
-| |-- Weverse (Community) |-- KKT/KakaoTalk (Private, >=30 aff) |
-| |
-| [Social Media Delayed Display] |
-| +---------------------------------------------------------------+ |
-| | This round shows last round's social -> Player checks while | |
-| | waiting -> New story generates in background | |
-| +---------------------------------------------------------------+ |
-| |
-| [Save System] | [i18n (zh/en/ko)] | [Multi-Group] |
-+====================================================================+
+
+```
+
+┌─────────────────────────────────────────────────────────────────────┐
+│          Idol Dating Sim  v11.1 — Final Architecture                │
+│        LLM Agent × RAG × Memory Pool × Multi-Group                  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  🚀 RAG Layer                                                       │
+│  ├── loadGroupIndex() → Cover page group buttons                     │
+│  ├── loadGroupConfig(id, lang) → Trilingual JSON → Background        │
+│  └── /groups/{id}/{zh,en,ko}.json                                    │
+│                                                                      │
+│  🧠 Context = Background + Memory Pool                              │
+│  ┌───────────────────────────────────────────────────────────────┐   │
+│  │ Background (Static, RAG-loaded)                               │   │
+│  │ ├── System instructions + Language rules                      │   │
+│  │ ├── Member profiles (personality/queer texture)               │   │
+│  │ ├── Identity backgrounds (7+1 types)                          │   │
+│  │ ├── Social platform rules (Bubble/INS/Weverse/KKT)            │   │
+│  │ ├── NPC rules + Game rules + Prohibitions                     │   │
+│  │ └── JSON Schema                                               │   │
+│  │                                                               │   │
+│  │ Memory Pool (5 rounds, refreshed)                             │   │
+│  │ ├── Player stats (🌈🔒👁📊💫📅)                             │   │
+│  │ ├── Member affections (main + sub)                            │   │
+│  │ ├── Recent 5 rounds story + choices                           │   │
+│  │ ├── Social media history                                      │   │
+│  │ ├── KKT private messages                                      │   │
+│  │ └── NPC appearance frequency                                  │   │
+│  └───────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  🔄 Multi-NPC Probability Engine                                    │ 
+│  Probability = Affection(40%) + Balance(30%) + Cooldown(20%) + Random│
+│                                                                      │
+│  📱 4 Social Platform Simulation                                     │
+│  ├── Bubble (Fan platform)  ├── Instagram (Photo social)             │
+│  ├── Weverse (Community)    └── KKT/KakaoTalk (Private, ≥30 aff)     │
+│                                                                      │
+│  🎵 Social Media Delayed Display (Optimized Waiting)                │
+│  ┌─────────────────────────────────────────────────────────────┐     │
+│  │ This round shows last round's social → Player checks while   │    │
+│  │ waiting → New story generates in background                  │    │
+│  └─────────────────────────────────────────────────────────────┘     │
+│                                                                      │
+│  💾 Save System │ 🌐 i18n (zh/en/ko) │ 🎭 Multi-Group              │
+└─────────────────────────────────────────────────────────────────────┘
+
+```
 
 ---
 
 ## 🔄 Round Flow
-+====================================================================+
-| v11.1 Round Flow |
-+====================================================================+
-| |
-| Previous round ends (Player chose ABCD) |
-| | |
-| v |
-| =================== Current Round =================== |
-| | |
-| v |
-| Step 1: Parse Context (Background + Memory Pool) |
-| | |
-| v |
-| Step 1.5: [FIRE] popPendingSocial() -> Display last round social |
-| |-- Notification bar + red dots -> Instant |
-| |-- Social UI -> View previous round content |
-| | |
-| v |
-| Step 2: LLM Generation (Single API call) |
-| Input: Context + Player choice -> Output: JSON |
-| {statChanges, affectionChanges, socialContent, |
-| kktMessages, story, options} |
-| | |
-| v |
-| Step 3: Computation |
-| |-- New stats = old + statChanges |
-| |-- New affections = old + affectionChanges |
-| |-- KKT filter (affection < 30 -> clear) |
-| |-- Stage change detection |
-| |-- Relationship events + Achievements |
-| |-- Multi-NPC probability engine |
-| | |
-| v |
-| Step 4: Store social to global variable (for next round) |
-| | |
-| v |
-| Step 5: UI Refresh |
-| |-- Top-left: Highest affection member + Stage |
-| |-- Status bar: Player 6 stats + Member affections |
-| |-- Story area: Stats box + Story + Options |
-| |-- KKT: Real-time this round |
-| | |
-| v |
-| Step 6: Player reads + Chooses |
-| | |
-| v |
-| Step 7: Memory Update (keep 5 rounds) |
-| | |
-| v |
-| =================== Next Round =================== |
-| |
-+====================================================================+
+
+```
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    v11.1 Round Flow                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Previous round ends (Player chose ABCD)                        │
+│       ↓                                                         │
+│  ═══════════════ Current Round ═══════════════                  │
+│       ↓                                                         │
+│  Step 1: Parse Context (Background + Memory Pool)               │
+│       ↓                                                         │
+│  Step 1.5: 🔥 popPendingSocial() → Display last round's social │
+│    ├── Notification bar + red dots → Instant                    │
+│    └── Social UI → View previous round content                  │
+│       ↓                                                         │
+│  Step 2: LLM Generation (Single API call)                       │
+│    Input: Context + Player choice → Output: JSON                │
+│    {statChanges, affectionChanges, socialContent,               │
+│     kktMessages, story, options}                                │
+│       ↓                                                         │
+│  Step 3: Computation                                            │
+│    ├── New stats = old + statChanges                            │
+│    ├── New affections = old + affectionChanges                  │
+│    ├── KKT filter (affection < 30 → clear)                      │
+│    ├── Stage change detection                                   │
+│    ├── Relationship events + Achievements                       │
+│    └── Multi-NPC probability engine                             │
+│       ↓                                                         │
+│  Step 4: Store social to global variable (for next round)       │
+│       ↓                                                         │
+│  Step 5: UI Refresh                                             │
+│    ├── Top-left: Highest affection member + Stage               │
+│    ├── Status bar: Player 6 stats + Member affections           │
+│    ├── Story area: Stats box + Story + Options                  │
+│    └── KKT: Real-time this round                                │
+│       ↓                                                         │
+│  Step 6: Player reads + Chooses                                 │
+│       ↓                                                         │
+│  Step 7: Memory Update (keep 5 rounds)                          │
+│       ↓                                                         │
+│  ═══════════════ Next Round ═══════════════                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+```
 
 ---
 
 ## 📱 UI Layout
-+====================================================================+
-| Cover Page |
-| +----------------------------------------------------------------+ |
-| | [Heart] | |
-| | Idol Dating | |
-| | AI Text Adventure . v11.1 RAG | |
-| | | |
-| | [Heart RV] [Candy TWICE] [Bolt aespa] [Fish NMIXX] ... | |
-| | [CN] [EN] [KO] | |
-| | [Sparkles New Game] | |
-| | [Save Continue] | |
-| | [Key API Key / Model] | |
-| +----------------------------------------------------------------+ |
-+====================================================================+
-| Setup Page |
-| +----------------------------------------------------------------+ |
-| | Main Member: [Bunny Irene] [Squirrel Wendy] [Turtle Yeri] ... | |
-| | Sub Members: [Bear Seulgi] [Bird Joy] | |
-| | NPC: Bear Seulgi, Bird Joy | |
-| | Identity: [Trainee] [Staff] [Artist] [Fan] ... | |
-| | Info: [Name] [Age] | |
-| | [Back Arrow] [Sparkles Start with Irene] | |
-| +----------------------------------------------------------------+ |
-+====================================================================+
-| Game Screen |
-| +----------------------------------------------------------------+ |
-| | Bunny Irene [Flirting] | Stats | Bear 15 Turtle 6 | Social Btns| |
-| +----------------------------------------------------------------+ |
-| | Phone Irene updated bubble | Wendy updated bubble | |
-| +----------------------------------------------------------------+ |
-| | +=============================+ | |
-| | | Heart Bunny Irene: 14/100 | | |
-| | | Self: 38 | Secrecy: 97 | | |
-| | +=============================+ | |
-| | Story text (300-500 words)... | |
-| +----------------------------------------------------------------+ |
-| | [A. Option 1] [B. Option 2] [C. Option 3] [D. Custom] | |
-| +----------------------------------------------------------------+ |
-| | [Input] [Up Arrow] | |
-| +----------------------------------------------------------------+ |
-+====================================================================+
+
+```
+
+┌────────────────────────────────────────────────────────────┐
+│  Cover Page                                                │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │                        💗                             │ │
+│  │                    Idol Dating                        │ │
+│  │          AI Text Adventure · v11.1 RAG                │ │
+│  │                                                       │ │
+│  │  [💗RV] [🍭TWICE] [⚡aespa] [🐠NMIXX] [🌟IVE] ...   │ │
+│  │              [中] [EN] [한]                            │ │
+│  │         [✨ New Game]                                 │ │
+│  │         [💾 Continue]                                 │ │
+│  │         [🔑 API Key / Model]                          │ │
+│  └───────────────────────────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────┤
+│  Setup Page                                                │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │  🌸 Main Member: [🐰Irene] [🐿️Wendy] [🐢Yeri] ...   │ │
+│  │  🌿 Sub Members: [🐻Seulgi] [🐥Joy]                  │ │
+│  │  🤝 NPC: 🐻Seulgi, 🐥Joy                             │ │
+│  │  💼 Identity: [Trainee] [Staff] [Artist] [Fan] ...    │ │
+│  │  📝 Info: [Name] [Age]                                │ │
+│  │  [← Back]  [✨ Start with Irene]                      │ │
+│  └────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│  Game Screen                                                │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ 🐰Irene [Flirting]│ 🌈36 🔒97 👁29 📊55 💫76 📅3    │ │
+│  │                    │ 🐿️15 🐢6      │ 💜📸🌿💬 💾   │ │
+│  ├────────────────────────────────────────────────────────┤ │
+│  │ 📱 Irene updated bubble │ Wendy updated bubble        │ │
+│  ├────────────────────────────────────────────────────────┤ │
+│  │ ╔══════════════════════╗                               │ │
+│  │ ║ 💗 🐰Irene: 14/100  ║                               │ │
+│  │ ║ 🌈Self: 38 | 🔒Sec: 97║                             │ │
+│  │ ╚══════════════════════╝                               │ │
+│  │ Story text (300-500 words)...                          │ │
+│  ├────────────────────────────────────────────────────────┤ │
+│  │ [A. Option 1] [B. Option 2] [C. Option 3] [D. Custom]  │ │
+│  ├────────────────────────────────────────────────────────┤ │
+│  │ [Input_] [↑]                                           │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+```
 
 ---
 
 ## 📝 License
 
 MIT License — Fan-made non-profit project. All idol content is fictional parallel-universe creation and does not represent real artists.
+
+---
 
 <p align="center">Made with 💗 by <a href="https://github.com/byhAnita">byhAnita</a></p>
