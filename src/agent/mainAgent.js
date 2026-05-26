@@ -285,33 +285,28 @@ function parseLLMOutput(text) {
   console.log("[parseLLMOutput] Raw length:", text?.length, "First 100:", text?.substring?.(0, 100));
 
   // 🔧 预处理：修复 JSON 中 story 字段的未转义换行符
-  // 找到 "story": " 的位置，提取 story 内容，转义后再拼回去
   const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"options"/);
   if (storyMatch) {
     const rawStory = storyMatch[1];
     const escapedStory = rawStory
-      .replace(/\\/g, '\\\\')   // 转义反斜杠
-      .replace(/"/g, '\\"')     // 转义双引号
-      .replace(/\n/g, '\\n')    // 转义换行
-      .replace(/\r/g, '')       // 删除回车
-      .replace(/\t/g, '\\t');   // 转义制表符
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '')
+      .replace(/\t/g, '\\t');
     text = text.replace(rawStory, escapedStory);
   }
 
-    // 尝试补全不完整的 JSON
+  // 🔧 补全被截断的 JSON：自动数括号并补全
   if (!text.trim().endsWith('}')) {
-    // 找到 options 字段之前的内容，补全默认 options
-    const optionsMatch = text.match(/"options"\s*:\s*\[/);
-    if (optionsMatch) {
-      // JSON 在 options 之前截断了，补全
-      text = text.substring(0, text.lastIndexOf('"options"')) + '"options": ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"]}';
-    } else {
-      // 完全找不到 options，尝试找到最后一个完整的 }
-      const lastBrace = text.lastIndexOf('}');
-      if (lastBrace > 0) {
-        text = text.substring(0, lastBrace + 1);
-      }
-    }
+    let fixed = text.trim();
+    let openBraces = (fixed.match(/\{/g) || []).length;
+    let closeBraces = (fixed.match(/\}/g) || []).length;
+    while (closeBraces < openBraces) { fixed += '}'; closeBraces++; }
+    let openBrackets = (fixed.match(/\[/g) || []).length;
+    let closeBrackets = (fixed.match(/\]/g) || []).length;
+    while (closeBrackets < openBrackets) { fixed += ']'; closeBrackets++; }
+    text = fixed;
   }
 
 
