@@ -70,9 +70,9 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   }).join("\n\n");
 
   // 构建 JSON schema (队友NPC不在socialContent中！)
-  const mainSocial = `"${mainId}": { "bubble": [{"content": "bubble message", "hasPhoto": false}], "instagram": null, "weverse": null }`;
-  const subSocials = subIds.map(id => `"${id}": { "bubble": [{"content": "bubble message", "hasPhoto": false}], "instagram": null, "weverse": null }`).join(",\n    ");
-  const kktFields = allTargetIds.map(id => `"${id}": ["message text"]`).join(",\n    ");
+  const mainSocial = `"${mainId}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`;
+  const subSocials = subIds.map(id => `"${id}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`).join(",\n    ");
+  const kktFields = allTargetIds.map(id => `"${id}": ["msg"]`).join(",\n    ");
   return `You are the Dungeon Master (DM) of a Red Velvet yuri dating simulator. This is a parallel-universe fictional work. Current AI: ${modelName}
 
 ╔══════════════════════════════════════════╗
