@@ -1,4 +1,3 @@
-```markdown
 # 🎮 RV 嫂嫂模拟器 (Idol Dating Simulator) v11.1
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
@@ -268,4 +267,3 @@ MIT License — Fan-made non-profit project. All idol content is fictional paral
 ---
 
 <p align="center">Made with 💗 by <a href="https://github.com/byhAnita">byhAnita</a></p>
-```
