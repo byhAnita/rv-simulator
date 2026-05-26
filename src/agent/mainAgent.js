@@ -37,13 +37,13 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
       lang: "Chinese (Simplified)",
       rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean words (like unnie, xi) may appear rarely with Simplified Chinese translation in parentheses.",
       storyRule: "Story text must be in Simplified Chinese.",
-      socialRule: "Social media content must be in Simplified Chinese.",
+      socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT(KakaoTalk) content.",
     },
     en: {
       lang: "English",
       rule: "ALL generated content MUST be in English. Korean words (like unnie, xi) may appear rarely with English translation in parentheses. DO NOT output Chinese characters.",
       storyRule: "Story text must be in English.",
-      socialRule: "Social media content must be in English.",
+      socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT(KakaoTalk) content.",
     },
     ko: {
       lang: "Korean",
@@ -186,7 +186,9 @@ RULES:
 - kktMessages: MUST be an object with member IDs as keys, each value is an ARRAY of strings like ["msg1","msg2"] or empty array []
 - story: PURE story text. NO stat bars, NO options embedded.
 - options: EXACTLY 4 option strings in an array. Multi-route needs at least 1 neutral option. - options: PURE choice text. DO NOT include stat changes, affection hints, or route indicators like "[+3 affection]" in option text.
-- ALL content MUST be in ${lr.lang}
+- ALL content in story, options, bubble, instagram, weverse, kktMessages MUST be in ${lr.lang}
+- For Chinese: bubble/social content MUST be in Simplified Chinese, NOT Korean.
+- For English: bubble/social content MUST be in English, NOT Korean.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 
 [MEMORY CONTEXT - Generate based on this]
