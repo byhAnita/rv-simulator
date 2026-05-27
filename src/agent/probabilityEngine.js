@@ -26,14 +26,17 @@ export function calculateProbability(memberId, allTargetIds, affections, memory)
   const lastRound = memory.storyRounds?.length > 0
     ? memory.storyRounds[memory.storyRounds.length - 1]?.round
     : 0;
-  const recentCount = appearances.filter(r => r >= lastRound - 4).length;
+  const recentCount = appearances.filter(r => r >= lastRound - 3).length;
 
-  const affWeight = (aff / 100) * 0.4;
-  const balanceWeight = (1 - otherAffAvg / 100) * 0.3;
-  const recencyPenalty = Math.max(0, 0.2 - recentCount * 0.04);
+  const affWeight = (aff / 100) * 0.4;  // main member affection weight 0.4
+  const balanceWeight = (1 - otherAffAvg / 100) * 0.3; // sub member balance weight 0.3
+  const recencyPenalty = Math.max(0, 0.2 - recentCount * 0.06); // recency penalty up to 0.2, -0.06 per recent appearance
   const randomFactor = Math.random() * 0.1;
-
-  return Math.min(0.6, affWeight + balanceWeight + recencyPenalty + randomFactor);
+  // 如果该成员近 4 轮从未出场，直接给最低 30% 概率
+  if (recentCount === 0) {
+    return Math.max(0.3, affWeight + balanceWeight + recencyPenalty + randomFactor);
+  }
+  return Math.min(0.7, affWeight + balanceWeight + recencyPenalty + randomFactor);
 }
 
 /**

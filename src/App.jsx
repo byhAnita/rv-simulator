@@ -41,7 +41,6 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
     "╔══════════════════════════════╗",
     `💗 ${mainMember?.emoji}${mainMember?.name}: ${stats.affection}/100`,
     `🌈${t.stats.selfId.label}: ${stats.selfId} | 🔒${t.stats.secrecy.label}: ${stats.secrecy}`,
-    `👁${t.stats.alert.label}: ${stats.alert} | 📊${t.stats.pressure.label}: ${stats.pressure}`,
     `💫${t.stats.mood.label}: ${stats.mood} | 📅${t.stats.week.label} ${stats.week} | 📍${stats.scene}`,
     `🎭: [${stats.chapter || "start"}]`,
     subLines || "",
@@ -65,6 +64,7 @@ export default function App() {
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
+  const [specialEvent, setSpecialEvent] = useState(null);
   const statsRef = useRef(null);
   const [stats, setStats] = useState(null);
   const memoryRef = useRef(createEmptyMemory());
@@ -126,7 +126,7 @@ export default function App() {
     statsRef.current = initialStats;
     setStats({ ...initialStats });
     const mem = createEmptyMemory();
-    mem.playerStats = { selfId: initialStats.selfId, secrecy: initialStats.secrecy, alert: initialStats.alert, pressure: initialStats.pressure, mood: initialStats.mood, week: initialStats.week, scene: initialStats.scene, chapter: initialStats.chapter };
+    mem.playerStats = { selfId: initialStats.selfId, secrecy: initialStats.secrecy, mood: initialStats.mood, week: initialStats.week, scene: initialStats.scene, chapter: initialStats.chapter };
     mem.affections = { [mainId]: initialStats.affection, ...initialStats.multiAff };
     memoryRef.current = mem;
     
@@ -198,6 +198,7 @@ export default function App() {
     setKktUnlocked(save.kktUnlocked || {});
     setCurrentOptions(save.currentOptions || []);
     setActiveNotifications([]);
+    setTriggeredAchievements(new Set(save.triggeredAchievements || []));
     setPhase("game");
     showNotif("Save loaded");
   };
@@ -257,11 +258,16 @@ export default function App() {
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
-      if (result.relationshipEvent) {
+      
+      if (result.specialEvent) {
+        setSpecialEvent(result.specialEvent);
+      } else if (result.relationshipEvent) {
         showNotif(result.relationshipEvent.title + ": " + result.relationshipEvent.description);
       }
-      if (result.achievement) {
+
+      if (result.achievement && !triggeredAchievements.has(result.achievement.id)) {
         setAchievement(result.achievement);
+        setTriggeredAchievements(prev => new Set([...prev, result.achievement.id]));
       }
       const statsBox = buildStatsBox(newStats, members, form.mainMember, form.subMembers || [], t);
       setCurrentOptions(result.options);
@@ -290,6 +296,7 @@ export default function App() {
   const stageIdx = getStageIdx(topAff);
   const stageColor = getStageColor(topAff);
   const stageLabel = t.stageNames[stageIdx];
+  const [triggeredAchievements, setTriggeredAchievements] = useState(new Set());
 
   const NotificationBar = () => notification ? <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: notification.type === "error" ? "rgba(220,50,50,.92)" : "rgba(50,180,100,.92)", color: "#fff", padding: "8px 20px", borderRadius: 20, fontSize: 12, fontWeight: 600, zIndex: 9999, pointerEvents: "none" }}>{notification.msg}</div> : null;
 
@@ -355,7 +362,7 @@ export default function App() {
         {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{ct.continue}</button>}
         <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{ct.apiKey}</button>
       </div>
-      {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+      {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
     </div>
     );
   }
@@ -437,7 +444,7 @@ export default function App() {
 
   // ── Setup Page ──
   if (phase === "setup") {
-    const canStart = form.mainMember && form.name && form.age && form.identity && form.starLevel && form.pace;
+    const canStart = form.mainMember && form.name && form.age && form.identity && form.pace;
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)" }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.5)" }}>
@@ -482,10 +489,22 @@ export default function App() {
             <div style={{ textAlign: "center", color: "#907080", padding: 10, fontSize: 11 }}>Loading...</div>
           ) : (
             <>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
                 {members.filter(m => m.id !== form.mainMember).map(m => {
                   const sel = (form.subMembers || []).includes(m.id);
-                  return <span key={m.id} className={`s-ch${sel ? " sel" : ""}`} onClick={() => setForm(f => ({ ...f, subMembers: sel ? f.subMembers.filter(x => x !== m.id) : [...(f.subMembers || []), m.id].slice(0, members.length - 1) }))}>{m.emoji} {m.name_kr}</span>;
+                  return (
+                    <button key={m.id}
+                      onClick={() => setForm(f => ({ ...f, subMembers: sel ? f.subMembers.filter(x => x !== m.id) : [...(f.subMembers || []), m.id].slice(0, members.length - 1) }))}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 4, padding: "6px 10px",
+                        borderRadius: 14, border: `1px solid ${sel ? (m.accent || "#e887b0") : "rgba(255,255,255,.15)"}`,
+                        background: sel ? (m.accent || "#e887b0") + "18" : "rgba(255,255,255,.04)",
+                        color: sel ? "#fff" : "#ccc", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
+                      }}>
+                      <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                      <span style={{ fontWeight: sel ? 700 : 400 }}>{m.name_kr}</span>
+                    </button>
+                  );
                 })}
               </div>
               {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).length > 0 && <p style={{ fontSize: 9, color: "#605060", marginBottom: 4 }}>NPC Members: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>}
@@ -519,25 +538,7 @@ export default function App() {
           {/* Basic Info */}
           <div className="s-l">Basic Info</div>
           <div style={{ display: "flex", gap: 5, marginBottom: 5 }}><input className="s-in" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} /><input className="s-in" placeholder="Age" value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" /></div>
-          <input className="s-in" placeholder="Nationality (default: Korea)" value={form.nationality} onChange={e => setForm(f => ({ ...f, nationality: e.target.value }))} style={{ marginBottom: 5 }} />
-          <div style={{ display: "flex", gap: 5 }}><input className="s-in" placeholder={`Nickname for ${mainMember?.name || "her"}`} value={form.nickname} onChange={e => setForm(f => ({ ...f, nickname: e.target.value }))} /><input className="s-in" placeholder="Her nickname for you" value={form.herNickname} onChange={e => setForm(f => ({ ...f, herNickname: e.target.value }))} /></div>
-          
-          <div className="s-l">{t.setup.fanLevel}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {t.starLevels.map((s, i) => (
-              <div key={STAR_LEVELS[i]}
-                onClick={() => setForm(f => ({ ...f, starLevel: STAR_LEVELS[i] }))}
-                style={{
-                  padding: "7px 10px", borderRadius: 10, textAlign: "center",
-                  border: `1px solid ${form.starLevel === STAR_LEVELS[i] ? "#e887b0" : "rgba(255,255,255,.15)"}`,
-                  background: form.starLevel === STAR_LEVELS[i] ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
-                  color: form.starLevel === STAR_LEVELS[i] ? "#fff" : "#ccc",
-                  fontSize: 11, cursor: "pointer",
-                }}>
-                {s}
-              </div>
-            ))}
-          </div>
+        
 
           <div className="s-l">{t.setup.pace}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
@@ -597,7 +598,7 @@ export default function App() {
             <div><div style={{ fontSize: 12, fontWeight: 700, color: "#f8c8d8", whiteSpace: "nowrap" }}>{displayTopMember?.name || "RV"}</div><span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: stageColor + "18", color: stageColor, border: `1px solid ${stageColor}33` }}>{stageLabel}</span></div>
           </div>
           <div style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 10, flexWrap: "wrap", justifyContent: "center", overflow: "visible" }}>
-            {stats && [{ key: "selfId", icon: "🌈", label: "Self Identity", value: stats.selfId }, { key: "secrecy", icon: "🔒", label: "Secrecy", value: stats.secrecy }, { key: "alert", icon: "👁", label: "Company Alert", value: stats.alert }, { key: "pressure", icon: "📊", label: "Work Pressure", value: stats.pressure }, { key: "mood", icon: "💫", label: "Mood", value: stats.mood }, { key: "week", icon: "📅", label: "Round", value: stats.week }].map(item => <div key={item.key} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: "#c898b8", position: "relative" }} onMouseEnter={() => setHoveredStat(item.key)} onMouseLeave={() => setHoveredStat(null)}><span style={{ fontSize: 10 }}>{item.icon}</span><span style={{ fontSize: 8 }}>{item.value}</span>{hoveredStat === item.key && <div className="stat-tooltip">{item.label}: {item.value}</div>}</div>)}
+            {stats && [{ key: "selfId", icon: "🌈", label: "Self Identity", value: stats.selfId }, { key: "secrecy", icon: "🔒", label: "Secrecy", value: stats.secrecy },  { key: "mood", icon: "💫", label: "Mood", value: stats.mood }, { key: "week", icon: "📅", label: "Round", value: stats.week }].map(item => <div key={item.key} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: "#c898b8", position: "relative" }} onMouseEnter={() => setHoveredStat(item.key)} onMouseLeave={() => setHoveredStat(null)}><span style={{ fontSize: 10 }}>{item.icon}</span><span style={{ fontSize: 8 }}>{item.value}</span>{hoveredStat === item.key && <div className="stat-tooltip">{item.label}: {item.value}</div>}</div>)}
             {allTargetMembers.map(m => { const aff = getAffection(m.id); return <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: "#c898b8", position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}><span style={{ fontSize: 10 }}>{m.emoji}</span><span style={{ fontSize: 8 }}>{aff}</span>{hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({getStageName(aff)})</div>}</div>})}
           </div>
           <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
@@ -635,18 +636,24 @@ export default function App() {
         </div>
 
         {/* Options */}
-        {quickOptions.length > 0 && !loading && (
-          <div style={{ padding: "5px 8px", display: "flex", flexWrap: "wrap", gap: 4, borderTop: "1px solid rgba(232,120,176,.08)", background: "rgba(6,2,10,.85)", flexShrink: 0 }}>
-            {quickOptions.map(opt => (
-              <button key={opt.letter}
-                onClick={() => sendMessage(opt.letter + ". " + opt.text)}
-                style={{ padding: "5px 10px", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,135,176,.08)", color: "#f0dce8", fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}
-              >
-                <span style={{ color: "#e887b0", fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
-              </button>
-            ))}
-          </div>
-        )}
+          {quickOptions.length > 0 && !loading && (
+            <div style={{ padding: "5px 8px", display: "flex", flexWrap: "wrap", gap: 4, borderTop: "1px solid rgba(232,120,176,.08)", background: "rgba(6,2,10,.85)", flexShrink: 0 }}>
+              {quickOptions.map(opt => (
+                <button key={opt.letter}
+                  onClick={() => {
+                    if (opt.text && (opt.text.includes("Return to Cover Page") || opt.text.includes("返回封面页") || opt.text.includes("돌아가기"))) {
+                      setPhase("cover");
+                    } else {
+                      sendMessage(opt.letter + ". " + opt.text);
+                    }
+                  }}
+                  style={{ padding: "5px 10px", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,135,176,.08)", color: "#f0dce8", fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}
+                >
+                  <span style={{ color: "#e887b0", fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
+                </button>
+              ))}
+            </div>
+          )}
 
         {/* Input */}
         <div style={{ padding: "6px 8px", background: "rgba(6,2,10,.96)", borderTop: "1px solid rgba(232,120,176,.12)", display: "flex", gap: 5, alignItems: "flex-end", flexShrink: 0 }}>
@@ -661,17 +668,60 @@ export default function App() {
         </div>
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {achievement && (
           <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(232,135,176,.5)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.3)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{achievement.icon}</div>
               <div style={{ color: "#f8c8d8", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{achievement.title}</div>
               <div style={{ color: "#c898b8", fontSize: 13, lineHeight: 1.7, marginBottom: 20 }}>{achievement.description}</div>
-              <button onClick={() => setAchievement(null)} style={{ padding: "10px 32px", borderRadius: 24, background: "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 14, cursor: "pointer" }}>Continue</button>
+              <button onClick={() => setAchievement(null)} style={{ padding: "10px 32px", borderRadius: 24, background: "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 14, cursor: "pointer" }}>
+                {language === "zh" ? "继续游戏" : language === "ko" ? "계속하기" : "Continue"}
+              </button>
             </div>
           </div>
         )}
+
+        {specialEvent && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }}>
+            <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(232,135,176,.5)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.3)" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>{specialEvent.icon || "💍"}</div>
+              <div style={{ color: "#f8c8d8", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{specialEvent.title}</div>
+              <div style={{ color: "#c898b8", fontSize: 13, lineHeight: 1.7, marginBottom: 20 }}>{specialEvent.description}</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <button onClick={async () => {
+                  setSpecialEvent(null);
+                  setLoading(true);
+                  try {
+                    const epilogue = await executeRound({
+                      playerChoice: `Generate an epilogue: ${specialEvent.title}. A short story set after this event. 150 words in a warm, literary style. Return ONLY valid JSON.`,
+                      stats: statsRef.current, memory: memoryRef.current,
+                      form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
+                      members, mainId: form.mainMember, subIds: form.subMembers || [],
+                      groupConfig, apiKey, selectedModel, kktUnlocked, language,
+                    });
+                    const epStats = epilogue.newStats || statsRef.current;
+                    const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);
+                    setMessages(p => [...p, { role: "assistant", content: "=== EPILOGUE ===\n\n" + statsBox + "\n\n" + (epilogue.storyContent || "The end.") }]);
+                    const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
+                    setCurrentOptions([backLabel]);
+                  } catch (e) {
+                    setMessages(p => [...p, { role: "assistant", content: "Epilogue generation failed." }]);
+                    const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
+                    setCurrentOptions([backLabel]);
+                  }
+                  setLoading(false);
+                }} style={{ padding: "10px 20px", borderRadius: 24, background: "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 13, cursor: "pointer" }}>
+                  {language === "zh" ? "结束游戏并查看番外" : language === "ko" ? "게임 종료 및 에필로그 보기" : "End Game & View Epilogue"}
+                </button>
+                <button onClick={() => setSpecialEvent(null)} style={{ padding: "10px 20px", borderRadius: 24, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
+                  {language === "zh" ? "继续游戏" : language === "ko" ? "게임 계속하기" : "Continue Playing"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {overlay?.type === "bubble" && <BubbleOverlay t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
         {overlay?.type === "instagram" && <InstagramOverlay t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
         {overlay?.type === "weverse" && <WeverseOverlay t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}

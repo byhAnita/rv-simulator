@@ -55,5 +55,12 @@
     "emoji": "🔥",
     "members_count": 10,
     "color": "#f87171"
+},
+{
+    "id": "gnz",
+    "name": "GNZ",
+    "emoji": "🌊",
+    "members_count": 8,
+    "color": "#3b82f6"
 }
 ]

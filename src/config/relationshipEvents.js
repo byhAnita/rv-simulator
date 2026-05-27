@@ -27,15 +27,7 @@ const eventMessages = {
       en: (m) => `${m?.emoji}${m?.name} seems to be growing distant...`,
       ko: (m) => `${m?.emoji}${m?.name}의 태도가 차가워진 것 같습니다...`,
     },
-  },
-  pressure_warning: {
-    titles: { zh: "⚠️ 关系压力", en: "⚠️ Relationship Pressure", ko: "⚠️ 관계의 압박" },
-    descs: {
-      zh: (m) => `公司对${m?.emoji}${m?.name}的私生活越来越关注，这给你们的关系带来了巨大压力...`,
-      en: (m) => `The company is paying more attention to ${m?.emoji}${m?.name}'s private life, putting pressure on your relationship...`,
-      ko: (m) => `회사가 ${m?.emoji}${m?.name}의 사생활에 점점 더 주목하면서 관계에 큰 압박이 오고 있습니다...`,
-    },
-  },
+  }
 };
 
 /**
@@ -73,7 +65,7 @@ export function checkRelationshipEvents(stats, affections, allTargetIds, roundNu
     const stage = getStageIdx(topAff);
     const isConfirmed = stage >= 4;
 
-    if (topAff >= 85 && isConfirmed && roundNum >= 30 && stats.secrecy < 50) {
+    if (topAff >= 85 && isConfirmed && roundNum >= 35 && stats.selfId > 95) {
       const m = members.find(mb => mb.id === topId);
       const msg = eventMessages.proposal_ready;
       return {
@@ -90,16 +82,6 @@ export function checkRelationshipEvents(stats, affections, allTargetIds, roundNu
       const msg = eventMessages.breakup_warning;
       return {
         type: "breakup_warning",
-        title: msg.titles[language] || msg.titles.zh,
-        description: (msg.descs[language] || msg.descs.zh)(m),
-        memberId: topId,
-      };
-    }
-    if (stats.alert > 80 && stage >= 4) {
-      const m = members.find(mb => mb.id === topId);
-      const msg = eventMessages.pressure_warning;
-      return {
-        type: "pressure_warning",
         title: msg.titles[language] || msg.titles.zh,
         description: (msg.descs[language] || msg.descs.zh)(m),
         memberId: topId,

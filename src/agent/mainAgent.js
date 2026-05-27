@@ -1,14 +1,14 @@
 // src/agent/mainAgent.js
-// v11.1 修复版: 语言强制 + 社媒隔离 + 队友NPC不生成社媒 + JSON强化
+// v11.1 Final: Language enforcement + Social isolation + NPC no social + JSON hardening + Age texture + Chapter auto + Special events
 import { callLLM } from "../tools/llmTool";
 import { buildMemoryContext, updateMemory, getTopMember, createEmptyMemory } from "./memoryPool";
 import { pickPrimaryMember } from "./probabilityEngine";
 import { getStageIdx, getStageName } from "../config/stageConfig";
-import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "../config/constants";
+import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 
-// 模块级全局变量：社媒延迟一轮显示
+// Module-level globals: social media delayed by one round
 let pendingSocialFeeds = null;
 let pendingNotifications = [];
 export function popPendingSocial() {
@@ -18,9 +18,18 @@ export function popPendingSocial() {
   return result;
 }
 
+// ============================================================
+// Game chapter based on round number
+// ============================================================
+function getChapterByRound(roundNum) {
+  if (roundNum <= 6) return "start";
+  if (roundNum <= 14) return "develop";
+  if (roundNum <= 24) return "climax";
+  return "resolve";
+}
 
 // ============================================================
-// 构建系统提示
+// Build System Prompt
 // ============================================================
 export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language) {
   const mainMember = members.find(m => m.id === mainId);
@@ -31,19 +40,19 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const subList = subIds.map(id => members.find(m => m.id === id)).filter(Boolean);
   const npcList = npcIds.map(id => members.find(m => m.id === id)).filter(Boolean);
 
-  // 语言指令 - 强化版
+  // Language rules
   const langRules = {
     zh: {
       lang: "Chinese (Simplified)",
       rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean words (like unnie, xi) may appear rarely with Simplified Chinese translation in parentheses.",
       storyRule: "Story text must be in Simplified Chinese.",
-      socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT(KakaoTalk) content.",
+      socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
     },
     en: {
       lang: "English",
       rule: "ALL generated content MUST be in English. Korean words (like unnie, xi) may appear rarely with English translation in parentheses. DO NOT output Chinese characters.",
       storyRule: "Story text must be in English.",
-      socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT(KakaoTalk) content.",
+      socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
     },
     ko: {
       lang: "Korean",
@@ -54,26 +63,58 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   };
   const lr = langRules[language] || langRules.zh;
 
-  // 身份背景
-  const identityBg = getIdentityBackground(form.identity, mainMember?.name, language)
+  // Identity background
+  const identityBg = getIdentityBackground(form.identity, mainMember?.name, language);
 
-  // 成员详情
+  // Pace rules
+  const paceRules = {
+    "慢热现实向": "[Pace: Slow Burn] Affection grows slowly. Members rarely initiate romantic moves. Focus on details and subtle tension. No rushing into relationship.",
+    "浪漫情感向": "[Pace: Romantic] Balanced sweet/angst. Members may flirt during Flirting stage. Natural progression with mutual attraction.",
+    "高压舆论向": "[Pace: High Pressure] Company alert and secrecy changes are amplified (x2). Scandal events more likely. Media and fan scrutiny higher. Every public interaction carries risk.",
+    "修罗海王向": "[Pace: Harem Route] Affection grows faster. Love triangle probability doubled. Members compete more openly for your attention.",
+  };
+  const paceRule = paceRules[form.pace] || "";
+
+  // Age texture for each member
+  const playerBirthYear = GAME_YEAR - parseInt(form.age || 20);
   const memberDetails = members.map(m => {
+    const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
+    const ageDiff = playerBirthYear - memberBirthYear;
+    let ageTexture = '';
+    if (language === "zh") {
+      if (ageDiff > 2) ageTexture = `年下${ageDiff}岁。互动中有年下感，可能被当成妹妹/后辈看待。`;
+      else if (ageDiff < -2) ageTexture = `年上${Math.abs(ageDiff)}岁。互动中有年上感，自然流露出照顾和保护欲。`;
+      else ageTexture = `同龄人。相处更加平等自然，有同代人的默契。`;
+    } else if (language === "ko") {
+      if (ageDiff > 2) ageTexture = `${ageDiff}살 연하. 언니/선배로 대하는 느낌.`;
+      else if (ageDiff < -2) ageTexture = `${Math.abs(ageDiff)}살 연상. 자연스럽게 보호하고 챙겨주는 느낌.`;
+      else ageTexture = `동갑. 더 평등하고 자연스러운 관계.`;
+    } else {
+      if (ageDiff > 2) ageTexture = `${ageDiff} years younger. Interacts with a junior/sisterly feel.`;
+      else if (ageDiff < -2) ageTexture = `${Math.abs(ageDiff)} years older. Naturally caring and protective.`;
+      else ageTexture = `Same age. Equal, natural chemistry with generational默契.`;
+    }
+
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
     return `${m.emoji} ${m.name}(${m.name_kr}) ${role}
+  Age Texture: ${ageTexture}
   Animal: ${m.animal_plastic}
   Public: ${m.public_image || ""}
   Private: ${m.private_personality || ""}
   Queer Texture: ${m.queer_texture || ""}${m.hidden_conflict ? `\n  Hidden Conflict: ${m.hidden_conflict}` : ""}`;
   }).join("\n\n");
 
-  // 构建 JSON schema (队友NPC不在socialContent中！)
-  const mainSocial = `"${mainId}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`;
-  const subSocials = subIds.map(id => `"${id}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`).join(",\n    ");
-  const kktFields = allTargetIds.map(id => `"${id}": ["msg"]`).join(",\n    ");
-  return `You are the Dungeon Master (DM) of a Red Velvet yuri dating simulator. This is a parallel-universe fictional work. Current AI: ${modelName}
+  // JSON schema
+  //const mainSocial = `"${mainId}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`;
+  //const subSocials = subIds.map(id => `"${id}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`).join(",\n    ");
+  //const kktFields = allTargetIds.map(id => `"${id}": ["msg"]`).join(",\n    ");
+  // change to brief schema version
+  const mainSocial = `"${mainId}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`;
+  const subSocials = subIds.map(id => `"${id}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`).join(",");
+  const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
+  return `You are the Dungeon Master (DM) of a yuri dating simulator. This is a parallel-universe fictional work. Current AI: ${modelName}
 
 ╔══════════════════════════════════════════╗
 ║ 1. LANGUAGE RULE - HIGHEST PRIORITY      ║
@@ -86,29 +127,28 @@ ${lr.socialRule}
 ╔══════════════════════════════════════════╗
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
-CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text outside JSON. Every key (statChanges, affectionChanges, socialContent, kktMessages, story, options) must appear EXACTLY ONCE. 
-CRITICAL: The key "story" must appear EXACTLY ONCE with a single string value. DO NOT repeat "story" key. DO NOT put JSON inside the story string. story value = ONE continuous text, no JSON syntax inside it.
+CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text outside JSON.
+Every key (statChanges, affectionChanges, socialContent, kktMessages, story, options) must appear EXACTLY ONCE.
+The key "story" must appear EXACTLY ONCE with a single string value.
+DO NOT repeat "story" key. DO NOT put JSON inside the story string.
+story value = ONE continuous text, no JSON syntax inside it.
 First character: {  Last character: }
 NO introductory text, NO closing remarks, NO markdown code blocks.
-NO text before { or after }.
 
 ╔══════════════════════════════════════════╗
 ║ 3. STORY GENERATION                      ║
 ╚══════════════════════════════════════════╝
-- Story length: 200-400 words in ${lr.lang}
+- MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds.
+
+- Story length: 250-400 words in ${lr.lang}
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell)
 - Open with 1-2 sentences establishing scene atmosphere
-- NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include in story text:
-  * Phone notifications, vibrations, screen lighting up
-  * KKT/KakaoTalk messages, friend requests, adding contacts
-  * Bubble updates, Instagram posts, Weverse posts
-  * Any character "pulling out their phone" to message someone
-  * Any description of "receiving a message" or "checking phone"
-  * VIOLATION of this rule results in incoherent story. Social media updates are handled by a separate system.
-  * If a character needs to communicate, they speak in person or call - never text in the story.
-- Story arc: Phase 1(Rounds 1-6): distance, politeness. Phase 2(7-14): repeated encounters, trust building. Phase 3(15-24): reality pressure, company/fan scrutiny. Phase 4(25+): choices and consequences.
+- NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
+- Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
+- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy.
+- Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma.
+- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation.
 
-╔══════════════════════════════════════════╗
 ║ 4. GROUP BACKGROUND                      ║
 ╚══════════════════════════════════════════╝
 ${groupConfig.groupLore}
@@ -121,8 +161,9 @@ ${memberDetails}
 ╔══════════════════════════════════════════╗
 ║ 6. PLAYER SETTINGS                       ║
 ╚══════════════════════════════════════════╝
-Name: ${form.name} | Nationality: ${form.nationality} | Age: ${form.age}
-Identity: ${form.identity} | Fan Level: ${form.starLevel} | Pace: ${form.pace}
+Name: ${form.name} | Age: ${form.age}
+Identity: ${form.identity} | Pace: ${form.pace}
+${paceRule}
 Main Member: ${mainMember?.name}(${mainMember?.name_kr})
 ${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
 ${npcList.length > 0 ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)` : ""}
@@ -131,41 +172,36 @@ ${identityBg}
 ╔══════════════════════════════════════════╗
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
-- Bubble: fan platform, member-to-fan daily sharing. Style: warm, cute, casual. 1-3 posts.
+- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual.
 - Instagram: Photo social. Style: aesthetic, short caption + emoji.
 - Weverse: Fan community. Style: friendly, natural.
-- KKT (KakaoTalk): Private chat, member-to-player 1-on-1. Style: flirty/caring/casual.
-- IMPORTANT: Only main and sub members generate social content. NPC members DO NOT generate social content.
-- At least 1 main/sub member must have non-null bubble content.
-- At least 1 main/sub member must have KKT messages (1-3 messages).
+- KKT (KakaoTalk): Private chat, member-to-player. Style: flirty/caring/casual.
+- Only main and sub members generate social content. NPC members DO NOT generate social content.
 
 ╔══════════════════════════════════════════╗
 ║ 8. NPC RULES                             ║
 ╚══════════════════════════════════════════╝
-- Max 1 NPC member has dialogue per round (30% chance)
-- NPC members who spoke last round must skip at least 2 rounds
-- All 5 members must be present in group scenes (practice room, backstage, dorm)
-- NPC interactions: 1 sentence max, don't steal spotlight
+- NPC: max 1 dialogue/round, 2-round cooldown.
+- All members must be present in group scenes
 
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Player first-person perspective, no NPC secrets revealed early
-- Relationship stages: 0-15 Stranger → 16-30 Acquaintance → 31-50 Interest (KKT unlocks) → 51-65 Flirting → 66-80 Confirmed → 81-90 Passionate → 91-100 Trial
-- No skipping stages. Yuri dimensions: naming difficulty, identity pressure, societal pressure, ambiguous physical intimacy, divided fan reactions.
-- Tone: 60% sweet, 30% realistic pressure, 10% youthful regret. Members are not love-brains, player is not chosen one.
+- Relationship stages: - Stages: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial.
+- Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
 
 ╔══════════════════════════════════════════╗
 ║ 10. STAT SYSTEM                          ║
 ╚══════════════════════════════════════════╝
-Player 6 stats: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 👁Company Alert | 📊Work Pressure | 💫Mood | 📅Round
-LLM decides stat changes ±1-10 each round, NOT mandatory.
+Player 4 stats: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood | 📅Round
+LLM decides stat changes +/-1-10 each round, NOT mandatory.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
 ╚══════════════════════════════════════════╝
 {
-  "statChanges": { "selfId": 0, "secrecy": 0, "alert": 0, "pressure": 0, "mood": 0 },
+  "scene": "Location description in ${lr.lang}",
+  "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
   "affectionChanges": { "${mainId}": 0${subIds.map(id => `, "${id}": 0`).join("")} },
   "socialContent": {
     ${mainSocial}${subIds.length > 0 ? ",\n    " + subSocials : ""}
@@ -173,22 +209,21 @@ LLM decides stat changes ±1-10 each round, NOT mandatory.
   "kktMessages": {
     ${kktFields}
   },
-  "story": "Story text in ${lr.lang} (300-500 words). Pure story, NO stat bars, NO options.",
+  "story": "Story text in ${lr.lang} (250-400 words). Pure story, NO stat bars, NO options.",
   "options": ["A. option text", "B. option text", "C. option text", "D. Custom"]
 }
 
 RULES:
-- statChanges: at least 1 field must be non-zero (±1 to ±10). Values are numbers, NOT strings.
-- affectionChanges: at least 1 member must have non-zero change (±1 to ±10). Values are numbers.
-- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false}], NOT a string. Example: "bubble": [{"content":"Hello!","hasPhoto":false}]
-- socialContent.instagram: MUST be an object like {"caption":"...","likes":800000} or null
-- socialContent.weverse: MUST be an object like {"content":"...","likes":2000,"comments":100} or null
-- kktMessages: MUST be an object with member IDs as keys, each value is an ARRAY of strings like ["msg1","msg2"] or empty array []
-- story: PURE story text. NO stat bars, NO options embedded.
-- options: EXACTLY 4 option strings in an array. Multi-route needs at least 1 neutral option. - options: PURE choice text. DO NOT include stat changes, affection hints, or route indicators like "[+3 affection]" in option text.
-- ALL content in story, options, bubble, instagram, weverse, kktMessages MUST be in ${lr.lang}
-- For Chinese: bubble/social content MUST be in Simplified Chinese, NOT Korean.
-- For English: bubble/social content MUST be in English, NOT Korean.
+- scene: A short location description (e.g., "SM Practice Room, 10PM").
+- statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
+- affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
+- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false}], NOT a string.
+- socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
+- socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
+- kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array [].
+- story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
+- options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
+- ALL content MUST be in ${lr.lang}. For Chinese/English: bubble/social content MUST NOT be in Korean.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 
 [MEMORY CONTEXT - Generate based on this]
@@ -196,7 +231,7 @@ ${memoryContext}`;
 }
 
 // ============================================================
-// 身份专属背景
+// Identity Background (Trilingual)
 // ============================================================
 function getIdentityBackground(identity, mainMemberName, language = "zh") {
   const name = mainMemberName || "her";
@@ -215,13 +250,13 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
 
   const backgrounds = {
     zh: {
-      "练习生": `【身份背景】你是${name}的练习生后辈, 与${name}在训练中自然相识。优势：接触自然，有共同训练记忆。劣势：公司内规严格，身份曝光影响双方前途。`,
-      "Staff": `【身份背景】你是${name}的Staff(造型/摄影/行政等岗位)，因工作频繁进入${name}的工作半径。优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
-      "韩娱艺人": `【身份背景】你是其他公司的韩娱艺人，因合作活动与${name}相识。优势:身份平等，娱乐/时尚/影视合作机会。 劣势:公众关注度高,任何同框被粉丝解读, 会产生CP粉和毒唯。`,
-      "粉丝": `【身份背景】你是${name}的粉丝，通过特殊事件与她建立了私下联系。优势：对${name}有深度了解。劣势：身份极其敏感，曝光会被粉圈放大审判。`,
-      "留学生": `【身份背景】你是来韩留学的艺术生，因日常活动/共同朋友与${name}相识。优势：公众关注度低，有练舞/唱歌共同话题。劣势：身份差距、文化差异、思乡/学业压力。`,
-      "财阀": `【身份背景】你是女性财阀，可以给${name}提供娱乐/时尚资源，你与${name}公司高层相识。因商务活动(酒会/时装周/投资)与${name}相识。优势：充足资金和资源。劣势：公众关注度极高，身份差距大。`,
-      "主线成员前女友": `【特殊身份背景-主线成员前女友】
+      "练习生": `[身份背景] 你是${name}的练习生后辈, 与${name}在训练中自然相识。优势：接触自然，有共同训练记忆。劣势：公司内规严格，身份曝光影响双方前途。`,
+      "Staff": `[身份背景] 你是${name}的Staff(造型/摄影/行政等岗位)，因工作频繁进入${name}的工作半径。优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
+      "韩娱艺人": `[身份背景] 你是其他公司的韩娱艺人，因合作活动与${name}相识。优势:身份平等，娱乐/时尚/影视合作机会。 劣势:公众关注度高,任何同框被粉丝解读, 会产生CP粉和毒唯。`,
+      "粉丝": `[身份背景] 你是${name}的粉丝，通过特殊事件与她建立了私下联系。优势：对${name}有深度了解。劣势：身份极其敏感，曝光会被粉圈放大审判。`,
+      "留学生": `[身份背景] 你是来韩留学的艺术生，因日常活动/共同朋友与${name}相识。优势：公众关注度低，有练舞/唱歌共同话题。劣势：身份差距、文化差异、思乡/学业压力。`,
+      "财阀": `[身份背景] 你是女性财阀，可以给${name}提供娱乐/时尚资源，你与${name}公司高层相识。因商务活动(酒会/时装周/投资)与${name}相识。优势：充足资金和资源。劣势：公众关注度极高，身份差距大。`,
+      "主线成员前女友": `[特殊身份背景-主线成员前女友]
 - 你和${name}曾是恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
 - 你至今保留着${keeps[Math.floor(Math.random()*4)]}
 - 现在重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
@@ -229,11 +264,11 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
     },
     en: {
       "练习生": `[Identity: Trainee] You are a trainee junior who naturally met ${name} through training. Advantage: natural contact, shared memories. Disadvantage: strict company rules, exposure affects both futures.`,
-      "Staff": `[Identity: Staff] You work at  (styling/photography/admin) and frequently enter ${name}'s work radius. Advantage: access to real off-stage state. Disadvantage: clear workplace boundaries, any ambiguity = misconduct.`,
-      "韩娱艺人": `[Identity: K-pop Artist] You are an artist from another company who met ${name} through collaboration. Advantage: equal status, Entertainment/Fashion/Film collaboration chances. Disadvantage: high public attention, any interaction analyzed by fans, creating both shippers and toxic solo stans.`,
+      "Staff": `[Identity: Staff] You work at SM (styling/photography/admin) and frequently enter ${name}'s work radius. Advantage: access to real off-stage state. Disadvantage: clear workplace boundaries, any ambiguity = misconduct.`,
+      "韩娱艺人": `[Identity: K-pop Artist] You are an artist from another company who met ${name} through collaboration. Advantage: equal status. Disadvantage: high public attention, any interaction analyzed by fans.`,
       "粉丝": `[Identity: Fan] You are ${name}'s fan who established private contact through special events. Advantage: deep knowledge of ${name}. Disadvantage: extremely sensitive identity, exposure = fan trial.`,
-      "留学生": `[Identity: Student] You are a foreign student in Korea who met ${name} through daily activities/mutual friends. Advantage: low public attention, common dance/vocal interests. Disadvantage: status gap, culture shock, homesickness/academic pressure.`,
-      "财阀": `[Identity: Female chaebol] You can provide entertainment/fashion resources to ${name}. You met ${name} at business events (gala/fashion week/investment). Advantage: abundant resources. Disadvantage: extreme public attention, status gap.`,
+      "留学生": `[Identity: Student] You are a foreign student in Korea who met ${name} through daily activities/mutual friends. Advantage: low public attention, common interests. Disadvantage: status gap, culture shock, homesickness/academic pressure.`,
+      "财阀": `[Identity: Female chaebol] You can provide entertainment/fashion resources to ${name}. You met ${name} at business events. Advantage: abundant resources. Disadvantage: extreme public attention, status gap.`,
       "主线成员前女友": `[Special Identity: Main Member's Ex-Girlfriend]
 - You and ${name} were lovers years ago, separated due to ${reasons[Math.floor(Math.random()*4)]}
 - You still keep ${keeps[Math.floor(Math.random()*4)]}
@@ -241,25 +276,23 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
 - Other members may or may not know your past. As the game progresses, may reconcile or move on.`,
     },
     ko: {
-      "练习生": `[신분: 연습생] 당신은 연습생 후배로 ${name}와 훈련 중 자연스럽게 알게 되었습니다. 장점: 자연스러운 접촉, 공유된 훈련 기억. 단점: 엄격한 회사 규정, 신분 노출 시 양측의 미래에 영향.`,
-      "Staff": `[신분: 직원] 당신은 직원(스타일링/촬영/행정 등)으로 업무상 ${name}의 작업 반경에 자주 들어갑니다. 장점: ${name}의 실제 생활을 알 수 있음. 단점: 명확한 직장 경계, 모호한 관계는 직무 태만으로 간주될 수 있음.`,
-      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 회사 소속 아티스트로, 협업을 통해 ${name}을 알게 됨. 장점: 동등한 지위, 엔터테인먼트/패션/영화 분야에서 협업 기회, 커플 팬층 확보 가능성. 단점: 대중의 높은 관심; 팬들은 모든 상호작용을 분석할 것이며, 이는 악의적인 팬으로 이어질 수 있습니다.`,
-      "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로 특별한 이벤트를 통해 그녀와 개인적인 연락을 구축했습니다. 장점: 그녀에 대한 깊은 이해. 단점: 극도로 민감한 신분, 노출 시 팬덤의 재판을 받게 됨.`,
-      "留学生": `[신분: 유학생] 당신은 한국에서 미술을 전공하는 학생입니다. 일상 활동이나 공통 지인을 통해 ${name}을 만났습니다. 장점: 대중적인 인지도가 낮고, 노래/춤에 대한 공통된 열정. 단점: 사회적 지위 차이, 문화적 충격, 향수병/학업 스트레스.`,
-      "财阀": `[신분: 여성 재벌] 당신은 ${name}에게 연예/패션 업계의 자원을 제공할 수 있으며, 연예계 고위 임원들과의 인맥이 있습니다. 비즈니스 행사(저녁 식사/패션 위크/투자)에서 ${name}을 만났습니다. 장점: 풍부한 자원. 단점: 매우 높은 대중적 인지도, 신분 차이.`,
+      "练习生": `[신분: 연습생] 당신은 연습생 후배로 ${name}와 훈련 중 자연스럽게 알게 되었습니다. 장점: 자연스러운 접촉. 단점: 엄격한 회사 규정.`,
+      "Staff": `[신분: 직원] 당신은 직원(스타일링/촬영/행정 등)으로 업무상 ${name}의 작업 반경에 자주 들어갑니다. 장점: 실제 생활을 알 수 있음. 단점: 명확한 직장 경계.`,
+      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 회사 소속 아티스트로, 협업을 통해 ${name}을 알게 됨. 장점: 동등한 지위. 단점: 대중의 높은 관심.`,
+      "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로 특별한 이벤트를 통해 그녀와 개인적인 연락을 구축했습니다. 장점: 깊은 이해. 단점: 극도로 민감한 신분.`,
+      "留学生": `[신분: 유학생] 당신은 한국에서 미술을 전공하는 학생입니다. 일상 활동/공통 지인을 통해 ${name}을 만났습니다. 장점: 낮은 인지도. 단점: 문화적 충격, 학업 스트레스.`,
+      "财阀": `[신분: 여성 재벌] 당신은 ${name}에게 연예/패션 업계의 자원을 제공할 수 있습니다. 장점: 풍부한 자원. 단점: 높은 대중적 인지도.`,
       "主线成员前女友": `[특별 신분: 메인 멤버의 전 여자친구]
 - 당신과 ${name}는 몇 년 전 연인이었으나 ${reasons[Math.floor(Math.random()*4)]}로 인해 헤어졌습니다
 - 당신은 아직도 ${keeps[Math.floor(Math.random()*4)]}을/를 간직하고 있습니다
-- 현재 재회: 어색함, 복잡한 감정, 하지 못한 말들. 초기 상호작용: 의도적인 거리두기, 눈을 피함, 예의 바르지만 차가움
-- 다른 멤버들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되면서 재결합할 수도, 각자의 길을 갈 수도 있습니다`,
+- 현재 재회: 어색함, 복잡한 감정. 초기에는 의도적인 거리두기.`,
     },
   };
-
   return (backgrounds[language] || backgrounds.zh)[identity] || "";
 }
 
 // ============================================================
-// 创建初始状态
+// Create Initial Stats
 // ============================================================
 export function createInitialStats(mainId, subIds) {
   const multiAff = {};
@@ -270,8 +303,6 @@ export function createInitialStats(mainId, subIds) {
     affection: MAIN_INITIAL_AFFECTION,
     selfId: Math.floor(Math.random() * 20) + 20,
     secrecy: 100,
-    alert: Math.floor(Math.random() * 15) + 10,
-    pressure: Math.floor(Math.random() * 20) + 45,
     mood: Math.floor(Math.random() * 20) + 50,
     week: 0,
     scene: "Seoul·Entertainment Building",
@@ -281,44 +312,47 @@ export function createInitialStats(mainId, subIds) {
 }
 
 // ============================================================
-// 解析 JSON 输出 (三重尝试 + 验证修复)
+// Parse JSON Output (triple attempt + validate)
 // ============================================================
 function parseLLMOutput(text) {
-  console.log("[parseLLMOutput] Raw length:", text?.length, "First 100:", text?.substring?.(0, 100));
+  console.log("[parseLLMOutput] Raw length:", text?.length);
 
-  // 🔧 预处理：修复 JSON 中 story 字段的未转义换行符
+  // If text contains story before JSON, extract only the JSON part
+  const jsonStart = text.search(/\{\s*"(scene|statChanges|selfId|story|options|socialContent|affectionChanges|kktMessages)"/);
+  if (jsonStart > 0) {
+    text = text.substring(jsonStart);
+  }
+
+  // Preprocess: escape unescaped newlines in story field
   const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"options"/);
   if (storyMatch) {
     const rawStory = storyMatch[1];
     const escapedStory = rawStory
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '')
-      .replace(/\t/g, '\\t');
+      .replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, '\\t');
     text = text.replace(rawStory, escapedStory);
   }
-
-  // 🔧 补全被截断的 JSON：自动数括号并补全
+  // Fix truncated key-value (e.g., ends with "instagram")
   if (!text.trim().endsWith('}')) {
-    let fixed = text.trim();
-    let openBraces = (fixed.match(/\{/g) || []).length;
-    let closeBraces = (fixed.match(/\}/g) || []).length;
-    while (closeBraces < openBraces) { fixed += '}'; closeBraces++; }
-    let openBrackets = (fixed.match(/\[/g) || []).length;
-    let closeBrackets = (fixed.match(/\]/g) || []).length;
-    while (closeBrackets < openBrackets) { fixed += ']'; closeBrackets++; }
-    text = fixed;
+    // If ends with a key name, close it
+    const truncatedKey = text.match(/"([a-zA-Z_]\w*)"\s*$/);
+    if (truncatedKey) {
+      text = text.replace(/"([a-zA-Z_]\w*)"\s*$/, '"$1": null}');
+    }
+    // Auto-close incomplete JSON
+    if (!text.trim().endsWith('}')) {
+      let fixed = text.trim();
+      let openBraces = (fixed.match(/\{/g) || []).length, closeBraces = (fixed.match(/\}/g) || []).length;
+      while (closeBraces < openBraces) { fixed += '}'; closeBraces++; }
+      let openBrackets = (fixed.match(/\[/g) || []).length, closeBrackets = (fixed.match(/\]/g) || []).length;
+      while (closeBrackets < openBrackets) { fixed += ']'; closeBrackets++; }
+      text = fixed;
+    }
   }
-
+    
 
   // Try 1: Direct parse
-  try {
-  const r = JSON.parse(text);
-  console.log("[parse] Direct OK");
-  console.log("[parse] socialContent:", JSON.stringify(r.socialContent, null, 2));
-  return validateAndFixOutput(r);
-} catch (e) { console.log("[parse] Direct fail:", e.message); }
+  try { const r = JSON.parse(text); console.log("[parse] Direct OK"); return validateAndFixOutput(r); } catch (e) { console.log("[parse] Direct fail:", e.message); }
 
   // Try 2: Extract {...}
   const s = text.indexOf('{'), e = text.lastIndexOf('}');
@@ -333,10 +367,21 @@ function parseLLMOutput(text) {
     try { const r = JSON.parse(clean.slice(cs, ce + 1)); console.log("[parse] Clean OK"); return validateAndFixOutput(r); } catch (e3) { console.log("[parse] Clean fail:", e3.message); }
   }
 
+  // Try 4: Fix common JSON errors (missing quotes, trailing commas, unquoted keys)
+  try {
+    let fixed = text
+      .replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":') // quote unquoted keys
+      .replace(/,\s*([}\]])/g, '$1') // remove trailing commas
+      .replace(/"(\w+)"\s*:/g, '"$1":'); // normalize quotes
+    const r = JSON.parse(fixed);
+    console.log("[parse] Regex fix OK");
+    return validateAndFixOutput(r);
+  } catch (e4) { console.log("[parse] Regex fix fail:", e4.message); }
+
   // Fallback
   console.log("[parse] ALL FAILED - using fallback");
   return {
-    statChanges: { selfId: 1, secrecy: 0, alert: 0, pressure: 0, mood: 1 },
+    statChanges: { selfId: 1, secrecy: 0, mood: 1 },
     affectionChanges: {},
     socialContent: {},
     kktMessages: {},
@@ -346,26 +391,22 @@ function parseLLMOutput(text) {
 }
 
 function validateAndFixOutput(result) {
-  // 修复 LLM 返回多个 story 字段的问题
+  // Fix multiple story keys
   if (typeof result.story === 'object' && result.story !== null && !Array.isArray(result.story)) {
-    // LLM 把多个 story 片段当成了对象
     const allStories = [];
     for (const [key, value] of Object.entries(result)) {
-      if (key === 'story' || (typeof value === 'string' && value.length > 20)) {
-        allStories.push(value);
-      }
+      if (key === 'story' || (typeof value === 'string' && value.length > 20)) allStories.push(value);
     }
     result.story = allStories.join('\n\n') || "The story continues...";
   }
-  
-  if (!result.statChanges) result.statChanges = { selfId: 1, secrecy: 0, alert: 0, pressure: 0, mood: 1 };
+
+  if (!result.statChanges) result.statChanges = { selfId: 1, secrecy: 0, mood: 1 };
   if (!result.affectionChanges) result.affectionChanges = {};
   if (!result.socialContent) result.socialContent = {};
   if (!result.kktMessages) result.kktMessages = {};
   if (!result.story || result.story.length < 20) result.story = "The story continues...";
-  // 在 validateAndFixOutput 中，result.story 赋值后加上：
   if (result.story && result.story.includes('\\n')) {
-  result.story = result.story.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    result.story = result.story.replace(/\\n/g, '\n').replace(/\\"/g, '"');
   }
   if (!result.options || !Array.isArray(result.options) || result.options.length < 4) {
     result.options = ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"];
@@ -373,25 +414,18 @@ function validateAndFixOutput(result) {
   result.options = result.options.slice(0, 4);
   while (result.options.length < 4) result.options.push("D. Custom");
 
-  // 🔧 修复 bubble 格式：字符串 → 数组
+  // Fix bubble format
   if (result.socialContent) {
     for (const [mid, platforms] of Object.entries(result.socialContent)) {
-      if (platforms && typeof platforms.bubble === 'string') {
-        platforms.bubble = [{ content: platforms.bubble, hasPhoto: false }];
-      }
+      if (platforms && typeof platforms.bubble === 'string') platforms.bubble = [{ content: platforms.bubble, hasPhoto: false }];
       if (platforms && Array.isArray(platforms.bubble)) {
-        platforms.bubble = platforms.bubble.map(item =>
-          typeof item === 'string' ? { content: item, hasPhoto: false } : item
-        );
+        platforms.bubble = platforms.bubble.map(item => typeof item === 'string' ? { content: item, hasPhoto: false } : item);
       }
-      // 同样修复 kktMessages
-      if (result.kktMessages) {
-        for (const [mid, msgs] of Object.entries(result.kktMessages)) {
-          if (typeof msgs === 'string') {
-            result.kktMessages[mid] = [msgs];
-          }
-        }
-      }
+    }
+  }
+  if (result.kktMessages) {
+    for (const [mid, msgs] of Object.entries(result.kktMessages)) {
+      if (typeof msgs === 'string') result.kktMessages[mid] = [msgs];
     }
   }
 
@@ -400,18 +434,16 @@ function validateAndFixOutput(result) {
 }
 
 // ============================================================
-// 过滤 KKT
+// Filter KKT
 // ============================================================
 function filterKktByAffection(kktMessages, affections, allTargetIds) {
   const filtered = {};
-  for (const id of allTargetIds) {
-    filtered[id] = (affections[id] || 0) >= KKT_THRESHOLD ? (kktMessages[id] || []) : [];
-  }
+  for (const id of allTargetIds) filtered[id] = (affections[id] || 0) >= KKT_THRESHOLD ? (kktMessages[id] || []) : [];
   return filtered;
 }
 
 // ============================================================
-// 主循环
+// Main Loop
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
@@ -425,12 +457,10 @@ export async function executeRound({
   const memoryContext = buildMemoryContext(memory, members, mainId, MEMORY_ROUNDS);
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language);
 
-  // Step 1.5: 
-  // social content of previous round, to be displayed in current round
-    // Step 1.5: 初始化本轮变量（社媒读取和清空已移至 popPendingSocial）
+  // Step 1.5: Init round variables
   let roundNotifs = [];
   let socialFeedsUpdate = {};
-  
+
   // Step 2: LLM
   const llmInput = `Player choice: ${playerChoice}\nGenerate the next round. Output ONLY valid JSON.`;
   const llmOutput = await callLLM(llmInput, [], systemPrompt, apiKey, selectedModel);
@@ -441,12 +471,10 @@ export async function executeRound({
     ...stats,
     selfId: Math.max(0, Math.min(100, stats.selfId + (parsed.statChanges?.selfId || 0))),
     secrecy: Math.max(0, Math.min(100, stats.secrecy + (parsed.statChanges?.secrecy || 0))),
-    alert: Math.max(0, Math.min(100, stats.alert + (parsed.statChanges?.alert || 0))),
-    pressure: Math.max(0, Math.min(100, stats.pressure + (parsed.statChanges?.pressure || 0))),
     mood: Math.max(0, Math.min(100, stats.mood + (parsed.statChanges?.mood || 0))),
     week: stats.week + 1,
     scene: parsed.scene || stats.scene,
-    chapter: parsed.chapter || stats.chapter,
+    chapter: getChapterByRound(stats.week + 1),
   };
 
   if (parsed.affectionChanges) {
@@ -477,10 +505,14 @@ export async function executeRound({
   const relationshipEvent = checkRelationshipEvents(newStats, currentAff, allTargetIds, roundNum, members, language);
   const achievement = checkAchievement(newStats, currentAff, roundNum, language);
 
-  // Step 4: Notifications (only main+sub, no NPC)
+  // Special event detection
+  const specialEvent = (relationshipEvent && (relationshipEvent.type === "proposal_ready" || relationshipEvent.type === "breakup_warning" || relationshipEvent.type === "pressure_warning"))
+    ? relationshipEvent : null;
+
+  // Step 4: Notifications
   const socialContent = parsed.socialContent || {};
   for (const [mid, platforms] of Object.entries(socialContent)) {
-    if (!allTargetIds.includes(mid)) continue; // 跳过 NPC
+    if (!allTargetIds.includes(mid)) continue;
     if (platforms?.bubble) roundNotifs.push({ platform: "bubble", memberId: mid });
     if (platforms?.instagram) roundNotifs.push({ platform: "instagram", memberId: mid });
     if (platforms?.weverse) roundNotifs.push({ platform: "weverse", memberId: mid });
@@ -491,27 +523,24 @@ export async function executeRound({
 
   const topMember = getTopMember(members.filter(m => allTargetIds.includes(m.id)), currentAff);
 
-  // Build social feeds (only main+sub)
+  // Build social feeds
   for (const [mid, platforms] of Object.entries(socialContent)) {
     if (!allTargetIds.includes(mid)) continue;
     socialFeedsUpdate[mid] = {
-      bubble: platforms?.bubble || [],
-      instagram: platforms?.instagram || null,
-      weverse: platforms?.weverse || null,
-      timestamp: Date.now(), lastUpdate: Date.now(),
+      bubble: platforms?.bubble || [], instagram: platforms?.instagram || null,
+      weverse: platforms?.weverse || null, timestamp: Date.now(), lastUpdate: Date.now(),
     };
   }
 
-  // 存入全局变量，供下一轮使用
+  // Store for next round
   pendingSocialFeeds = socialFeedsUpdate;
   pendingNotifications = roundNotifs;
 
-  // NPC appearances (track but no social)
   const npcAppearances = { ...memory.npcAppearances };
 
   // Update memory
   const updatedMemory = updateMemory(memory, {
-    playerStats: { selfId: newStats.selfId, secrecy: newStats.secrecy, alert: newStats.alert, pressure: newStats.pressure, mood: newStats.mood, week: newStats.week, scene: newStats.scene, chapter: newStats.chapter },
+    playerStats: { selfId: newStats.selfId, secrecy: newStats.secrecy, mood: newStats.mood, week: newStats.week, scene: newStats.scene, chapter: newStats.chapter },
     affections: currentAff,
     storyRound: { round: roundNum, story: parsed.story?.substring(0, 500) || "", playerChoice },
     socialPosts: Object.entries(socialContent).filter(([mid]) => allTargetIds.includes(mid)).map(([mid, p]) => ({ platform: "all", memberId: mid, content: p?.bubble?.[0]?.content || p?.instagram?.caption || p?.weverse?.content || "", time: new Date().toLocaleTimeString() })),
@@ -532,6 +561,7 @@ export async function executeRound({
     kktUpdate: filteredKkt,
     topMember,
     newKktUnlocked,
+    specialEvent,
     relationshipEvent,
     achievement,
   };
