@@ -86,8 +86,8 @@ ${lr.socialRule}
 ╔══════════════════════════════════════════╗
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
-CRITICAL: Your ENTIRE response must be a single JSON object.
-CRITICAL: Ensure the JSON is COMPLETE. All arrays must be closed with ], all objects with }. Every " must have a matching ". No truncated content.
+CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text outside JSON. Every key (statChanges, affectionChanges, socialContent, kktMessages, story, options) must appear EXACTLY ONCE. 
+CRITICAL: The key "story" must appear EXACTLY ONCE with a single string value. DO NOT repeat "story" key. DO NOT put JSON inside the story string. story value = ONE continuous text, no JSON syntax inside it.
 First character: {  Last character: }
 NO introductory text, NO closing remarks, NO markdown code blocks.
 NO text before { or after }.
@@ -95,7 +95,7 @@ NO text before { or after }.
 ╔══════════════════════════════════════════╗
 ║ 3. STORY GENERATION                      ║
 ╚══════════════════════════════════════════╝
-- Story length: 300-500 words in ${lr.lang}
+- Story length: 200-400 words in ${lr.lang}
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell)
 - Open with 1-2 sentences establishing scene atmosphere
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include in story text:
@@ -346,6 +346,18 @@ function parseLLMOutput(text) {
 }
 
 function validateAndFixOutput(result) {
+  // 修复 LLM 返回多个 story 字段的问题
+  if (typeof result.story === 'object' && result.story !== null && !Array.isArray(result.story)) {
+    // LLM 把多个 story 片段当成了对象
+    const allStories = [];
+    for (const [key, value] of Object.entries(result)) {
+      if (key === 'story' || (typeof value === 'string' && value.length > 20)) {
+        allStories.push(value);
+      }
+    }
+    result.story = allStories.join('\n\n') || "The story continues...";
+  }
+  
   if (!result.statChanges) result.statChanges = { selfId: 1, secrecy: 0, alert: 0, pressure: 0, mood: 1 };
   if (!result.affectionChanges) result.affectionChanges = {};
   if (!result.socialContent) result.socialContent = {};
