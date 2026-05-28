@@ -11,7 +11,7 @@ const achievementDefs = {
       en: "In a corner no one knows, you've protected this precious love. Unseen, yet utterly real.",
       ko: "아무도 모르는 구석에서, 당신들은 이 소중한 감정을 지켜왔습니다. 보이지 않아도, 너무나 진실되게.",
     },
-    condition: (stats, topAff) => stats.secrecy > 70 && topAff > 80,
+    condition: (stats, topAff) => stats.secrecy > 60 && topAff > 90,
   },
   se_public_love: {
     id: "se_public_love",
@@ -22,7 +22,7 @@ const achievementDefs = {
       en: "You chose to stop hiding. Public opinion isn't gentle, but you no longer have to pretend to be strangers.",
       ko: "당신들은 더 이상 숨지 않기로 했습니다. 여론은 부드럽지 않지만, 더 이상 남인 척하지 않아도 됩니다.",
     },
-    condition: (stats, topAff) => stats.secrecy < 70 && topAff > 80,
+    condition: (stats, topAff) => stats.secrecy < 60 && topAff > 90,
   },
   be_exposed_separation: {
     id: "be_exposed_separation",
@@ -33,7 +33,7 @@ const achievementDefs = {
       en: "Media pressure, company demands, fan backlash... In the end, you were forced apart.",
       ko: "언론의 압박, 회사의 요구, 팬들의 반발... 결국, 당신들은 헤어질 수밖에 없었습니다.",
     },
-    condition: (stats, topAff) => stats.secrecy < 60 && topAff < 80,
+    condition: (stats, topAff) => stats.secrecy < 45 && topAff < 90,
   },
   oe_unspoken_waiting: {
     id: "oe_unspoken_waiting",
@@ -44,7 +44,7 @@ const achievementDefs = {
       en: "You still love each other, but reality keeps you apart. Maybe someday... but not now.",
       ko: "여전히 서로 사랑하지만, 현실이 둘을 갈라놓았습니다. 언젠가는... 하지만 지금은 아닙니다.",
     },
-    condition: (stats, topAff) => stats.selfId < 80 && topAff > 80,
+    condition: (stats, topAff) => stats.selfId < 90 && topAff > 90,
   },
   be_you_left: {
     id: "be_you_left",
@@ -55,7 +55,7 @@ const achievementDefs = {
       en: "You decided to step out of the spotlight. Building a new life is its own kind of courage.",
       ko: "당신은 이 스포트라이트에서 물러나기로 했습니다. 새로운 삶을 시작하는 것도 용기의 한 형태입니다.",
     },
-    condition: (stats, topAff) => stats.mood < 85 && topAff < 70,
+    condition: (stats, topAff) => stats.mood < 85 && topAff < 90,
   },
 };
 

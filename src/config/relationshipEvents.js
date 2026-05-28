@@ -35,37 +35,37 @@ const eventMessages = {
  * @returns {object|null} 事件对象或 null
  */
 export function checkRelationshipEvents(stats, affections, allTargetIds, roundNum, members, language = "zh") {
-  // 1. 修罗场
-  if (allTargetIds.length >= 2) {
-    const candidates = allTargetIds
-      .map(id => ({ id, aff: affections[id] || 0 }))
-      .filter(c => c.aff > 40)
-      .sort((a, b) => b.aff - a.aff);
+  // 排序取 Top 2
+  const sorted = allTargetIds
+    .map(id => ({ id, aff: affections[id] || 0 }))
+    .sort((a, b) => b.aff - a.aff);
 
-    if (candidates.length >= 2) {
-      const diff = candidates[0].aff - candidates[1].aff;
-      if (Math.abs(diff) < 10) {
-        const m1 = members.find(m => m.id === candidates[0].id);
-        const m2 = members.find(m => m.id === candidates[1].id);
-        const msg = eventMessages.love_triangle;
-        return {
-          type: "love_triangle",
-          title: msg.titles[language] || msg.titles.zh,
-          description: (msg.descs[language] || msg.descs.zh)(m1, m2),
-          members: [candidates[0].id, candidates[1].id],
-        };
-      }
-    }
+  const top1 = sorted[0];
+  const top2 = sorted[1];
+
+  // 1. 修罗场：Top 2 好感接近（差 < 15）且都 > 40
+  if (top2 && top1.aff > 40 && top2.aff > 40 && Math.abs(top1.aff - top2.aff) < 15) {
+    const m1 = members.find(m => m.id === top1.id);
+    const m2 = members.find(m => m.id === top2.id);
+    const msg = eventMessages.love_triangle;
+    return {
+      type: "love_triangle",
+      title: msg.titles[language] || msg.titles.zh,
+      description: (msg.descs[language] || msg.descs.zh)(m1, m2),
+      members: [top1.id, top2.id],
+    };
   }
 
-  // 2. 求婚 + 分手
-  const topEntry = Object.entries(affections).sort((a, b) => b[1] - a[1])[0];
-  if (topEntry) {
-    const [topId, topAff] = topEntry;
+  // 2. 求婚：Top 1 好感 ≥ 95，确认关系，回合 ≥ 35，自我认同 > 95，且不在修罗场
+  if (top1) {
+    const [topId, topAff] = [top1.id, top1.aff];
     const stage = getStageIdx(topAff);
     const isConfirmed = stage >= 4;
 
-    if (topAff >= 85 && isConfirmed && roundNum >= 35 && stats.selfId > 95) {
+    // 不在修罗场 = Top 2 不存在或 Top 1 和 Top 2 差距 ≥ 15
+    const notInTriangle = !top2 || top2.aff <= 40 || Math.abs(top1.aff - top2.aff) >= 15;
+
+    if (topAff >= 95 && isConfirmed && roundNum >= 35 && stats.selfId > 95 && notInTriangle) {
       const m = members.find(mb => mb.id === topId);
       const msg = eventMessages.proposal_ready;
       return {
@@ -76,8 +76,9 @@ export function checkRelationshipEvents(stats, affections, allTargetIds, roundNu
       };
     }
 
-    const prevAff = stats._prevAffections?.[topId];
-    if (prevAff && prevAff - topAff > 20 && stage >= 4) {
+    // 3. 分手预警：Top 1 好感下降 ≥ 10，确认关系中
+    const prevTopAff = stats._prevAffections?.[topId];
+    if (prevTopAff && prevTopAff - topAff >= 10 && isConfirmed) {
       const m = members.find(mb => mb.id === topId);
       const msg = eventMessages.breakup_warning;
       return {

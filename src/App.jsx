@@ -119,9 +119,24 @@ export default function App() {
   const startNewGame = async () => {
     if (!apiKey?.trim()) { showNotif("Please set API Key", "error"); return; }
     if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
-    setPhase("game"); setLoading(true);
+    
     const mainId = form.mainMember;
     const subIds = form.subMembers || [];
+    
+    // Reset old game states
+    setMessages([]);
+    setCurrentOptions([]);
+    setActiveNotifications([]);
+    setKktUnlocked({});
+    setKktMessages({});
+    setAchievement(null);
+    setSpecialEvent(null);
+    setTriggeredAchievements(new Set());
+    statsRef.current = null;
+    memoryRef.current = createEmptyMemory();
+    
+    setPhase("game"); setLoading(true);
+    
     const initialStats = createInitialStats(mainId, subIds);
     statsRef.current = initialStats;
     setStats({ ...initialStats });
@@ -129,17 +144,12 @@ export default function App() {
     mem.playerStats = { selfId: initialStats.selfId, secrecy: initialStats.secrecy, mood: initialStats.mood, week: initialStats.week, scene: initialStats.scene, chapter: initialStats.chapter };
     mem.affections = { [mainId]: initialStats.affection, ...initialStats.multiAff };
     memoryRef.current = mem;
-    
     const initFeeds = {};
     allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
-
     setSocialFeeds(initFeeds);
-    setActiveNotifications([]);
-    setKktUnlocked({});
-    setKktMessages({});
     setTopMember(mainMember);
+    
     try {
-      // 立刻弹出上一轮社媒（玩家等待时查看）
       const prevSocial = popPendingSocial();
       if (prevSocial?.feeds) {
         setSocialFeeds(p => {
@@ -173,7 +183,6 @@ export default function App() {
       setStats({ ...result.newStats });
       memoryRef.current = result.updatedMemory;
 
-      // KKT updates from current round context
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
@@ -181,6 +190,7 @@ export default function App() {
       setCurrentOptions(result.options);
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
+      console.error("Start failed:", e);
       setMessages([{ role: "assistant", content: "Start failed: " + e.message }]);
     }
     setLoading(false);
