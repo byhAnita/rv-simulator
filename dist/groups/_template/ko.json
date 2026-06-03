@@ -1,0 +1,36 @@
+{
+  "group": {
+    "name": "그룹 이름",
+    "fandom": "팬덤 이름",
+    "lightstick": "응원봉 색상",
+    "debut": "데뷔일",
+    "members_count": 5,
+    "social_platforms": ["bubble", "instagram", "weverse"],
+    "private_chat": "kakaotalk",
+    "timeline_start": "2024-01-01",
+    "timeline_end": "2026-12-31"
+  },
+  "members": [
+    {
+      "id": "member_id_1",
+      "emoji": "🐰",
+      "name": "멤버 이름",
+      "name_kr": "한글 이름",
+      "color": "#f0c8d8",
+      "accent": "#c2185b",
+      "animal": "동물",
+      "mbti": "ISFJ",
+      "role": "포지션",
+      "birthday": "1990-01-01",
+      "birthplace": "출생지",
+      "ig": "instagram_id",
+      "public_image": "공개 이미지 설명 (1-2문장)",
+      "private_personality": "사적 성격 설명 (1-2문장)",
+      "queer_texture": "퀴어 텍스처 설명 (1-2문장)",
+      "animal_plastic": "동물 플라스틱 — 한 문장 요약"
+    }
+  ],
+  "history": [
+    { "date": "2020-01-01", "event": "데뷔/주요 이벤트" }
+  ]
+}
