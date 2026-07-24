@@ -35,7 +35,7 @@ export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = 
             ...history.filter(m => !m.hidden).map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: userMsg },
           ],
-          max_tokens: 200000,
+          max_tokens: 8192,
           temperature: 0.92,
         }),
         signal: ctrl.signal,
