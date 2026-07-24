@@ -4,6 +4,7 @@
     "fandom": "Fandom Name",
     "lightstick": "Lightstick Color",
     "debut": "Debut Date",
+    "company": "Company Name",
     "members_count": 5,
     "social_platforms": ["bubble", "instagram", "weverse"],
     "private_chat": "kakaotalk",

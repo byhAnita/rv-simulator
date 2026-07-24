@@ -4,6 +4,7 @@
     "fandom": "팬덤 이름",
     "lightstick": "응원봉 색상",
     "debut": "데뷔일",
+    "company": "회사 이름",
     "members_count": 5,
     "social_platforms": ["bubble", "instagram", "weverse"],
     "private_chat": "kakaotalk",

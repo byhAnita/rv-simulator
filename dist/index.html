@@ -3,11 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RV Sim</title>
-  <script type="module" crossorigin src="/assets/index-Dd_zgY8N.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-I6cGQ-pn.css">
-</head>
+  <title>嫂嫂模拟器</title>
+
+  <!-- iOS PWA: open fullscreen; status bar reserves its own space (no viewport-fit=cover) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="嫂嫂" />
+
+  <!-- iOS home screen icon (Safari ignores manifest icons, needs this tag) -->
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <script type="module" crossorigin src="./assets/index-B0pRlzth.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-I6cGQ-pn.css">
+<link rel="manifest" href="./manifest.json"><script id="vite-plugin-pwa:register-sw" src="./registerSW.js"></script></head>
 <body>
-  <div id="root"></div>
+  <div id="root"></div>
 </body>
 </html>

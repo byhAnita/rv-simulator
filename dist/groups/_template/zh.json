@@ -4,6 +4,7 @@
     "fandom": "粉丝名",
     "lightstick": "应援棒颜色",
     "debut": "出道日期",
+    "company": "公司名称",
     "members_count": 5,
     "social_platforms": ["bubble", "instagram", "weverse"],
     "private_chat": "kakaotalk",

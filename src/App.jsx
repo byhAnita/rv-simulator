@@ -1,15 +1,16 @@
-import { createInitialStats, executeRound, popPendingSocial } from "./agent/mainAgent";
+import { createInitialStats, executeRound, popPendingSocial, generateEpilogue, generateCustomEvents } from "./agent/mainAgent";
+import { HE_DESCRIPTIONS } from "./config/specialEvents";
 import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
-import { createEmptyMemory } from "./agent/memoryPool";
-import { getTopMember } from "./agent/memoryPool";
+import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { MODEL_CONFIGS } from "./config/modelConfigs";
-import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
+import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, ENDING_MIN_AFFECTION, ENDING_MIN_ROUND } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
+import { CAREER_IDENTITIES, EMOTIONAL_IDENTITIES, initIdentityRandoms } from "./config/identityConfig";
 import BubbleOverlay from "./platforms/BubbleOverlay";
 import InstagramOverlay from "./platforms/InstagramOverlay";
 import WeverseOverlay from "./platforms/WeverseOverlay";
@@ -17,18 +18,19 @@ import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
 
 
-const IDENTITIES = [
-  { id: "练习生", label: "练习生" },
-  { id: "Staff", label: "Staff" },
-  { id: "韩娱艺人", label: "韩娱艺人" },
-  { id: "粉丝", label: "粉丝" },
-  { id: "留学生", label: "留学生" },
-  { id: "财阀", label: "财阀" },
-  { id: "主线成员前女友", label: "主线成员前女友" },
-  { id: "H", label: "[自定义]" },
-];
 const STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"];
 const PACES = ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"];
+
+function getCareerLabel(id, language) {
+  const item = CAREER_IDENTITIES.find(c => c.id === id);
+  if (!item) return id;
+  return language === "en" ? item.labelEn : language === "ko" ? item.labelKo : item.labelZh;
+}
+function getEmotionalLabel(id, language) {
+  const item = EMOTIONAL_IDENTITIES.find(e => e.id === id);
+  if (!item) return id;
+  return language === "en" ? item.labelEn : language === "ko" ? item.labelKo : item.labelZh;
+}
 
 function buildStatsBox(stats, members, mainId, subIds, t) {
   const mainMember = members.find(m => m.id === mainId);
@@ -56,7 +58,9 @@ export default function App() {
   const [phase, setPhase] = useState("cover");
   const [apiKey, setApiKey] = useState(() => loadFromStorage(STORAGE_KEYS.API_KEY) || "");
   const [selectedModel, setSelectedModel] = useState(() => loadFromStorage(STORAGE_KEYS.SELECTED_MODEL) || "deepseek");
-  const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
+  const [form, setForm] = useState({ mainMember: null, subMembers: [], careerIdentity: "", emotionalIdentity: "none", customCareerText: "", customEmotionalText: "", identityRandoms: {}, name: "", nationality: "", nickname: "", herNickname: "", starLevel: "", pace: "浪漫情感向", rhythm: "free" });
+  const [specialEventQueue, setSpecialEventQueue] = useState([]);
+  const [queueCooldown, setQueueCooldown] = useState(0);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,7 +68,11 @@ export default function App() {
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
-  const [specialEvent, setSpecialEvent] = useState(null);
+  const [triggeredEventIds, setTriggeredEventIds] = useState([]);
+  const [showHePopup, setShowHePopup] = useState(false);
+  const [heShown, setHeShown] = useState(false);
+  const [endingUnlocked, setEndingUnlocked] = useState(false);
+  const [epilogueShown, setEpilogueShown] = useState(false);
   const statsRef = useRef(null);
   const [stats, setStats] = useState(null);
   const memoryRef = useRef(createEmptyMemory());
@@ -107,6 +115,7 @@ export default function App() {
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
+
   const showNotif = (msg, type = "info") => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
   const saveApiKey = (key) => { const t = key.trim(); setApiKey(t); if (t) { saveToStorage(STORAGE_KEYS.API_KEY, t); showNotif("Key saved"); } };
   const handleModelSelect = (id) => { setSelectedModel(id); saveToStorage(STORAGE_KEYS.SELECTED_MODEL, id); showNotif("Switched to " + MODEL_CONFIGS[id]?.name); };
@@ -119,6 +128,8 @@ export default function App() {
   const startNewGame = async () => {
     if (!apiKey?.trim()) { showNotif("Please set API Key", "error"); return; }
     if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
+    const identityRandoms = initIdentityRandoms(form.emotionalIdentity, language);
+    setForm(f => ({ ...f, identityRandoms }));
     
     const mainId = form.mainMember;
     const subIds = form.subMembers || [];
@@ -130,7 +141,13 @@ export default function App() {
     setKktUnlocked({});
     setKktMessages({});
     setAchievement(null);
-    setSpecialEvent(null);
+    setTriggeredEventIds([]);
+    setQueueCooldown(0);
+    setSpecialEventQueue([]);
+    setShowHePopup(false);
+    setHeShown(false);
+    setEndingUnlocked(false);
+    setEpilogueShown(false);
     setTriggeredAchievements(new Set());
     statsRef.current = null;
     memoryRef.current = createEmptyMemory();
@@ -175,10 +192,17 @@ export default function App() {
         playerChoice: "Game start",
         stats: initialStats,
         memory: mem,
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: { ...form, identityRandoms: form.identityRandoms },
         members, mainId, subIds, groupConfig, apiKey, selectedModel,
         kktUnlocked: {}, language,
+        rhythm: form.rhythm || "free",
+        triggeredEventIds: [],
+        specialEventQueue: [],
+        queueCooldown: 0,
       });
+      setTriggeredEventIds(result.newTriggeredIds || []);
+      setSpecialEventQueue(result.newSpecialEventQueue || []);
+      setQueueCooldown(result.newQueueCooldown || 0);
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
       memoryRef.current = result.updatedMemory;
@@ -194,6 +218,20 @@ export default function App() {
       setMessages([{ role: "assistant", content: "Start failed: " + e.message }]);
     }
     setLoading(false);
+
+    // Fire custom event generation in background after round 0, parallel to player reading
+    if (form.careerIdentity === "custom" || form.emotionalIdentity === "custom") {
+      generateCustomEvents({ form, members, mainId, apiKey, selectedModel, language })
+        .then(({ customCareerEvents, customEmotionalEvents }) => {
+          setForm(f => ({
+            ...f,
+            ...(customCareerEvents ? { customCareerEvents } : {}),
+            ...(customEmotionalEvents ? { customEmotionalEvents } : {}),
+          }));
+          console.log("[generateCustomEvents] Done:", { customCareerEvents, customEmotionalEvents });
+        })
+        .catch(err => console.error("[generateCustomEvents] Failed:", err));
+    }
   };
 
   const loadSave = (save) => {
@@ -202,13 +240,27 @@ export default function App() {
     setMessages(save.messages);
     statsRef.current = save.stats;
     setStats({ ...save.stats });
-    memoryRef.current = save.memory || createEmptyMemory();
+    const loadedMemory = save.memory || createEmptyMemory();
+    if (isLegacyMemory(loadedMemory)) {
+      console.warn("[loadSave] Legacy memory shape detected (v11), resetting to empty memory");
+      memoryRef.current = createEmptyMemory();
+    } else {
+      memoryRef.current = loadedMemory;
+    }
     setSocialFeeds(save.socialFeeds || {});
     setKktMessages(save.kktMessages || {});
     setKktUnlocked(save.kktUnlocked || {});
     setCurrentOptions(save.currentOptions || []);
     setActiveNotifications([]);
     setTriggeredAchievements(new Set(save.triggeredAchievements || []));
+    setTriggeredEventIds(save.triggeredEventIds || []);
+    setSpecialEventQueue(save.specialEventQueue || []);
+    setQueueCooldown(save.queueCooldown || 0);
+    setHeShown(save.heShown || false);
+    setEndingUnlocked(save.endingUnlocked || false);
+    setEpilogueShown(save.epilogueShown || false);
+    setShowHePopup(false);
+    setEpilogueShown(false);
     setPhase("game");
     showNotif("Save loaded");
   };
@@ -256,9 +308,13 @@ export default function App() {
         playerChoice: text,
         stats: statsRef.current,
         memory: memoryRef.current,
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: { ...form, identityRandoms: form.identityRandoms },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked, language,
+        rhythm: form.rhythm || "free",
+        triggeredEventIds,
+        specialEventQueue,
+        queueCooldown,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -268,10 +324,15 @@ export default function App() {
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
-      
-      if (result.specialEvent) {
-        setSpecialEvent(result.specialEvent);
-      } else if (result.relationshipEvent) {
+      setTriggeredEventIds(result.newTriggeredIds || triggeredEventIds);
+      setSpecialEventQueue(result.newSpecialEventQueue || []);
+      setQueueCooldown(result.newQueueCooldown || 0);
+      if (result.endingUnlocked && !heShown) {
+        setShowHePopup(true);
+        setHeShown(true);
+        setEndingUnlocked(true);
+      }
+      if (result.relationshipEvent) {
         showNotif(result.relationshipEvent.title + ": " + result.relationshipEvent.description);
       }
 
@@ -285,6 +346,41 @@ export default function App() {
     } catch (e) {
       setMessages(p => [...p, { role: "assistant", content: "Error: " + e.message }]);
     }
+    setLoading(false);
+  };
+
+  const handleViewEpilogue = async () => {
+    if (epilogueShown || loading) return;
+    // Immediately clear options and lock out normal rounds before the async call
+    setShowHePopup(false);
+    setCurrentOptions([]);
+    setEndingUnlocked(false);
+    setLoading(true);
+    const header = language === "zh" ? "✨ 番外" : language === "ko" ? "✨ 에필로그" : "✨ Epilogue";
+    try {
+      const allAff = { [form.mainMember]: statsRef.current?.affection || 0, ...(statsRef.current?.multiAff || {}) };
+      // For romantic/pr_crisis/all_in: use top affection member as focus; drama: all selected members
+      const rhythm = form.rhythm || "romantic";
+      const topMemberId = Object.entries(allAff).reduce((best, [id, aff]) => aff > best[1] ? [id, aff] : best, [form.mainMember, -1])[0];
+      const focusMember = members.find(m => m.id === topMemberId) || members.find(m => m.id === form.mainMember);
+      const selectedMembers = members.filter(m => [form.mainMember, ...(form.subMembers || [])].includes(m.id));
+      const text = await generateEpilogue({
+        rhythm,
+        mainMember: focusMember,
+        allMembers: selectedMembers,
+        affections: allAff,
+        summaries: memoryRef.current?.summaries || [],
+        language, apiKey, selectedModel,
+        playerName: form.name,
+      });
+      setMessages(p => [...p, { role: "assistant", content: `${header}\n\n${text}` }]);
+    } catch (e) {
+      const errMsg = language === "zh" ? "番外生成失败：" : "Epilogue failed: ";
+      setMessages(p => [...p, { role: "assistant", content: errMsg + e.message }]);
+    }
+    const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
+    setCurrentOptions([backLabel]);
+    setEpilogueShown(true);
     setLoading(false);
   };
 
@@ -372,7 +468,7 @@ export default function App() {
         {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{ct.continue}</button>}
         <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{ct.apiKey}</button>
       </div>
-      {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+      {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} triggeredEventIds={triggeredEventIds} specialEventQueue={specialEventQueue} queueCooldown={queueCooldown} heShown={heShown} endingUnlocked={endingUnlocked} onLoad={loadSave} onClose={() => setOverlay(null)} />}
     </div>
     );
   }
@@ -454,7 +550,7 @@ export default function App() {
 
   // ── Setup Page ──
   if (phase === "setup") {
-    const canStart = form.mainMember && form.name && form.age && form.identity && form.pace;
+    const canStart = form.mainMember && form.name && form.careerIdentity;
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)" }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.5)" }}>
@@ -521,48 +617,80 @@ export default function App() {
             </>
           )}
 
-          {/* Identity */}
-          <div className="s-l">{t.setup.identity}</div>
+          {/* Career Identity */}
+          <div className="s-l">💼 {language === "zh" ? "职业身份" : language === "ko" ? "직업 신분" : "Career Identity"}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {IDENTITIES.map(id => (
-              <div key={id.id}
-                onClick={() => setForm(f => ({ ...f, identity: id.id }))}
+            {CAREER_IDENTITIES.map(c => (
+              <div key={c.id}
+                onClick={() => setForm(f => ({ ...f, careerIdentity: c.id }))}
                 style={{
                   padding: "7px 10px", borderRadius: 10, textAlign: "center",
-                  border: `1px solid ${form.identity === id.id ? "#e887b0" : "rgba(255,255,255,.15)"}`,
-                  background: form.identity === id.id ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
-                  color: form.identity === id.id ? "#fff" : "#ccc",
+                  border: `1px solid ${form.careerIdentity === c.id ? "#e887b0" : "rgba(255,255,255,.15)"}`,
+                  background: form.careerIdentity === c.id ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
+                  color: form.careerIdentity === c.id ? "#fff" : "#ccc",
                   fontSize: 11, cursor: "pointer",
                 }}>
-                {t.identities[id.id] || id.label}
+                {getCareerLabel(c.id, language)}
               </div>
             ))}
           </div>
-          {form.identity === "H" && (
-            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity}
-              onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))}
+          {form.careerIdentity === "custom" && (
+            <input className="s-in" placeholder={language === "zh" ? "描述你的职业..." : language === "ko" ? "직업을 설명하세요..." : "Describe your career..."}
+              value={form.customCareerText}
+              onChange={e => setForm(f => ({ ...f, customCareerText: e.target.value }))}
+              style={{ marginTop: 4, marginBottom: 6 }} />
+          )}
+
+          {/* Emotional Identity */}
+          <div className="s-l">💗 {language === "zh" ? "初始情感背景（主CP）" : language === "ko" ? "초기 감정 배경 (메인 멤버)" : "Initial Emotional Background (of Main Member)"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {EMOTIONAL_IDENTITIES.map(e => (
+              <div key={e.id}
+                onClick={() => setForm(f => ({ ...f, emotionalIdentity: e.id }))}
+                style={{
+                  padding: "7px 10px", borderRadius: 10, textAlign: "center",
+                  border: `1px solid ${form.emotionalIdentity === e.id ? "#c86dd0" : "rgba(255,255,255,.15)"}`,
+                  background: form.emotionalIdentity === e.id ? "rgba(200,109,208,.15)" : "rgba(255,255,255,.04)",
+                  color: form.emotionalIdentity === e.id ? "#fff" : "#ccc",
+                  fontSize: 11, cursor: "pointer",
+                }}>
+                {getEmotionalLabel(e.id, language)}
+              </div>
+            ))}
+          </div>
+          {form.emotionalIdentity === "custom" && (
+            <input className="s-in" placeholder={language === "zh" ? "描述与主CP的初始情感背景..." : language === "ko" ? "메인 멤버와의 초기 감정 배경을 설명하세요..." : "Describe initial emotional background with main member..."}
+              value={form.customEmotionalText}
+              onChange={e => setForm(f => ({ ...f, customEmotionalText: e.target.value }))}
               style={{ marginTop: 4, marginBottom: 6 }} />
           )}
 
 
           {/* Basic Info */}
           <div className="s-l">Basic Info</div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5 }}><input className="s-in" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} /><input className="s-in" placeholder="Age" value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" /></div>
+          <div style={{ display: "flex", gap: 5, marginBottom: 5 }}><input className="s-in" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1 }} /></div>
         
 
-          <div className="s-l">{t.setup.pace}</div>
+          {/* Story Rhythm */}
+          <div className="s-l">🎬 {language === "zh" ? "剧情节奏" : language === "ko" ? "스토리 리듬" : "Story Rhythm"}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {t.paces.map((p, i) => (
-              <div key={PACES[i]}
-                onClick={() => setForm(f => ({ ...f, pace: PACES[i] }))}
+            {[
+              { id: "free", zh: "随缘叙事", en: "Free Flow", ko: "자유 서사", desc: { zh: "无特殊节奏·LLM自由叙事", en: "No fixed rhythm, open narrative", ko: "자유로운 스토리텔링" } },
+              { id: "romantic", zh: "浪漫情感", en: "Romantic", ko: "로맨틱", desc: { zh: "氛围暧昧·感情升温", en: "Slow burn romance", ko: "감성 로맨스" } },
+              { id: "drama", zh: "修罗海王", en: "Drama", ko: "드라마", desc: { zh: "轻松沙雕修罗场", en: "Light rivalry chaos", ko: "가벼운 삼각관계" } },
+              { id: "pr_crisis", zh: "高压舆论", en: "Media Pressure", ko: "미디어 압박", desc: { zh: "舆论风波·秘密代价", en: "Scandal & exposure", ko: "여론 파문" } },
+            ].map(r => (
+              <div key={r.id}
+                onClick={() => setForm(f => ({ ...f, rhythm: r.id }))}
                 style={{
                   padding: "7px 10px", borderRadius: 10, textAlign: "center",
-                  border: `1px solid ${form.pace === PACES[i] ? "#e887b0" : "rgba(255,255,255,.15)"}`,
-                  background: form.pace === PACES[i] ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
-                  color: form.pace === PACES[i] ? "#fff" : "#ccc",
+                  border: `1px solid ${form.rhythm === r.id ? "#e887b0" : "rgba(255,255,255,.15)"}`,
+                  background: form.rhythm === r.id ? "rgba(232,135,176,.15)" : "rgba(255,255,255,.04)",
+                  color: form.rhythm === r.id ? "#fff" : "#ccc",
                   fontSize: 11, cursor: "pointer",
                 }}>
-                {p}
+                <div style={{ fontWeight: 600 }}>{language === "ko" ? r.ko : language === "en" ? r.en : r.zh}</div>
+                <div style={{ fontSize: 9, color: form.rhythm === r.id ? "#f8c8d8" : "#806070", marginTop: 2 }}>{language === "ko" ? r.desc.ko : language === "en" ? r.desc.en : r.desc.zh}</div>
               </div>
             ))}
           </div>
@@ -662,6 +790,14 @@ export default function App() {
                   <span style={{ color: "#e887b0", fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
                 </button>
               ))}
+              {endingUnlocked && (
+                <button
+                  onClick={handleViewEpilogue}
+                  style={{ width: "100%", padding: "7px 10px", borderRadius: 12, border: "1px solid rgba(255,215,0,.4)", background: "linear-gradient(135deg,rgba(232,135,176,.15),rgba(200,109,208,.15))", color: "#ffd700", fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "center", fontWeight: 700 }}
+                >
+                  ✨ {language === "zh" ? "结束游戏并查看番外" : language === "ko" ? "게임 종료 및 에필로그 보기" : "End Game & View Epilogue"}
+                </button>
+              )}
             </div>
           )}
 
@@ -678,7 +814,7 @@ export default function App() {
         </div>
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} triggeredEventIds={triggeredEventIds} specialEventQueue={specialEventQueue} queueCooldown={queueCooldown} heShown={heShown} endingUnlocked={endingUnlocked} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {achievement && (
           <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(232,135,176,.5)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.3)" }}>
@@ -692,40 +828,25 @@ export default function App() {
           </div>
         )}
 
-        {specialEvent && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }}>
-            <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(232,135,176,.5)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.3)" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>{specialEvent.icon || "💍"}</div>
-              <div style={{ color: "#f8c8d8", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{specialEvent.title}</div>
-              <div style={{ color: "#c898b8", fontSize: 13, lineHeight: 1.7, marginBottom: 20 }}>{specialEvent.description}</div>
+        {/* HE Popup — fires once when ending unlocked */}
+        {showHePopup && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.88)", backdropFilter: "blur(8px)" }}>
+            <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(255,215,0,.4)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.4)" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>✨</div>
+              <div style={{ color: "#ffd700", fontSize: 16, fontWeight: 700, marginBottom: 12, letterSpacing: ".05em" }}>
+                {language === "zh" ? "HE 达成" : language === "ko" ? "HE 달성" : "Happy Ending Unlocked"}
+              </div>
+              <div style={{ color: "#f0dce8", fontSize: 13, lineHeight: 1.8, marginBottom: 24, fontStyle: "italic" }}>
+                {(HE_DESCRIPTIONS[form.rhythm || "free"] || HE_DESCRIPTIONS.free)[language] || (HE_DESCRIPTIONS[form.rhythm || "free"] || HE_DESCRIPTIONS.free).zh}
+              </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                <button onClick={async () => {
-                  setSpecialEvent(null);
-                  setLoading(true);
-                  try {
-                    const epilogue = await executeRound({
-                      playerChoice: `Generate an epilogue: ${specialEvent.title}. A short story set after this event. 150 words in a warm, literary style. Return ONLY valid JSON.`,
-                      stats: statsRef.current, memory: memoryRef.current,
-                      form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
-                      members, mainId: form.mainMember, subIds: form.subMembers || [],
-                      groupConfig, apiKey, selectedModel, kktUnlocked, language,
-                    });
-                    const epStats = epilogue.newStats || statsRef.current;
-                    const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);
-                    setMessages(p => [...p, { role: "assistant", content: "=== EPILOGUE ===\n\n" + statsBox + "\n\n" + (epilogue.storyContent || "The end.") }]);
-                    const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
-                    setCurrentOptions([backLabel]);
-                  } catch (e) {
-                    setMessages(p => [...p, { role: "assistant", content: "Epilogue generation failed." }]);
-                    const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
-                    setCurrentOptions([backLabel]);
-                  }
-                  setLoading(false);
-                }} style={{ padding: "10px 20px", borderRadius: 24, background: "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 13, cursor: "pointer" }}>
-                  {language === "zh" ? "结束游戏并查看番外" : language === "ko" ? "게임 종료 및 에필로그 보기" : "End Game & View Epilogue"}
+                <button onClick={handleViewEpilogue}
+                  style={{ padding: "10px 16px", borderRadius: 24, background: "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
+                  {language === "zh" ? "结束游戏并查看番外" : language === "ko" ? "게임 종료 및 에필로그 보기" : "End + View Epilogue"}
                 </button>
-                <button onClick={() => setSpecialEvent(null)} style={{ padding: "10px 20px", borderRadius: 24, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
-                  {language === "zh" ? "继续游戏" : language === "ko" ? "게임 계속하기" : "Continue Playing"}
+                <button onClick={() => setShowHePopup(false)}
+                  style={{ padding: "10px 16px", borderRadius: 24, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 12, cursor: "pointer" }}>
+                  {language === "zh" ? "继续游戏" : language === "ko" ? "계속하기" : "Continue Playing"}
                 </button>
               </div>
             </div>

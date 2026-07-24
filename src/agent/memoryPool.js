@@ -1,39 +1,54 @@
 // src/agent/memoryPool.js
-// v11.1: Memory Pool with npcAppearances support
+// v12 Phase 3: Two-tier memory (M=15 summaries + N=3 full stories) + per-member KKT Q=10
 
 import { getStageName } from "../config/stageConfig";
+
+export const SUMMARY_MAX = 15;   // M
+export const STORY_MAX = 3;      // N
+export const KKT_MAX = 10;       // Q per member
 
 export function createEmptyMemory() {
   return {
     playerStats: null,
     affections: {},
     topMemberId: null,
-    storyRounds: [],
-    socialPosts: [],
-    kktMessages: {},
+    summaries: [],          // [{round, memberId, summary}] max SUMMARY_MAX, FIFO
+    fullStories: [],        // [{round, story, playerChoice}] max STORY_MAX, FIFO
+    kktMessages: {},        // {memberId: [{sender, content}]} max KKT_MAX per member
     stageChanges: [],
     memberAppearances: {},
     npcAppearances: {},
   };
 }
 
-export function updateMemory(memory, updates, maxRounds = 5) {
+export function updateMemory(memory, updates) {
   const {
-    playerStats, affections, storyRound, socialPosts,
+    playerStats, affections, summary, storyRound,
     kktMessages, stageChanges, memberAppearances, npcAppearances,
   } = updates;
 
   if (playerStats) memory.playerStats = playerStats;
   if (affections) memory.affections = { ...memory.affections, ...affections };
-  if (storyRound) memory.storyRounds = [...(memory.storyRounds || []), storyRound].slice(-maxRounds);
-  if (socialPosts?.length > 0) memory.socialPosts = [...(memory.socialPosts || []), ...socialPosts].slice(-20);
+
+  if (summary) {
+    memory.summaries = [...(memory.summaries || []), summary].slice(-SUMMARY_MAX);
+  }
+  if (storyRound) {
+    memory.fullStories = [...(memory.fullStories || []), storyRound].slice(-STORY_MAX);
+  }
+
   if (kktMessages) {
     memory.kktMessages = { ...memory.kktMessages };
     Object.entries(kktMessages).forEach(([mid, msgs]) => {
-      memory.kktMessages[mid] = [...(memory.kktMessages[mid] || []), ...msgs].slice(-20);
+      if (!Array.isArray(msgs) || msgs.length === 0) return;
+      const normalized = msgs.map(m => typeof m === "string" ? { sender: mid, content: m } : m);
+      memory.kktMessages[mid] = [...(memory.kktMessages[mid] || []), ...normalized].slice(-KKT_MAX);
     });
   }
-  if (stageChanges?.length > 0) memory.stageChanges = [...(memory.stageChanges || []), ...stageChanges].slice(-10);
+
+  if (stageChanges?.length > 0) {
+    memory.stageChanges = [...(memory.stageChanges || []), ...stageChanges].slice(-10);
+  }
   if (memberAppearances) {
     memory.memberAppearances = { ...memory.memberAppearances };
     Object.entries(memberAppearances).forEach(([mid, rounds]) => {
@@ -47,7 +62,7 @@ export function updateMemory(memory, updates, maxRounds = 5) {
   return memory;
 }
 
-export function buildMemoryContext(memory, members, mainId, maxRounds = 5) {
+export function buildMemoryContext(memory, members, mainId, roundMemberIds = []) {
   const parts = [];
 
   if (memory.playerStats) {
@@ -63,29 +78,38 @@ export function buildMemoryContext(memory, members, mainId, maxRounds = 5) {
   });
   parts.push(`[Affections] ${affLines.join(" | ")}`);
 
-  if (memory.storyRounds?.length > 0) {
-    const recent = memory.storyRounds.slice(-maxRounds);
-    parts.push(`[Recent Stories ${recent.length} rounds]`);
-    recent.forEach((r, i) => {
-      const w = Math.floor(((i + 1) / recent.length) * 100);
-      parts.push(`Round ${r.round}(weight ${w}%): ${r.story?.substring?.(0, 300) || ""} | Choice: ${r.playerChoice}`);
+  // Tier 1: long summaries
+  if (memory.summaries?.length > 0) {
+    parts.push(`[Long Memory — ${memory.summaries.length} summaries]`);
+    memory.summaries.forEach(s => {
+      const m = members.find(mb => mb.id === s.memberId);
+      const tag = m ? `${m.emoji}${m.name}` : s.memberId;
+      parts.push(`R${s.round}(${tag}): ${s.summary}`);
     });
   }
 
-  if (memory.socialPosts?.length > 0) {
-    const rp = memory.socialPosts.slice(-8);
-    parts.push(`[Social Media] ${rp.map(p => `[${p.platform}]${p.memberId}: ${typeof p.content === 'string' ? p.content.substring(0, 80) : ""}`).join(" | ")}`);
+  // Tier 2: last N full stories
+  if (memory.fullStories?.length > 0) {
+    parts.push(`[Recent Stories — last ${memory.fullStories.length} rounds]`);
+    memory.fullStories.forEach(r => {
+      parts.push(`=== Round ${r.round} ===\n${r.story}\nChoice: ${r.playerChoice}`);
+    });
   }
 
-  const kk = Object.keys(memory.kktMessages || {});
-  if (kk.length > 0) {
-    const kl = [];
-    kk.forEach(mid => {
-      const ms = (memory.kktMessages[mid] || []).slice(-3);
-      const m = members.find(mb => mb.id === mid);
-      kl.push(`${m?.emoji || ""}${m?.name || mid}: ${ms.map(msg => typeof msg.content === 'string' ? msg.content.substring(0, 60) : "").join(" | ")}`);
-    });
-    parts.push(`[KKT Messages] ${kl.join(" | ")}`);
+  // KKT: only inject for members appearing this round (roundMemberIds)
+  const kktTargets = roundMemberIds.length > 0
+    ? roundMemberIds
+    : Object.keys(memory.kktMessages || {});
+  const kktLines = [];
+  kktTargets.forEach(mid => {
+    const msgs = (memory.kktMessages?.[mid] || []);
+    if (msgs.length === 0) return;
+    const m = members.find(mb => mb.id === mid);
+    const recent = msgs.slice(-5).map(msg => typeof msg === "string" ? msg : msg.content).join(" | ");
+    kktLines.push(`${m?.emoji || ""}${m?.name || mid}: ${recent}`);
+  });
+  if (kktLines.length > 0) {
+    parts.push(`[KKT Messages — round-relevant members]\n${kktLines.join("\n")}`);
   }
 
   if (memory.stageChanges?.length > 0) {
@@ -115,4 +139,9 @@ export function getTopMember(members, affections) {
     if (aff > bestAff) { best = m; bestAff = aff; }
   }
   return best;
+}
+
+// Migration guard: returns true if the memory object is old-shape (v11)
+export function isLegacyMemory(memory) {
+  return memory && memory.summaries === undefined;
 }

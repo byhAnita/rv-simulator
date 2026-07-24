@@ -6,8 +6,7 @@
  * @returns {Promise<Array>} 组合列表 [{id, name, emoji, members_count, color}]
  */
 export async function loadGroupIndex() {
-  const isProduction = !window.location.hostname.includes('localhost');
-  const base = isProduction ? '/rv-simulator/' : '/';
+  const base = import.meta.env.BASE_URL;
   const url = `${base}groups/index.json`;
 
   try {
@@ -27,8 +26,7 @@ export async function loadGroupIndex() {
  * @returns {Promise<object>} 解析后的团设定对象
  */
 export async function loadGroupConfig(groupId = "red_velvet", language = "zh") {
-  const isProduction = !window.location.hostname.includes('localhost');
-  const base = isProduction ? '/rv-simulator/' : '/';
+  const base = import.meta.env.BASE_URL;
   const url = `${base}groups/${groupId}/${language}.json`;
 
   try {
@@ -82,6 +80,7 @@ function parseGroupConfig(config) {
     group: {
       name: group.name,
       fandom: group.fandom,
+      company: group.company || "",
       socialPlatforms: group.social_platforms || ["bubble", "instagram", "weverse"],
       privateChat: group.private_chat || "kakaotalk",
     },

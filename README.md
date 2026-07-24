@@ -132,7 +132,7 @@ Social Media delayed display (check while waiting)
 │  │ └── JSON Schema                                               │   │
 │  │                                                               │   │
 │  │ Memory Pool (5 rounds, refreshed)                             │   │
-│  │ ├── Player stats (🌈🔒👁📊💫📅)                             │   │
+│  │ ├── Player stats (🌈🔒💫📅)                                 │   │
 │  │ ├── Member affections (main + sub)                            │   │
 │  │ ├── Recent 5 rounds story + choices                           │   │
 │  │ ├── Social media history                                      │   │
@@ -241,7 +241,7 @@ Social Media delayed display (check while waiting)
 ├─────────────────────────────────────────────────────────────┤
 │  Game Screen                                                │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ 🐰Irene [Flirting]│ 🌈36 🔒97 👁29 📊55 💫76 📅3    │ │
+│  │ 🐰Irene [Flirting]│ 🌈36 🔒97 💫76 📅3              │ │
 │  │                    │ 🐿️15 🐢6      │ 💜📸🌿💬 💾   │ │
 │  ├────────────────────────────────────────────────────────┤ │
 │  │ 📱 Irene updated bubble │ Wendy updated bubble        │ │
