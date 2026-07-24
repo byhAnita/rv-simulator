@@ -3,8 +3,8 @@
 
 export const MODEL_CONFIGS = {
   deepseek: {
-    id: "deepseek", name: "DeepSeek V3", emoji: "🐋", desc: "", color: "#4d6bfe",
-    url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-chat",
+    id: "deepseek", name: "DeepSeek V4 Flash", emoji: "🐋", desc: "", color: "#4d6bfe",
+    url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-v4-flash",
     keyPrefix: "sk-", keyHelp: "platform.deepseek.com → API Keys", format: "openai",
   },
   gemini: {
