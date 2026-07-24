@@ -8,7 +8,6 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // Place manifest at root of dist, not in assets/
       manifestFilename: 'manifest.json',
       includeAssets: ['favicon.svg', 'icons.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
@@ -35,7 +34,6 @@ export default defineConfig({
           },
         ],
       },
-      // Minimal service worker — cache shell only, no aggressive offline caching
       workbox: {
         globPatterns: ['**/*.{js,css,html}'],
         navigateFallback: 'index.html',
