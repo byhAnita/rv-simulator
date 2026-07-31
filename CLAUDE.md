@@ -529,45 +529,83 @@ Game Screen
 ---
 ## CRITICAL: Branch & Deploy Workflow
 
-Branch structure
-
+### Branch structure
 ```
 main          — stable, production. GitHub Pages + Vercel serve from here.
-dev-v12.0.0   — active development. Never deploy from here directly.
-Daily development (always on dev)
+dev-v12.0.0   — active development. Never deploy from this branch.
 ```
 
+### index.html rule
+`index.html` in the repo always stays in **dev mode** (`<script type="module" src="/src/main.jsx">`). `deploy.sh` patches it to production mode, commits + pushes, then restores dev mode locally. **Never manually edit index.html.**
+
+If `index.html` is ever stuck in production mode (pointing to `./assets/index-*.js`), restore it before running deploy:
+```bash
+# Restore to dev mode manually:
+# Replace the <script> and <link> tags with:
+#   <script type="module" src="/src/main.jsx"></script>
+# Then run npm run deploy as normal.
 ```
+
+### Local dev
+```bash
+npx vite          # hot reload from src/ — always works regardless of index.html state
+npm run dev       # alias
+```
+
+### Daily development (always on dev-v12.0.0)
+```bash
 git checkout dev-v12.0.0
 # ... work ...
-git add .
+git add src/
 git commit -m "feat: ..."
-git push origin dev-v12.0.0   # backup
-Hotfix on stable (e.g. next bug in v11)
-
-git checkout main
-git checkout -b hotfix/v11.1.2
-# ... fix ...
-git add .
-git commit -m "fix: ..."
-git checkout main
-git merge hotfix/v11.1.2
-git tag v11.1.2
-npm run deploy                 # build + push main → GitHub Pages + Vercel auto-update
-git checkout dev-v12.0.0
-git merge main                 # keep dev in sync
 git push origin dev-v12.0.0
-Release v12.0.0
+```
 
+### Hotfix on stable (fix bug in production without releasing v12)
+```bash
+# 1. Fix on main
+git checkout main
+# make fix directly or via hotfix branch
+git add src/
+git commit -m "fix: description"
+
+# 2. Deploy to GitHub Pages + Vercel
+npm run deploy    # clean build → patches index.html → commits assets → pushes main → restores dev mode
+
+# 3. Tag (optional)
+git tag v11.x.x
+git push origin v11.x.x
+
+# 4. Sync fix into dev
+git checkout dev-v12.0.0
+git cherry-pick <commit-hash>   # preferred over merge to avoid pulling unrelated main state
+git push origin dev-v12.0.0
+```
+
+### Release v12.0.0 (merge dev → production)
+```bash
 git checkout main
 git merge dev-v12.0.0 --no-ff -m "release: v12.0.0"
 git tag v12.0.0
 npm run deploy
 git push origin v12.0.0
-Local dev / build modes
+```
 
-npx vite                              # local dev — hot reload from src/
-npm run build                         # dist/ with relative paths (Cloudflare Pages)
-BASE_URL=/rv-simulator/ npm run build # dist/ with absolute paths (subdir hosting)
-npm run deploy                        # build + commit root assets + push to main
+### What `npm run deploy` does (deploy.sh)
+1. `rm -rf dist assets` — clean old build
+2. `BASE_URL="./" npm run build` — Vite build with relative paths
+3. Copies `dist/assets/*.js` and `*.css` into root `assets/`
+4. Patches `index.html` to reference the new hashed filenames
+5. `git add index.html assets/ src/` → commit → `git push origin main`
+6. Restores `index.html` to dev mode locally (not committed)
+
+After deploy: you're immediately back in dev mode, `npx vite` works.
+
+### Build modes reference
+```bash
+npx vite                              # local dev — hot reload
+npm run build                         # dist/ with relative paths (Cloudflare Pages / preview)
+BASE_URL=/rv-simulator/ npm run build # dist/ with absolute subdir paths
+npm run deploy                        # full deploy to GitHub Pages + Vercel via main
+DEPLOY_MSG="v11.x fix" npm run deploy # deploy with custom commit message
 ```
