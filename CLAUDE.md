@@ -527,9 +527,47 @@ Game Screen
 ```
 
 ---
-## v12 Deployment
+## CRITICAL: Branch & Deploy Workflow
 
+Branch structure
 
-```npm run build``` → dist/ with relative paths, works when served from any directory
-```BASE_URL=/rv-simulator/ npm run build``` → absolute paths for GitHub Pages subdirectory deploy
+```
+main          — stable, production. GitHub Pages + Vercel serve from here.
+dev-v12.0.0   — active development. Never deploy from here directly.
+Daily development (always on dev)
+```
 
+```
+git checkout dev-v12.0.0
+# ... work ...
+git add .
+git commit -m "feat: ..."
+git push origin dev-v12.0.0   # backup
+Hotfix on stable (e.g. next bug in v11)
+
+git checkout main
+git checkout -b hotfix/v11.1.2
+# ... fix ...
+git add .
+git commit -m "fix: ..."
+git checkout main
+git merge hotfix/v11.1.2
+git tag v11.1.2
+npm run deploy                 # build + push main → GitHub Pages + Vercel auto-update
+git checkout dev-v12.0.0
+git merge main                 # keep dev in sync
+git push origin dev-v12.0.0
+Release v12.0.0
+
+git checkout main
+git merge dev-v12.0.0 --no-ff -m "release: v12.0.0"
+git tag v12.0.0
+npm run deploy
+git push origin v12.0.0
+Local dev / build modes
+
+npx vite                              # local dev — hot reload from src/
+npm run build                         # dist/ with relative paths (Cloudflare Pages)
+BASE_URL=/rv-simulator/ npm run build # dist/ with absolute paths (subdir hosting)
+npm run deploy                        # build + commit root assets + push to main
+```

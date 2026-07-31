@@ -12,10 +12,10 @@ export const CAREER_IDENTITIES = [
 ];
 
 export const EMOTIONAL_IDENTITIES = [
-  { id: "none",           labelZh: "无特殊情感设定",  labelEn: "No special background", labelKo: "특별한 감정 설정 없음" },
+  { id: "none",           labelZh: "命运初见",  labelEn: "No special background", labelKo: "특별한 감정 설정 없음" },
   { id: "secret_crush",   labelZh: "暗恋对象",        labelEn: "Secret Crush",          labelKo: "짝사랑 상대" },
   { id: "ex_gf",          labelZh: "前女友",          labelEn: "Ex-Girlfriend",         labelKo: "전 여자친구" },
-  { id: "fate_encounter", labelZh: "命运偶遇",        labelEn: "Fate Encounter",        labelKo: "운명의 만남" },
+  { id: "fate_encounter", labelZh: "深夜邂逅",        labelEn: "Fate Encounter",        labelKo: "운명의 만남" },
   { id: "custom",         labelZh: "[自定义]",        labelEn: "[Custom]",              labelKo: "[커스텀]" },
 ];
 
