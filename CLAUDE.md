@@ -4,72 +4,233 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**嫂嫂模拟器 v11** — An LLM-Agent-driven K-pop idol dating simulator (yuri). Single-page React/Vite PWA, mobile-first (390×844px), no external CSS framework (all inline styles). Supports multiple girl groups loaded from JSON configs.
+**Idol Dating Sim v1.1.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390×844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+
+Active branches:
+- `main` — stable production, served by GitHub Pages + Vercel
+- `dev-v12.0.0` — next version development, never deploy from here
+
+---
 
 ## Commands
 
 ```bash
-npm run dev       # Start dev server (Vite)
-npm run build     # Production build → dist/
-npm run preview   # Preview production build
+npx vite                              # local dev — hot reload, always works
+npm run build 2>&1 | tail -12         # validate build (no test suite)
+npm run deploy                        # full deploy: build → patch index.html → push main → restore dev mode
+DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 ```
 
-No test suite. No lint config. Validate by running `npm run build` and checking for errors.
+Validate every change with `npm run build`. No lint config, no test suite.
+
+---
 
 ## Architecture
 
 ### Data Flow per Round
 
 ```
-Player choice → executeRound() → buildSystemPrompt() → LLM API call
-→ parseLLMOutput() (4-level fallback) → validateAndFixOutput()
-→ update stats/affections/memory → detect stage/event/achievement changes
-→ store social feeds in pendingSocialFeeds (displayed NEXT round)
-→ render story + 4 options
+Player choice
+  → executeRound(choice, roundNum, form, members, apiKey, model, language, memory)
+  → buildSystemPrompt()           // ~15KB: background + memory context + JSON schema
+  → callLLM()                     // single API call, 90s timeout, 2x retry on empty
+  → parseLLMOutput()              // 4-level fallback (JSON.parse → regex → field-by-field → default)
+  → validateAndFixOutput()        // regex repairs on malformed fields
+  → update stats / affections / memory
+  → detect stage changes / relationship events / achievements
+  → store social feeds in pendingSocialFeeds  (displayed NEXT round)
+  → return { story, options, stats, ... }
 ```
 
 ### Key Modules
 
 | Path | Role |
 |---|---|
-| `src/App.jsx` | All React state, UI routing (Cover→KeyInput→Setup→Game), save/load |
-| `src/agent/mainAgent.js` | Round execution, system prompt construction, JSON parsing, LLM dispatch |
-| `src/agent/memoryPool.js` | Two-tier memory: M=15 summaries (100 chars each) + N=3 full stories; KKT per-member Q=10 |
-| `src/agent/probabilityEngine.js` | Sub-member appearance weights: affection 40% + balance 30% + recency 20% + random 10% |
-| `src/tools/llmTool.js` | Multi-model router: DeepSeek (OpenAI format), Gemini (Google format), Claude (Anthropic format), GPT-4o Mini. Retries up to 2× on empty response. |
-| `src/rag/groupLoader.js` | Loads `public/groups/{id}/{lang}.json` → member profiles + group lore |
-| `src/config/` | Game constants, 7 relationship stages, model configs, events, achievements |
-| `src/i18n/` | zh/en/ko translation hook + `${var}` interpolation |
-| `src/platforms/` | Social platform overlays: Bubble, Instagram, Weverse, KakaoTalk |
+| `src/App.jsx` | All React state, page routing (Cover→KeyInput→Setup→Game), save/load logic |
+| `src/agent/mainAgent.js` | `executeRound`, `buildSystemPrompt`, `parseLLMOutput`, `validateAndFixOutput` |
+| `src/agent/memoryPool.js` | Two-tier memory: `createEmptyMemory`, `updateMemory`, `buildMemoryContext`, `isLegacyMemory` |
+| `src/agent/probabilityEngine.js` | Sub-member appearance weights per round |
+| `src/tools/llmTool.js` | Multi-model router: DeepSeek / Gemini / Claude / GPT (format adapters per provider) |
+| `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)` → member profiles + group lore |
+| `src/config/constants.js` | All numeric game constants (see below) |
+| `src/config/modelConfigs.js` | 4 model configs (id, url, format, keyPrefix, color) |
+| `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
+| `src/config/relationshipEvents.js` | Stage-transition special events |
+| `src/config/achievements.js` | Achievement trigger conditions and display data |
+| `src/i18n/` | `useTranslation(lang)` hook + `${var}` interpolation; zh/en/ko |
+| `src/platforms/` | Social overlay React components: Bubble, Instagram, Weverse, KakaoTalk, Save |
 
 ### State Management
 
 - **React hooks only** — no Redux/Zustand
-- **`useRef` for non-rendering data**: `statsRef`, `memoryRef`, `inputRef`, `bottomRef`
-- **Module-level globals** in `mainAgent.js`: `pendingSocialFeeds`, `pendingNotifications`
-- **localStorage**: API key, saves (`rv_sim_saves_v11`), language, selected model
+- **`useRef` for mutable non-rendering data**: `statsRef` (live stats), `memoryRef` (memory pool), `inputRef`, `bottomRef`
+- **Module-level globals** in `mainAgent.js`: `pendingSocialFeeds`, `pendingNotifications` (survive re-renders, reset on new game)
+- **localStorage keys**: `STORAGE_KEYS.API_KEY`, `STORAGE_KEYS.SELECTED_MODEL`, `STORAGE_KEYS.SAVES` (`rv_sim_saves_v11`), `rv_sim_language`, `rv_sim_group`
 
-### Adding a New Girl Group
+---
 
-Create `public/groups/{id}/zh.json` (+ `en.json`, `ko.json`) following the `_template/` structure. Add the group to `public/groups/index.json`. No code changes needed.
+## Key Constants (`src/config/constants.js`)
 
-### LLM System Prompt
+```js
+MEMORY_SUMMARY_MAX = 10   // M: Tier-1 long-term summary slots (FIFO)
+MEMORY_STORY_MAX   = 3    // N: Tier-2 recent full-story slots (FIFO)
+KKT_MAX            = 10   // Q: KakaoTalk messages stored per member
+KKT_THRESHOLD      = 30   // affection score required to unlock KKT per member
+MAIN_INITIAL_AFFECTION       = 12
+SUB_INITIAL_AFFECTION_MIN    = 5
+SUB_INITIAL_AFFECTION_MAX    = 10
+NPC_APPEARANCE_CHANCE        = 0.3   // base probability for NPC members to appear
+NPC_COOLDOWN_ROUNDS          = 2
+```
 
-Built in `mainAgent.js#buildSystemPrompt()`. The prompt is ~15KB and enforces:
-1. **Language first** — output language locked to player's UI language
-2. **JSON schema** — strict structure; LLM must return valid JSON every round
-3. **Member personality matrices** — loaded via RAG from group JSON
+---
+
+## 2-Tier Memory Architecture
+
+### Memory Shape
+
+```js
+// createEmptyMemory() — src/agent/memoryPool.js
+{
+  playerStats:       null,          // {selfId, secrecy, mood, week, scene, chapter}
+  affections:        {},            // {memberId: number}
+  topMemberId:       null,
+  summaries:         [],            // Tier 1 — [{round, memberId, summary}] max M, FIFO
+  fullStories:       [],            // Tier 2 — [{round, story, playerChoice}] max N, FIFO
+  kktMessages:       {},            // {memberId: [{sender, content}]} max Q per member
+  stageChanges:      [],            // [{memberId, from, to}] last 10
+  memberAppearances: {},            // {memberId: [roundNums]} last 10
+  npcAppearances:    {},            // {memberId: lastRoundNum}
+}
+```
+
+### Update Flow (`updateMemory`)
+
+Called at end of each round. Accepts `updates` object with any subset of fields. FIFO truncation applied on `summaries` (slice to -M) and `fullStories` (slice to -N). KKT messages normalized to `{sender, content}` shape before append.
+
+### Prompt Injection (`buildMemoryContext`)
+
+Injected into system prompt as plain text block:
+
+```
+[Player Status] SelfId:38 Secrecy:97 Mood:82 Round:5 Scene:practice room
+
+[Affections] 🐰Irene:24(Stranger) | 🐻Seulgi:12(Stranger)
+
+[Long Memory — 4 summaries]
+R2(🐰Irene): Late-night practice, she fixed your collar, tension rose.
+R3(🐻Seulgi): Group meal, Seulgi kept refilling your drink.
+
+[Recent Stories — last 3 rounds]
+=== Round 3 ===
+<full story text>
+Choice: B
+
+[KKT Messages — round-relevant members]
+🐰Irene: hey are you free tonight | you okay?
+
+[Stage Changes] irene: Stranger→Acquaintance
+
+[NPC Appearances] 🐥Joy(last: round 2)
+```
+
+**KKT injection rule**: Only inject KKT history for member IDs selected by the probability engine for the current round (`roundMemberIds`). Avoids poisoning context with off-screen members.
+
+### Save Compatibility (`isLegacyMemory`)
+
+Old saves (pre-v1.1.0) have `storyRounds` instead of `summaries`/`fullStories`. On `loadSave`, if `memory.summaries === undefined`, reset memory to `createEmptyMemory()` and log warning — do not crash. Stats, form, and affections are still restored from the save.
+
+---
+
+## LLM System Prompt
+
+Built in `mainAgent.js#buildSystemPrompt()`. ~15KB. Enforces:
+
+1. **Language lock** — output language tied to player's UI language (`zh`/`en`/`ko`)
+2. **JSON schema** — LLM must return valid JSON every round (no markdown fences)
+3. **Member personality matrices** — injected from group RAG JSON
 4. **Phase rules** — rounds 1-6 (stranger), 7-14 (familiar), 15-24 (pressure), 25+ (consequences)
+5. **summary field** — always English, ~100 chars, used only for Tier-1 memory, never shown to player
 
-JSON parsing has 4-level fallback + `validateAndFixOutput()` regex repairs for malformed responses. Temperature: 0.92, timeout: 90s.
+### LLM Output JSON Schema
 
-### Social Media System
+```js
+{
+  "scene": "Location in player's UI language",
+  "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
+  "affectionChanges": { "<mainId>": 0, "<subId>": 0 },
+  "socialContent": {
+    "<memberId>": {
+      "bubble": ["msg1", "msg2"],
+      "instagram": { "imageDesc": "...", "caption": "..." },
+      "weverse": "post text"
+    }
+  },
+  "kktMessages": {
+    "<memberId>": ["message text", ...]
+  },
+  "story": "300-500 words in player's UI language. Pure narrative, no stat bars, no options.",
+  "summary": "One English sentence ~100 chars — who appeared and what emotionally shifted.",
+  "options": ["A. ...", "B. ...", "C. ...", "D. Custom"]
+}
+```
 
-Platform content is generated by the LLM for the current round but displayed in the **next** round (delayed display reduces perceived latency). KakaoTalk unlocks per-member when affection ≥ 30.
+### JSON Parsing Pipeline (4-level fallback)
 
-### Relationship Stages
+1. Direct `JSON.parse` on LLM response
+2. Strip markdown fences + retry `JSON.parse`
+3. Regex field extraction (storyMatch regex handles `summary` between `story` and `options`)
+4. Return safe defaults — never crash the round
 
-7 stages in `src/config/stageConfig.js`: Stranger (0–15) → ... → Trial (91–100). Stage transitions trigger special events defined in `relationshipEvents.js`.
+`validateAndFixOutput()` post-parse repairs: unescape `\n`, `\"`, `\/`, `\\` in story field; fill missing `summary` with `""`.
+
+---
+
+## Multi-NPC Probability Engine
+
+`src/agent/probabilityEngine.js` — computes appearance weight for each sub/NPC member per round:
+
+```
+weight = affection(40%) + balance(30%) + recency(20%) + random(10%)
+```
+
+- **balance**: members who haven't appeared recently get boosted
+- **recency**: inverse of rounds-since-last-appearance
+- `NPC_COOLDOWN_ROUNDS` enforces minimum gap between NPC appearances
+- Output: `roundMemberIds` array passed to `buildMemoryContext` and `executeRound`
+
+---
+
+## Social Media System
+
+4 platforms generated by LLM per round, displayed in the **next** round (delayed display hides LLM latency — player checks social while waiting):
+
+| Platform | Content | Unlock |
+|---|---|---|
+| Bubble | Text messages array | Always |
+| Instagram | `{imageDesc, caption}` | Always |
+| Weverse | Post text string | Always |
+| KakaoTalk (KKT) | Private messages | affection ≥ `KKT_THRESHOLD` (30) |
+
+Social content stored in module-level `pendingSocialFeeds`. `popPendingSocial()` is called at the start of each round to display the previous round's content.
+
+---
+
+## Relationship Stages (7)
+
+Defined in `src/config/stageConfig.js`:
+
+| Stage | Score Range |
+|---|---|
+| Stranger | 0–15 |
+| Acquaintance | 16–30 |
+| Friend | 31–50 |
+| Close Friend | 51–65 |
+| Crush | 66–80 |
+| Lovers | 81–90 |
+| Trial | 91–100 |
+
+Stage transitions trigger special events in `relationshipEvents.js`.
 
 ---
 
@@ -77,163 +238,99 @@ Platform content is generated by the LLM for the current round but displayed in 
 
 ```
 Cover Page
-  → Select group + language → New Game or Load Save
+  → Select group (required) + language → New Game or Load Save
       ↓
 Key Input Page
   → Enter API key + choose model
       ↓
 Setup Page
-  → Pick main member + sub members + player identity + name/age
+  → Main member + Sub members + Identity (7+1 types) + Pace + Name/Age
       ↓
-Game Page  (loop)
+Game Page (loop)
   → Read story → Choose A/B/C/D or Custom → Next round
 ```
 
-## 🔄 Round Flow
+"New Game" button is disabled (dimmed + toast) until a group is selected.
+
+---
+
+## Round Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    v11.1 Round Flow                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Previous round ends (Player chose ABCD)                        │
-│       ↓                                                         │
-│  ═══════════════ Current Round ═══════════════                  │
-│       ↓                                                         │
-│  Step 1: Parse Context (Background + Memory Pool)               │
-│       ↓                                                         │
-│  Step 1.5: popPendingSocial() → Display LAST round's social     │
-│    ├── Notification bar + red dots → Instant                    │
-│    └── Social UI → Player browses while LLM generates           │
-│       ↓                                                         │
-│  Step 2: LLM Generation (single API call)                       │
-│    Input: Context + player choice                               │
-│    Output: JSON {statChanges, affectionChanges,                 │
-│            socialContent, kktMessages, story, options}          │
-│       ↓                                                         │
-│  Step 3: Computation                                            │
-│    ├── new stats  = old + statChanges                           │
-│    ├── new affections = old + affectionChanges                  │
-│    ├── KKT filter (affection < 30 → clear)                      │
-│    ├── Stage change detection                                   │
-│    ├── Relationship events + Achievements                       │
-│    └── Multi-NPC probability engine (next round members)        │
-│       ↓                                                         │
-│  Step 4: Store social → pendingSocialFeeds (shown next round)   │
-│       ↓                                                         │
-│  Step 5: UI Refresh                                             │
-│    ├── Top-left: highest-affection member + stage badge         │
-│    ├── Status bar: 6 player stats + member affections           │
-│    ├── Story area: stats box + story text + 4 options           │
-│    └── KKT: real-time this round                                │
-│       ↓                                                         │
-│  Step 6: Player reads + chooses                                 │
-│       ↓                                                         │
-│  Step 7: Memory update (sliding 5-round window)                 │
-│       ↓                                                         │
-│  ═══════════════ Next Round ═══════════════                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## UI Layout
-
-```
-Cover Page
-┌──────────────────────────────────────┐
-│              💗  Idol Dating          │
-│       AI Text Adventure · v11.1       │
-│  [💗RV] [🍭TWICE] [⚡aespa] [🌟IVE]  │
-│           [中]  [EN]  [한]            │
-│         [✨ New Game]                 │
-│         [💾 Continue]                 │
-│         [🔑 API Key / Model]          │
-└──────────────────────────────────────┘
-
-Setup Page
-┌──────────────────────────────────────┐
-│ 🌸 Main Member: [Irene] [Wendy] ...  │
-│ 🌿 Sub Members: [Seulgi] [Joy]       │
-│ 💼 Identity: [Trainee][Staff][Fan]…  │
-│ 📝 Name / Age                        │
-│  [← Back]   [✨ Start with Irene]    │
-└──────────────────────────────────────┘
-
-Game Screen
-┌──────────────────────────────────────┐
-│ 🐰Irene [Flirting] │ 🌈36 🔒97 💫76 │
-│                    │ 💜📸🌿💬  💾   │
-├────────────────────────────────────  │
-│ 📱 Irene updated bubble · Wendy ...  │  ← last round's social
-├──────────────────────────────────────┤
-│ ╔══════════════════╗                 │
-│ ║ 💗 Irene: 14/100 ║                 │  ← stats box
-│ ╚══════════════════╝                 │
-│  Story text (300–500 words)…         │
-├──────────────────────────────────────┤
-│ [A. …] [B. …] [C. …] [D. Custom]    │
-├──────────────────────────────────────┤
-│ [Input________________________] [↑]  │
-└──────────────────────────────────────┘
+Previous round ends (player chose ABCD/custom)
+  ↓
+Step 1: Build context — Background + buildMemoryContext()
+  ↓
+Step 1.5: popPendingSocial() → show last round's social feeds
+  ├── Notification bar + red dots (instant)
+  └── Social overlays available while LLM generates
+  ↓
+Step 2: LLM call — buildSystemPrompt() → callLLM() → parseLLMOutput()
+  ↓
+Step 3: Compute
+  ├── new stats = old + statChanges (clamped)
+  ├── new affections = old + affectionChanges (clamped 0-100)
+  ├── KKT filter: affection < KKT_THRESHOLD → clear messages
+  ├── stage change detection → relationshipEvents
+  ├── achievement check
+  └── probabilityEngine → roundMemberIds for next round
+  ↓
+Step 4: Store social → pendingSocialFeeds
+  ↓
+Step 5: UI refresh — top bar / stats / story / options / KKT
+  ↓
+Step 6: Player reads + chooses
+  ↓
+Step 7: updateMemory — push summary (Tier 1) + storyRound (Tier 2)
+  ↓
+Next round
 ```
 
 ---
 
-## CRITICAL: Branch & Deploy Workflow
+## Group JSON Structure
 
-### Branch structure
+`public/groups/{id}/{lang}.json` — no code changes needed to add a new group.
+
 ```
-main          — stable, production. GitHub Pages + Vercel serve from here.
-dev-v12.0.0   — active development. Never deploy from this branch.
+public/groups/
+  index.json              ← [{id, name, emoji, members:[...]}]
+  red_velvet/
+    zh.json               ← full group config in Chinese
+    en.json
+    ko.json
+  _template/              ← copy this to add a new group
 ```
+
+Key fields in group JSON: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `emoji`, `color`, `accent`, `personality`, `queerTexture`, `speechStyle`).
+
+---
+
+## Branch & Deploy Workflow
 
 ### index.html rule
-`index.html` in the repo always stays in **dev mode** (`<script type="module" src="/src/main.jsx">`). `deploy.sh` patches it to production mode, commits + pushes, then restores dev mode locally. **Never manually edit index.html.**
 
-If `index.html` is ever stuck in production mode (pointing to `./assets/index-*.js`), restore it before running deploy:
-```bash
-# Restore to dev mode manually:
-# Replace the <script> and <link> tags with:
-#   <script type="module" src="/src/main.jsx"></script>
-# Then run npm run deploy as normal.
-```
+Always stays in **dev mode** (`<script type="module" src="/src/main.jsx">`). `deploy.sh` patches to production mode, commits + pushes, then restores dev mode. Never manually edit `index.html`.
 
-### Local dev
-```bash
-npx vite          # hot reload from src/ — always works regardless of index.html state
-npm run dev       # alias
-```
+If stuck in production mode (pointing to `./assets/index-*.js`), restore the dev `<script>` tag before deploying.
 
-### Daily development (always on dev-v12.0.0)
-```bash
-git checkout dev-v12.0.0
-# ... work ...
-git add src/
-git commit -m "feat: ..."
-git push origin dev-v12.0.0
-```
+### Hotfix on stable (bug in production, no v12 release)
 
-### Hotfix on stable (fix bug in production without releasing v12)
 ```bash
-# 1. Fix on main
 git checkout main
-# make fix directly or via hotfix branch
+# fix in src/
 git add src/
 git commit -m "fix: description"
-
-# 2. Deploy to GitHub Pages + Vercel
-npm run deploy    # clean build → patches index.html → commits assets → pushes main → restores dev mode
-
-# 3. Tag (optional)
-git tag v11.x.x
-git push origin v11.x.x
-
-# 4. Sync fix into dev
+npm run deploy
+git tag v1.1.x && git push origin v1.1.x
+# sync to dev:
 git checkout dev-v12.0.0
-git cherry-pick <commit-hash>   # preferred over merge to avoid pulling unrelated main state
+git cherry-pick <commit-hash>
 git push origin dev-v12.0.0
 ```
 
-### Release v12.0.0 (merge dev → production)
+### Release v12.0.0
+
 ```bash
 git checkout main
 git merge dev-v12.0.0 --no-ff -m "release: v12.0.0"
@@ -242,21 +339,11 @@ npm run deploy
 git push origin v12.0.0
 ```
 
-### What `npm run deploy` does (deploy.sh)
-1. `rm -rf dist assets` — clean old build
-2. `BASE_URL="./" npm run build` — Vite build with relative paths
-3. Copies `dist/assets/*.js` and `*.css` into root `assets/`
-4. Patches `index.html` to reference the new hashed filenames
+### What `npm run deploy` does
+
+1. `rm -rf dist assets`
+2. `BASE_URL="./" npm run build` — relative-path Vite build
+3. Copy `dist/assets/*.js` + `*.css` into root `assets/`
+4. Patch `index.html` to reference hashed filenames
 5. `git add index.html assets/ src/` → commit → `git push origin main`
-6. Restores `index.html` to dev mode locally (not committed)
-
-After deploy: you're immediately back in dev mode, `npx vite` works.
-
-### Build modes reference
-```bash
-npx vite                              # local dev — hot reload
-npm run build                         # dist/ with relative paths (Cloudflare Pages / preview)
-BASE_URL=/rv-simulator/ npm run build # dist/ with absolute subdir paths
-npm run deploy                        # full deploy to GitHub Pages + Vercel via main
-DEPLOY_MSG="v11.x fix" npm run deploy # deploy with custom commit message
-```
+6. Restore `index.html` to dev mode (not committed)
