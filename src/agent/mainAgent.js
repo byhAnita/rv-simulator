@@ -1,10 +1,10 @@
 // src/agent/mainAgent.js
 // v11.1 Final: Language enforcement + Social isolation + NPC no social + JSON hardening + Age texture + Chapter auto + Special events
 import { callLLM } from "../tools/llmTool";
-import { buildMemoryContext, updateMemory, getTopMember, createEmptyMemory } from "./memoryPool";
+import { buildMemoryContext, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 import { pickPrimaryMember } from "./probabilityEngine";
 import { getStageIdx, getStageName } from "../config/stageConfig";
-import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "../config/constants";
+import { KKT_THRESHOLD, MEMORY_SUMMARY_MAX, MEMORY_STORY_MAX, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 
@@ -68,10 +68,10 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
 
   // Pace rules
   const paceRules = {
-    "慢热现实向": "[Pace: Slow Burn] Affection grows slowly. Members rarely initiate romantic moves. Focus on details and subtle tension. No rushing into relationship.",
-    "浪漫情感向": "[Pace: Romantic] Balanced sweet/angst. Members may flirt during Flirting stage. Natural progression with mutual attraction.",
-    "高压舆论向": "[Pace: High Pressure] Company alert and secrecy changes are amplified (x2). Scandal events more likely. Media and fan scrutiny higher. Every public interaction carries risk.",
-    "修罗海王向": "[Pace: Harem Route] Affection grows faster. Love triangle probability doubled. Members compete more openly for your attention.",
+    "慢热现实向": "[Pace: Slow Burn] Flipped & Ambiguous. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
+    "浪漫情感向": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage. ",
+    "高压舆论向": "[Pace: High Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans.",
+    "修罗海王向": "[Pace: Harem Route] Light comedic. Love triangle scences probability doubled. Members compete more openly for your attention.",
   };
   const paceRule = paceRules[form.pace] || "";
 
@@ -141,7 +141,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds.
 
 - Story length: 250-350 words in ${lr.lang}
-- Style: Literary, emotional, sensory details (sight/sound/touch/smell)
+- Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
 - Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
@@ -156,6 +156,7 @@ ${groupConfig.groupLore}
 ╔══════════════════════════════════════════╗
 ║ 5. MEMBER PROFILES                       ║
 ╚══════════════════════════════════════════╝
+CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic idol type.
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗
@@ -163,7 +164,6 @@ ${memberDetails}
 ╚══════════════════════════════════════════╝
 Name: ${form.name} | Age: ${form.age}
 Identity: ${form.identity} | Pace: ${form.pace}
-${paceRule}
 Main Member: ${mainMember?.name}(${mainMember?.name_kr})
 ${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
 ${npcList.length > 0 ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)` : ""}
@@ -172,6 +172,7 @@ ${identityBg}
 ╔══════════════════════════════════════════╗
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
+- LANGUAGE: ${lr.lang}.
 - Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual.
 - Instagram: Photo social. Style: aesthetic, short caption + emoji.
 - Weverse: Fan community. Style: friendly, natural.
@@ -210,6 +211,7 @@ LLM decides stat changes +/-1-10 each round, NOT mandatory.
     ${kktFields}
   },
   "story": "Story text in ${lr.lang} (250-350 words). Pure story, NO stat bars, NO options.",
+  "summary": "One English sentence (~100 chars) summary of the round it just wrote, capturing who appeared and what emotionally shifted this round.",
   "options": ["A. option text", "B. option text", "C. option text", "D. Custom"]
 }
 
@@ -223,6 +225,7 @@ RULES:
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
+- summary: ALWAYS required. One short English sentence (~100 chars). Always in English regardless of UI language.
 - ALL content MUST be in ${lr.lang}. For Chinese/English: bubble/social content MUST NOT be in Korean.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 
@@ -250,42 +253,43 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
 
   const backgrounds = {
     zh: {
-      "练习生": `[身份背景] 你是${name}的练习生后辈, 与${name}在训练中自然相识。优势：接触自然，有共同训练记忆。劣势：公司内规严格，身份曝光影响双方前途。`,
-      "Staff": `[身份背景] 你是${name}的Staff(造型/摄影/行政等岗位)，因工作频繁进入${name}的工作半径。优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
-      "韩娱艺人": `[身份背景] 你是其他公司的韩娱艺人，因合作活动与${name}相识。优势:身份平等，娱乐/时尚/影视合作机会。 劣势:公众关注度高,任何同框被粉丝解读, 会产生CP粉和毒唯。`,
-      "粉丝": `[身份背景] 你是${name}的粉丝，通过特殊事件与她建立了私下联系。优势：对${name}有深度了解。劣势：身份极其敏感，曝光会被粉圈放大审判。`,
-      "留学生": `[身份背景] 你是来韩留学的艺术生，因日常活动/共同朋友与${name}相识。优势：公众关注度低，有练舞/唱歌共同话题。劣势：身份差距、文化差异、思乡/学业压力。`,
-      "财阀": `[身份背景] 你是女性财阀，可以给${name}提供娱乐/时尚资源，你与${name}公司高层相识。因商务活动(酒会/时装周/投资)与${name}相识。优势：充足资金和资源。劣势：公众关注度极高，身份差距大。`,
+      "练习生": `[身份背景] 你是${name}的练习生后辈, 与${name}在公司练习室自然相识。\ 典型事件：向${name}请教舞台发声和舞蹈技巧；\ 在公司走廊偶遇时${name}顺手帮你整理了一下发型；\ 深夜练习室和${name}两人练到最后，互相袒露心声；\ 被选入公司综艺后辈特辑与${name}共同出镜等 \ 优势：接触自然，有共同训练记忆。劣势：公司内规严格，前后辈身份差异。`,
+      "Staff": `[身份背景] 你是${name}的新任Staff(助理+经纪人)，负责组合打歌行程、妆发协调、后台照顾${name}等。\ 典型事件：去练习室探班给全组带奶茶，${name}对此感到意外且有些受宠若惊；\ 深夜陪${name}下班开车送她回宿舍，接纳她的脆弱； \ 打歌后台关心${name}状态督促她吃饭等 \ 优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
+      "韩娱艺人": `[身份背景] 你是其他公司的kpop女idol, 与${name}有合作机会。\ 典型事件：你和${name}两人私下排练合作舞台，逐渐熟悉和默契；\ 你和${name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析; \ 你和${name}的综艺同框被剪辑成暧昧视频广泛流传等。 \ 优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。`,
+      "粉丝": `[身份背景] 你是${name}的粉丝，粉丝活动中她似乎对你有超过其他粉丝的特殊对应。\ 典型事件：打歌舞台你抢到前排，${name}的眼神似乎在你身上多停留了一秒；\ 签售会${name}注意到你换了发型/装扮/风格主动提及 \ 你在${name}的bubble粉丝留言板发了条普通的消息, 她接着你的话题和粉丝们聊天 \ 粉丝活动你和${name}拍双人拍立得时${name}凑近搭上了你的肩 \ 优势：对${name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。`,
+      "留学生": `[身份背景] 你是来韩留学生，因与${name}因有共同的舞蹈/唱歌/艺术爱好偶然在日常活动中与${name}相识。优势：有共同爱好, 在日常活动中自然接触。劣势：身份差距、年龄差异`,
+      "财阀": `[身份背景] 你是${name}组合所在公司的新任年轻女会长，主导组合事业走向。\ 典型事件：与${name}所在女团开回归企划讨论会，${name}提出想法令你刮目相看；\ 借关心成员们的名义亲自去探班制造和${name}相处机会；\ 你心疼${name}辛苦于是让秘书给整个组合带薪放假、发奖金等 \ 优势：充足资金和资源。劣势：身份差距。`,
       "主线成员前女友": `[特殊身份背景-主线成员前女友]
-- 你和${name}曾是恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
+- 你和${name}曾是学生时代的恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
 - 你至今保留着${keeps[Math.floor(Math.random()*4)]}
-- 现在重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
+- 现在因工作调动重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
 - 其他成员可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行`,
     },
     en: {
-      "练习生": `[Identity: Trainee] You are a trainee junior who naturally met ${name} through training. Advantage: natural contact, shared memories. Disadvantage: strict company rules, exposure affects both futures.`,
-      "Staff": `[Identity: Staff] You work at SM (styling/photography/admin) and frequently enter ${name}'s work radius. Advantage: access to real off-stage state. Disadvantage: clear workplace boundaries, any ambiguity = misconduct.`,
-      "韩娱艺人": `[Identity: K-pop Artist] You are an artist from another company who met ${name} through collaboration. Advantage: equal status. Disadvantage: high public attention, any interaction analyzed by fans.`,
-      "粉丝": `[Identity: Fan] You are ${name}'s fan who established private contact through special events. Advantage: deep knowledge of ${name}. Disadvantage: extremely sensitive identity, exposure = fan trial.`,
-      "留学生": `[Identity: Student] You are a foreign student in Korea who met ${name} through daily activities/mutual friends. Advantage: low public attention, common interests. Disadvantage: status gap, culture shock, homesickness/academic pressure.`,
-      "财阀": `[Identity: Female chaebol] You can provide entertainment/fashion resources to ${name}. You met ${name} at business events. Advantage: abundant resources. Disadvantage: extreme public attention, status gap.`,
+      "练习生": `[Identity: Trainee] You are a trainee junior of ${name}, and naturally met through training at the company practice room. Typical events: Asking ${name} for vocal and dance tips; ${name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside ${name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy.`,
+      "Staff": `[Identity: Staff] You are ${name}'s new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after ${name} backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching ${name} off guard and feeling touched; Driving ${name} home late at night after schedules, being there for her vulnerable moments; Checking in on ${name} backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct.`,
+      "韩娱艺人": `[Identity: K-pop Artist] You are a K-pop idol from another company, with opportunities to collaborate with ${name}. Typical events: Rehearsing a collaboration stage together in private, growing familiar and in sync; Performing together on Music Bank, your interactions getting screenshotted and wildly analyzed by CP fans; Your variety show appearances together being edited into romantic compilations that circulate widely. Advantage: Equal status, collaboration opportunities. Disadvantage: Extremely high public attention, any interaction dissected by CP fans and solo stans from both sides.`,
+      "粉丝": `[Identity: Fan] You are ${name}'s fan, and during fan events she seems to give you special treatment beyond what other fans receive. Typical events: You grab a front-row spot at a music show, and ${name}'s gaze seems to linger on you a second longer; At a fansign, ${name} notices and brings up your new hairstyle/outfit/style change; You post an ordinary message on ${name}'s Bubble, and she picks up your topic to chat with the fans; During a fan event two-shot Polaroid, ${name} leans in and puts her hand on your shoulder. Advantage: Deep knowledge of ${name}. Disadvantage: Highly sensitive identity, exposure means fandom trial.`,
+      "留学生": `[Identity: International Student] You are an international student in Korea who met ${name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference.`,
+      "财阀": `[Identity: Chaebol] You are the new young female chairwoman of ${name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with ${name}'s group, where ${name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around ${name}; Feeling for ${name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap.`,
       "主线成员前女友": `[Special Identity: Main Member's Ex-Girlfriend]
-- You and ${name} were lovers years ago, separated due to ${reasons[Math.floor(Math.random()*4)]}
-- You still keep ${keeps[Math.floor(Math.random()*4)]}
-- Now reunited: awkwardness, complex feelings, unspoken words. Early interactions: deliberate distance, averted eyes, polite but cold.
-- Other members may or may not know your past. As the game progresses, may reconcile or move on.`,
+- You and ${name} were lovers back in your school days, breaking up years ago due to ${reasons[Math.floor(Math.random()*4)]}
+- You still keep ${keeps[Math.floor(Math.random()*4)]} to this day
+- Now reunited through a work transfer: awkwardness, complex feelings, unspoken words. Early interactions involve deliberate distance, averted eyes, polite but distant
+- Other members may or may not know about your past. As the game progresses, you may reconcile or go your separate ways`,
     },
     ko: {
-      "练习生": `[신분: 연습생] 당신은 연습생 후배로 ${name}와 훈련 중 자연스럽게 알게 되었습니다. 장점: 자연스러운 접촉. 단점: 엄격한 회사 규정.`,
-      "Staff": `[신분: 직원] 당신은 직원(스타일링/촬영/행정 등)으로 업무상 ${name}의 작업 반경에 자주 들어갑니다. 장점: 실제 생활을 알 수 있음. 단점: 명확한 직장 경계.`,
-      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 회사 소속 아티스트로, 협업을 통해 ${name}을 알게 됨. 장점: 동등한 지위. 단점: 대중의 높은 관심.`,
-      "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로 특별한 이벤트를 통해 그녀와 개인적인 연락을 구축했습니다. 장점: 깊은 이해. 단점: 극도로 민감한 신분.`,
-      "留学生": `[신분: 유학생] 당신은 한국에서 미술을 전공하는 학생입니다. 일상 활동/공통 지인을 통해 ${name}을 만났습니다. 장점: 낮은 인지도. 단점: 문화적 충격, 학업 스트레스.`,
-      "财阀": `[신분: 여성 재벌] 당신은 ${name}에게 연예/패션 업계의 자원을 제공할 수 있습니다. 장점: 풍부한 자원. 단점: 높은 대중적 인지도.`,
+      "练习生": `[신분: 연습생] 당신은 ${name}의 연습생 후배로, 회사 연습실에서 자연스럽게 알게 되었습니다. 주요 이벤트: ${name}에게 보컬과 댄스 팁을 구함; 복도에서 우연히 마주친 ${name}이 손수 머리를 정리해 줌; 늦은 밤 연습실에 둘만 남아 서로의 진심을 털어놓음; 회사 예능 후배 특집에 선발되어 ${name}와 함께 출연. 장점: 자연스러운 접촉, 함께한 훈련의 추억. 단점: 엄격한 회사 규정, 선후배 신분 차이.`,
+      "Staff": `[신분: 스태프] 당신은 ${name}의 새로운 스태프(어시스턴트+매니저)로, 그룹의 음악방송 스케줄, 헤어메이크업 조율, 대기실에서 ${name}를 챙기는 일을 맡고 있습니다. 주요 이벤트: 연습실에 밀크티를 들고 찾아가 전 멤버에게 나눠주자 ${name}가 의외라며 감동함; 늦은 밤 스케줄 끝난 ${name}를 차로 숙소까지 데려다주며 그녀의 약한 모습을 감싸줌; 음악방송 대기실에서 ${name}의 컨디션을 살피고 밥을 꼭 챙겨 먹게 함. 장점: 무대 밖 진짜 모습을 볼 수 있음. 단점: 명확한 직장 경계, 애매한 관계는 실책으로 간주될 수 있음.`,
+      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 소속사의 케이팝 여성 아이돌로, ${name}와 협업 기회가 있습니다. 주요 이벤트: 둘이서만 비공개로 합동 무대를 연습하며 점점 가까워지고 호흡이 맞아감; 뮤직뱅크에서 함께한 무대, 상호작용이 CP 팬들에게 캡처되어 열렬히 분석됨; ${name}와의 예능 동반 출연 장면이 묘한 분위기의 영상으로 편집되어 널리 퍼짐. 장점: 동등한 지위, 협업 기회. 단점: 대중의 관심이 극도로 높아 모든 동선이 CP 팬과 양측 독팬에게 해석됨.`,
+      "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로, 팬 이벤트에서 그녀가 다른 팬들에게는 하지 않는 특별한 대응을 당신에게만 보여주는 듯합니다. 주요 이벤트: 음악방송에서 앞줄을 차지한 당신에게 ${name}의 시선이 1초 더 머문 듯한 순간; 팬사인회에서 ${name}가 당신의 바뀐 헤어스타일/스타일링/분위기를 먼저 알아채고 말을 건넴; ${name}의 버블에 평범한 메시지를 남겼는데 그녀가 당신의 주제를 이어받아 팬들과 대화를 나눔; 팬 이벤트 투샷 폴라로이드를 찍을 때 ${name}가 가까이 다가와 어깨에 손을 올림. 장점: ${name}에 대한 깊은 이해. 단점: 극도로 민감한 신분, 발각되면 팬덤의 재판을 받게 됨.`,
+      "留学生": `[신분: 유학생] 당신은 한국에 유학 온 학생으로, 춤/노래/예술이라는 공통된 취미를 통해 일상 속에서 우연히 ${name}와 알게 되었습니다. 장점: 공통된 취미, 일상 활동 속 자연스러운 접촉. 단점: 신분 격차, 나이 차이.`,
+      "财阀": `[신분: 재벌] 당신은 ${name}의 그룹 소속사에 새로 부임한 젊은 여성 회장으로, 그룹의 활동 방향을 이끌고 있습니다. 주요 이벤트: ${name}의 그룹과 컴백 기획 회의를 하던 중 ${name}가 제안한 아이디어에 감탄함; 멤버들을 살피러 왔다는 명목으로 직접 연습실을 방문해 ${name}와 마주할 기회를 만듦; ${name}의 고생이 안쓰러워 비서를 시켜 그룹 전원에게 유급 휴가와 보너스를 지급함. 장점: 풍부한 자금과 자원. 단점: 신분 격차.`,
       "主线成员前女友": `[특별 신분: 메인 멤버의 전 여자친구]
-- 당신과 ${name}는 몇 년 전 연인이었으나 ${reasons[Math.floor(Math.random()*4)]}로 인해 헤어졌습니다
+- 당신과 ${name}는 학창 시절 연인이었으며, 몇 년 전 ${reasons[Math.floor(Math.random()*4)]}로 인해 헤어졌습니다
 - 당신은 아직도 ${keeps[Math.floor(Math.random()*4)]}을/를 간직하고 있습니다
-- 현재 재회: 어색함, 복잡한 감정. 초기에는 의도적인 거리두기.`,
+- 지금은 업무 발령으로 재회: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠
+- 다른 멤버들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다`,
     },
   };
   return (backgrounds[language] || backgrounds.zh)[identity] || "";
@@ -324,7 +328,7 @@ function parseLLMOutput(text) {
   }
 
   // Preprocess: escape unescaped newlines in story field
-  const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"options"/);
+  const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"(?:summary|options)"/);
   if (storyMatch) {
     const rawStory = storyMatch[1];
     const escapedStory = rawStory
@@ -404,9 +408,14 @@ function validateAndFixOutput(result) {
   if (!result.affectionChanges) result.affectionChanges = {};
   if (!result.socialContent) result.socialContent = {};
   if (!result.kktMessages) result.kktMessages = {};
+  if (!result.summary || typeof result.summary !== "string") result.summary = "";
   if (!result.story || result.story.length < 20) result.story = "The story continues...";
-  if (result.story && result.story.includes('\\n')) {
-    result.story = result.story.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+  if (result.story && /\\[n"\/\\]/.test(result.story)) {
+    result.story = result.story
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\//g, '/')
+      .replace(/\\\\/g, '\\');
   }
   if (!result.options || !Array.isArray(result.options) || result.options.length < 4) {
     result.options = ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"];
@@ -454,7 +463,8 @@ export async function executeRound({
   const npcIds = members.map(m => m.id).filter(id => !allTargetIds.includes(id));
 
   // Step 1: Context
-  const memoryContext = buildMemoryContext(memory, members, mainId, MEMORY_ROUNDS);
+  const roundMemberIds = allTargetIds;
+  const memoryContext = buildMemoryContext(memory, members, mainId, roundMemberIds);
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language);
 
   // Step 1.5: Init round variables
@@ -542,13 +552,13 @@ export async function executeRound({
   const updatedMemory = updateMemory(memory, {
     playerStats: { selfId: newStats.selfId, secrecy: newStats.secrecy, mood: newStats.mood, week: newStats.week, scene: newStats.scene, chapter: newStats.chapter },
     affections: currentAff,
-    storyRound: { round: roundNum, story: parsed.story?.substring(0, 500) || "", playerChoice },
-    socialPosts: Object.entries(socialContent).filter(([mid]) => allTargetIds.includes(mid)).map(([mid, p]) => ({ platform: "all", memberId: mid, content: p?.bubble?.[0]?.content || p?.instagram?.caption || p?.weverse?.content || "", time: new Date().toLocaleTimeString() })),
+    summary: parsed.summary ? { round: roundNum, memberId: primaryId, summary: parsed.summary } : null,
+    storyRound: { round: roundNum, story: parsed.story || "", playerChoice },
     kktMessages: filteredKkt,
     stageChanges,
     memberAppearances: { [primaryId]: [roundNum] },
     npcAppearances,
-  }, MEMORY_ROUNDS);
+  });
 
   return {
     newStats,

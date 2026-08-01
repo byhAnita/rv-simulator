@@ -3,10 +3,10 @@ import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
-import { createEmptyMemory } from "./agent/memoryPool";
+import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS } from "./config/modelConfigs";
-import { KKT_THRESHOLD, MEMORY_ROUNDS, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
+import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
@@ -51,7 +51,7 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
 export default function App() {
   const [language, setLanguage] = useState(() => loadFromStorage("rv_sim_language") || "zh");  // ← language 先声明
   const { t, interpolate } = useTranslation(language);  // ← 然后 useTranslation
-  const [selectedGroup, setSelectedGroup] = useState(() => loadFromStorage("rv_sim_group") || "red_velvet");
+  const [selectedGroup, setSelectedGroup] = useState(() => loadFromStorage("rv_sim_group") || null);
   const [groupList, setGroupList] = useState([]);
   const [phase, setPhase] = useState("cover");
   const [apiKey, setApiKey] = useState(() => loadFromStorage(STORAGE_KEYS.API_KEY) || "");
@@ -89,14 +89,15 @@ export default function App() {
   useEffect(() => {
     loadGroupIndex().then(list => {
       setGroupList(list);
-      if (!list.find(g => g.id === selectedGroup)) {
-        setSelectedGroup(list[0]?.id || "red_velvet");
+      if (selectedGroup && !list.find(g => g.id === selectedGroup)) {
+        setSelectedGroup(null);
       }
     }).catch(console.error);
   }, []);
 
   // 当 selectedGroup 变化时，重新加载 RAG：
   useEffect(() => {
+    if (!selectedGroup) return;
     loadGroupConfig(selectedGroup, language).then(config => {
       setGroupConfig(config);
       setMembers(config.members);
@@ -202,7 +203,13 @@ export default function App() {
     setMessages(save.messages);
     statsRef.current = save.stats;
     setStats({ ...save.stats });
-    memoryRef.current = save.memory || createEmptyMemory();
+    const savedMemory = save.memory || createEmptyMemory();
+    if (isLegacyMemory(savedMemory)) {
+      console.warn("[loadSave] Legacy memory shape detected (v11 save), resetting memory");
+      memoryRef.current = createEmptyMemory();
+    } else {
+      memoryRef.current = savedMemory;
+    }
     setSocialFeeds(save.socialFeeds || {});
     setKktMessages(save.kktMessages || {});
     setKktUnlocked(save.kktUnlocked || {});
@@ -313,9 +320,9 @@ export default function App() {
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "AI文游·女团恋爱养成·v11.1 RAG", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "AI Text Adventure · Idol Dating Sim · v11.1 RAG", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "처형 시뮬레이터", desc: "AI 텍스트 어드벤처 · 여성 연애 시뮬레이션 · v11.1 RAG", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.1.0", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.1.0", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.1.0", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
 
@@ -368,7 +375,13 @@ export default function App() {
           ))}
         </div>
 
-        <button onClick={() => { if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput"); }} style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{ct.newGame}</button>
+        <button
+          onClick={() => {
+            if (!selectedGroup) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
+            if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput");
+          }}
+          style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: selectedGroup ? "pointer" : "default", background: selectedGroup ? "linear-gradient(135deg,#e887b0,#c86dd0)" : "rgba(180,120,160,.3)", color: selectedGroup ? "#fff" : "#a07090", fontSize: 15, fontWeight: 700, marginBottom: 10 }}
+        >{ct.newGame}</button>
         {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{ct.continue}</button>}
         <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{ct.apiKey}</button>
       </div>
@@ -420,17 +433,16 @@ export default function App() {
             border: "1px solid rgba(232,120,176,.15)",
           }}>
             <p style={{ fontSize: 11, color: "#f8c8d8", fontWeight: 700, marginBottom: 4 }}>{t.guide?.title}</p>
-            <p style={{ fontSize: 9, color: "#c898b8", marginBottom: 6, lineHeight: 1.5 }}>{t.guide?.intro}</p>
             {(t.guide?.steps || []).map((step, i) => (
-              <p key={i} style={{ fontSize: 9, color: "#c898b8", marginBottom: 2, lineHeight: 1.5 }}>
+              <p key={i} style={{ fontSize: 11, color: "#f8c8d8", marginBottom: 2, lineHeight: 2 }}>
                 {step.replace('{platform}', currentPlatformName).replace('{prefix}', MODEL_CONFIGS[selectedModel]?.keyPrefix || 'sk-')}
               </p>
             ))}
-            <p style={{ fontSize: 9, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>{t.guide?.warning}</p>
-            <p style={{ fontSize: 8, color: "#907080", marginTop: 3 }}>{t.guide?.keyManagement}</p>
-            <p style={{ fontSize: 8, color: "#907080", marginTop: 2 }}>{t.guide?.billing}</p>
-            <p style={{ fontSize: 8, color: "#907080", marginTop: 2 }}>{t.guide?.moreModels}</p>
-            <p style={{ fontSize: 8, color: "#907080", marginTop: 2 }}>{t.guide?.noProfit}</p>
+            <p style={{ fontSize: 12, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>{(t.guide?.billing || "").replace("{gameplay}", MODEL_CONFIGS[selectedModel]?.gameplay?.[language] || "")}</p>
+            <p style={{ fontSize: 9, color: "#846875", marginTop: 3 , fontWeight: 450}}>{t.guide?.warning}</p>
+            <p style={{ fontSize: 9, color: "#907080", marginTop: 2 , fontWeight: 450}}>{t.guide?.keyManagement}</p>
+            <p style={{ fontSize: 9, color: "#907080", marginTop: 2 , fontWeight: 450}}>{t.guide?.moreModels}</p>
+            <p style={{ fontSize: 9, color: "#907080", marginTop: 2 , fontWeight: 450}}>{t.guide?.noProfit}</p>
           </div>
 
           {/* Key Input */}

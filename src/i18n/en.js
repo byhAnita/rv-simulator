@@ -1,7 +1,7 @@
 const en = {
   cover: {
-    subtitle: "Sister-in-law Simulator",
-    desc: "AI Text Adventure · Yuri Dating Sim · v11.1 RAG",
+    subtitle: "Idol Dating Simulator",
+    desc: "LLM Text Adventure · Yuri Dating Sim · v1.1.0",
     newGame: "✨ New Game",
     continue: "💾 Continue (Load Save)",
     apiKey: "🔑 API Key / Model",
@@ -9,21 +9,21 @@ const en = {
   lang: { zh: "中文", en: "English", ko: "한국어" },
   keyInput: {
     title: "Set API Key & Model",
-    desc: "Key is stored locally only, never uploaded",
-    selectModel: "🤖 Select AI Model",
+    desc: "Stories are generated using your LLM API Key",
+    selectModel: "🤖 Select LLM Model",
     placeholder: "Enter API Key",
     confirm: "Confirm →",
     back: "Back",
   },
   setup: {
     title: "💗 Character Creation",
-    ragLoading: "RAG loaded:",
+    ragLoading: "Group loaded:",
     keyConfigured: "🔑 Key configured",
     keyMissing: "⚠️ Key missing",
     change: "Change",
     mainMember: (aff) => `🌸 Main Member (Initial Affection: ${aff})`,
     subMember: (min, max, total) => `🌿 Sub Members (0~${total} selectable, Initial: ${min}~${max})`,
-    npcHint: "🤝 NPC Members:",
+    npcHint: "🤝 NPC:",
     identity: "💼 Identity",
     customIdentity: "Custom identity...",
     basicInfo: "📝 Basic Info",
@@ -55,7 +55,7 @@ const en = {
   },
   save: {
     title: "💾 Save Management",
-    saveBtn: "💗 Save Current Progress (Overwrite)",
+    saveBtn: "💗 Save Current Progress (max 10 slots)",
     noSaves: "No saves yet",
     load: "Load",
     delete: "Del",
@@ -95,19 +95,19 @@ const en = {
 
     guide: {
     title: "📖 API Key Guide",
-    intro: "This game uses your API Key to generate stories via AI. The game itself is completely free.",
     steps: [
       "① Open {platform}, sign up and log in",
-      "② Go to the 'API Keys' page",
-      "③ Click 'Create API Key', give it a name, and create",
-      "④ Copy the generated Key (format: {prefix}...)",
+      "② Go to the 'Usage' page, top up as needed",
+      "③ Go to the 'API Keys' page, click 'Create API Key'",
+      "④ Give it a name to create, copy the generated Key (format: {prefix}...)",
       "⑤ Return here, select the matching model, paste your Key, confirm",
+      "⑥ Share this page in your browser → Add to Home Screen (iOS/Android) to create an app icon for easy access next time",
     ],
-    warning: "⚠️ Your Key is stored only in your browser. Never share it or post it publicly — it may lead to stolen credits.",
-    keyManagement: "🔑 If Key is lost/leaked: delete the old Key on the platform and create a new one following the steps above.",
-    billing: "💰 $1 ~$2 per week. You can check usage and top up on the platform as needed.",
+    billing: "💰 {gameplay} of gameplay. Check usage and top up on the platform as needed.",
+    warning: "⚠️ Never share your key or post it publicly — it may lead to stolen credits.",
     moreModels: "🚧 If the current model is unavailable, switch to another model and use its corresponding Key.",
-    noProfit: "💡 This is a fan-made non-profit game. Any top-up goes to your AI platform account.",
+    keyManagement: "🔑 If Key is lost/leaked: delete the old Key on the platform and create a new one.",
+    noProfit: "💡 This is a fan-made non-profit game. Any top-up goes to your LLM platform account.",
   },
 
 };

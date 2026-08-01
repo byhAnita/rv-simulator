@@ -27,7 +27,7 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
           ...history.filter(m => !m.hidden).map(m => ({ role: m.role, content: m.content })),
           { role: "user", content: userMsg },
         ],
-        max_tokens: 8192,
+        max_tokens: 200000,
         temperature: 0.92,
       }),
       signal,
