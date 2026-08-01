@@ -128,7 +128,7 @@ ${lr.socialRule}
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text outside JSON.
-Every key (statChanges, affectionChanges, socialContent, kktMessages, story, options) must appear EXACTLY ONCE.
+Every key (statChanges, affectionChanges, socialContent, kktMessages, story, summary, options) must appear EXACTLY ONCE.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.
 story value = ONE continuous text, no JSON syntax inside it.
@@ -151,6 +151,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 
 ║ 4. GROUP BACKGROUND                      ║
 ╚══════════════════════════════════════════╝
+This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.
 ${groupConfig.groupLore}
 
 ╔══════════════════════════════════════════╗
@@ -162,8 +163,9 @@ ${memberDetails}
 ╔══════════════════════════════════════════╗
 ║ 6. PLAYER SETTINGS                       ║
 ╚══════════════════════════════════════════╝
-Name: ${form.name} | Age: ${form.age}
-Identity: ${form.identity} | Pace: ${form.pace}
+Name: ${form.name} | Player: young WLW woman
+Identity: ${form.identity}
+Progression Pace: ${form.pace}
 Main Member: ${mainMember?.name}(${mainMember?.name_kr})
 ${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
 ${npcList.length > 0 ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)` : ""}
@@ -211,8 +213,8 @@ LLM decides stat changes +/-1-10 each round, NOT mandatory.
     ${kktFields}
   },
   "story": "Story text in ${lr.lang} (250-350 words). Pure story, NO stat bars, NO options.",
-  "summary": "One English sentence (~100 chars) summary of the round it just wrote, capturing who appeared and what emotionally shifted this round.",
-  "options": ["A. option text", "B. option text", "C. option text", "D. Custom"]
+  "summary": "One sentence (~100 chars) summarizing what happened this round and who appeared. In English.",
+  "options": ["A. option text", "B. option text", "C. option text", "D. option text"]
 }
 
 RULES:
@@ -224,9 +226,10 @@ RULES:
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
+- summary: ALWAYS required. One short English sentence capturing who appeared and what emotionally shifted.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
-- summary: ALWAYS required. One short English sentence (~100 chars). Always in English regardless of UI language.
-- ALL content MUST be in ${lr.lang}. For Chinese/English: bubble/social content MUST NOT be in Korean.
+- ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
+- For Chinese/English: bubble/social content MUST NOT be in Korean.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 
 [MEMORY CONTEXT - Generate based on this]
@@ -328,6 +331,7 @@ function parseLLMOutput(text) {
   }
 
   // Preprocess: escape unescaped newlines in story field
+  // "summary" now sits between "story" and "options" in the schema
   const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"(?:summary|options)"/);
   if (storyMatch) {
     const rawStory = storyMatch[1];
@@ -408,14 +412,14 @@ function validateAndFixOutput(result) {
   if (!result.affectionChanges) result.affectionChanges = {};
   if (!result.socialContent) result.socialContent = {};
   if (!result.kktMessages) result.kktMessages = {};
-  if (!result.summary || typeof result.summary !== "string") result.summary = "";
   if (!result.story || result.story.length < 20) result.story = "The story continues...";
-  if (result.story && /\\[n"\/\\]/.test(result.story)) {
-    result.story = result.story
-      .replace(/\\n/g, '\n')
-      .replace(/\\"/g, '"')
-      .replace(/\\\//g, '/')
-      .replace(/\\\\/g, '\\');
+  if (!result.summary || typeof result.summary !== "string") result.summary = "";
+  // Strip any summary text the LLM may have appended to the story field
+  if (result.story && result.summary && result.story.includes(result.summary.substring(0, 20))) {
+    result.story = result.story.replace(result.summary, "").replace(/\s*[\[(【]?[Ss]ummary[^\]】)]*[\]】)]?\s*$/, "").trim();
+  }
+  if (result.story && result.story.includes('\\n')) {
+    result.story = result.story.replace(/\\n/g, '\n').replace(/\\"/g, '"');
   }
   if (!result.options || !Array.isArray(result.options) || result.options.length < 4) {
     result.options = ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"];
