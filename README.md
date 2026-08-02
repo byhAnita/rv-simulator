@@ -384,4 +384,4 @@ KKT injection rule
 
 MIT License — Fan-made non-profit project. All idol content is fictional parallel-universe creation and does not represent real artists.
 
-```
+---
