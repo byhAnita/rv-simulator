@@ -414,7 +414,14 @@ function validateAndFixOutput(result) {
   if (!result.kktMessages) result.kktMessages = {};
   if (!result.story || result.story.length < 20) result.story = "The story continues...";
   if (!result.summary || typeof result.summary !== "string") result.summary = "";
-  // Strip any summary text the LLM may have appended to the story field
+  // Strip any leaked JSON fragments the LLM embedded at the end of the story string.
+  // Covers: ,"summary":"...", ,"options":[...], and similar key-value tails.
+  if (result.story) {
+    result.story = result.story
+      .replace(/,?\s*"(?:summary|options|scene|statChanges|affectionChanges|socialContent|kktMessages)"\s*:[\s\S]*$/i, "")
+      .trim();
+  }
+  // Secondary: strip if summary text itself was appended as plain prose
   if (result.story && result.summary && result.story.includes(result.summary.substring(0, 20))) {
     result.story = result.story.replace(result.summary, "").replace(/\s*[\[(【]?[Ss]ummary[^\]】)]*[\]】)]?\s*$/, "").trim();
   }
