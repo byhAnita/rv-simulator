@@ -1,6 +1,7 @@
 // src/tools/llmTool.js
 // LLM Tool: 4种模型 API 路由
-
+// VERSION: v2-cachefix-20240802
+console.log("🔥 llmTool.js LOADED — version v2-cachefix");
 import { MODEL_CONFIGS } from "../config/modelConfigs";
 
 /**
@@ -12,27 +13,43 @@ import { MODEL_CONFIGS } from "../config/modelConfigs";
  * @param {string} modelId - 模型 ID (deepseek/gemini/claude/gpt4omini)
  * @returns {Promise<string>} LLM 回复
  */
-async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal) {
+
+async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal, prebuiltMessages = null) {
   const cfg = MODEL_CONFIGS[modelId];
 
   let resp;
   if (cfg.format === "openai") {
+    const messages = prebuiltMessages || [
+      { role: "system", content: systemPrompt },
+      ...history.filter(m => !m.hidden).map(m => ({ role: m.role, content: m.content })),
+      { role: "user", content: userMsg },
+    ];
+
+    // 🔍 DEBUG: Log what's being sent
+    console.log("🔥🔥🔥 callLLM v2 entered — prebuiltMessages:", !!prebuiltMessages, "args count:", arguments.length);
+    console.log("[DEBUG] Using prebuiltMessages:", !!prebuiltMessages);
+    console.log("[DEBUG] Messages count:", messages.length);
+    console.log("[DEBUG] System prompt first 200 chars:", messages[0]?.content?.substring(0, 200));
+    console.log("[DEBUG] System prompt contains 'json':", messages[0]?.content?.toLowerCase().includes('json'));
+    console.log("[DEBUG] All messages content contains 'json':", JSON.stringify(messages).toLowerCase().includes('json'));
+    
     resp = await fetch(cfg.url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
       body: JSON.stringify({
         model: cfg.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...history.filter(m => !m.hidden).map(m => ({ role: m.role, content: m.content })),
-          { role: "user", content: userMsg },
-        ],
+        messages,
+        thinking: { type: "enabled" },
+        reasoning_effort: "high",
+        response_format: { type: "json_object" },
         max_tokens: 200000,
         temperature: 0.92,
       }),
       signal,
     });
-  } else if (cfg.format === "gemini") {
+  }
+
+  else if (cfg.format === "gemini") {
     resp = await fetch(`${cfg.url}?key=${apiKey.trim()}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,7 +111,7 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   return content;
 }
 
-export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = "deepseek") {
+export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = "deepseek", prebuiltMessages = null) {
   if (!apiKey?.trim()) throw new Error("请设置 API Key");
 
   const cfg = MODEL_CONFIGS[modelId];
@@ -105,10 +122,9 @@ export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = 
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90000);
     try {
-      const content = await callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, ctrl.signal);
+      const content = await callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, ctrl.signal, prebuiltMessages);
       clearTimeout(tid);
       if (content) return content;
-      // Empty response — retry unless last attempt
       if (attempt < MAX_RETRIES) {
         console.warn(`[callLLM] Empty response on attempt ${attempt + 1}, retrying in 1s…`);
         await new Promise(r => setTimeout(r, 1000));
@@ -118,8 +134,7 @@ export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = 
       }
     } catch (e) {
       clearTimeout(tid);
-      if (e.name === "AbortError") throw new Error("请求超时");
-      // Retry on transient network errors, throw on last attempt
+      if (e.name === "AbortError") throw new Error("Error: LLM API request timeout");
       if (attempt < MAX_RETRIES) {
         console.warn(`[callLLM] Error on attempt ${attempt + 1}: ${e.message}, retrying in 1s…`);
         await new Promise(r => setTimeout(r, 1000));

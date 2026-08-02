@@ -1,6 +1,6 @@
 {
-  "name": "Red Velvet 嫂嫂模拟器",
-  "short_name": "RV嫂子",
+  "name": "Idol Dating Sim",
+  "short_name": "IdolSim",
   "start_url": "/rv-simulator/",
   "scope": "/rv-simulator/",
   "display": "standalone",

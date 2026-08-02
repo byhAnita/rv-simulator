@@ -114,7 +114,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const mainSocial = `"${mainId}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`;
   const subSocials = subIds.map(id => `"${id}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`).join(",");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
-  return `You are the Dungeon Master (DM) of a yuri dating simulator. This is a parallel-universe fictional work. Current AI: ${modelName}
+  return `You are the Dungeon Master (DM) of a yuri dating simulator. You must respond with valid json output. This is a parallel-universe fictional work. Current AI: ${modelName}
 
 ╔══════════════════════════════════════════╗
 ║ 1. LANGUAGE RULE - HIGHEST PRIORITY      ║
@@ -232,8 +232,8 @@ RULES:
 - For Chinese/English: bubble/social content MUST NOT be in Korean.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 
-[MEMORY CONTEXT - Generate based on this]
-${memoryContext}`;
+// Change to:
+${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}` : ''}`;
 }
 
 // ============================================================
@@ -469,15 +469,33 @@ export async function executeRound({
   // Step 1: Context
   const roundMemberIds = allTargetIds;
   const memoryContext = buildMemoryContext(memory, members, mainId, roundMemberIds);
-  const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language);
+  
+  // ✅ Build system prompt WITHOUT memory context — this makes it CACHEABLE
+  const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language);
+  //                                                                                     ^^
+  //                                                                           Empty string = no memory context injected
 
   // Step 1.5: Init round variables
   let roundNotifs = [];
   let socialFeedsUpdate = {};
 
-  // Step 2: LLM
-  const llmInput = `Player choice: ${playerChoice}\nGenerate the next round. Output ONLY valid JSON.`;
-  const llmOutput = await callLLM(llmInput, [], systemPrompt, apiKey, selectedModel);
+  // Step 2: LLM — cache-optimized messages array
+  const cacheOptimizedMessages = [
+  { role: "system", content: systemPrompt },
+  { role: "user", content: `[MEMORY CONTEXT - respond with JSON]\n${memoryContext}` },
+  { role: "user", content: `Player choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` }
+];
+  
+  // Pass the full messages array — no separate systemPrompt or history needed
+  // debug log
+  console.log("[DEBUG executeRound] cacheOptimizedMessages count:", cacheOptimizedMessages.length);
+  console.log("[DEBUG executeRound] First message role:", cacheOptimizedMessages[0]?.role);
+  console.log("[DEBUG executeRound] First message contains 'json':", cacheOptimizedMessages[0]?.content?.toLowerCase().includes('json'));
+  console.log("[DEBUG executeRound] All messages contain 'json':", JSON.stringify(cacheOptimizedMessages).toLowerCase().includes('json'));
+  console.log("[DEBUG executeRound] cacheOptimizedMessages is:", cacheOptimizedMessages);
+  console.log("[DEBUG executeRound] passing as 7th arg:", !!cacheOptimizedMessages);
+
+  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages);
   const parsed = parseLLMOutput(llmOutput);
 
   // Step 3: Compute
@@ -490,6 +508,7 @@ export async function executeRound({
     scene: parsed.scene || stats.scene,
     chapter: getChapterByRound(stats.week + 1),
   };
+  // ... rest stays exactly the same ...
 
   if (parsed.affectionChanges) {
     newStats.multiAff = { ...stats.multiAff };
