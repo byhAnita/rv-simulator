@@ -76,7 +76,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 ╚══════════════════════════════════════════╝
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds.
 
-- Story length: 300 - 400 words in ${w.lang}
+- Story length: 350 - 450 words in ${w.lang}
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
@@ -149,7 +149,7 @@ LLM decides stat changes +/-1-10 each round, NOT mandatory.
   "kktMessages": {
     ${_}
   },
-  "story": "Story text in ${w.lang} (300-400 words). Pure story, NO stat bars, NO options.",
+  "story": "Story text in ${w.lang} (350-450 words). Pure story, NO stat bars, NO options.",
   "summary": "One sentence (~100 chars) summarizing what happened this round and who appeared. In English.",
   "options": ["A. option text", "B. option text", "C. option text", "D. option text"]
 }
