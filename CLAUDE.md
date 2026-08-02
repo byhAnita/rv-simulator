@@ -372,5 +372,3 @@ git push origin v13.0.0
 6. Restore `index.html` to dev mode (not committed)
 
 ```
-
-```
