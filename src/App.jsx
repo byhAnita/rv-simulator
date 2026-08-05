@@ -1,4 +1,4 @@
-import { createInitialStats, executeRound, popPendingSocial } from "./agent/mainAgent";
+import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial } from "./agent/mainAgent";
 import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -79,6 +79,8 @@ export default function App() {
   const [topMember, setTopMember] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const preRoundSnapshotRef = useRef(null);
+  const [copiedStory, setCopiedStory] = useState(false);
 
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
@@ -172,6 +174,14 @@ export default function App() {
         setActiveNotifications(prevSocial.notifs);
       }
       
+      preRoundSnapshotRef.current = {
+        stats: { ...initialStats },
+        memory: JSON.parse(JSON.stringify(mem)),
+        kktUnlocked: {},
+        kktMessages: {},
+        triggeredAchievements: new Set(),
+        playerChoice: "Game start",
+      };
       const result = await executeRound({
         playerChoice: "Game start",
         stats: initialStats,
@@ -259,6 +269,14 @@ export default function App() {
         setActiveNotifications(prevSocial.notifs);
       }
 
+      preRoundSnapshotRef.current = {
+        stats: { ...statsRef.current },
+        memory: JSON.parse(JSON.stringify(memoryRef.current)),
+        kktUnlocked: { ...kktUnlocked },
+        kktMessages: JSON.parse(JSON.stringify(kktMessages)),
+        triggeredAchievements: new Set(triggeredAchievements),
+        playerChoice: cleanText,
+      };
       const result = await executeRound({
         playerChoice: text,
         stats: statsRef.current,
@@ -291,6 +309,83 @@ export default function App() {
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
       setMessages(p => [...p, { role: "assistant", content: "Error: " + e.message }]);
+    }
+    setLoading(false);
+  };
+
+  const copyStory = (content) => {
+    const sb = content.match(/╔[\s\S]*?╚[═─]+╝/);
+    let text = sb ? content.slice(content.indexOf(sb[0]) + sb[0].length) : content;
+    text = text.replace(/\n?[ABCD][.、．]\s*.+/g, '').trim();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedStory(true);
+      setTimeout(() => setCopiedStory(false), 2000);
+    });
+  };
+
+  const regenerateRound = async () => {
+    const snap = preRoundSnapshotRef.current;
+    if (!snap || loading) return;
+
+    // Restore pre-round state (socialFeeds intentionally excluded — popPendingSocial already ran)
+    statsRef.current = { ...snap.stats };
+    setStats({ ...snap.stats });
+    memoryRef.current = JSON.parse(JSON.stringify(snap.memory));
+    setKktMessages(JSON.parse(JSON.stringify(snap.kktMessages)));
+    setKktUnlocked({ ...snap.kktUnlocked });
+    setTriggeredAchievements(new Set(snap.triggeredAchievements));
+    setAchievement(null);
+    setSpecialEvent(null);
+
+    // Remove last assistant message (old generated version is discarded)
+    setMessages(prev => {
+      const idx = [...prev].map((m, i) => ({ m, i })).filter(({ m }) => m.role === "assistant" && !m.hidden).at(-1)?.i;
+      return idx != null ? prev.filter((_, i) => i !== idx) : prev;
+    });
+
+    // Clear pending social stored by the discarded round
+    resetPendingSocial();
+    setLoading(true);
+
+    try {
+      const result = await executeRound({
+        playerChoice: snap.playerChoice,
+        stats: snap.stats,
+        memory: JSON.parse(JSON.stringify(snap.memory)),
+        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        members, mainId: form.mainMember, subIds: form.subMembers || [],
+        groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language,
+      });
+
+      const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
+      const newStats = { ...result.newStats, _prevAffections: prevAff };
+      statsRef.current = newStats;
+      setStats({ ...newStats });
+      memoryRef.current = result.updatedMemory;
+
+      const newKkt = { ...snap.kktMessages };
+      for (const [k, v] of Object.entries(result.kktUpdate || {})) {
+        newKkt[k] = [...(snap.kktMessages[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20);
+      }
+      setKktMessages(newKkt);
+      setKktUnlocked(result.newKktUnlocked);
+      setTopMember(result.topMember);
+
+      if (result.specialEvent) {
+        setSpecialEvent(result.specialEvent);
+      } else if (result.relationshipEvent) {
+        showNotif(result.relationshipEvent.title + ": " + result.relationshipEvent.description);
+      }
+      if (result.achievement && !snap.triggeredAchievements.has(result.achievement.id)) {
+        setAchievement(result.achievement);
+        setTriggeredAchievements(prev => new Set([...prev, result.achievement.id]));
+      }
+
+      const statsBox = buildStatsBox(newStats, members, form.mainMember, form.subMembers || [], t);
+      setCurrentOptions(result.options);
+      setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
+    } catch (e) {
+      setMessages(p => [...p, { role: "assistant", content: "Regenerate failed: " + e.message }]);
     }
     setLoading(false);
   };
@@ -646,13 +741,23 @@ export default function App() {
         {/* Story Area */}
         <div style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
           {messages.length === 0 && <div style={{ textAlign: "center", padding: "50px 16px", color: "#503050" }}><div style={{ fontSize: 32, marginBottom: 10, animation: "blink 2s infinite" }}>💗</div><div style={{ fontSize: 12 }}>Generating opening story...</div></div>}
-          {messages.map((msg, i) => {
-            if (msg.hidden) return null;
-            if (msg.role === "user") return <div key={i} style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><div style={{ background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", padding: "8px 14px", borderRadius: "14px 14px 3px 14px", maxWidth: "80%", fontSize: 12, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.content}</div></div>;
-            const sb = msg.content.match(/╔[\s\S]*?╚[═─]+╝/);
-            if (sb) { let af = msg.content.slice(msg.content.indexOf(sb[0]) + sb[0].length); af = af.replace(/\n?[ABCD][.、．]\s*.+/g, '').trim(); return <div key={i} style={{ marginBottom: 14 }}><div style={{ background: "rgba(20,8,28,.95)", border: "1px solid rgba(232,135,176,.3)", borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontFamily: "'Courier New',monospace", fontSize: 10, color: "#d0a8c0", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{sb[0]}</div>{af && <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(232,120,176,.15)", borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", color: "#f0dce8" }}>{af}</div>}</div>; }
-            return <div key={i} style={{ marginBottom: 14 }}><div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(232,120,176,.15)", borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", color: "#f0dce8" }}>{msg.content}</div></div>;
-          })}
+          {(() => {
+            const lastAsstIdx = messages.reduce((acc, m, i) => !m.hidden && m.role === "assistant" ? i : acc, -1);
+            const actionBar = (content) => (
+              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
+                <button onClick={() => copyStory(content)} title="Copy story" style={{ background: "none", border: "1px solid rgba(232,120,176,.22)", borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: copiedStory ? "#6db87a" : "#a07090", fontSize: 16, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>{copiedStory ? "✓" : "⎘"}</button>
+                {preRoundSnapshotRef.current && <button onClick={regenerateRound} title="Retry this round" style={{ background: "none", border: "1px solid rgba(232,120,176,.22)", borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: "#a07090", fontSize: 18, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>↺</button>}
+              </div>
+            );
+            return messages.map((msg, i) => {
+              if (msg.hidden) return null;
+              if (msg.role === "user") return <div key={i} style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><div style={{ background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", padding: "8px 14px", borderRadius: "14px 14px 3px 14px", maxWidth: "80%", fontSize: 12, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.content}</div></div>;
+              const isLast = i === lastAsstIdx && !loading;
+              const sb = msg.content.match(/╔[\s\S]*?╚[═─]+╝/);
+              if (sb) { let af = msg.content.slice(msg.content.indexOf(sb[0]) + sb[0].length); af = af.replace(/\n?[ABCD][.、．]\s*.+/g, '').trim(); return <div key={i} style={{ marginBottom: 14 }}><div style={{ background: "rgba(20,8,28,.95)", border: "1px solid rgba(232,135,176,.3)", borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontFamily: "'Courier New',monospace", fontSize: 10, color: "#d0a8c0", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{sb[0]}</div>{af && <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(232,120,176,.15)", borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", color: "#f0dce8" }}>{af}</div>}{isLast && actionBar(msg.content)}</div>; }
+              return <div key={i} style={{ marginBottom: 14 }}><div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(232,120,176,.15)", borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", color: "#f0dce8" }}>{msg.content}</div>{isLast && actionBar(msg.content)}</div>;
+            });
+          })()}
           {loading && <div style={{ display: "flex", gap: 4, padding: 8, alignItems: "center" }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: "#e887b0", animation: `blink 1.2s ${i * .2}s infinite` }} />)}<span style={{ fontSize: 10, color: "#a07090", marginLeft: 2 }}>Story progressing...</span></div>}
           <div ref={bottomRef} />
         </div>

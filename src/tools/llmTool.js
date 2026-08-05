@@ -17,79 +17,39 @@ import { MODEL_CONFIGS } from "../config/modelConfigs";
 async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal, prebuiltMessages = null) {
   const cfg = MODEL_CONFIGS[modelId];
 
-  let resp;
-  if (cfg.format === "openai") {
-    const messages = prebuiltMessages || [
-      { role: "system", content: systemPrompt },
-      ...history.filter(m => !m.hidden).map(m => ({ role: m.role, content: m.content })),
-      { role: "user", content: userMsg },
-    ];
+  const messages = prebuiltMessages || [
+    { role: "system", content: systemPrompt },
+    ...history.filter(m => !m.hidden).map(m => ({ role: m.role, content: m.content })),
+    { role: "user", content: userMsg },
+  ];
 
-    // 🔍 DEBUG: Log what's being sent
-    console.log("🔥🔥🔥 callLLM v2 entered — prebuiltMessages:", !!prebuiltMessages, "args count:", arguments.length);
-    console.log("[DEBUG] Using prebuiltMessages:", !!prebuiltMessages);
-    console.log("[DEBUG] Messages count:", messages.length);
-    console.log("[DEBUG] System prompt first 200 chars:", messages[0]?.content?.substring(0, 200));
-    console.log("[DEBUG] System prompt contains 'json':", messages[0]?.content?.toLowerCase().includes('json'));
-    console.log("[DEBUG] All messages content contains 'json':", JSON.stringify(messages).toLowerCase().includes('json'));
-    
-    resp = await fetch(cfg.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages,
-        thinking: { type: "enabled" },
-        reasoning_effort: "high",
-        response_format: { type: "json_object" },
-        max_tokens: 200000,
-        temperature: 0.92,
-      }),
-      signal,
-    });
+  console.log("🔥🔥🔥 callLLM v2 entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId);
+  console.log("[DEBUG] Messages count:", messages.length);
+
+  const body = {
+    model: cfg.model,
+    messages,
+    response_format: { type: "json_object" },
+    max_tokens: 8192,
+    temperature: 0.92,
+  };
+  // DeepSeek: extended thinking + high reasoning
+  if (modelId === "deepseek") {
+    body.thinking = { type: "enabled" };
+    body.reasoning_effort = "high";
+    body.max_tokens = 200000;
+  }
+  // GPT: reasoning_effort supported on o-series / reasoning-capable models
+  if (modelId === "gpt4omini") {
+    body.reasoning_effort = "high";
   }
 
-  else if (cfg.format === "gemini") {
-    resp = await fetch(`${cfg.url}?key=${apiKey.trim()}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          ...history.filter(m => !m.hidden).map(m => ({
-            role: m.role === "assistant" ? "model" : "user",
-            parts: [{ text: m.content }],
-          })),
-          { role: "user", parts: [{ text: userMsg }] },
-        ],
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: { maxOutputTokens: 200000, temperature: 0.92 },
-      }),
-      signal,
-    });
-  } else if (cfg.format === "claude") {
-    resp = await fetch(cfg.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey.trim(),
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        system: systemPrompt,
-        messages: [
-          ...history.filter(m => !m.hidden).map(m => ({
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
-          })),
-          { role: "user", content: userMsg },
-        ],
-        max_tokens: 200000,
-        temperature: 0.9,
-      }),
-      signal,
-    });
-  }
+  const resp = await fetch(cfg.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+    body: JSON.stringify(body),
+    signal,
+  });
 
   if (!resp.ok) {
     const e = await resp.json().catch(() => ({}));
@@ -97,16 +57,11 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   }
 
   const data = await resp.json();
-  let content = "";
-  if (cfg.format === "gemini") content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  else if (cfg.format === "claude") content = data.content?.[0]?.text || "";
-  else {
-    const choice = data.choices?.[0];
-    // DeepSeek reasoning models may put output in reasoning_content when content is null
-    content = choice?.message?.content || choice?.message?.reasoning_content || "";
-    if (!content) {
-      console.warn("[callLLM] Empty content. finish_reason:", choice?.finish_reason, "raw:", JSON.stringify(data).slice(0, 300));
-    }
+  const choice = data.choices?.[0];
+  // DeepSeek reasoning models may put output in reasoning_content when content is null
+  const content = choice?.message?.content || choice?.message?.reasoning_content || "";
+  if (!content) {
+    console.warn("[callLLM] Empty content. finish_reason:", choice?.finish_reason, "raw:", JSON.stringify(data).slice(0, 300));
   }
   return content;
 }

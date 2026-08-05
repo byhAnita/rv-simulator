@@ -18,6 +18,11 @@ export function popPendingSocial() {
   return result;
 }
 
+export function resetPendingSocial() {
+  pendingSocialFeeds = null;
+  pendingNotifications = [];
+}
+
 // ============================================================
 // Game chapter based on round number
 // ============================================================
@@ -143,6 +148,8 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Story length: 350 - 450 words in ${lr.lang}
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), members may address the player by name, nickname, or title — that is fine.
+- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan. 
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
 - Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
 - Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy.
@@ -425,8 +432,13 @@ function validateAndFixOutput(result) {
   if (result.story && result.summary && result.story.includes(result.summary.substring(0, 20))) {
     result.story = result.story.replace(result.summary, "").replace(/\s*[\[(【]?[Ss]ummary[^\]】)]*[\]】)]?\s*$/, "").trim();
   }
-  if (result.story && result.story.includes('\\n')) {
-    result.story = result.story.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+  if (result.story) {
+    result.story = result.story
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\//g, '/')
+      .replace(/\\\\/g, '\\')
+      .replace(/\\(?![n"\\\/])/g, '');
   }
   if (!result.options || !Array.isArray(result.options) || result.options.length < 4) {
     result.options = ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"];
