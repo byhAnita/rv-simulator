@@ -6,7 +6,7 @@ export const nowTime = () => {
 };
 
 export const STORAGE_KEYS = {
-  SAVES: "rv_sim_saves_v11",
+  SAVES: "rv_sim_saves_v13",
   API_KEY: "rv_sim_api_key_v11",
   FORM: "rv_sim_form_v11",
   SOCIAL_FEEDS: "rv_sim_social_v11",

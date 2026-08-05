@@ -1,10 +1,10 @@
 // src/agent/mainAgent.js
 // v11.1 Final: Language enforcement + Social isolation + NPC no social + JSON hardening + Age texture + Chapter auto + Special events
 import { callLLM } from "../tools/llmTool";
-import { buildMemoryContext, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
+import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 import { pickPrimaryMember } from "./probabilityEngine";
 import { getStageIdx, getStageName } from "../config/stageConfig";
-import { KKT_THRESHOLD, MEMORY_SUMMARY_MAX, MEMORY_STORY_MAX, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "../config/constants";
+import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 
@@ -485,34 +485,28 @@ export async function executeRound({
   const roundNum = stats.week;
   const npcIds = members.map(m => m.id).filter(id => !allTargetIds.includes(id));
 
-  // Step 1: Context
+  // Step 1: Collapse history if N full stories reached (in-place mutation before building context)
   const roundMemberIds = allTargetIds;
-  const memoryContext = buildMemoryContext(memory, members, mainId, roundMemberIds);
-  
-  // ✅ Build system prompt WITHOUT memory context — this makes it CACHEABLE
+  collapseHistoryIfNeeded(memory);
+
+  // Step 1a: Build 3-tier prompt blocks
+  // Tier 1 (static)  — system prompt: rules, lore, member profiles, JSON schema
+  // Tier 2 (ledger)  — append-only history: 2/3 rounds cache hit
+  // Tier 3 (dynamic) — stats, affections, KKT: always cache miss, kept small
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language);
-  //                                                                                     ^^
-  //                                                                           Empty string = no memory context injected
+  const historyLedger = buildHistoryLedger(memory);
+  const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds);
 
   // Step 1.5: Init round variables
   let roundNotifs = [];
   let socialFeedsUpdate = {};
 
-  // Step 2: LLM — cache-optimized messages array
+  // Step 2: LLM — 3-tier cache-optimized messages
   const cacheOptimizedMessages = [
-  { role: "system", content: systemPrompt },
-  { role: "user", content: `[MEMORY CONTEXT - respond with JSON]\n${memoryContext}` },
-  { role: "user", content: `Player choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` }
-];
-  
-  // Pass the full messages array — no separate systemPrompt or history needed
-  // debug log
-  console.log("[DEBUG executeRound] cacheOptimizedMessages count:", cacheOptimizedMessages.length);
-  console.log("[DEBUG executeRound] First message role:", cacheOptimizedMessages[0]?.role);
-  console.log("[DEBUG executeRound] First message contains 'json':", cacheOptimizedMessages[0]?.content?.toLowerCase().includes('json'));
-  console.log("[DEBUG executeRound] All messages contain 'json':", JSON.stringify(cacheOptimizedMessages).toLowerCase().includes('json'));
-  console.log("[DEBUG executeRound] cacheOptimizedMessages is:", cacheOptimizedMessages);
-  console.log("[DEBUG executeRound] passing as 7th arg:", !!cacheOptimizedMessages);
+    { role: "system", content: systemPrompt },
+    { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+  ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages);
   const parsed = parseLLMOutput(llmOutput);
@@ -590,12 +584,11 @@ export async function executeRound({
 
   const npcAppearances = { ...memory.npcAppearances };
 
-  // Update memory
+  // Update memory — append new full-story entry to history ledger
   const updatedMemory = updateMemory(memory, {
     playerStats: { selfId: newStats.selfId, secrecy: newStats.secrecy, mood: newStats.mood, week: newStats.week, scene: newStats.scene, chapter: newStats.chapter },
     affections: currentAff,
-    summary: parsed.summary ? { round: roundNum, memberId: primaryId, summary: parsed.summary } : null,
-    storyRound: { round: roundNum, story: parsed.story || "", playerChoice },
+    historyEntry: { round: roundNum, type: 'full', text: parsed.story || "", choice: playerChoice, summary: parsed.summary || "" },
     kktMessages: filteredKkt,
     stageChanges,
     memberAppearances: { [primaryId]: [roundNum] },

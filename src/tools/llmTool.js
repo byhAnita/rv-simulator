@@ -43,6 +43,11 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   if (modelId === "gpt4omini") {
     body.reasoning_effort = "high";
   }
+  // Gemini 2.5+: reasoning_effort maps to ~24k token thinking budget
+  if (modelId === "gemini") {
+    body.reasoning_effort = "high";
+    body.max_tokens = 65535; // Flash-Lite max output limit
+  }
 
   const resp = await fetch(cfg.url, {
     method: "POST",

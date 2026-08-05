@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.2.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390×844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390×844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -28,32 +28,47 @@ Validate every change with `npm run build`. No lint config, no test suite.
 
 ## Architecture
 
-### 🔄 Architecture Changes: v1.1.0 to v1.2.0
+### Regenerate Feature (added post-v1.2.0)
 
-v1.2.0 completely overhauled the LLM payload to solve token bloat and latency. When interacting with the context builder or memory state, adhere to these new paradigms:
+The current round can be regenerated without consuming a new round counter or corrupting memory. Implementation:
 
-*   **2-Tier Memory Pool:** The monolithic `storyRounds` array is gone. Memory is now strictly separated into `summaries` (Tier-1: last `M` rounds, ~100-char English strings) and `fullStories` (Tier-2: last `N` rounds, full localized text). This drastically cuts input tokens while maintaining long-term continuity.
-*   **Dynamic KKT Context Injection:** KakaoTalk histories are no longer unconditionally dumped into the system prompt. `buildMemoryContext` now checks the `roundMemberIds` (provided by the probability engine) and only injects KKT history for members *actively appearing* in the current round.
-*   **Ephemeral Social Media:** Social media posts (`bubble`, `instagram`, `weverse`) were permanently removed from the memory pool. They are now stored entirely in a module-level variable (`pendingSocialFeeds`), displayed once in the following round, and then discarded. Do not re-add them to the LLM context.
-*   **Save System Migration:** The save schema was bumped to `rv_sim_saves_v12`. Because the memory shape fundamentally changed, `isLegacyMemory` is used during `loadSave()`. If an old save is loaded and `memory.summaries` is undefined, the engine intentionally wipes the memory pool via `createEmptyMemory()` to prevent a token-bloat crash, while preserving the player's stats and relationship scores.
+- **`preRoundSnapshotRef`** (`useRef`) in `App.jsx` — captures `{ stats, memory, kktUnlocked, kktMessages, triggeredAchievements, playerChoice }` before every `executeRound` call (both in `startNewGame` and `sendMessage`). `socialFeeds` is intentionally **not** snapshotted — `popPendingSocial()` already ran and correctly applied the previous round's social to UI state.
+- **`regenerateRound()`** in `App.jsx` — restores all snapshotted state, removes the last assistant message, calls `resetPendingSocial()` (to clear the discarded round's pending social), then re-calls `executeRound` with the same `playerChoice`.
+- **`resetPendingSocial()`** exported from `mainAgent.js` — clears module-level `pendingSocialFeeds` and `pendingNotifications`.
+- **UI**: `⎘ Copy` and `↺ Retry` buttons appear bottom-right of the last assistant message only, hidden during loading. Copy strips the stats box and option lines, leaving pure story text.
 
-### Data Flow per Round (Optimized for v1.2.0)
+### Core Architecture Principles
 
-> **v1.2.0 Performance Note:** The token payload and context-building logic were heavily optimized in this release. Prompt caching support ensures wait times sit securely at <30s, and API token usage has dropped significantly. Do not re-introduce legacy token-heavy fields into the core `buildSystemPrompt()`.
+*   **1-Tier Unified History Ledger:** Memory uses a single `history[]` array — a chronological append-only ledger of `{round, type:'summary'|'full', text, choice?, summary?}` entries. Entries are never deleted mid-ledger; the token prefix stays byte-identical across consecutive rounds, enabling LLM KV cache hits.
+*   **In-Place Collapse (Stepped Window):** When full-story entries reach `HISTORY_FULL_MAX` (N=3), all `type:'full'` entries are mutated to `type:'summary'` in-place (using the `summary` string already returned by the LLM each round). The new round is then appended as `type:'full'`. This causes one cache miss per N rounds; all other rounds are prefix cache hits on the history block.
+*   **3-Tier Prompt Structure:** The prompt is split into three strictly ordered messages to separate immutable from dynamic content:
+    1. **Static system prompt** — rules, lore, member profiles, JSON schema → 100% cache hit after R1
+    2. **History ledger** (`buildHistoryLedger`) — append-only summaries + full stories → 2/3 rounds cache hit
+    3. **Dynamic tail** (`buildDynamicTail`) — player stats, affections, stage changes, NPC state, KKT → always cache miss, kept small
+*   **Dynamic fields isolated to tail:** Player stats, affections, stage changes, and NPC appearances live exclusively in the dynamic tail message and are never embedded in the history ledger, to avoid invalidating the prefix.
+*   **Save schema:** `rv_sim_saves_v13`. `isLegacyMemory` detects `memory.history === undefined`. On legacy load, memory is wiped to `createEmptyMemory()` while stats and affections are preserved — no crash.
+
+### Data Flow per Round (v1.3.0 — Cache-Optimized)
 
 ```
 Player choice
-  → executeRound(choice, roundNum, form, members, apiKey, model, language, memory)
-  → buildSystemPrompt()           // Now highly optimized: background + trimmed context + JSON schema
-  → callLLM()                     // single API call, 90s timeout, 2x retry on empty
-  → parseLLMOutput()              // 4-level fallback (JSON.parse → regex → field-by-field → default)
-  → validateAndFixOutput()        // regex repairs on malformed fields
-  → update stats / affections / memory
-  → detect stage changes / relationship events / achievements
-  → store social feeds in pendingSocialFeeds  (displayed NEXT round)
+  → executeRound(...)
+  → collapseHistoryIfNeeded(memory)   // in-place: full→summary if full count >= N
+  → buildHistoryLedger(memory)        // serializes history[] — CACHEABLE prefix
+  → buildDynamicTail(memory, members) // stats, affections, KKT — always tail
+  → buildSystemPrompt(...)            // static — 100% cache hit
+  → callLLM([system, ledger, tail+choice])  // 90s timeout, 2x retry
+  → parseLLMOutput()                  // 4-level fallback
+  → validateAndFixOutput()
+  → update stats / affections
+  → detect stage changes / events / achievements
+  → updateMemory: append historyEntry {type:'full', text, choice, summary}
+  → store social feeds in pendingSocialFeeds (displayed NEXT round)
   → return { story, options, stats, ... }
 
 ```
+
+> **Cache performance:** Every N rounds one collapse miss; all other rounds hit on everything above the dynamic tail. Static system prompt hits every round after R1.
 
 ### Key Modules
 
@@ -61,7 +76,7 @@ Player choice
 | --- | --- |
 | `src/App.jsx` | All React state, page routing (Cover→KeyInput→Setup→Game), save/load logic |
 | `src/agent/mainAgent.js` | `executeRound`, `buildSystemPrompt`, `parseLLMOutput`, `validateAndFixOutput` |
-| `src/agent/memoryPool.js` | Two-tier memory: `createEmptyMemory`, `updateMemory`, `buildMemoryContext`, `isLegacyMemory` |
+| `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory` |
 | `src/agent/probabilityEngine.js` | Sub-member appearance weights per round |
 | `src/tools/llmTool.js` | Multi-model router: DeepSeek / Gemini / Claude / GPT (format adapters per provider) |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)` → member profiles + group lore |
@@ -78,17 +93,17 @@ Player choice
 * **React hooks only** — no Redux/Zustand
 * **`useRef` for mutable non-rendering data**: `statsRef` (live stats), `memoryRef` (memory pool), `inputRef`, `bottomRef`
 * **Module-level globals** in `mainAgent.js`: `pendingSocialFeeds`, `pendingNotifications` (survive re-renders, reset on new game)
-* **localStorage keys**: `STORAGE_KEYS.API_KEY`, `STORAGE_KEYS.SELECTED_MODEL`, `STORAGE_KEYS.SAVES` (`rv_sim_saves_v12`), `rv_sim_language`, `rv_sim_group`
+* **localStorage keys**: `STORAGE_KEYS.API_KEY`, `STORAGE_KEYS.SELECTED_MODEL`, `STORAGE_KEYS.SAVES` (`rv_sim_saves_v13`), `rv_sim_language`, `rv_sim_group`
 
 ---
 
 ## Key Constants (`src/config/constants.js`)
 
 ```js
-MEMORY_SUMMARY_MAX = 10   // M: Tier-1 long-term summary slots (FIFO)
-MEMORY_STORY_MAX   = 3    // N: Tier-2 recent full-story slots (FIFO)
-KKT_MAX            = 10   // Q: KakaoTalk messages stored per member
-KKT_THRESHOLD      = 30   // affection score required to unlock KKT per member
+HISTORY_FULL_MAX    = 3   // N: full-story entries before collapse trigger
+HISTORY_PRUNE_BATCH = 15  // batch-prune this many oldest summaries when total summaries exceed threshold (round 50+)
+KKT_MAX             = 10  // Q: KakaoTalk messages stored per member
+KKT_THRESHOLD       = 30  // affection score required to unlock KKT per member
 MAIN_INITIAL_AFFECTION       = 12
 SUB_INITIAL_AFFECTION_MIN    = 5
 SUB_INITIAL_AFFECTION_MAX    = 10
@@ -99,62 +114,73 @@ NPC_COOLDOWN_ROUNDS          = 2
 
 ---
 
-## 2-Tier Memory Architecture
+## 1-Tier Stepped Window Memory Architecture
 
 ### Memory Shape
 
 ```js
 // createEmptyMemory() — src/agent/memoryPool.js
 {
-  playerStats:       null,          // {selfId, secrecy, mood, week, scene, chapter}
-  affections:        {},            // {memberId: number}
+  playerStats:       null,   // {selfId, secrecy, mood, week, scene, chapter}
+  affections:        {},     // {memberId: number}
   topMemberId:       null,
-  summaries:         [],            // Tier 1 — [{round, memberId, summary}] max M, FIFO
-  fullStories:       [],            // Tier 2 — [{round, story, playerChoice}] max N, FIFO
-  kktMessages:       {},            // {memberId: [{sender, content}]} max Q per member
-  stageChanges:      [],            // [{memberId, from, to}] last 10
-  memberAppearances: {},            // {memberId: [roundNums]} last 10
-  npcAppearances:    {},            // {memberId: lastRoundNum}
+  history:           [],     // unified ledger — [{round, type, text, choice?, summary?}]
+                             //   type:'summary' → text is ~100-char English sentence
+                             //   type:'full'    → text is full story, choice is player pick,
+                             //                    summary is the ~100-char collapse target
+  kktMessages:       {},     // {memberId: [{sender, content}]} max Q per member
+  stageChanges:      [],     // [{memberId, from, to}] last 10
+  memberAppearances: {},     // {memberId: [roundNums]} last 10
+  npcAppearances:    {},     // {memberId: lastRoundNum}
 }
 
 ```
 
+### Collapse Logic (`collapseHistoryIfNeeded`)
+
+Called at the **start** of each round, before building the prompt. Counts `history.filter(h => h.type === 'full').length`. If >= `HISTORY_FULL_MAX`:
+- Mutate every `full` entry in-place: `type → 'summary'`, `text → h.summary` (drops the long story text)
+- Do NOT remove or reorder entries — prefix must stay byte-identical for entries that existed in the previous round
+- Batch prune: if total summary count exceeds `HISTORY_PRUNE_BATCH * 3`, drop the oldest `HISTORY_PRUNE_BATCH` summary entries (one-time miss penalty every ~45 rounds)
+
 ### Update Flow (`updateMemory`)
 
-Called at end of each round. Accepts `updates` object with any subset of fields. FIFO truncation applied on `summaries` (slice to -M) and `fullStories` (slice to -N). KKT messages normalized to `{sender, content}` shape before append.
+Called at the **end** of each round. Appends `historyEntry: { round, type:'full', text: story, choice: playerChoice, summary: parsed.summary }` to `history[]`. KKT messages normalized to `{sender, content}` shape before append. No FIFO truncation on `history` — ledger is append-only by design.
 
-### Prompt Injection (`buildMemoryContext`)
-
-Injected into system prompt as plain text block:
+### 3-Tier Prompt Structure
 
 ```
-[Player Status] SelfId:38 Secrecy:97 Mood:82 Round:5 Scene:practice room
+Message 1 — system (STATIC, 100% cache hit after R1):
+  buildSystemPrompt() → rules, lore, all member profiles, JSON schema
 
-[Affections] 🐰Irene:24(Stranger) | 🐻Seulgi:12(Stranger)
+Message 2 — user (HISTORY LEDGER, append-only, ~2/3 cache hit):
+  buildHistoryLedger(memory) →
+    R1: <~100-char summary>
+    R2: <~100-char summary>
+    ...
+    === Round 4 ===
+    <350-450 word full story>
+    Choice: B
+    === Round 5 ===
+    <350-450 word full story>
+    Choice: A
 
-[Long Memory — 4 summaries]
-R2(🐰Irene): Late-night practice, she fixed your collar, tension rose.
-R3(🐻Seulgi): Group meal, Seulgi kept refilling your drink.
-
-[Recent Stories — last 3 rounds]
-=== Round 3 ===
-<full story text>
-Choice: B
-
-[KKT Messages — round-relevant members]
-🐰Irene: hey are you free tonight | you okay?
-
-[Stage Changes] irene: Stranger→Acquaintance
-
-[NPC Appearances] 🐥Joy(last: round 2)
-
+Message 3 — user (DYNAMIC TAIL, always cache miss, kept small):
+  buildDynamicTail(memory, members, roundMemberIds) →
+    [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
+    [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
+    [Stage Changes] irene: Stranger→Acquaintance
+    [NPC Appearances] 🐥Joy(last: round 2)
+    [KKT Messages — round-relevant members]
+    🐰Irene: hey are you free tonight | you okay?
+  + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
 
-**KKT injection rule**: Only inject KKT history for member IDs selected by the probability engine for the current round (`roundMemberIds`). Avoids poisoning context with off-screen members and maintains the new low-token footprint.
+**KKT injection rule**: Only inject KKT history for `roundMemberIds`. Dynamic tail only — never in the ledger.
 
 ### Save Compatibility (`isLegacyMemory`)
 
-`rv_sim_saves_v12` is the current standard. Old saves (pre-v1.2.0) have bloated `storyRounds` instead of `summaries`/`fullStories`. On `loadSave`, if `memory.summaries === undefined`, reset memory to `createEmptyMemory()` and log warning — do not crash. Stats, form, and affections are still restored from the save.
+`rv_sim_saves_v13` is the current standard. On `loadSave`, if `memory.history === undefined`, reset memory to `createEmptyMemory()` (wipe pool) — stats, form, and affections are still restored. Prevents old `summaries`/`fullStories` shape from crashing the engine.
 
 ---
 
@@ -166,7 +192,7 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 2. **JSON schema** — LLM must return valid JSON every round (no markdown fences)
 3. **Member personality matrices** — injected from group RAG JSON
 4. **Phase rules** — rounds 1-6 (stranger), 7-14 (familiar), 15-24 (pressure), 25+ (consequences)
-5. **summary field** — always English, ~100 chars, used only for Tier-1 memory, never shown to player
+5. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target; mutated into `text` when that entry collapses from `full` → `summary`. Never shown to the player.
 
 ### LLM Output JSON Schema
 
@@ -341,6 +367,8 @@ If stuck in production mode (pointing to `./assets/index-*.js`), restore the dev
 git checkout main
 # fix in src/
 git add src/
+git add README.md
+git add CLAUDE.md
 git commit -m "fix: description"
 npm run deploy
 git tag v1.2.x && git push origin v1.2.x

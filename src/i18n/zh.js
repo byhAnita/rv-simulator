@@ -1,7 +1,7 @@
 const zh = {
   cover: {
     subtitle: "嫂嫂模拟器",
-    desc: "LLM文游·女女恋爱养成·v1.2.0",
+    desc: "LLM文游·女女恋爱养成·v1.3.0",
     newGame: "✨ 开始新游戏",
     continue: "💾 继续游戏 (读档)",
     apiKey: "🔑 修改API Key/切换模型",

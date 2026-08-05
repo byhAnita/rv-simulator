@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.2.0
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.0
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.2.0-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.0-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -10,6 +10,7 @@
 
 ## ✨ Features
 
+- 🔄 **Regenerate & Copy** — Not happy with how a round turned out? Hit ↺ Retry to get a completely new story for the same choice — stats, memory, and achievements all rewind cleanly. Copy the story text with one tap.
 - ⚡ **Turbocharged Performance (v1.2.0)** — Lightning-fast round generation (<30s) and heavily optimized token context for massively reduced API costs.
 - 🤖 **LLM Agent Architecture** — Memory Pool + Members Probability Engine
 - 👩‍👩‍👧‍👧 **Multi-Group Support** — Red Velvet, TWICE, aespa, NMIXX, IVE, ITZY, BLACKPINK
@@ -18,7 +19,7 @@
 - 🎭 **7+1 Player Identities** — Trainee, Staff, Artist, Fan, Student, Chaebol, Ex-Girlfriend, Custom
 - 💾 **Save/Load System** — Cover page quick load, save, delete save
 - 📲 **PWA Support** — Add to Home Screen (iOS + Android), fullscreen experience
-- 🔑 **Multi-Model** — DeepSeek V4 Flash / Gemini 3.6 Flash / GPT-5.6 Luna / Claude 4.5 Haiku
+- 🔑 **Multi-Model** — DeepSeek V4 Flash / Gemini 2.5 Flash-Lite / GPT-5.6 Luna / Claude Haiku 4.5
 
 ---
 
@@ -41,40 +42,61 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.2.0 Update 🎉)
+## 💰 API Cost & Performance (v1.3.0)
 
-> **Major Update:** Wait times have been slashed from 2 minutes to **<30 seconds** per round! Through advanced prompt optimization and context caching, token consumption is now a fraction of previous versions.
-> 
-> Estimated at ~2,000 input + ~450 output tokens/round. ~30-45 sec/round, 40 rounds = one full playthrough.
+**Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
-| Model | Cost / Round | Gameplay / $1 | Full Run Cost |
-|-------|-------------|--------------|--------------|
-| DeepSeek V4 Flash | ~$0.0005 * | ~65 hrs | ~$0.02 |
-| GPT-5.6 Luna | ~$0.001 | ~33 hrs | ~$0.04 |
-| Claude Haiku 4.5 | ~$0.005 | ~6.6 hrs | ~$0.20 |
-| Gemini 3.6 Flash | ~$0.007 | ~4.7 hrs | ~$0.28 |
+**Token consumption per round (steady state, with v1.3.0 prefix caching):**
+- Static system prompt: ~3,500 tokens → **100% cached** after R1
+- History ledger: ~1,500 tokens (grows slowly) → **~2/3 rounds cached** (stepped window)
+- Dynamic tail: ~150 tokens → always billed
+- Output (story + social + options): ~800 tokens
+- Thinking tokens (DeepSeek / Gemini / GPT only): ~1,000–2,000 tokens
+- **Effective billed input/round: ~2,450 tokens** (accounting for cache hits)
 
-> \* DeepSeek adopts peak/off-peak pricing (peak = 2× during 9–12 & 14–18 Beijing Time). Cost shown is a daily average.
+| Model | Thinking | Cost / Round | Full Run (40r) | Gameplay / $1 |
+|-------|----------|-------------|---------------|--------------|
+| DeepSeek V4 Flash | ✅ High | ~$0.003 * | ~$0.12 | ~28 hrs |
+| Gemini 2.5 Flash-Lite | ✅ High | ~$0.004 | ~$0.16 | ~21 hrs |
+| Claude Haiku 4.5 | ❌ | ~$0.005 | ~$0.20 | ~17 hrs |
+| GPT-5.6 Luna | ✅ High | ~$0.005 | ~$0.20 | ~17 hrs |
+
+> \* DeepSeek peak = 2× cost during 9–12 & 14–18 Beijing Time. Cost shown is a daily average.
 >
-> 💡 **DeepSeek remains incredibly cost-effective** — $1 gets you ~2,000 rounds (~50 complete playthroughs). All estimates assume cache-miss pricing; real costs with prompt caching are even lower!
+> ⚠️ Pricing for DeepSeek V4 Flash and GPT-5.6 Luna are estimates based on similar model tiers — verify at your provider's pricing page. Gemini 2.5 Flash-Lite and Claude Haiku 4.5 use published pricing.
+>
+> 💡 Cache hit rounds (2 out of every 3) effectively reduce input cost by ~80–90%. Thinking tokens are the dominant cost for reasoning models — turning off `reasoning_effort` would roughly halve the per-round cost if speed is a priority.
 
 ---
 
-## 🎉 What's New in v1.2.0
+## 🔄 Regenerate & Copy
 
-Version 1.2.0 is a massive optimization update focused entirely on **player experience, speed, and API cost reduction**.
+Not satisfied with how the story played out? After every round, two small buttons appear below the story:
 
-*   ⚡ **Lightning-Fast Generation:** We’ve slashed the wait time between rounds from over 2 minutes down to **under 30 seconds**. The story keeps flowing without breaking your immersion.
-*   💰 **Massively Reduced API Costs:** By heavily optimizing how the game talks to the AI, token consumption per round is now a fraction of what it used to be. $1 on DeepSeek now yields roughly ~2,000 rounds (~50 complete playthroughs).
-*   🧠 **Smarter, Lighter Memory:** Characters still remember your past interactions, but the game no longer drags unnecessary baggage into every round. 
-*   **Under the Hood:** We rewrote the prompt context builder and introduced a **2-Tier Memory Pool**. Instead of feeding the AI huge walls of past text, the engine now seamlessly separates long-term narrative summaries from immediate short-term scene details, injecting exactly what is needed and nothing more.
+- **↺ Retry** — Re-generates the story for the same player choice. Stats, memory pool, KKT messages, achievements, and stage changes all rewind to exactly before the round ran, so the new generation starts from a clean slate. The previous version is simply replaced — no history page, no extra UI.
+- **⎘ Copy** — Copies the pure story text (no stats box, no option labels) to your clipboard. Useful for sharing screenshots or saving a favorite scene.
+
+---
+
+## 🎉 What’s New in v1.3.0
+
+*   🧠 **Stepped Window Memory (Cache-Optimized):** Replaced the sliding FIFO memory pool with an append-only history ledger. Instead of shifting past rounds forward every turn (which breaks the LLM’s KV cache every single round), the engine now keeps the context prefix byte-identical across consecutive rounds and collapses older stories in-place. Result: roughly **2 out of every 3 rounds** get a deep cache hit on the history block — faster responses and meaningfully lower API costs.
+*   💎 **Gemini upgraded to 2.5 Flash-Lite:** Switched from Gemini 3.6 Flash to Gemini 2.5 Flash-Lite — a lighter, more cost-efficient reasoning model with thinking budget support.
+*   🤖 **Extended Thinking enabled on 3 models:** DeepSeek, GPT-5.6 Luna, and Gemini 2.5 Flash-Lite all run with high reasoning effort / extended thinking for noticeably richer story output.
+*   🔗 **Unified API layer:** All 4 models now call through the same OpenAI-compatible format — simpler maintenance, consistent behavior.
+
+## 🎉 What’s New in v1.2.0
+
+*   ⚡ **Lightning-Fast Generation:** Wait times slashed from 2 minutes to **under 30 seconds** per round.
+*   💰 **Massively Reduced API Costs:** Token consumption per round is a fraction of earlier versions.
+*   🧠 **Smarter Memory:** Rewrote the context builder with a 2-Tier Memory Pool — long-term summaries + short-term full stories, nothing more.
 
 ---
 
 ## 🎯 Tech Stack
 
 - **Frontend**: React 18 + Vite
-- **LLM**: DeepSeek V4 Flash / Gemini 3.6 Flash / GPT-5.6 Luna / Claude 4.5 Haiku
+- **LLM**: DeepSeek V4 Flash / Gemini 2.5 Flash-Lite / GPT-5.6 Luna / Claude Haiku 4.5
 - **i18n**: Custom translation engine (zh/en/ko)
 - **PWA**: Web App Manifest + iOS/Android fullscreen
 
@@ -82,17 +104,19 @@ Version 1.2.0 is a massive optimization update focused entirely on **player expe
 
 ## 🏗️ Architecture
 
-
 ```
-
-Context = Background + 2-Tier Memory Pool (Long + Short)
-↓
-LLM Agent (Optimized Context Payload — single API call)
-↓
+[Static System Prompt]  ← 100% cache hit after R1
+       +
+[History Ledger]        ← append-only; 2/3 rounds cache hit
+  S1 S2 S3 … F(k+1) … Fn
+       +
+[Dynamic Tail]          ← stats, affections, KKT; always small
+       ↓
+LLM Agent (single API call, unified OpenAI-compat format)
+       ↓
 JSON Output → Parse → Update UI
-↓
+       ↓
 Social Media delayed display (check while waiting ~30s)
-
 ```
 
 ---
@@ -190,8 +214,8 @@ npm run dev       # test on dev server
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│          Idol Dating Sim  v1.2.0 — Architecture                     │
-│        LLM Agent × 2-Tier Memory Pool × Multi-Group                 │
+│          Idol Dating Sim  v1.3.0 — Architecture                     │
+│        LLM Agent × Stepped Window Memory × Multi-Group              │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  🚀 Loader Layer                                                    │
@@ -199,9 +223,9 @@ npm run dev       # test on dev server
 │  ├── loadGroupConfig(id, lang) → Trilingual JSON → Background        │
 │  └── /groups/{id}/{zh,en,ko}.json                                    │
 │                                                                     │
-│  🧠 Context = Background + 2-Tier Memory Pool (Long + Short)        │
+│  🧠 3-Tier Prompt (Static → Ledger → Dynamic Tail)                 │
 │  ┌───────────────────────────────────────────────────────────────┐   │
-│  │ Background (Static, loaded)                               │   │
+│  │ Tier 1 — Static System Prompt (100% cache hit after R1)   │   │
 │  │ ├── System instructions + Language rules                      │   │
 │  │ ├── Member profiles (personality/queer texture)               │   │
 │  │ ├── Identity backgrounds (7+1 types)                          │   │
@@ -209,13 +233,14 @@ npm run dev       # test on dev server
 │  │ ├── NPC rules + Game rules + Prohibitions                     │   │
 │  │ └── JSON Schema                                               │   │
 │  │                                                               │   │
-│  │ Memory Pool (recent M rounds summary + N rounds full)         │   │
-│  │ ├── Player stats (🌈🔒💫📅)                                 │   │
-│  │ ├── Member affections (main + sub)                            │   │
-│  │ ├── Recent M rounds summary                                   │   │
-│  │ ├── Recent N rounds full story                                │   │
-│  │ ├── Recent Q rounds KKT messages per member                   │   │
-│  │ └── NPC appearance frequency                                  │   │
+│  │ Tier 2 — History Ledger (append-only, ~2/3 cache hit)     │   │
+│  │ ├── Collapsed summaries S1 … Sk (~100 chars each)             │   │
+│  │ └── Recent full stories F(k+1) … Fn (350-450 words each)     │   │
+│  │                                                               │   │
+│  │ Tier 3 — Dynamic Tail (always cache miss, kept small)     │   │
+│  │ ├── Player stats (🌈🔒💫📅) + affections                    │   │
+│  │ ├── Stage changes + NPC appearance state                      │   │
+│  │ └── KKT messages (round-relevant members only)                │   │
 │  └───────────────────────────────────────────────────────────────┘   │
 │                                                                     │
 │  🔄 Multi-NPC Probability Engine                                    │ 
@@ -242,14 +267,15 @@ npm run dev       # test on dev server
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    v1.2.0 Round Flow                            │
+│                    v1.3.0 Round Flow                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Previous round ends (Player chose ABCD)                        │
 │        ↓                                                        │
 │  ═══════════════ Current Round ═══════════════                  │
 │        ↓                                                        │
-│  Step 1: Parse Context (Background + 2-Tier Memory Pool)        │
+│  Step 1: collapseHistoryIfNeeded → buildHistoryLedger +         │
+│          buildDynamicTail (3-tier prompt assembly)              │
 │        ↓                                                        │
 │  Step 1.5: 🔥 popPendingSocial() → Display last round's social │
 │    ├── Notification bar + red dots → Instant                    │
@@ -278,7 +304,8 @@ npm run dev       # test on dev server
 │        ↓                                                        │
 │  Step 6: Player reads + Chooses                                 │
 │        ↓                                                        │
-│  Step 7: Memory Update (recent M rounds summary + N rounds full)│
+│  Step 7: updateMemory → append historyEntry {type:'full'} to   │
+│          history ledger                                         │
 │        ↓                                                        │
 │  ═══════════════ Next Round ═══════════════                     │
 │                                                                 │
@@ -312,71 +339,33 @@ Single API call
 
 ---
 
-## 🧠 2-Tier Memory Pool
+## 🧠 Stepped Window Memory (v1.3.0)
 
-```
-| Tier | Content | Length | Purpose |
-|---|---|---|---|
-| Tier 1 (Long) | Last M round summaries | ~100 chars each | Long-term narrative continuity |
-| Tier 2 (Short) | Last N round full stories | Full text | Immediate context + detail |
-
-```
-
-Memory shape (`createEmptyMemory`)
+A single append-only `history[]` ledger replaces the old 2-tier FIFO pool. Each entry is either a collapsed `summary` (~100-char English sentence) or a `full` story (~350-450 words). The ledger never shifts — it only ever appends — so the token prefix stays byte-identical between consecutive rounds, enabling LLM KV cache hits.
 
 ```js
+// createEmptyMemory() shape
 {
   playerStats: null,
   affections: {},
-  topMemberId: null,
-  summaries: [],        // [{round, memberId, summary}]  max M, FIFO
-  fullStories: [],      // [{round, story, playerChoice}] max N, FIFO
-  kktMessages: {},      // {memberId: [{sender, content}]} max Q per member
+  history: [],       // [{round, type:'summary'|'full', text, choice?, summary?}]
+  kktMessages: {},   // {memberId: [{sender, content}]} max Q=10 per member
   stageChanges: [],
   memberAppearances: {},
   npcAppearances: {},
-  // socialPosts REMOVED — social content is ephemeral, displayed next round and discarded
 }
-
 ```
 
-* Stored per round as `{ round, memberId, summary }` — `memberId` = main member of that scene
-* Never displayed to the player; only used to build next-round prompt context
+**Collapse rule:** when `full` entry count reaches N=3, all `full` entries mutate in-place to `summary` (using the `summary` string the LLM already returned that round). One cache miss per N rounds; all other rounds hit.
 
----
-
-## 🚀 Prompt Injection (`buildMemoryContext`)
-
-```
-[Long Memory — up to M=15 summaries]
-R3(irene): Late-night practice, she fixed your collar, tension rose.
-R4(wendy): Group meal, Wendy kept refilling your drink.
-...
-
-[Recent Stories — last N=3 rounds]
-=== Round 15 ===
-<full story text>
-Choice: B
-
-=== Round 16 ===
-...
-
-```
-
-KKT injection rule
-
-* KKT history is stored per member ID in `kktMessages`, max Q=10 messages each
-* At prompt build time, inject **only the KKT entries for members selected by the probability engine for this round** (i.e. members who will appear in the story)
-* Members with affection < 30 still cannot unlock KKT (existing rule unchanged)
+**KKT injection:** only members selected by the probability engine for the current round. Injected in the dynamic tail, never in the history ledger.
 
 ---
 
 ## 💾 Save/load compatibility
 
-* `rv_sim_saves_v12` supersedes previous shapes.
-* `rv_sim_saves_v11` shape changes: `storyRounds` → `summaries` + `fullStories`, `socialPosts` removed.
-* Old saves are **intentionally broken** by this change to prevent token bloat.
-* Migration guard: on save load, if `memory.summaries === undefined`, reset memory to `createEmptyMemory()` and log a warning — do not crash.
+* `rv_sim_saves_v13` is the current schema.
+* Any older save (`rv_sim_saves_v11`, `v12`) missing a `history` field is detected by `isLegacyMemory` → memory wiped to `createEmptyMemory()`, stats and affections preserved. No crash.
 
 ---
 

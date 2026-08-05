@@ -1,7 +1,7 @@
 const ko = {
   cover: {
     subtitle: "아이돌 데이트 시뮬레이터",
-    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.2.0",
+    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.0",
     newGame: "✨ 새 게임",
     continue: "💾 이어하기 (불러오기)",
     apiKey: "🔑 API 키 / 모델",
