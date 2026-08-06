@@ -67,8 +67,11 @@
 | Gemini 3.5 Flash-Lite | ✅ High | ~$0.0065 | ~$0.26 | ~13 hrs |
 
 > 💡 Cache hit rounds (2 out of every 3) effectively reduce input cost by ~80–90%. Turning off reasoning tokens eliminates output overhead and cuts per-round cost roughly in half across all reasoning-capable models.
+
 > 🐉 **Qwen Plus Character** is a roleplay-specialized model from Alibaba Cloud with extremely low per-token pricing (~50× cheaper than reasoning models). No thinking mode, but purpose-built for character consistency and expressive dialogue — ideal if you want to play many sessions on a tight budget.
+
 > ⚠️ Pricing for DeepSeek V4 Flash and GPT-5.6 Luna are estimates based on similar model tiers — verify at your provider's pricing page. Gemini 3.5 Flash-Lite and Qwen Plus Character use published pricing.
+
 > * DeepSeek peak = 2× cost during 9–12 & 14–18 Beijing Time. Cost shown is a daily average.
 
 
