@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   FORM: "rv_sim_form_v11",
   SOCIAL_FEEDS: "rv_sim_social_v11",
   SELECTED_MODEL: "rv_sim_model_v11",
+  REASONING: "rv_sim_reasoning_v13",
 };
 
 export const loadFromStorage = (key) => {

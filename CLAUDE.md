@@ -78,7 +78,7 @@ Player choice
 | `src/agent/mainAgent.js` | `executeRound`, `buildSystemPrompt`, `parseLLMOutput`, `validateAndFixOutput` |
 | `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory` |
 | `src/agent/probabilityEngine.js` | Sub-member appearance weights per round |
-| `src/tools/llmTool.js` | Multi-model router: DeepSeek / Gemini / Claude / GPT (format adapters per provider) |
+| `src/tools/llmTool.js` | Multi-model router: DeepSeek / Gemini / Qwen / GPT (format adapters per provider) |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)` → member profiles + group lore |
 | `src/config/constants.js` | All numeric game constants (see below) |
 | `src/config/modelConfigs.js` | 4 model configs (id, url, format, keyPrefix, color) |
@@ -135,6 +135,42 @@ NPC_COOLDOWN_ROUNDS          = 2
 }
 
 ```
+
+### Round-by-Round Cache Trace (N=3, static system prompt omitted)
+
+Notation: `Fx` = full story from round x (~500 tokens), `Sx` = collapsed summary of Fx (~25 tokens).
+Timing: collapse runs at **start** of round before building the ledger; new story is appended **after** LLM returns.
+
+```
+Round | Ledger sent to LLM          | Ledger cache status                   | History after round
+------|------------------------------|---------------------------------------|---------------------
+R0    | (empty)                      | —                                     | [F0]
+R1    | F0                           | MISS (first appearance)               | [F0 F1]
+R2    | F0 F1                        | F0 HIT                                | [F0 F1 F2]
+R3    | collapse→[S0 S1 S2]          | ALL MISS — new shorter tokens at pos0 | [S0 S1 S2 F3]
+R4    | S0 S1 S2 F3                  | ALL MISS — S0≠F0 at pos0              | [S0 S1 S2 F3 F4]
+      |   ↑ wait, R3 ledger was      |                                       |
+      |   [S0 S1 S2], cache miss.    |                                       |
+      |   R4 ledger = [S0 S1 S2 F3]; |                                       |
+      |   S0 S1 S2 now HIT (same as  |                                       |
+      |   R3 prefix), F3 MISS        | S0 S1 S2 HIT · F3 MISS               |
+R5    | S0 S1 S2 F3 F4               | S0 S1 S2 F3 HIT · F4 MISS            | [S0 S1 S2 F3 F4 F5]
+R6    | collapse→[S0..S5]            | S0 S1 S2 HIT · S3 S4 S5 MISS *       | [S0..S5 F6]
+      |                              |   (* S3 sits where F3 was — shorter)  |
+R7    | S0..S5 F6                    | S0..S5 HIT · F6 MISS                  | [S0..S5 F6 F7]
+R8    | S0..S5 F6 F7                 | S0..S5 F6 HIT                         | [S0..S5 F6 F7 F8]
+R9    | collapse→[S0..S8]            | S0..S5 HIT · S6 S7 S8 MISS *         | [S0..S8 F9]
+R10   | S0..S8 F9                    | S0..S8 HIT · F9 MISS                  | [S0..S8 F9 F10]
+R11   | S0..S8 F9 F10                | S0..S8 F9 HIT                         | [S0..S8 F9 F10 F11]
+R12   | collapse→[S0..S11]           | S0..S8 HIT · S9 S10 S11 MISS *       | [S0..S11 F12]
+R13   | S0..S11 F12                  | S0..S11 HIT · F12 MISS                | [S0..S11 F12 F13]
+R14   | S0..S11 F12 F13              | S0..S11 F12 HIT                       | [S0..S11 F12 F13 F14]
+R15   | collapse→[S0..S14]           | S0..S11 HIT · S12 S13 S14 MISS *     | [S0..S14 F15]
+```
+
+**Pattern at each collapse:** the 3 newly-converted Ss occupy token positions previously held by 3 large Fs — so they always miss (S≈25 tokens, F≈500 tokens, positions diverge immediately). The already-summarised prefix (S0..S(k-3)) stays byte-identical → keeps hitting.
+
+**Convergence:** the stable-hit S prefix grows by 3 entries every N rounds. By R30, ~24 Ss are permanently cached (~600 tokens). The 3 fresh-miss Ss add only ~75 tokens of miss per collapse — a shrinking fraction of the total ledger. Collapse rounds converge toward high cache efficiency over time.
 
 ### Collapse Logic (`collapseHistoryIfNeeded`)
 
@@ -371,7 +407,7 @@ git add README.md
 git add CLAUDE.md
 git commit -m "fix: description"
 npm run deploy
-git tag v1.2.x && git push origin v1.2.x
+git tag v1.3.x && git push origin v1.3.x
 # sync to dev:
 git checkout dev-v13.0.0
 git cherry-pick <commit-hash>

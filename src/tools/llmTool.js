@@ -1,20 +1,22 @@
 // src/tools/llmTool.js
-// LLM Tool: 4种模型 API 路由
-// VERSION: v2-cachefix-20240802
-console.log("🔥 llmTool.js LOADED — version v2-cachefix");
+// LLM Tool: 4 model API routing
+// VERSION: v4-gemini-3.5-flash-lite-20260806
+console.log("🔥 llmTool.js LOADED — version v4-gemini-3.5-flash-lite");
 import { MODEL_CONFIGS } from "../config/modelConfigs";
 
 /**
- * 调用 LLM API
- * @param {string} userMsg - 用户消息
- * @param {Array} history - 历史消息 [{role, content}]
- * @param {string} systemPrompt - 系统提示
+ * Call LLM API
+ * @param {string} userMsg - User message
+ * @param {Array} history - Message history [{role, content}]
+ * @param {string} systemPrompt - System prompt
  * @param {string} apiKey - API Key
- * @param {string} modelId - 模型 ID (deepseek/gemini/claude/gpt4omini)
- * @returns {Promise<string>} LLM 回复
+ * @param {string} modelId - Model ID (deepseek/gemini/gpt4omini/qwen)
+ * @param {AbortSignal} signal - Abort signal for fetch
+ * @param {Array} prebuiltMessages - Optional pre-constructed messages array
+ * @returns {Promise<string>} LLM response
  */
 
-async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal, prebuiltMessages = null) {
+async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal, prebuiltMessages = null, reasoningEnabled = false) {
   const cfg = MODEL_CONFIGS[modelId];
 
   const messages = prebuiltMessages || [
@@ -23,35 +25,50 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
     { role: "user", content: userMsg },
   ];
 
-  console.log("🔥🔥🔥 callLLM v2 entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId);
+  console.log("🔥🔥🔥 callLLM v4 entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId);
   console.log("[DEBUG] Messages count:", messages.length);
 
   const body = {
     model: cfg.model,
     messages,
     response_format: { type: "json_object" },
-    max_tokens: 8192,
+    max_tokens: cfg.maxOutputTokens || 8192,  // ← Prioritize model's own limit
     temperature: 0.92,
   };
-  // DeepSeek: extended thinking + high reasoning
-  if (modelId === "deepseek") {
-    body.thinking = { type: "enabled" };
-    body.reasoning_effort = "high";
-    body.max_tokens = 200000;
+
+  // Reasoning — only applied when user has enabled it in Settings
+  if (reasoningEnabled) {
+    if (modelId === "deepseek") {
+      body.thinking = { type: "enabled" };
+      body.reasoning_effort = "high";
+      body.max_tokens = 200000;
+    }
+    if (modelId === "gpt4omini") {
+      body.reasoning_effort = "high";
+    }
+    if (modelId === "gemini") {
+      body.reasoning_effort = "high";
+      body.max_tokens = 65535;
+    }
+    // qwen does not support reasoning_effort — no-op
   }
-  // GPT: reasoning_effort supported on o-series / reasoning-capable models
-  if (modelId === "gpt4omini") {
-    body.reasoning_effort = "high";
-  }
-  // Gemini 2.5+: reasoning_effort maps to ~24k token thinking budget
-  if (modelId === "gemini") {
-    body.reasoning_effort = "high";
-    body.max_tokens = 65535; // Flash-Lite max output limit
+
+  // ✅ Qwen Character: No thinking mode, no extra parameters
+  // Implicit prefix cache applies automatically (server matches system prompt prefix)
+  // Do not pass thinking / reasoning_effort / enable_thinking, or it will throw an error
+  if (modelId === "qwen") {
+    // Ensure no thinking-related fields are sent (defensive cleanup)
+    delete body.thinking;
+    delete body.reasoning_effort;
+    delete body.enable_thinking;
   }
 
   const resp = await fetch(cfg.url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey.trim()}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
     body: JSON.stringify(body),
     signal,
   });
@@ -71,18 +88,18 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   return content;
 }
 
-export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = "deepseek", prebuiltMessages = null) {
-  if (!apiKey?.trim()) throw new Error("请设置 API Key");
+export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = "deepseek", prebuiltMessages = null, reasoningEnabled = false) {
+  if (!apiKey?.trim()) throw new Error("Please set your API Key");
 
   const cfg = MODEL_CONFIGS[modelId];
-  if (!cfg) throw new Error(`未知模型: ${modelId}`);
+  if (!cfg) throw new Error(`Unknown model: ${modelId}`);
 
   const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90000);
     try {
-      const content = await callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, ctrl.signal, prebuiltMessages);
+      const content = await callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, ctrl.signal, prebuiltMessages, reasoningEnabled);
       clearTimeout(tid);
       if (content) return content;
       if (attempt < MAX_RETRIES) {

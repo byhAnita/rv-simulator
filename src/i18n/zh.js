@@ -1,7 +1,7 @@
 const zh = {
   cover: {
     subtitle: "嫂嫂模拟器",
-    desc: "LLM文游·女女恋爱养成·v1.3.0",
+    desc: "LLM文游·女女恋爱养成·v1.3.1",
     newGame: "✨ 开始新游戏",
     continue: "💾 继续游戏 (读档)",
     apiKey: "🔑 修改API Key/切换模型",
@@ -94,20 +94,33 @@ const zh = {
   common: { error: "❌ 出错:", startFailed: "启动失败:", enterKey: "请输入 API Key", pleaseSelectMember: "请选择主线成员", pleaseSetKey: "请设置 API Key" },
   
     guide: {
-    title: "📖 配置指南",
+    title: "📖 如何获取 API Key",
     steps: [
-      "① 打开 {platform} 注册账号并登录",
-      "② 进入「用量信息」页面按需充值",
-      "③ 进入「API Keys」页面 →「创建 API Key」",
-      "④ 输入任意名称后「创建」→「复制」生成的 Key (格式：{prefix}...)",
-      "⑤ 返回本页面，选择对应模型，粘贴 Key, 确认",
-      "⑥「分享」本页面 → 「添加到主屏幕」, 可生成App图标方便下次访问",
+      "① 打开 {platform}，注册账号并登录",
+      "② 在「充值」页面按需充值（少量即可）",
+      "③ 进入「API Keys」页面，点击「创建 API Key」",
+      "④ 复制生成的 Key（格式以 {prefix}... 开头）",
+      "⑤ 粘贴到下方输入框，点击确认",
+      "⑥ 提示：浏览器「分享」→「添加到主屏幕」可生成 App 图标，方便下次访问",
     ],
-    billing: "💰 参考:{gameplay} 游戏时间。可在平台查看用量及按需充值。",
-    warning: "⚠️ 请勿把Key分享给他人, 否则可能导致余额被盗用。",
+    freeStep2: "② 新用户可领取免费额度，无需充值即可开始游戏！",
+    billing: "💰 参考：{gameplay} 游戏时间。可在平台随时查看用量。",
+    warning: "⚠️ 请勿将 Key 分享给他人，否则可能导致余额被盗用。",
     moreModels: "🚧 若当前模型不可用，请切换其他模型并使用对应平台的 Key。",
-    keyManagement: "🔑 若 Key 丢失/泄露：在平台删除旧 Key, 重新创建即可。",
-    noProfit: "💡 本游戏为无盈利粉丝向作品。您的充值是对所选大模型平台的账号额度充值。",
+    keyManagement: "🔑 Key 丢失或泄露？在平台删除旧 Key，重新创建即可。",
+    noProfit: "💡 本游戏为无盈利粉丝向作品。充值金额直接存入对应 AI 平台账户。",
+  },
+
+  settings: {
+    title: "⚙️ 设置",
+    reasoningTitle: "🧠 深度思考（Reasoning）",
+    reasoningOn: "已开启 — 模型在写作前会进行推理。故事更丰富，费用约 2 倍，速度较慢。",
+    reasoningOff: "已关闭 — 响应更快，费用更低。（千问 不支持此模式）",
+    backToCover: "🏠 返回封面页",
+    saveWarningTitle: "⚠️ 请先保存进度！",
+    saveWarningDesc: "返回封面页将结束当前会话，请在离开前保存游戏进度。",
+    saveNow: "💾 立即保存",
+    leaveAnyway: "直接离开",
   },
 
 };

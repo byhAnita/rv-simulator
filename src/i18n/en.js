@@ -1,7 +1,7 @@
 const en = {
   cover: {
     subtitle: "Idol Dating Simulator",
-    desc: "LLM Text Adventure · Yuri Dating Sim · v1.3.0",
+    desc: "LLM Text Adventure · Yuri Dating Sim · v1.3.1",
     newGame: "✨ New Game",
     continue: "💾 Continue (Load Save)",
     apiKey: "🔑 API Key / Model",
@@ -94,20 +94,33 @@ const en = {
   common: { error: "❌ Error:", startFailed: "Start failed:", enterKey: "Please enter API Key", pleaseSelectMember: "Please select main member", pleaseSetKey: "Please set API Key" },
 
     guide: {
-    title: "📖 API Key Guide",
+    title: "📖 How to Get an API Key",
     steps: [
-      "① Open {platform}, sign up and log in",
-      "② Go to the 'Usage' page, top up as needed",
-      "③ Go to the 'API Keys' page, click 'Create API Key'",
-      "④ Give it a name to create, copy the generated Key (format: {prefix}...)",
-      "⑤ Return here, select the matching model, paste your Key, confirm",
-      "⑥ Share this page in your browser → Add to Home Screen (iOS/Android) to create an app icon for easy access next time",
+      "① Open {platform} — sign up and log in",
+      "② Add some credits to your account (a small amount goes a long way)",
+      "③ Go to 'API Keys' → click 'Create API Key'",
+      "④ Copy the key shown (starts with {prefix}...)",
+      "⑤ Paste it in the field below and tap Confirm",
+      "⑥ Tip: in your browser, tap Share → Add to Home Screen to save this game as an app icon",
     ],
-    billing: "💰 {gameplay} of gameplay. Check usage and top up on the platform as needed.",
-    warning: "⚠️ Never share your key or post it publicly — it may lead to stolen credits.",
-    moreModels: "🚧 If the current model is unavailable, switch to another model and use its corresponding Key.",
-    keyManagement: "🔑 If Key is lost/leaked: delete the old Key on the platform and create a new one.",
-    noProfit: "💡 This is a fan-made non-profit game. Any top-up goes to your LLM platform account.",
+    freeStep2: "② New users get free credits — no top-up needed to start playing!",
+    billing: "💰 {gameplay} of gameplay per $1. Check your usage anytime on the platform.",
+    warning: "⚠️ Never share your key with others — it gives access to your credits.",
+    moreModels: "🚧 If a model isn't working, switch to another and use that platform's Key.",
+    keyManagement: "🔑 Key lost or leaked? Delete it on the platform and create a new one.",
+    noProfit: "💡 This is a fan-made non-profit game. Your credits go directly to the AI provider.",
+  },
+
+  settings: {
+    title: "⚙️ Settings",
+    reasoningTitle: "🧠 Deep Thinking (Reasoning)",
+    reasoningOn: "ON — model thinks before writing. Richer story, ~2× cost, slower.",
+    reasoningOff: "OFF — faster responses, lower cost. (Qwen: not supported)",
+    backToCover: "🏠 Back to Cover Page",
+    saveWarningTitle: "⚠️ Save your progress first!",
+    saveWarningDesc: "Returning to the cover page will end your current session. Make sure to save before leaving.",
+    saveNow: "💾 Save Now",
+    leaveAnyway: "Leave Anyway",
   },
 
 };

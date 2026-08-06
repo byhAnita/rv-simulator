@@ -19,7 +19,7 @@
 - 🎭 **7+1 Player Identities** — Trainee, Staff, Artist, Fan, Student, Chaebol, Ex-Girlfriend, Custom
 - 💾 **Save/Load System** — Cover page quick load, save, delete save
 - 📲 **PWA Support** — Add to Home Screen (iOS + Android), fullscreen experience
-- 🔑 **Multi-Model** — DeepSeek V4 Flash / Gemini 2.5 Flash-Lite / GPT-5.6 Luna / Claude Haiku 4.5
+- 🔑 **Multi-Model** — DeepSeek V4 Flash / Gemini 3.5 Flash-Lite / GPT-5.6 Luna / Qwen Plus Character
 
 ---
 
@@ -42,30 +42,35 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.0)
+## 💰 API Cost & Performance (v1.3.1)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
 **Token consumption per round (steady state, with v1.3.0 prefix caching):**
-- Static system prompt: ~3,500 tokens → **100% cached** after R1
-- History ledger: ~1,500 tokens (grows slowly) → **~2/3 rounds cached** (stepped window)
-- Dynamic tail: ~150 tokens → always billed
-- Output (story + social + options): ~800 tokens
-- Thinking tokens (DeepSeek / Gemini / GPT only): ~1,000–2,000 tokens
-- **Effective billed input/round: ~2,450 tokens** (accounting for cache hits)
+
+* Static system prompt: ~3,500 tokens → **100% cached** after R1
+* History ledger: ~1,500 tokens (grows slowly) → **~2/3 rounds cached** (stepped window)
+* Dynamic tail: ~150 tokens → always billed
+* Output (story + social + options): ~800 tokens
+* **Effective billed input/round: ~2,450 tokens** (accounting for cache hits)
+
+> 💡 **v1.3.1 Note:** Reasoning / Extended Thinking (`reasoning_effort`) is **turned OFF by default** for all supported models. This slashes per-round costs by ~50% and speeds up generation time significantly without compromising story quality. You can re-enable reasoning in settings if deeper logical processing is desired.
 
 | Model | Thinking | Cost / Round | Full Run (40r) | Gameplay / $1 |
-|-------|----------|-------------|---------------|--------------|
+| ------- | ------- | ------- | ------- | ------- |
+| **Qwen Plus Character** | ❌ None | ~$0.0004 | ~$0.016 | ~208 hrs |
+| **DeepSeek V4 Flash** | ❌ Off *(Default)* | ~$0.0015 * | ~$0.06 | ~56 hrs |
 | DeepSeek V4 Flash | ✅ High | ~$0.003 * | ~$0.12 | ~28 hrs |
-| Gemini 2.5 Flash-Lite | ✅ High | ~$0.004 | ~$0.16 | ~21 hrs |
-| Claude Haiku 4.5 | ❌ | ~$0.005 | ~$0.20 | ~17 hrs |
+| **GPT-5.6 Luna** | ❌ Off *(Default)* | ~$0.0025 | ~$0.10 | ~34 hrs |
 | GPT-5.6 Luna | ✅ High | ~$0.005 | ~$0.20 | ~17 hrs |
+| **Gemini 3.5 Flash-Lite** | ❌ Off *(Default)* | ~$0.003 | ~$0.12 | ~28 hrs |
+| Gemini 3.5 Flash-Lite | ✅ High | ~$0.0065 | ~$0.26 | ~13 hrs |
 
-> \* DeepSeek peak = 2× cost during 9–12 & 14–18 Beijing Time. Cost shown is a daily average.
->
-> ⚠️ Pricing for DeepSeek V4 Flash and GPT-5.6 Luna are estimates based on similar model tiers — verify at your provider's pricing page. Gemini 2.5 Flash-Lite and Claude Haiku 4.5 use published pricing.
->
-> 💡 Cache hit rounds (2 out of every 3) effectively reduce input cost by ~80–90%. Thinking tokens are the dominant cost for reasoning models — turning off `reasoning_effort` would roughly halve the per-round cost if speed is a priority.
+> 💡 Cache hit rounds (2 out of every 3) effectively reduce input cost by ~80–90%. Turning off reasoning tokens eliminates output overhead and cuts per-round cost roughly in half across all reasoning-capable models.
+> 🐉 **Qwen Plus Character** is a roleplay-specialized model from Alibaba Cloud with extremely low per-token pricing (~50× cheaper than reasoning models). No thinking mode, but purpose-built for character consistency and expressive dialogue — ideal if you want to play many sessions on a tight budget.
+> ⚠️ Pricing for DeepSeek V4 Flash and GPT-5.6 Luna are estimates based on similar model tiers — verify at your provider's pricing page. Gemini 3.5 Flash-Lite and Qwen Plus Character use published pricing.
+> * DeepSeek peak = 2× cost during 9–12 & 14–18 Beijing Time. Cost shown is a daily average.
+
 
 ---
 
@@ -81,13 +86,13 @@ Not satisfied with how the story played out? After every round, two small button
 ## 🎉 What’s New in v1.3.0
 
 *   🧠 **Stepped Window Memory (Cache-Optimized):** Replaced the sliding FIFO memory pool with an append-only history ledger. Instead of shifting past rounds forward every turn (which breaks the LLM’s KV cache every single round), the engine now keeps the context prefix byte-identical across consecutive rounds and collapses older stories in-place. Result: roughly **2 out of every 3 rounds** get a deep cache hit on the history block — faster responses and meaningfully lower API costs.
-*   💎 **Gemini upgraded to 2.5 Flash-Lite:** Switched from Gemini 3.6 Flash to Gemini 2.5 Flash-Lite — a lighter, more cost-efficient reasoning model with thinking budget support.
-*   🤖 **Extended Thinking enabled on 3 models:** DeepSeek, GPT-5.6 Luna, and Gemini 2.5 Flash-Lite all run with high reasoning effort / extended thinking for noticeably richer story output.
+*   💎 **Gemini upgraded to 3.5 Flash-Lite:** Switched from Gemini 3.6 Flash to Gemini 3.5 Flash-Lite — a lighter, more cost-efficient reasoning model with thinking budget support.
+*   🤖 **Extended Thinking enabled on 3 models:** DeepSeek, GPT-5.6 Luna, and Gemini 3.5 Flash-Lite all run with high reasoning effort / extended thinking for noticeably richer story output.
 *   🔗 **Unified API layer:** All 4 models now call through the same OpenAI-compatible format — simpler maintenance, consistent behavior.
 
 ## 🎉 What’s New in v1.2.0
 
-*   ⚡ **Lightning-Fast Generation:** Wait times slashed from 2 minutes to **under 30 seconds** per round.
+*   ⚡ **Lightning-Fast Generation:** Wait times slashed from 2 minutes to **under 10 seconds** per round.
 *   💰 **Massively Reduced API Costs:** Token consumption per round is a fraction of earlier versions.
 *   🧠 **Smarter Memory:** Rewrote the context builder with a 2-Tier Memory Pool — long-term summaries + short-term full stories, nothing more.
 
@@ -96,7 +101,7 @@ Not satisfied with how the story played out? After every round, two small button
 ## 🎯 Tech Stack
 
 - **Frontend**: React 18 + Vite
-- **LLM**: DeepSeek V4 Flash / Gemini 2.5 Flash-Lite / GPT-5.6 Luna / Claude Haiku 4.5
+- **LLM**: DeepSeek V4 Flash / Gemini 3.5 Flash-Lite / GPT-5.6 Luna / Qwen Plus Character
 - **i18n**: Custom translation engine (zh/en/ko)
 - **PWA**: Web App Manifest + iOS/Android fullscreen
 

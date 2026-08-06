@@ -55,7 +55,7 @@ export default function App() {
   const [groupList, setGroupList] = useState([]);
   const [phase, setPhase] = useState("cover");
   const [apiKey, setApiKey] = useState(() => loadFromStorage(STORAGE_KEYS.API_KEY) || "");
-  const [selectedModel, setSelectedModel] = useState(() => loadFromStorage(STORAGE_KEYS.SELECTED_MODEL) || "deepseek");
+  const [selectedModel, setSelectedModel] = useState(() => loadFromStorage(STORAGE_KEYS.SELECTED_MODEL) || "qwen");
   const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -81,6 +81,9 @@ export default function App() {
   const inputRef = useRef(null);
   const preRoundSnapshotRef = useRef(null);
   const [copiedStory, setCopiedStory] = useState(false);
+  const [reasoningEnabled, setReasoningEnabled] = useState(() => loadFromStorage(STORAGE_KEYS.REASONING) ?? false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showCoverConfirm, setShowCoverConfirm] = useState(false);
 
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
@@ -283,7 +286,7 @@ export default function App() {
         memory: memoryRef.current,
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
-        groupConfig, apiKey, selectedModel, kktUnlocked, language,
+        groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -354,7 +357,7 @@ export default function App() {
         memory: JSON.parse(JSON.stringify(snap.memory)),
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
-        groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language,
+        groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
       });
 
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
@@ -415,9 +418,9 @@ export default function App() {
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.0", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.0", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.0", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.1", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.1", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.1", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
 
@@ -488,10 +491,28 @@ export default function App() {
   // ── Key Input Page ──
   if (phase === "keyInput") {
     const currentPlatformName = MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("deepseek") ? "platform.deepseek.com"
-      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("google") ? "aistudio.google.com"
-      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("anthropic") ? "console.anthropic.com"
+      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("qianwenai") ? "platform.qianwenai.com"
       : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("openai") ? "platform.openai.com"
-      : "the platform's website";
+      : MODEL_CONFIGS[selectedModel]?.keyHelp?.includes("google") ? "aistudio.google.com"
+      : null;
+    const platformUrl = currentPlatformName ? `https://${currentPlatformName}` : null;
+
+    const renderGuideStep = (step, i) => {
+      if (i === 1 && MODEL_CONFIGS[selectedModel]?.hasFreeCredits && t.guide?.freeStep2) {
+        step = t.guide.freeStep2;
+      }
+      step = step.replace('{prefix}', MODEL_CONFIGS[selectedModel]?.keyPrefix || 'sk-');
+      if (step.includes('{platform}') && platformUrl) {
+        const [before, after] = step.split('{platform}');
+        return (
+          <p key={i} style={{ fontSize: 11, color: "#f8c8d8", marginBottom: 2, lineHeight: 2 }}>
+            {before}<a href={platformUrl} target="_blank" rel="noopener noreferrer"
+              style={{ color: "#e887b0", textDecoration: "underline" }}>{currentPlatformName}</a>{after}
+          </p>
+        );
+      }
+      return <p key={i} style={{ fontSize: 11, color: "#f8c8d8", marginBottom: 2, lineHeight: 2 }}>{step}</p>;
+    };
 
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)" }}>
@@ -515,7 +536,7 @@ export default function App() {
                     cursor: "pointer", userSelect: "none",
                   }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: selectedModel === c.id ? c.color : "#ccc" }}>{c.emoji} {c.name}</div>
-                  <div style={{ fontSize: 8, color: "#807080", marginTop: 1 }}>{c.desc}</div>
+                  <div style={{ fontSize: 8, color: "#807080", marginTop: 1 }}>{c.desc?.[language]}</div>
                 </div>
               ))}
             </div>
@@ -528,11 +549,7 @@ export default function App() {
             border: "1px solid rgba(232,120,176,.15)",
           }}>
             <p style={{ fontSize: 11, color: "#f8c8d8", fontWeight: 700, marginBottom: 4 }}>{t.guide?.title}</p>
-            {(t.guide?.steps || []).map((step, i) => (
-              <p key={i} style={{ fontSize: 11, color: "#f8c8d8", marginBottom: 2, lineHeight: 2 }}>
-                {step.replace('{platform}', currentPlatformName).replace('{prefix}', MODEL_CONFIGS[selectedModel]?.keyPrefix || 'sk-')}
-              </p>
-            ))}
+            {(t.guide?.steps || []).map((step, i) => renderGuideStep(step, i))}
             <p style={{ fontSize: 12, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>{(t.guide?.billing || "").replace("{gameplay}", MODEL_CONFIGS[selectedModel]?.gameplay?.[language] || "")}</p>
             <p style={{ fontSize: 9, color: "#846875", marginTop: 3 , fontWeight: 450}}>{t.guide?.warning}</p>
             <p style={{ fontSize: 9, color: "#907080", marginTop: 2 , fontWeight: 450}}>{t.guide?.keyManagement}</p>
@@ -721,6 +738,7 @@ export default function App() {
           <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
             {[{ icon: "💜", type: "bubble" }, { icon: "📸", type: "instagram" }, { icon: "🌿", type: "weverse" }, { icon: "💬", type: "kakao", locked: !kktUnlocked[form.mainMember] }].map(b => { const showDot = hasNotifDot(b.type) && !b.locked; return <button key={b.type} onClick={() => openSocialPlatform(b.type)} style={{ position: "relative", background: b.locked ? "rgba(255,255,255,.03)" : "rgba(255,255,255,.06)", border: `1px solid ${b.locked ? "rgba(255,255,255,.1)" : "rgba(232,120,176,.15)"}`, borderRadius: 5, padding: "3px 5px", color: b.locked ? "#555" : "#d0a8c0", fontSize: 11, cursor: b.locked ? "not-allowed" : "pointer", opacity: b.locked ? .5 : 1 }}>{b.icon}{showDot && <div className="notification-dot" />}</button>; })}
             <button onClick={() => setOverlay({ type: "save" })} style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(232,120,176,.15)", borderRadius: 5, padding: "3px 5px", color: "#d0a8c0", fontSize: 11, cursor: "pointer" }}>💾</button>
+            <button onClick={() => { setShowSettings(true); setShowCoverConfirm(false); }} style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(232,120,176,.15)", borderRadius: 5, padding: "3px 5px", color: "#d0a8c0", fontSize: 11, cursor: "pointer" }}>⚙️</button>
           </div>
         </div>
 
@@ -796,6 +814,58 @@ export default function App() {
 
         {/* Overlays */}
         {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+
+        {/* Settings Overlay */}
+        {showSettings && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.75)", backdropFilter: "blur(6px)" }}
+            onClick={e => { if (e.target === e.currentTarget) { setShowSettings(false); setShowCoverConfirm(false); } }}>
+            <div style={{ width: "88%", maxWidth: 320, background: "#110820", border: "1px solid rgba(232,120,176,.3)", borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#f8c8d8" }}>{t.settings?.title}</div>
+                <button onClick={() => { setShowSettings(false); setShowCoverConfirm(false); }} style={{ background: "none", border: "none", color: "#907080", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+              </div>
+
+              {/* Reasoning toggle */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, color: "#e8c8d8", fontWeight: 600 }}>{t.settings?.reasoningTitle}</div>
+                  <div onClick={() => { const v = !reasoningEnabled; setReasoningEnabled(v); saveToStorage(STORAGE_KEYS.REASONING, v); }}
+                    style={{ width: 42, height: 24, borderRadius: 12, background: reasoningEnabled ? "#9b59b6" : "rgba(255,255,255,.1)", border: `1px solid ${reasoningEnabled ? "#c86dd0" : "rgba(255,255,255,.2)"}`, cursor: "pointer", position: "relative", transition: "all .2s" }}>
+                    <div style={{ position: "absolute", top: 3, left: reasoningEnabled ? 20 : 3, width: 16, height: 16, borderRadius: "50%", background: reasoningEnabled ? "#fff" : "#907080", transition: "left .2s" }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: "#706070", lineHeight: 1.5 }}>
+                  {reasoningEnabled ? t.settings?.reasoningOn : t.settings?.reasoningOff}
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: "rgba(232,120,176,.12)", marginBottom: 20 }} />
+
+              {/* Back to cover */}
+              {!showCoverConfirm ? (
+                <button onClick={() => setShowCoverConfirm(true)}
+                  style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,120,176,.06)", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
+                  {t.settings?.backToCover}
+                </button>
+              ) : (
+                <div style={{ background: "rgba(232,80,80,.08)", border: "1px solid rgba(232,100,100,.25)", borderRadius: 12, padding: "14px 14px" }}>
+                  <div style={{ fontSize: 12, color: "#f0c0b0", fontWeight: 600, marginBottom: 4 }}>{t.settings?.saveWarningTitle}</div>
+                  <div style={{ fontSize: 11, color: "#907080", marginBottom: 12, lineHeight: 1.5 }}>{t.settings?.saveWarningDesc}</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => { setOverlay({ type: "save" }); setShowSettings(false); setShowCoverConfirm(false); }}
+                      style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      {t.settings?.saveNow}
+                    </button>
+                    <button onClick={() => { setShowSettings(false); setShowCoverConfirm(false); setPhase("cover"); }}
+                      style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "1px solid rgba(232,120,176,.25)", background: "transparent", color: "#907080", fontSize: 12, cursor: "pointer" }}>
+                      {t.settings?.leaveAnyway}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {achievement && (
           <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.85)", backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: "#1a0a20", border: "1px solid rgba(232,135,176,.5)", borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(232,135,176,.3)" }}>
@@ -825,7 +895,7 @@ export default function App() {
                       stats: statsRef.current, memory: memoryRef.current,
                       form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
-                      groupConfig, apiKey, selectedModel, kktUnlocked, language,
+                      groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
                     });
                     const epStats = epilogue.newStats || statsRef.current;
                     const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);

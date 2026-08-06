@@ -1,7 +1,7 @@
 const ko = {
   cover: {
     subtitle: "아이돌 데이트 시뮬레이터",
-    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.0",
+    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.1",
     newGame: "✨ 새 게임",
     continue: "💾 이어하기 (불러오기)",
     apiKey: "🔑 API 키 / 모델",
@@ -94,20 +94,33 @@ const ko = {
   common: { error: "❌ 오류:", startFailed: "시작 실패:", enterKey: "API 키를 입력하세요", pleaseSelectMember: "메인 멤버를 선택하세요", pleaseSetKey: "API 키를 설정하세요" },
 
     guide: {
-    title: "📖 API 키 가이드",
+    title: "📖 API 키 발급 방법",
     steps: [
-      "① {platform}을(를) 열고 회원가입 후 로그인",
-      "② 'Usage' 페이지로 이동하여 필요에 따라 충전",
-      "③ 'API Keys' 페이지로 이동하여 'Create API Key' 클릭",
-      "④ 이름을 입력하여 생성 후, 생성된 키 복사 (형식: {prefix}...)",
-      "⑤ 여기로 돌아와서, 해당 모델 선택 후 키 붙여넣기, 확인",
-      "⑥ 브라우저에서 이 페이지 공유 → 홈 화면에 추가 (iOS/Android)하여 앱 아이콘 생성, 다음 접속 시 편리하게 접근 가능",
+      "① {platform} 열기 — 가입 후 로그인",
+      "② 계정에 크레딧 충전 (소액으로도 충분해요)",
+      "③ 'API Keys' → 'Create API Key' 클릭",
+      "④ 생성된 키 복사 ({prefix}... 로 시작)",
+      "⑤ 아래 입력창에 붙여넣기 후 확인",
+      "⑥ 팁: 브라우저 공유 → 홈 화면에 추가로 앱 아이콘 저장 가능",
     ],
-    billing: "💰 {gameplay} 플레이 가능. 플랫폼에서 사용량 확인 및 필요 시 충전하세요.",
-    warning: "⚠️ 타인과 공유하거나 공개 게시하지 마세요. 크레딧 도용 위험이 있습니다.",
-    moreModels: "🚧 현재 모델이 불가능한 경우 다른 모델로 전환하고 해당 플랫폼의 키를 사용하세요.",
-    keyManagement: "🔑 키를 분실했거나 유출된 경우: 플랫폼에서 기존 키를 삭제한 다음 다시 생성하십시오.",
-    noProfit: "💡 팬이 만든 비영리 게임입니다. 모든 충전 금액은 선택한 LLM 플랫폼 계정으로 들어갑니다.",
+    freeStep2: "② 신규 사용자 무료 크레딧 제공 — 충전 없이 바로 시작 가능!",
+    billing: "💰 $1당 {gameplay} 플레이 가능. 플랫폼에서 사용량을 확인하세요.",
+    warning: "⚠️ 키를 타인과 공유하지 마세요 — 크레딧이 도용될 수 있습니다.",
+    moreModels: "🚧 모델이 작동하지 않으면 다른 모델로 전환하고 해당 플랫폼의 키를 사용하세요.",
+    keyManagement: "🔑 키 분실 또는 유출 시: 플랫폼에서 기존 키 삭제 후 새로 생성하세요.",
+    noProfit: "💡 팬이 만든 비영리 게임입니다. 충전 금액은 AI 플랫폼 계정으로 직접 들어갑니다.",
+  },
+
+  settings: {
+    title: "⚙️ 설정",
+    reasoningTitle: "🧠 딥씽킹 (Reasoning)",
+    reasoningOn: "ON — 모델이 작성 전에 추론합니다. 스토리가 더 풍부하지만 비용 ~2배, 속도 느림.",
+    reasoningOff: "OFF — 빠른 응답, 낮은 비용. (Qwen: 미지원)",
+    backToCover: "🏠 커버 페이지로 돌아가기",
+    saveWarningTitle: "⚠️ 먼저 진행 상황을 저장하세요!",
+    saveWarningDesc: "커버 페이지로 돌아가면 현재 세션이 종료됩니다. 떠나기 전에 저장하세요.",
+    saveNow: "💾 지금 저장",
+    leaveAnyway: "그냥 나가기",
   },
 
 };
