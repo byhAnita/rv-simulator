@@ -994,7 +994,7 @@ export default function App() {
         <div style={{ padding: "6px 8px", background: th.inputAreaBg, borderTop: `1px solid ${th.borderFaint}`, display: "flex", gap: 5, alignItems: "flex-end", flexShrink: 0 }}>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-            placeholder="Type your action or dialogue... (Enter to send)"
+            placeholder={language === "zh" ? "输入你的选择..." : language === "ko" ? "선택 사항 입력..." : "Type your choice..."}
             disabled={loading} rows={1} maxLength={300}
             style={{ flex: 1, padding: "8px 12px", borderRadius: 12, background: th.inputBg, border: `1px solid ${th.borderDim}`, color: th.textPrimary, fontSize: 12, outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.4, maxHeight: 70, overflowY: "auto" }} />
           <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
