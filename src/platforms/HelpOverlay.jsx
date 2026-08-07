@@ -155,8 +155,8 @@ function Code({ children }) {
 function BL() {
   return (
     <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontSize: 11 }}>🎮 <A href="ihttps://idol-sim-test.pages.dev/">idol-sim-test.pages.dev</A></div>
-      <div style={{ fontSize: 11 }}>🎮 <A href="https://rv-simulator-eta.vercel.app">rv-simulator-eta.vercel.app</A></div>
+      <div style={{ fontSize: 11 }}>🎮 <A href="https://idol-sim-test.pages.dev/">idol-sim-test.pages.dev</A></div>
+      <div style={{ fontSize: 11 }}>🎮 <A href="https://rv-simulator-sandy.vercel.app/">rv-simulator-sandy.vercel.app</A></div>
     </div>
   );
 }
