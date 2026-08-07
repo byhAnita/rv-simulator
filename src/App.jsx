@@ -81,6 +81,7 @@ export default function App() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const preRoundSnapshotRef = useRef(null);
+  const phaseRef = useRef("cover");
   const [copiedStory, setCopiedStory] = useState(false);
   const [reasoningEnabled, setReasoningEnabled] = useState(() => loadFromStorage(STORAGE_KEYS.REASONING) ?? false);
   const [showSettings, setShowSettings] = useState(false);
@@ -102,13 +103,19 @@ export default function App() {
     }).catch(console.error);
   }, []);
 
+  // Keep phaseRef current so async callbacks can read the live phase without stale closure
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+
   // 当 selectedGroup 变化时，重新加载 RAG：
   useEffect(() => {
     if (!selectedGroup) return;
     loadGroupConfig(selectedGroup, language).then(config => {
       setGroupConfig(config);
       setMembers(config.members);
-      setForm(f => ({ ...f, mainMember: null, subMembers: [] }));
+      // Don't reset form if the game is already running (e.g. async resolved after loadSave)
+      if (phaseRef.current !== "game") {
+        setForm(f => ({ ...f, mainMember: null, subMembers: [] }));
+      }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
   }, [selectedGroup, language]);
