@@ -15,6 +15,7 @@ import InstagramOverlay from "./platforms/InstagramOverlay";
 import WeverseOverlay from "./platforms/WeverseOverlay";
 import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
+import HelpOverlay from "./platforms/HelpOverlay";
 
 
 const IDENTITIES = [
@@ -87,6 +88,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [confirmDest, setConfirmDest] = useState(null); // null | "cover" | "keyInput"
   const [keyJustSaved, setKeyJustSaved] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
@@ -495,8 +497,12 @@ export default function App() {
         >{ct.newGame}</button>
         {hasSaves() && <button onClick={() => { setOverlay({ type: "save" }); }} style={{ padding: "10px 32px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer", marginBottom: 10 }}>{ct.continue}</button>}
         <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: "1px solid rgba(232,120,176,.3)", borderRadius: 16, padding: "6px 16px", color: "#c898b8", fontSize: 11, cursor: "pointer" }}>{ct.apiKey}</button>
+        <button onClick={() => setShowHelp(true)} style={{ background: "none", border: "none", color: "#605060", fontSize: 11, cursor: "pointer", marginTop: 8, textDecoration: "underline" }}>
+          {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
+        </button>
       </div>
       {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+      {showHelp && <HelpOverlay language={language} onClose={() => setShowHelp(false)} />}
     </div>
     );
   }
@@ -528,10 +534,20 @@ export default function App() {
     };
 
     return (
+      <>
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)" }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: "linear-gradient(160deg,#0a0410,#1e0718,#0a0420)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: "#f5e6ef", padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.5)", overflowY: "auto" }}>
           <NotificationBar />
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🔑</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 2 }}>
+            <div style={{ flex: 1 }} />
+            <div style={{ fontSize: 36, marginBottom: 6 }}>🔑</div>
+            <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", paddingTop: 6 }}>
+              <button onClick={() => setShowHelp(true)}
+                style={{ background: "rgba(160,100,200,.1)", border: "1px solid rgba(160,100,200,.3)", borderRadius: 8, color: "#a888c8", fontSize: 11, cursor: "pointer", padding: "3px 9px" }}>
+                📖 {language === "zh" ? "帮助" : language === "ko" ? "도움말" : "Help"}
+              </button>
+            </div>
+          </div>
           <h2 style={{ fontSize: 18, color: "#f8c8d8", marginBottom: 4 }}>{t.keyInput.title}</h2>
           <p style={{ fontSize: 11, color: "#907080", marginBottom: 4, textAlign: "center" }}>{t.keyInput.desc}</p>
           <p style={{ fontSize: 9, color: "#605060", marginBottom: 12, textAlign: "center" }}>💡 {MODEL_CONFIGS[selectedModel]?.keyHelp}</p>
@@ -636,6 +652,8 @@ export default function App() {
           )}
         </div>
       </div>
+      {showHelp && <HelpOverlay language={language} onClose={() => setShowHelp(false)} />}
+      </>
     );
   }
 
@@ -877,6 +895,7 @@ export default function App() {
 
         {/* Overlays */}
         {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {showHelp && <HelpOverlay language={language} onClose={() => setShowHelp(false)} />}
 
         {/* Settings Overlay */}
         {showSettings && (
@@ -885,7 +904,13 @@ export default function App() {
             <div style={{ width: "88%", maxWidth: 320, background: "#110820", border: "1px solid rgba(232,120,176,.3)", borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#f8c8d8" }}>{t.settings?.title}</div>
-                <button onClick={() => { setShowSettings(false); setConfirmDest(null); }} style={{ background: "none", border: "none", color: "#907080", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => { setShowSettings(false); setShowHelp(true); }}
+                    style={{ background: "rgba(160,100,200,.1)", border: "1px solid rgba(160,100,200,.3)", borderRadius: 8, color: "#a888c8", fontSize: 11, cursor: "pointer", padding: "3px 9px" }}>
+                    📖 {language === "zh" ? "帮助" : language === "ko" ? "도움말" : "Help"}
+                  </button>
+                  <button onClick={() => { setShowSettings(false); setConfirmDest(null); }} style={{ background: "none", border: "none", color: "#907080", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                </div>
               </div>
 
               {/* Reasoning toggle */}
