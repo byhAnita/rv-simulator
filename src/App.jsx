@@ -43,6 +43,7 @@ const THEMES = {
     topBarBg: "rgba(6,2,10,.96)",
     inputBg: "rgba(255,255,255,.05)",
     inputAreaBg: "rgba(6,2,10,.96)",
+    optionsBtnBg: "#e887b0" + "10",
     optionsBg: "rgba(6,2,10,.85)",
     modalOverlay: "rgba(0,0,0,.75)",
     achieveOverlay: "rgba(0,0,0,.85)",
@@ -115,54 +116,60 @@ const THEMES = {
     actionBtnBorder: "rgba(232,120,176,.22)",
     copiedColor: "#6db87a",
     actionColor: "#a07090",
+    actionBtnBg: "#e887b0" + "10",
     themeBtnBg: "rgba(255,255,255,.06)",
     themeBtnBorder: "rgba(255,255,255,.15)",
     themeBtnColor: "#c898b8",
+    topBarText: "#f8c8d8",
+    topBarStatText: "#c898b8",
+    topBarIconBg: "rgba(255,255,255,.06)",
+    topBarIconBorder: "rgba(232,120,176,.2)",
   },
   light: {
     pageBg: "linear-gradient(135deg,#f5f0e8,#ede6d6,#f0ead8)",
-    pageBgAlt: "linear-gradient(160deg,#f5f0e8,#ede6d6,#f0ead8)",
-    gameBg: "linear-gradient(180deg,#f5f0e8,#ede6d6)",
-    outerBg: "#ddd5be",
-    panelBg: "#ede6d6",
-    cardBg: "rgba(139,105,20,.05)",
-    statsBg: "rgba(200,168,75,.1)",
-    storyBg: "#faf7f0",
-    topBarBg: "rgba(245,240,232,.97)",
-    inputBg: "rgba(139,105,20,.06)",
-    inputAreaBg: "rgba(245,240,232,.97)",
-    optionsBg: "rgba(245,240,232,.92)",
-    modalOverlay: "rgba(60,40,10,.5)",
-    achieveOverlay: "rgba(60,40,10,.72)",
-    achieveBg: "#f0ead8",
-    border: "rgba(139,105,20,.2)",
-    borderAccent: "rgba(139,105,20,.3)",
-    borderFaint: "rgba(139,105,20,.12)",
-    borderSubtle: "rgba(139,105,20,.1)",
-    borderDim: "rgba(139,105,20,.2)",
+    pageBgAlt: "linear-gradient(160deg,#e8d9c0,#d4c4a0,#e0d2b0)",
+    gameBg: "linear-gradient(180deg,#a08060,#f5e8d0)",
+    outerBg: "#a08060",
+    panelBg: "#e0d2b8",
+    cardBg: "rgba(100,70,20,.07)",
+    statsBg: "#f5e8d0",
+    storyBg: "#f5e8d0",
+    topBarBg: "linear-gradient(135deg,#5c3820,#3a2210)",
+    inputBg: "#f5e8d0",
+    inputAreaBg: "linear-gradient(135deg,#5c3820,#3a2210)",
+    optionsBtnBg: "rgba(245, 232, 208, 0.9)",
+    optionsBg: "linear-gradient(50deg,#f5e8d0,#a08060)",
+    modalOverlay: "rgba(40,25,5,.55)",
+    achieveOverlay: "rgba(40,25,5,.78)",
+    achieveBg: "#faf7f0",
+    border: "rgba(100,65,20,.22)",
+    borderAccent: "rgba(120,80,20,.35)",
+    borderFaint: "rgba(100,65,20,.14)",
+    borderSubtle: "rgba(100,65,20,.1)",
+    borderDim: "rgba(100,65,20,.22)",
     textPrimary: "#2c1f0e",
     textHeading: "#3a2510",
-    textSecondary: "#6b4f2a",
-    textMuted: "#9a7c5a",
-    textFaint: "#b8a080",
-    textStory: "#2c1f0e",
-    textStats: "#6b4f2a",
-    accent: "#8b6914",
+    textSecondary: "#6b4528",
+    textMuted: "#8a6840",
+    textFaint: "#a8845a",
+    textStory: "#1e1408",
+    textStats: "#5a3a18",
+    accent: "#c8a870",
     accentGrad: "linear-gradient(135deg,#c8a84b,#a0522d)",
-    guideBg: "rgba(139,105,20,.06)",
+    guideBg: "#f5e8d0",
     guideText: "#3a2a0e",
     guideBilling: "#8b6914",
     guideHint: "#7a5c2a",
     guideWarning: "#8b4a14",
     guideMuted: "#9a7c5a",
-    memberBtnBg: "rgba(139,105,20,.05)",
-    memberBtnColor: "#6b4f2a",
-    modelCardBg: "rgba(139,105,20,.04)",
-    modelCardColor: "#6b4f2a",
-    subModelCardBg: "rgba(139,105,20,.04)",
-    subModelCardColor: "#7a5c2a",
-    scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(139,105,20,.2)}`,
-    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(139,105,20,.05);border:1px solid rgba(139,105,20,.2);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#8b6914;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(139,105,20,.06);border:1px solid rgba(139,105,20,.2);color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(139,105,20,.05);border:1px solid rgba(139,105,20,.2);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#8b6914;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    memberBtnBg: "rgba(100,65,20,.06)",
+    memberBtnColor: "#6b4528",
+    modelCardBg: "rgba(100,65,20,.05)",
+    modelCardColor: "#6b4528",
+    subModelCardBg: "rgba(100,65,20,.05)",
+    subModelCardColor: "#7a5030",
+    scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(100,65,20,.25)}`,
+    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid rgba(100,65,20,.22);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#8b6914;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid rgba(100,65,20,.22);color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid rgba(100,65,20,.22);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#8b6914;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "rgba(160,90,20,.1)",
     notifBarBorder: "rgba(160,90,20,.2)",
     notifBarText: "#8b4a14",
@@ -189,7 +196,7 @@ const THEMES = {
     groupBtnBg: "rgba(139,105,20,.04)",
     groupBtnColor: "#7a5c2a",
     langBtnActiveBorder: "#8b6914",
-    langBtnActiveBg: "rgba(139,105,20,.15)",
+    langBtnActiveBg: "rgba(160,90,20,.3)",
     langBtnActiveColor: "#8b6914",
     langBtnBorder: "rgba(139,105,20,.2)",
     langBtnColor: "#9a7c5a",
@@ -203,9 +210,14 @@ const THEMES = {
     actionBtnBorder: "rgba(139,105,20,.25)",
     copiedColor: "#4a7a3a",
     actionColor: "#7a5c2a",
-    themeBtnBg: "rgba(139,105,20,.08)",
-    themeBtnBorder: "rgba(139,105,20,.2)",
-    themeBtnColor: "#6b4f2a",
+    actionBtnBg: "#f5e8d0",
+    themeBtnBg: "rgba(100,65,20,.1)",
+    themeBtnBorder: "rgba(100,65,20,.25)",
+    themeBtnColor: "#6b4528",
+    topBarText: "#f5e8d0",
+    topBarStatText: "#c8a870",
+    topBarIconBg: "#3a2210",
+    topBarIconBorder: "rgba(90,60,20,.5)",
   },
 };
 
@@ -542,7 +554,7 @@ export default function App() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center", marginBottom: 16 }}>
             {groupList.map(g => (
               <button key={g.id} onClick={() => setSelectedGroup(g.id)}
-                style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 12, border: `1px solid ${selectedGroup === g.id ? (g.color || th.accent) : th.groupBtnBorder}`, background: selectedGroup === g.id ? (g.color || th.accent) + "18" : th.groupBtnBg, color: selectedGroup === g.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.groupBtnColor, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+                style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 12, border: `1px solid ${selectedGroup === g.id ? (g.color || th.accent) : th.groupBtnBorder}`, background: selectedGroup === g.id ? th.langBtnActiveBg : th.groupBtnBg, color: selectedGroup === g.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.groupBtnColor, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
                 <span style={{ fontSize: 12 }}>{g.emoji}</span>
                 <span style={{ fontWeight: selectedGroup === g.id ? 700 : 400 }}>{g.name}</span>
               </button>
@@ -587,7 +599,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -645,7 +657,7 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
               {Object.values(MODEL_CONFIGS).map(c => (
                 <div key={c.id} onClick={() => handleModelSelect(c.id)}
-                  style={{ padding: "7px 9px", borderRadius: 10, border: `1px solid ${selectedModel === c.id ? c.color : th.border}`, background: selectedModel === c.id ? c.color + "15" : th.modelCardBg, cursor: "pointer", userSelect: "none" }}>
+                  style={{ padding: "7px 9px", borderRadius: 10, border: `1px solid ${selectedModel === c.id ? c.color : th.border}`, background: selectedModel === c.id ? th.langBtnActiveBg : th.modelCardBg, cursor: "pointer", userSelect: "none" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: selectedModel === c.id ? c.color : th.modelCardColor }}>{c.emoji} {c.name}</div>
                   <div style={{ fontSize: 8, color: th.textMuted, marginTop: 1 }}>{c.desc?.[language]}</div>
                 </div>
@@ -659,7 +671,7 @@ export default function App() {
                 <div style={{ display: "flex", gap: 5 }}>
                   {(MODEL_CONFIGS.qwen.subModels || []).map(sub => (
                     <div key={sub.id} onClick={() => handleQwenSubModelSelect(sub.id)}
-                      style={{ flex: 1, padding: "6px 8px", borderRadius: 8, textAlign: "center", border: `1px solid ${selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : th.border}`, background: selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color + "20" : th.subModelCardBg, cursor: "pointer", userSelect: "none" }}>
+                      style={{ flex: 1, padding: "6px 8px", borderRadius: 8, textAlign: "center", border: `1px solid ${selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : th.border}`, background: selectedQwenSubModel === sub.id ? th.langBtnActiveBg : th.subModelCardBg, cursor: "pointer", userSelect: "none" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : th.subModelCardColor }}>{sub.name}</div>
                       <div style={{ fontSize: 8, color: th.textMuted, marginTop: 1 }}>{sub.desc?.[language]}</div>
                     </div>
@@ -738,7 +750,7 @@ export default function App() {
           <style>{th.setupCss}</style>
           <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
             <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>Character Creation</h2>
-            <p style={{ fontSize: 10, color: th.textMuted }}>RAG loaded: {groupConfig?.group?.name || "Loading..."}</p>
+            <p style={{ fontSize: 10, color: th.textMuted }}>Group loaded: {groupConfig?.group?.name || "Loading..."}</p>
             <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
               <span>{apiKey ? "Key configured" : "Key missing"}</span>
               <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}</span>
@@ -788,7 +800,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
             {IDENTITIES.map(id => (
               <div key={id.id} onClick={() => setForm(f => ({ ...f, identity: id.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === id.id ? th.accent : th.groupBtnBorder}`, background: form.identity === id.id ? th.accent + "18" : th.memberBtnBg, color: form.identity === id.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === id.id ? th.accent : th.groupBtnBorder}`, background: form.identity === id.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === id.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
                 {t.identities[id.id] || id.label}
               </div>
             ))}
@@ -807,7 +819,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
             {t.paces.map((p, i) => (
               <div key={PACES[i]} onClick={() => setForm(f => ({ ...f, pace: PACES[i] }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.pace === PACES[i] ? th.accent : th.groupBtnBorder}`, background: form.pace === PACES[i] ? th.accent + "18" : th.memberBtnBg, color: form.pace === PACES[i] ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.pace === PACES[i] ? th.accent : th.groupBtnBorder}`, background: form.pace === PACES[i] ? th.langBtnActiveBg : th.memberBtnBg, color: form.pace === PACES[i] ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
                 {p}
               </div>
             ))}
@@ -842,7 +854,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg,${displayTopMember?.color || "#f0c8d8"},${displayTopMember?.accent || "#c2185b"})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{displayTopMember?.emoji || "💗"}</div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: th.textHeading, whiteSpace: "nowrap" }}>{displayTopMember?.name || "RV"}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: th.topBarText, whiteSpace: "nowrap" }}>{displayTopMember?.name || "RV"}</div>
               <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: stageColor + "18", color: stageColor, border: `1px solid ${stageColor}33` }}>{stageLabel}</span>
             </div>
           </div>
@@ -853,7 +865,7 @@ export default function App() {
               { key: "mood", icon: "💫", label: "Mood", value: stats.mood },
               { key: "week", icon: "📅", label: "Round", value: stats.week },
             ].map(item => (
-              <div key={item.key} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: th.textSecondary, position: "relative" }} onMouseEnter={() => setHoveredStat(item.key)} onMouseLeave={() => setHoveredStat(null)}>
+              <div key={item.key} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: th.topBarStatText, position: "relative" }} onMouseEnter={() => setHoveredStat(item.key)} onMouseLeave={() => setHoveredStat(null)}>
                 <span style={{ fontSize: 10 }}>{item.icon}</span><span style={{ fontSize: 8 }}>{item.value}</span>
                 {hoveredStat === item.key && <div className="stat-tooltip">{item.label}: {item.value}</div>}
               </div>
@@ -861,7 +873,7 @@ export default function App() {
             {allTargetMembers.map(m => {
               const aff = getAffection(m.id);
               return (
-                <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: th.textSecondary, position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}>
+                <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: th.topBarStatText, position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}>
                   <span style={{ fontSize: 10 }}>{m.emoji}</span><span style={{ fontSize: 8 }}>{aff}</span>
                   {hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({getStageName(aff)})</div>}
                 </div>
@@ -873,13 +885,13 @@ export default function App() {
               const showDot = hasNotifDot(b.type) && !b.locked;
               return (
                 <button key={b.type} onClick={() => openSocialPlatform(b.type)}
-                  style={{ position: "relative", background: b.locked ? th.cardBg : th.cardBg, border: `1px solid ${b.locked ? th.borderSubtle : th.border}`, borderRadius: 5, padding: "3px 5px", color: b.locked ? th.textFaint : th.textSecondary, fontSize: 11, cursor: b.locked ? "not-allowed" : "pointer", opacity: b.locked ? .5 : 1 }}>
+                  style={{ position: "relative", background: th.topBarIconBg, border: `1px solid ${b.locked ? th.topBarIconBorder : th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: b.locked ? th.topBarStatText : th.topBarText, fontSize: 11, cursor: b.locked ? "not-allowed" : "pointer", opacity: b.locked ? .5 : 1 }}>
                   {b.icon}{showDot && <div className="notification-dot" />}
                 </button>
               );
             })}
-            <button onClick={() => setOverlay({ type: "save" })} style={{ background: th.cardBg, border: `1px solid ${th.border}`, borderRadius: 5, padding: "3px 5px", color: th.textSecondary, fontSize: 11, cursor: "pointer" }}>💾</button>
-            <button onClick={() => setShowSettings(true)} style={{ background: th.cardBg, border: `1px solid ${th.border}`, borderRadius: 5, padding: "3px 5px", color: th.textSecondary, fontSize: 11, cursor: "pointer" }}>⚙️</button>
+            <button onClick={() => setOverlay({ type: "save" })} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>💾</button>
+            <button onClick={() => setShowSettings(true)} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>⚙️</button>
           </div>
         </div>
 
@@ -911,12 +923,12 @@ export default function App() {
             const actionBar = (content) => (
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
                 <button onClick={() => copyStory(content)} title="Copy story"
-                  style={{ background: "none", border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: copiedStory ? th.copiedColor : th.actionColor, fontSize: 16, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>
+                  style={{ background: th.actionBtnBg, border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: copiedStory ? th.copiedColor : th.actionColor, fontSize: 16, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>
                   {copiedStory ? "✓" : "⎘"}
                 </button>
                 {preRoundSnapshotRef.current && (
                   <button onClick={regenerateRound} title="Retry this round"
-                    style={{ background: "none", border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: th.actionColor, fontSize: 18, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>
+                    style={{ background: th.actionBtnBg, border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: th.actionColor, fontSize: 18, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>
                     ↺
                   </button>
                 )}
@@ -971,7 +983,7 @@ export default function App() {
                     sendMessage(opt.letter + ". " + opt.text);
                   }
                 }}
-                style={{ padding: "5px 10px", borderRadius: 12, border: `1px solid ${th.borderAccent}`, background: th.accent + "10", color: th.textStory, fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}>
+                style={{ padding: "5px 10px", borderRadius: 12, border: `1px solid ${th.borderAccent}`, background: th.optionsBtnBg, color: th.textStory, fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}>
                 <span style={{ color: th.accent, fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
               </button>
             ))}
@@ -990,7 +1002,7 @@ export default function App() {
         </div>
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
 
         {/* Settings Overlay */}
@@ -1119,10 +1131,10 @@ export default function App() {
           </div>
         )}
 
-        {overlay?.type === "bubble" && <BubbleOverlay t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "instagram" && <InstagramOverlay t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "weverse" && <WeverseOverlay t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "kakao" && <KakaoOverlay t={t} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "instagram" && <InstagramOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "weverse" && <WeverseOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
       </div>
     </div>
   );
