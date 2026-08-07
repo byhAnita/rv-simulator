@@ -56,6 +56,7 @@ export default function App() {
   const [phase, setPhase] = useState("cover");
   const [apiKey, setApiKey] = useState(() => loadFromStorage(STORAGE_KEYS.API_KEY) || "");
   const [selectedModel, setSelectedModel] = useState(() => loadFromStorage(STORAGE_KEYS.SELECTED_MODEL) || "qwen");
+  const [selectedQwenSubModel, setSelectedQwenSubModel] = useState(() => loadFromStorage("rv_sim_qwen_submodel") || "qwen3.8-max");
   const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -83,7 +84,8 @@ export default function App() {
   const [copiedStory, setCopiedStory] = useState(false);
   const [reasoningEnabled, setReasoningEnabled] = useState(() => loadFromStorage(STORAGE_KEYS.REASONING) ?? false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showCoverConfirm, setShowCoverConfirm] = useState(false);
+  const [confirmDest, setConfirmDest] = useState(null); // null | "cover" | "keyInput"
+  const [keyJustSaved, setKeyJustSaved] = useState(false);
 
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
@@ -116,6 +118,7 @@ export default function App() {
   const showNotif = (msg, type = "info") => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
   const saveApiKey = (key) => { const t = key.trim(); setApiKey(t); if (t) { saveToStorage(STORAGE_KEYS.API_KEY, t); showNotif("Key saved"); } };
   const handleModelSelect = (id) => { setSelectedModel(id); saveToStorage(STORAGE_KEYS.SELECTED_MODEL, id); showNotif("Switched to " + MODEL_CONFIGS[id]?.name); };
+  const handleQwenSubModelSelect = (subId) => { setSelectedQwenSubModel(subId); saveToStorage("rv_sim_qwen_submodel", subId); };
 
   const hasSaves = () => {
     const saves = loadFromStorage(STORAGE_KEYS.SAVES) || [];
@@ -192,6 +195,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId, subIds, groupConfig, apiKey, selectedModel,
         kktUnlocked: {}, language,
+        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
       });
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
@@ -287,6 +291,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -358,6 +363,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
+        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
       });
 
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
@@ -540,6 +546,29 @@ export default function App() {
                 </div>
               ))}
             </div>
+
+            {/* Qwen sub-model selector */}
+            {selectedModel === "qwen" && (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ fontSize: 10, color: "#907080", marginBottom: 4, textAlign: "center" }}>
+                  {language === "zh" ? "选择 Qwen 版本" : language === "ko" ? "Qwen 버전 선택" : "Select Qwen version"}
+                </p>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {(MODEL_CONFIGS.qwen.subModels || []).map(sub => (
+                    <div key={sub.id} onClick={() => handleQwenSubModelSelect(sub.id)}
+                      style={{
+                        flex: 1, padding: "6px 8px", borderRadius: 8, textAlign: "center",
+                        border: `1px solid ${selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : "rgba(255,255,255,.1)"}`,
+                        background: selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color + "20" : "rgba(255,255,255,.03)",
+                        cursor: "pointer", userSelect: "none",
+                      }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : "#bbb" }}>{sub.name}</div>
+                      <div style={{ fontSize: 8, color: "#807080", marginTop: 1 }}>{sub.desc?.[language]}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* API Key Guide */}
@@ -550,7 +579,16 @@ export default function App() {
           }}>
             <p style={{ fontSize: 11, color: "#f8c8d8", fontWeight: 700, marginBottom: 4 }}>{t.guide?.title}</p>
             {(t.guide?.steps || []).map((step, i) => renderGuideStep(step, i))}
-            <p style={{ fontSize: 12, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>{(t.guide?.billing || "").replace("{gameplay}", MODEL_CONFIGS[selectedModel]?.gameplay?.[language] || "")}</p>
+            <p style={{ fontSize: 12, color: "#e887b0", marginTop: 6, fontWeight: 600 }}>{(t.guide?.billing || "").replace("{gameplay}", (() => {
+              if (selectedModel === "qwen") {
+                const sub = (MODEL_CONFIGS.qwen.subModels || []).find(s => s.id === selectedQwenSubModel);
+                return sub?.gameplay?.[language] || MODEL_CONFIGS.qwen.gameplay?.[language] || "";
+              }
+              return MODEL_CONFIGS[selectedModel]?.gameplay?.[language] || "";
+            })())}</p>
+            {selectedModel === "qwen" && t.guide?.qwenSwitchHint && (
+              <p style={{ fontSize: 10, color: "#b090c0", marginTop: 4, fontWeight: 500 }}>{t.guide.qwenSwitchHint}</p>
+            )}
             <p style={{ fontSize: 9, color: "#846875", marginTop: 3 , fontWeight: 450}}>{t.guide?.warning}</p>
             <p style={{ fontSize: 9, color: "#907080", marginTop: 2 , fontWeight: 450}}>{t.guide?.keyManagement}</p>
             <p style={{ fontSize: 9, color: "#907080", marginTop: 2 , fontWeight: 450}}>{t.guide?.moreModels}</p>
@@ -561,16 +599,34 @@ export default function App() {
           <input type="password" placeholder={(MODEL_CONFIGS[selectedModel]?.keyPrefix || "sk-") + "..."} value={apiKey} onChange={e => setApiKey(e.target.value)} autoFocus
             style={{ width: "100%", padding: "11px 14px", borderRadius: 12, background: "rgba(255,255,255,.06)", border: `1px solid ${MODEL_CONFIGS[selectedModel]?.color || "rgba(232,120,176,.3)"}`, color: "#f5e6ef", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "'Courier New',monospace", marginBottom: 14 }} />
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { if (apiKey?.trim()) { saveApiKey(apiKey); setPhase("setup"); } else showNotif(t.common?.enterKey || "Please enter API Key", "error"); }} disabled={!apiKey?.trim()}
-              style={{ padding: "10px 28px", borderRadius: 40, border: "none", cursor: apiKey?.trim() ? "pointer" : "not-allowed", background: apiKey?.trim() ? `linear-gradient(135deg,${MODEL_CONFIGS[selectedModel]?.color || "#e887b0"},#c86dd0)` : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontWeight: 600 }}>
-              {t.keyInput.confirm}
-            </button>
-            <button onClick={() => setPhase("cover")}
-              style={{ padding: "10px 20px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
-              {t.keyInput.back}
-            </button>
-          </div>
+          {!keyJustSaved ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { if (apiKey?.trim()) { saveApiKey(apiKey); setKeyJustSaved(true); } else showNotif(t.common?.enterKey || "Please enter API Key", "error"); }} disabled={!apiKey?.trim()}
+                style={{ padding: "10px 28px", borderRadius: 40, border: "none", cursor: apiKey?.trim() ? "pointer" : "not-allowed", background: apiKey?.trim() ? `linear-gradient(135deg,${MODEL_CONFIGS[selectedModel]?.color || "#e887b0"},#c86dd0)` : "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontWeight: 600 }}>
+                {t.keyInput.confirm}
+              </button>
+              <button onClick={() => { setKeyJustSaved(false); setPhase("cover"); }}
+                style={{ padding: "10px 20px", borderRadius: 40, border: "1px solid rgba(232,120,176,.3)", background: "transparent", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
+                {t.keyInput.back}
+              </button>
+            </div>
+          ) : (
+            <div style={{ width: "100%", background: "rgba(100,200,120,.06)", border: "1px solid rgba(100,200,120,.25)", borderRadius: 14, padding: "14px 16px", textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#90d8a0", fontWeight: 600, marginBottom: 10 }}>
+                {language === "zh" ? "✅ Key 已保存！选择下一步" : language === "ko" ? "✅ Key 저장 완료! 다음을 선택하세요" : "✅ Key saved! What's next?"}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { setKeyJustSaved(false); if (!selectedGroup) { setPhase("cover"); } else { setPhase("setup"); } }}
+                  style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: `linear-gradient(135deg,${MODEL_CONFIGS[selectedModel]?.color || "#e887b0"},#c86dd0)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {language === "zh" ? "✨ 开始新游戏" : language === "ko" ? "✨ 새 게임" : "✨ New Game"}
+                </button>
+                <button onClick={() => { setKeyJustSaved(false); setPhase("cover"); setOverlay({ type: "save" }); }}
+                  style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "1px solid rgba(232,120,176,.35)", background: "rgba(232,120,176,.06)", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
+                  {language === "zh" ? "💾 读取存档" : language === "ko" ? "💾 불러오기" : "💾 Load Save"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -818,11 +874,11 @@ export default function App() {
         {/* Settings Overlay */}
         {showSettings && (
           <div style={{ position: "absolute", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.75)", backdropFilter: "blur(6px)" }}
-            onClick={e => { if (e.target === e.currentTarget) { setShowSettings(false); setShowCoverConfirm(false); } }}>
+            onClick={e => { if (e.target === e.currentTarget) { setShowSettings(false); setConfirmDest(null); } }}>
             <div style={{ width: "88%", maxWidth: 320, background: "#110820", border: "1px solid rgba(232,120,176,.3)", borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#f8c8d8" }}>{t.settings?.title}</div>
-                <button onClick={() => { setShowSettings(false); setShowCoverConfirm(false); }} style={{ background: "none", border: "none", color: "#907080", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+                <button onClick={() => { setShowSettings(false); setConfirmDest(null); }} style={{ background: "none", border: "none", color: "#907080", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
               </div>
 
               {/* Reasoning toggle */}
@@ -841,22 +897,28 @@ export default function App() {
 
               <div style={{ height: 1, background: "rgba(232,120,176,.12)", marginBottom: 20 }} />
 
-              {/* Back to cover */}
-              {!showCoverConfirm ? (
-                <button onClick={() => setShowCoverConfirm(true)}
-                  style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,120,176,.06)", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
-                  {t.settings?.backToCover}
-                </button>
+              {/* Switch LLM + Back to cover */}
+              {confirmDest === null ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button onClick={() => setConfirmDest("keyInput")}
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: `1px solid rgba(98,54,255,.4)`, background: "rgba(98,54,255,.08)", color: "#a898e8", fontSize: 13, cursor: "pointer" }}>
+                    {language === "zh" ? "🔑 切换模型 / API Key" : language === "ko" ? "🔑 모델 / API Key 전환" : "🔑 Switch Model / API Key"}
+                  </button>
+                  <button onClick={() => setConfirmDest("cover")}
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "1px solid rgba(232,120,176,.25)", background: "rgba(232,120,176,.06)", color: "#c898b8", fontSize: 13, cursor: "pointer" }}>
+                    {t.settings?.backToCover}
+                  </button>
+                </div>
               ) : (
                 <div style={{ background: "rgba(232,80,80,.08)", border: "1px solid rgba(232,100,100,.25)", borderRadius: 12, padding: "14px 14px" }}>
                   <div style={{ fontSize: 12, color: "#f0c0b0", fontWeight: 600, marginBottom: 4 }}>{t.settings?.saveWarningTitle}</div>
                   <div style={{ fontSize: 11, color: "#907080", marginBottom: 12, lineHeight: 1.5 }}>{t.settings?.saveWarningDesc}</div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => { setOverlay({ type: "save" }); setShowSettings(false); setShowCoverConfirm(false); }}
+                    <button onClick={() => { setOverlay({ type: "save" }); setShowSettings(false); setConfirmDest(null); }}
                       style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#e887b0,#c86dd0)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                       {t.settings?.saveNow}
                     </button>
-                    <button onClick={() => { setShowSettings(false); setShowCoverConfirm(false); setPhase("cover"); }}
+                    <button onClick={() => { setShowSettings(false); setConfirmDest(null); setKeyJustSaved(false); setPhase(confirmDest); }}
                       style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "1px solid rgba(232,120,176,.25)", background: "transparent", color: "#907080", fontSize: 12, cursor: "pointer" }}>
                       {t.settings?.leaveAnyway}
                     </button>
@@ -896,6 +958,7 @@ export default function App() {
                       form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
                       groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+                      qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
                     });
                     const epStats = epilogue.newStats || statsRef.current;
                     const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);

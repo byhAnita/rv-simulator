@@ -16,7 +16,7 @@ import { MODEL_CONFIGS } from "../config/modelConfigs";
  * @returns {Promise<string>} LLM response
  */
 
-async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal, prebuiltMessages = null, reasoningEnabled = false) {
+async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, signal, prebuiltMessages = null, reasoningEnabled = false, qwenSubModel = null) {
   const cfg = MODEL_CONFIGS[modelId];
 
   const messages = prebuiltMessages || [
@@ -25,23 +25,31 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
     { role: "user", content: userMsg },
   ];
 
-  console.log("🔥🔥🔥 callLLM v4 entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId);
+  const resolvedModel = (modelId === "qwen" && qwenSubModel) ? qwenSubModel : cfg.model;
+  console.log("🔥🔥🔥 callLLM v4 entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId, "resolvedModel:", resolvedModel);
   console.log("[DEBUG] Messages count:", messages.length);
 
   const body = {
-    model: cfg.model,
+    model: resolvedModel,
     messages,
     response_format: { type: "json_object" },
     max_tokens: cfg.maxOutputTokens || 8192,  // ← Prioritize model's own limit
     temperature: 0.92,
   };
 
-  // Reasoning — only applied when user has enabled it in Settings
+  
+  if (modelId === "qwen") {
+    // Qwen 3.8/3.7 Max/Plus default thinking ON — disable unless user enabled reasoning
+    body.enable_thinking = "false";
+    body.preserve_thinking = "false";
+  }
+
+  // Reasoning — applied when user has enabled it in Settings
   if (reasoningEnabled) {
     if (modelId === "deepseek") {
       body.thinking = { type: "enabled" };
       body.reasoning_effort = "high";
-      body.max_tokens = 200000;
+      body.max_tokens = 65536;
     }
     if (modelId === "gpt4omini") {
       body.reasoning_effort = "high";
@@ -50,18 +58,13 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
       body.reasoning_effort = "high";
       body.max_tokens = 65535;
     }
-    // qwen does not support reasoning_effort — no-op
+    if (modelId === "qwen") {
+      body.enable_thinking = "true";
+      // qwen3.8-max uses reasoning_effort low/medium/xhigh; others use low/high/max
+      body.reasoning_effort = resolvedModel === "qwen3.8-max" ? "medium" : "high";
+    }
   }
 
-  // ✅ Qwen Character: No thinking mode, no extra parameters
-  // Implicit prefix cache applies automatically (server matches system prompt prefix)
-  // Do not pass thinking / reasoning_effort / enable_thinking, or it will throw an error
-  if (modelId === "qwen") {
-    // Ensure no thinking-related fields are sent (defensive cleanup)
-    delete body.thinking;
-    delete body.reasoning_effort;
-    delete body.enable_thinking;
-  }
 
   const resp = await fetch(cfg.url, {
     method: "POST",
@@ -88,7 +91,7 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   return content;
 }
 
-export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = "deepseek", prebuiltMessages = null, reasoningEnabled = false) {
+export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = "deepseek", prebuiltMessages = null, reasoningEnabled = false, qwenSubModel = null) {
   if (!apiKey?.trim()) throw new Error("Please set your API Key");
 
   const cfg = MODEL_CONFIGS[modelId];
@@ -99,7 +102,7 @@ export async function callLLM(userMsg, history, systemPrompt, apiKey, modelId = 
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90000);
     try {
-      const content = await callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, ctrl.signal, prebuiltMessages, reasoningEnabled);
+      const content = await callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, ctrl.signal, prebuiltMessages, reasoningEnabled, qwenSubModel);
       clearTimeout(tid);
       if (content) return content;
       if (attempt < MAX_RETRIES) {

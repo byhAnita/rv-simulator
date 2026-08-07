@@ -479,7 +479,7 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
-  groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+  groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, qwenSubModel = null,
 }) {
   const allTargetIds = [mainId, ...subIds];
   const roundNum = stats.week;
@@ -508,7 +508,7 @@ export async function executeRound({
     { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
-  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled);
+  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, qwenSubModel);
   const parsed = parseLLMOutput(llmOutput);
 
   // Step 3: Compute

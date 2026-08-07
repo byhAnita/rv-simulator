@@ -4,12 +4,31 @@
 export const MODEL_CONFIGS = {
   qwen: {
     id: "qwen", name: "Qwen Plus Character", emoji: "🐉",
-    desc: { zh: "新用户免费额度 · 角色扮演专属", en: "Free credits · Roleplay specialist", ko: "신규 무료 크레딧 · 롤플레이 전문" },
+    desc: { zh: "新用户免费额度 · 卓越叙事能力", en: "Free credits · Superior Storytelling", ko: "신규 무료 크레딧 · 뛰어난 스토리텔링" },
     color: "#6236ff", url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-    model: "qwen-plus-character", keyPrefix: "sk-", keyHelp: "platform.qianwenai.com → Get API Key", format: "openai",
-    maxOutputTokens: 4096,
+    model: "qwen3.8-max", keyPrefix: "sk-", keyHelp: "platform.qianwenai.com → Get API Key", format: "openai",
+    // all qwen models use max_completion_tokens instead of max_tokens
+    max_completion_tokens: 65535,
     hasFreeCredits: true,
-    gameplay: { zh: "￥1 ≈ 50小时", en: "$1 ≈ 208 hrs", ko: "₩1,000 ≈ 155시간" },
+    // gameplay per sub-model — override via selectedQwenSubModel in App.jsx
+    gameplay: { zh: "免费额度 ≈ 14小时", en: "Free credits ≈ 14 hrs", ko: "무료 크레딧 ≈ 14시간" },
+    subModels: [
+      {
+        id: "qwen3.8-max",
+        name: "Qwen 3.8 Max",
+        desc: { zh: "旗舰推理 · 最高质量", en: "Flagship · Highest quality", ko: "플래그십 · 최고 품질" },
+      },
+      {
+        id: "qwen3.7-max",
+        name: "Qwen 3.7 Max",
+        desc: { zh: "平衡质量与速度", en: "Balanced quality & speed", ko: "품질과 속도 균형" },
+      },
+      {
+        id: "qwen3.7-plus",
+        name: "Qwen 3.7 Plus",
+        desc: { zh: "最经济 · 快速生成", en: "Most affordable · Fast", ko: "가장 저렴 · 빠른 생성" },
+      },
+    ],
   },
   deepseek: {
     id: "deepseek", name: "DeepSeek V4 Flash", emoji: "🐋",
