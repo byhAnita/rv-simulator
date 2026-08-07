@@ -56,7 +56,7 @@ const THEMES = {
     textPrimary: "#f5e6ef",
     textHeading: "#f8c8d8",
     textSecondary: "#c898b8",
-    textMuted: "#907080",
+    textMuted: "#f8c8d8",
     textFaint: "#605060",
     textStory: "#f0dce8",
     textStats: "#d0a8c0",
@@ -147,10 +147,10 @@ const THEMES = {
     borderFaint: "#a08060",
     borderSubtle: "#a08060",
     borderDim: "#a08060",
-    textPrimary: "#2c1f0e",
+    textPrimary: "#8a6840",
     textHeading: "#3a2510",
     textSecondary: "#6b4528",
-    textMuted: "#8a6840",
+    textMuted: "#3a2a0e",
     textFaint: "#a8845a",
     textStory: "#1e1408",
     textStats: "#5a3a18",
@@ -659,7 +659,7 @@ export default function App() {
                 <div key={c.id} onClick={() => handleModelSelect(c.id)}
                   style={{ padding: "7px 9px", borderRadius: 10, border: `1px solid ${selectedModel === c.id ? c.color : th.border}`, background: selectedModel === c.id ? th.langBtnActiveBg : th.modelCardBg, cursor: "pointer", userSelect: "none" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: selectedModel === c.id ? c.color : th.modelCardColor }}>{c.emoji} {c.name}</div>
-                  <div style={{ fontSize: 8, color: th.textMuted, marginTop: 1 }}>{c.desc?.[language]}</div>
+                  <div style={{ fontSize: 8, color: th.guideText, marginTop: 1 }}>{c.desc?.[language]}</div>
                 </div>
               ))}
             </div>
@@ -749,12 +749,12 @@ export default function App() {
           <NotificationBar />
           <style>{th.setupCss}</style>
           <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
-            <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>Character Creation</h2>
-            <p style={{ fontSize: 10, color: th.textMuted }}>Group loaded: {groupConfig?.group?.name || "Loading..."}</p>
+            <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>{language === "zh" ? "创建角色" : language === "ko" ? "캐릭터 생성" : "Character Creation"}</h2>
+            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{groupConfig?.group?.name || "Loading..."}</p>
             <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
-              <span>{apiKey ? "Key configured" : "Key missing"}</span>
+              <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
               <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}</span>
-              <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>Change</button>
+              <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
             </div>
           </div>
 
@@ -791,7 +791,7 @@ export default function App() {
                 })}
               </div>
               {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).length > 0 && (
-                <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 4 }}>NPC Members: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>
+                <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 4 }}>NPC: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>
               )}
             </>
           )}
@@ -809,10 +809,10 @@ export default function App() {
             <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
           )}
 
-          <div className="s-l">Basic Info</div>
+          <div className="s-l">{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
           <div style={{ display: "flex", gap: 5, marginBottom: 5 }}>
-            <input className="s-in" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            <input className="s-in" placeholder="Age" value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" />
+            <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
+            <input className="s-in" placeholder={language === "zh" ? "年龄" : language === "ko" ? "나이" : "Age"} value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" />
           </div>
 
           <div className="s-l">{t.setup.pace}</div>
@@ -832,7 +832,7 @@ export default function App() {
             </button>
             <button onClick={startNewGame} disabled={!canStart}
               style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
-              {canStart ? `Start with ${mainMember?.name || "..."}` : "Please complete all fields"}
+              {canStart ? `Start with ${mainMember?.name || "..."}` : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
             </button>
           </div>
         </div>

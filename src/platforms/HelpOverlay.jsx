@@ -458,13 +458,13 @@ function ContactEn() {
     <>
       <SH>Get in Touch</SH>
       <Tip>
-        📹 <A href="https://weibo.com/7465627856/5302472459682465">Video guide & bug reports</A> — 🧣 <span style={{ color: c.weiboName }}>@小饼养猫中zzZ</span> on Weibo
+        📹 Video guide & bug reports — 🧣 <span style={{ color: c.weiboName }}><A href="https://weibo.com/7465627856/5302472459682465">@小饼养猫中zzZ</A></span> on Weibo
       </Tip>
       <Tip>
         📧 <A href="mailto:yuhan_b@outlook.com">yuhan_b@outlook.com</A>
       </Tip>
       <Tip>
-        👩‍💻 <A href="https://github.com/byhAnita/rv-simulator">Game source code & documentation</A> on GitHub
+        👩‍💻 Game source code & documentation (GitHub)
         {" — "}<A href="https://github.com/byhAnita/rv-simulator">⭐ leave a star if you like it!</A>
       </Tip>
       <div style={{ height: 16 }} />
@@ -481,13 +481,13 @@ function ContactZh() {
     <>
       <SH>联系方式</SH>
       <Tip>
-        📹 <A href="https://weibo.com/7465627856/5302472459682465">视频攻略 & 问题反馈</A> — 🧣 <span style={{ color: c.weiboName }}>@小饼养猫中zzZ</span>（微博）
+        📹 视频攻略 & 问题反馈 — 🧣 <span style={{ color: c.weiboName }}><A href="https://weibo.com/7465627856/5302472459682465">@小饼养猫中zzZ</A></span>（微博）
       </Tip>
       <Tip>
         📧 <A href="mailto:yuhan_b@outlook.com">yuhan_b@outlook.com</A>
       </Tip>
       <Tip>
-        👩‍💻 <A href="https://github.com/byhAnita/rv-simulator">游戏源码 & 文档</A>（GitHub）
+        👩‍💻 游戏源码 & 文档（GitHub）
         {" — "}<A href="https://github.com/byhAnita/rv-simulator">⭐ 喜欢的话点个 Star！</A>
       </Tip>
       <div style={{ height: 16 }} />
@@ -504,13 +504,13 @@ function ContactKo() {
     <>
       <SH>문의하기</SH>
       <Tip>
-        📹 <A href="https://weibo.com/7465627856/5302472459682465">영상 가이드 & 버그 제보</A> — 🧣 <span style={{ color: c.weiboName }}>@小饼养猫中zzZ</span> (웨이보)
+        📹 영상 가이드 & 버그 제보 — 🧣 <span style={{ color: c.weiboName }}><A href="https://weibo.com/7465627856/5302472459682465">@小饼养猫中zzZ</A></span> (웨이보)
       </Tip>
       <Tip>
         📧 <A href="mailto:yuhan_b@outlook.com">yuhan_b@outlook.com</A>
       </Tip>
       <Tip>
-        👩‍💻 <A href="https://github.com/byhAnita/rv-simulator">게임 소스 코드 & 문서</A> (GitHub)
+        👩‍💻 게임 소스 코드 & 문서 (GitHub)
         {" — "}<A href="https://github.com/byhAnita/rv-simulator">⭐ 마음에 드셨다면 Star를!</A>
       </Tip>
       <div style={{ height: 16 }} />
