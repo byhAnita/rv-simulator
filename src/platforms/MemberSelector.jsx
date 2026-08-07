@@ -13,8 +13,8 @@ export default function MemberSelector({ currentId, onSelect, members, platform,
           style={{
             display: "flex", alignItems: "center", gap: 4,
             padding: "4px 10px", borderRadius: 14,
-            border: `1px solid ${m.id === currentId ? color : "rgba(255,255,255,.1)"}`,
-            background: m.id === currentId ? `${color}22` : "rgba(255,255,255,.04)",
+            border: `1px solid ${m.id === currentId ? m.accent : "rgba(255,255,255,.1)"}`,
+            background: m.id === currentId ? `${m.accent}22` : "rgba(255,255,255,.04)",
             color: m.id === currentId ? "#fff" : "#aaa",
             fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
           }}

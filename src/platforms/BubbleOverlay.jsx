@@ -22,7 +22,7 @@ export default function BubbleOverlay({ memberId, members, socialFeeds, allTarge
           ) : (
             feed.map((p, i) => (
               <div key={p.id || i} style={{ display: "flex", justifyContent: "flex-start" }}>
-                <div style={{ maxWidth: "80%", background: isLight ? "#fff8f0" : "#fff", borderRadius: "3px 14px 14px 14px", padding: "10px 12px", color: isLight ? "#2c1f0e" : "#1a1a1a", fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ maxWidth: "80%", background: isLight ? "#fff8f0" : "#fff", border: `1px solid ${isLight ? "#a08060" : "rgba(232,120,176,.15)"}`, borderRadius: "3px 14px 14px 14px", padding: "10px 12px", color: isLight ? "#2c1f0e" : "#1a1a1a", fontSize: 12, lineHeight: 1.6 }}>
                   {p.hasPhoto && <div style={{ width: "100%", height: 80, background: isLight ? "linear-gradient(135deg,#ede0c8,#d4c4a0)" : "linear-gradient(135deg,#e8d5f5,#d4b8e8)", borderRadius: 6, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center", color: isLight ? "#8b6914" : "#9747ff", fontSize: 12 }}>📸 {p.photoDesc}</div>}
                   <div>{p.content}</div>
                 </div>

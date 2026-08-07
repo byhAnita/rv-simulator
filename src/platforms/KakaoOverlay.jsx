@@ -28,7 +28,7 @@ export default function KakaoOverlay({ memberId, members, kktMessages, kktUnlock
           ) : (
             msgs.map((msg, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "flex-start", alignItems: "flex-end", gap: 5 }}>
-                <div style={{ width: 26, height: 26, borderRadius: "50%", background: `linear-gradient(135deg,${m?.color},${m?.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>{m?.emoji}</div>
+                <div style={{ width: 26, height: 26, border: `1px solid ${isLight ? "#a08060" : "rgba(232,120,176,.15)"}`, borderRadius: "50%", background: `linear-gradient(135deg,${m?.color},${m?.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>{m?.emoji}</div>
                 <div style={{ maxWidth: "70%", background: isLight ? "#fff8f0" : "#fff", color: "#1a1a1a", padding: "7px 10px", borderRadius: "3px 12px 12px 12px", fontSize: 12, lineHeight: 1.5, wordBreak: "break-word" }}>{typeof msg === "string" ? msg : msg.content}</div>
               </div>
             ))

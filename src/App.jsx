@@ -126,8 +126,8 @@ const THEMES = {
     topBarIconBorder: "rgba(232,120,176,.2)",
   },
   light: {
-    pageBg: "linear-gradient(135deg,#f5f0e8,#ede6d6,#f0ead8)",
-    pageBgAlt: "linear-gradient(160deg,#e8d9c0,#d4c4a0,#e0d2b0)",
+    pageBg: "linear-gradient(135deg,#a08060,#ede6d6,#a08060)",
+    pageBgAlt: "linear-gradient(160deg,#a08060,#ede6d6,#a08060)",
     gameBg: "linear-gradient(180deg,#a08060,#f5e8d0)",
     outerBg: "#a08060",
     panelBg: "#e0d2b8",
@@ -138,15 +138,15 @@ const THEMES = {
     inputBg: "#f5e8d0",
     inputAreaBg: "linear-gradient(135deg,#5c3820,#3a2210)",
     optionsBtnBg: "rgba(245, 232, 208, 0.9)",
-    optionsBg: "linear-gradient(50deg,#f5e8d0,#a08060)",
+    optionsBg: "rgba(160,90,20,.1)",
     modalOverlay: "rgba(40,25,5,.55)",
     achieveOverlay: "rgba(40,25,5,.78)",
     achieveBg: "#faf7f0",
-    border: "rgba(100,65,20,.22)",
-    borderAccent: "rgba(120,80,20,.35)",
-    borderFaint: "rgba(100,65,20,.14)",
-    borderSubtle: "rgba(100,65,20,.1)",
-    borderDim: "rgba(100,65,20,.22)",
+    border: "#a08060",
+    borderAccent: "#a08060",
+    borderFaint: "#a08060",
+    borderSubtle: "#a08060",
+    borderDim: "#a08060",
     textPrimary: "#2c1f0e",
     textHeading: "#3a2510",
     textSecondary: "#6b4528",
@@ -169,36 +169,36 @@ const THEMES = {
     subModelCardBg: "rgba(100,65,20,.05)",
     subModelCardColor: "#7a5030",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(100,65,20,.25)}`,
-    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid rgba(100,65,20,.22);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#8b6914;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid rgba(100,65,20,.22);color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid rgba(100,65,20,.22);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#8b6914;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
-    notifBarBg: "rgba(160,90,20,.1)",
-    notifBarBorder: "rgba(160,90,20,.2)",
-    notifBarText: "#8b4a14",
+    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    notifBarBg: "linear-gradient(135deg,#c8a84b,#a0522d)",
+    notifBarBorder: "#a08060",
+    notifBarText: "#fff",
     keySuccessBg: "rgba(80,140,60,.06)",
-    keySuccessBorder: "rgba(80,140,60,.25)",
+    keySuccessBorder: "#a08060",
     keySuccessText: "#3a7a2a",
     helpBtnBg: "rgba(139,105,20,.08)",
-    helpBtnBorder: "rgba(139,105,20,.25)",
+    helpBtnBorder: "#a08060",
     helpBtnColor: "#6b4f2a",
     settingsDivider: "rgba(139,105,20,.15)",
     switchLlmBorder: "rgba(139,105,20,.4)",
     switchLlmBg: "rgba(139,105,20,.08)",
     switchLlmColor: "#6b4f2a",
     warnBg: "rgba(180,60,20,.06)",
-    warnBorder: "rgba(180,80,20,.2)",
+    warnBorder: "#a08060",
     warnTitle: "#8b3a10",
     warnDesc: "#9a7c5a",
     reasoningOnBg: "#a0522d",
     reasoningOnBorder: "#c8a84b",
     reasoningOffBg: "rgba(139,105,20,.15)",
-    reasoningOffBorder: "rgba(139,105,20,.2)",
+    reasoningOffBorder: "#a08060",
     reasoningKnob: "#9a7c5a",
-    groupBtnBorder: "rgba(139,105,20,.2)",
+    groupBtnBorder: "#a08060",
     groupBtnBg: "rgba(139,105,20,.04)",
     groupBtnColor: "#7a5c2a",
     langBtnActiveBorder: "#8b6914",
     langBtnActiveBg: "rgba(160,90,20,.3)",
     langBtnActiveColor: "#8b6914",
-    langBtnBorder: "rgba(139,105,20,.2)",
+    langBtnBorder: "#a08060",
     langBtnColor: "#9a7c5a",
     newGameDisabled: "rgba(139,105,20,.2)",
     newGameDisabledColor: "#9a7c5a",
@@ -207,17 +207,17 @@ const THEMES = {
     coverApiBorder: "rgba(139,105,20,.3)",
     coverApiColor: "#6b4f2a",
     coverHelpColor: "#9a7c5a",
-    actionBtnBorder: "rgba(139,105,20,.25)",
+    actionBtnBorder: "#a08060",
     copiedColor: "#4a7a3a",
     actionColor: "#7a5c2a",
     actionBtnBg: "#f5e8d0",
     themeBtnBg: "rgba(100,65,20,.1)",
-    themeBtnBorder: "rgba(100,65,20,.25)",
+    themeBtnBorder: "#a08060",
     themeBtnColor: "#6b4528",
     topBarText: "#f5e8d0",
     topBarStatText: "#c8a870",
     topBarIconBg: "#3a2210",
-    topBarIconBorder: "rgba(90,60,20,.5)",
+    topBarIconBorder: "#a08060",
   },
 };
 
@@ -800,7 +800,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
             {IDENTITIES.map(id => (
               <div key={id.id} onClick={() => setForm(f => ({ ...f, identity: id.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === id.id ? th.accent : th.groupBtnBorder}`, background: form.identity === id.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === id.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === id.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === id.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === id.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
                 {t.identities[id.id] || id.label}
               </div>
             ))}
@@ -998,7 +998,7 @@ export default function App() {
             disabled={loading} rows={1} maxLength={300}
             style={{ flex: 1, padding: "8px 12px", borderRadius: 12, background: th.inputBg, border: `1px solid ${th.borderDim}`, color: th.textPrimary, fontSize: 12, outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.4, maxHeight: 70, overflowY: "auto" }} />
           <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
-            style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: input.trim() && !loading ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↑</button>
+            style={{ width: 34, height: 34, borderRadius: "50%", border: th.border, background: input.trim() && !loading ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↑</button>
         </div>
 
         {/* Overlays */}

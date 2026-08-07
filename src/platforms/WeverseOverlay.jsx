@@ -17,7 +17,7 @@ export default function WeverseOverlay({ memberId, members, socialFeeds, allTarg
         <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="weverse" />
         <div style={{ flex: 1, overflowY: "auto", padding: 12, background: isLight ? "#faf7f0" : undefined }}>
           {feed && feed.content ? (
-            <div style={{ color: isLight ? "#2c1f0e" : "#e0e0e0", fontSize: 13, lineHeight: 1.7, padding: 12, background: isLight ? "rgba(100,65,20,.05)" : "rgba(255,255,255,.05)", borderRadius: 10, border: isLight ? "1px solid rgba(100,65,20,.12)" : "none" }}>
+            <div style={{ color: isLight ? "#2c1f0e" : "#e0e0e0", fontSize: 13, lineHeight: 1.7, padding: 12, background: isLight ? "rgba(100,65,20,.05)" : "rgba(255,255,255,.05)", borderRadius: 10, border: `1px solid ${isLight ? "#a08060" : "rgba(232,120,176,.15)"}`}}>
               {feed.content}
               <div style={{ display: "flex", gap: 14, marginTop: 10, color: isLight ? "#8a6840" : "#888", fontSize: 11, borderTop: `1px solid ${isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.1)"}`, paddingTop: 8 }}>
                 <span>❤️ {(feed.likes || 0).toLocaleString()}</span><span>💬 {(feed.comments || 0).toLocaleString()}</span>
