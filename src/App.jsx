@@ -351,7 +351,47 @@ export default function App() {
 
   const exportPdf = () => {
     setConfirmDest(null); setShowSettings(false);
-    setTimeout(() => window.print(), 150);
+    const isLight = theme === "light";
+    const pageBg     = isLight ? "#a08060"  : "#000";
+    const cardBg     = isLight ? "#f5e8d0"  : "rgba(255,255,255,.03)";
+    const cardBorder = isLight ? "#a08060"  : "rgba(232,120,176,.15)";
+    const cardSolid  = isLight ? "#a08060"  : "#2a1035";
+    const textColor  = isLight ? "#1e1408"  : "#f0dce8";
+    const headColor  = isLight ? "#3a2510"  : "#f8c8d8";
+    const headBg     = isLight ? "linear-gradient(135deg,#5c3820,#3a2210)" : "linear-gradient(135deg,#1e0820,#2d0a2e)";
+    const font = "'Georgia','Noto Serif SC',serif";
+
+    const rounds = messages
+      .filter(m => m.role === "assistant" && !m.hidden)
+      .map((m, i) => {
+        const text = m.content.split("\n\n")
+          .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
+          .join("\n\n").trim();
+        return { n: i + 1, text };
+      });
+
+    const cards = rounds.map(r => `
+      <div class="card">
+        <div class="card-head">Round ${r.n}</div>
+        <div class="card-body">${r.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</div>
+      </div>`).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Story Export</title><style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{background:${pageBg};font-family:${font};padding:28px 20px;min-height:100vh}
+      .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:20px;overflow:hidden;page-break-inside:avoid}
+      .card-head{background:${headBg};color:#f8c8d8;font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
+      .card-body{color:${textColor};font-size:13px;line-height:1.85;padding:14px 16px}
+      .card-body p{margin-bottom:.9em}
+      .card-body p:last-child{margin-bottom:0}
+      *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @media print{body{padding:14px 12px}@page{margin:12mm}}
+    </style></head><body>${cards}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) { showNotif("Pop-up blocked — allow pop-ups and retry", "error"); return; }
+    win.document.write(html);
+    win.document.close();
   };
 
   const startNewGame = async () => {
