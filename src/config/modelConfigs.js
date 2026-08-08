@@ -6,7 +6,7 @@ export const MODEL_CONFIGS = {
     id: "qwen", name: "Qwen", emoji: "🐉",
     desc: { zh: "新用户免费额度 · 优秀叙事能力", en: "Free credits · Excellent Storytelling", ko: "신규 무료 크레딧 · 뛰어난 스토리텔링" },
     color: "#6236ff", url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-    model: "qwen3.8-max", keyPrefix: "sk-", keyHelp: "platform.qianwenai.com → Get API Key", format: "openai",
+    model: "qwen3.8-max", keyPrefix: "sk-ws-", keyHelp: "platform.qianwenai.com → Get API Key", format: "openai",
     // all qwen models use max_completion_tokens instead of max_tokens
     max_completion_tokens: 65535,
     hasFreeCredits: true,

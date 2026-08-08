@@ -14,7 +14,7 @@ export default function InstagramOverlay({ memberId, members, socialFeeds, allTa
           <button onClick={onClose} style={{ background: "none", border: "none", color: isLight ? "#3a2510" : "#262626", fontSize: 18, cursor: "pointer", padding: "0 4px" }}>‹</button>
           <span style={{ fontSize: 15, fontWeight: 800, color: isLight ? "#3a2510" : "#262626" }}>{t.social.instagram.title}</span>
         </div>
-        <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="instagram" />
+        <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="instagram" theme={theme} />
         <div style={{ flex: 1, overflowY: "auto", background: isLight ? "#faf7f0" : "#fff" }}>
           {feed && feed.caption ? (
             <>

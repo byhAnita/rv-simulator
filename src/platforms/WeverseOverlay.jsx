@@ -14,7 +14,7 @@ export default function WeverseOverlay({ memberId, members, socialFeeds, allTarg
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 18, cursor: "pointer", padding: "0 4px" }}>‹</button>
           <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>{t.social.weverse.title}</span>
         </div>
-        <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="weverse" />
+        <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="weverse" theme={theme} />
         <div style={{ flex: 1, overflowY: "auto", padding: 12, background: isLight ? "#faf7f0" : undefined }}>
           {feed && feed.content ? (
             <div style={{ color: isLight ? "#2c1f0e" : "#e0e0e0", fontSize: 13, lineHeight: 1.7, padding: 12, background: isLight ? "rgba(100,65,20,.05)" : "rgba(255,255,255,.05)", borderRadius: 10, border: `1px solid ${isLight ? "#a08060" : "rgba(232,120,176,.15)"}`}}>

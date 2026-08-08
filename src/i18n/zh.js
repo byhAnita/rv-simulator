@@ -114,9 +114,9 @@ const zh = {
 
   settings: {
     title: "⚙️ 设置",
-    reasoningTitle: "🧠 深度思考（Reasoning）",
-    reasoningOn: "已开启 — 模型在写作前会进行推理。故事更丰富，费用约 2 倍，速度较慢。",
-    reasoningOff: "已关闭 — 响应更快，费用更低。",
+    reasoningTitle: "🧠 深度思考",
+    reasoningOn: "💰 已开启 — 模型在写作前会进行推理。故事更丰富，费用约 2 倍，速度较慢。",
+    reasoningOff: "⚡ 已关闭 — 响应更快，费用更低。",
     backToCover: "🏠 返回封面页",
     saveWarningTitle: "⚠️ 请先保存进度！",
     saveWarningDesc: "返回封面页将结束当前会话，请在离开前保存游戏进度。",

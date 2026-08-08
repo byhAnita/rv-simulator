@@ -480,6 +480,7 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
   groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, qwenSubModel = null,
+  timeSpeed = "default",
 }) {
   const allTargetIds = [mainId, ...subIds];
   const roundNum = stats.week;
@@ -505,7 +506,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${timeSpeed === "slow" ? "\n[Pacing] slow — stay in this moment, don't advance time much this round" : timeSpeed === "fast" ? "\n[Pacing] fast — advance time noticeably, skip ahead to the next event or date" : ""}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, qwenSubModel);

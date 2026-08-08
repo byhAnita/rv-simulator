@@ -210,7 +210,7 @@ const THEMES = {
     actionBtnBorder: "#a08060",
     copiedColor: "#4a7a3a",
     actionColor: "#7a5c2a",
-    actionBtnBg: "#f5e8d0",
+    actionBtnBg: "rgba(160,90,20,.1)",
     themeBtnBg: "rgba(100,65,20,.1)",
     themeBtnBorder: "#a08060",
     themeBtnColor: "#6b4528",
@@ -287,6 +287,9 @@ export default function App() {
   const [confirmDest, setConfirmDest] = useState(null);
   const [keyJustSaved, setKeyJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [timeSpeed, setTimeSpeed] = useState(() => loadFromStorage("rv_sim_timespeed") || "default");
+  const [fontScale, setFontScale] = useState(() => Number(loadFromStorage("rv_sim_fontscale")) || 1);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
@@ -322,6 +325,34 @@ export default function App() {
   const handleQwenSubModelSelect = (subId) => { setSelectedQwenSubModel(subId); saveToStorage("rv_sim_qwen_submodel", subId); };
 
   const hasSaves = () => (loadFromStorage(STORAGE_KEYS.SAVES) || []).length > 0;
+
+  const extractStoryText = () =>
+    messages.filter(m => m.role === "assistant" && !m.hidden)
+      .map((m, i) => {
+        const story = m.content.split("\n\n")
+          .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
+          .join("\n\n").trim();
+        return `=== Round ${i + 1} ===\n${story}`;
+      }).join("\n\n---\n\n");
+
+  const exportClipboard = async () => {
+    try { await navigator.clipboard.writeText(extractStoryText()); showNotif("Copied to clipboard"); }
+    catch { showNotif("Copy failed", "error"); }
+    setConfirmDest(null); setShowSettings(false);
+  };
+
+  const exportTxt = () => {
+    const blob = new Blob([extractStoryText()], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "story.txt"; a.click();
+    URL.revokeObjectURL(url);
+    setConfirmDest(null); setShowSettings(false);
+  };
+
+  const exportPdf = () => {
+    setConfirmDest(null); setShowSettings(false);
+    setTimeout(() => window.print(), 150);
+  };
 
   const startNewGame = async () => {
     if (!apiKey?.trim()) { showNotif("Please set API Key", "error"); return; }
@@ -362,7 +393,7 @@ export default function App() {
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId, subIds, groupConfig, apiKey, selectedModel, kktUnlocked: {}, language,
-        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
+        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null, timeSpeed,
       });
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
@@ -426,7 +457,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
+        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null, timeSpeed,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -480,7 +511,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
-        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
+        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null, timeSpeed,
       });
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -847,6 +878,7 @@ export default function App() {
     <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg }}>
       <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
         <NotificationBar />
+        <style>{`@media print{body *{visibility:hidden}#rv-story-panel,#rv-story-panel *{visibility:visible}#rv-story-panel{position:fixed;top:0;left:0;right:0;bottom:0;height:auto!important;overflow:visible!important;padding:24px!important;background:#fff!important}}`}</style>
         <style>{`${th.scrollCss}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes slideUp{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}.stat-item{cursor:help;transition:all .15s;position:relative}.stat-item:hover{transform:scale(1.05)}.stat-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:${th.panelBg};border:1px solid ${th.borderAccent};border-radius:6px;padding:3px 8px;fontSize:9px;color:${th.textHeading};white-space:nowrap;pointer-events:none;z-index:999}.notification-dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite}`}</style>
 
         {/* Top Bar */}
@@ -911,7 +943,7 @@ export default function App() {
         )}
 
         {/* Story Area */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
+        <div id="rv-story-panel" style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
           {messages.length === 0 && (
             <div style={{ textAlign: "center", padding: "50px 16px", color: th.textFaint }}>
               <div style={{ fontSize: 32, marginBottom: 10, animation: "blink 2s infinite" }}>💗</div>
@@ -949,14 +981,14 @@ export default function App() {
                 return (
                   <div key={i} style={{ marginBottom: 14 }}>
                     <div style={{ background: th.statsBg, border: `1px solid ${th.borderAccent}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontFamily: "'Courier New',monospace", fontSize: 10, color: th.textStats, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{sb[0]}</div>
-                    {af && <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{af}</div>}
+                    {af && <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "14px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{af}</div>}
                     {isLast && actionBar(msg.content)}
                   </div>
                 );
               }
               return (
                 <div key={i} style={{ marginBottom: 14 }}>
-                  <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{msg.content}</div>
+                  <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{msg.content}</div>
                   {isLast && actionBar(msg.content)}
                 </div>
               );
@@ -983,7 +1015,7 @@ export default function App() {
                     sendMessage(opt.letter + ". " + opt.text);
                   }
                 }}
-                style={{ padding: "5px 10px", borderRadius: 12, border: `1px solid ${th.borderAccent}`, background: th.optionsBtnBg, color: th.textStory, fontSize: 11, cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}>
+                style={{ padding: "5px 10px", borderRadius: 12, border: `1px solid ${th.borderAccent}`, background: th.optionsBtnBg, color: th.textStory, fontSize: Math.round(11 * fontScale), cursor: "pointer", animation: "slideUp .25s ease", textAlign: "left" }}>
                 <span style={{ color: th.accent, fontWeight: 700 }}>{opt.letter}.</span> {opt.text}
               </button>
             ))}
@@ -1009,17 +1041,22 @@ export default function App() {
         {showSettings && (
           <div style={{ position: "absolute", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", background: th.modalOverlay, backdropFilter: "blur(6px)" }}
             onClick={e => { if (e.target === e.currentTarget) { setShowSettings(false); setConfirmDest(null); } }}>
-            <div style={{ width: "88%", maxWidth: 320, background: th.panelBg, border: `1px solid ${th.borderAccent}`, borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.4)" }}>
+            <div style={{ width: "88%", maxWidth: 320, maxHeight: "88vh", overflowY: "auto", background: th.panelBg, border: `1px solid ${th.borderAccent}`, borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.4)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: th.textHeading }}>{t.settings?.title}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <button onClick={toggleTheme}
-                    style={{ background: th.themeBtnBg, border: `1px solid ${th.themeBtnBorder}`, borderRadius: 8, color: th.themeBtnColor, fontSize: 14, cursor: "pointer", padding: "3px 8px" }}
+                    style={{ background: th.themeBtnBg, border: `1px solid ${th.themeBtnBorder}`, borderRadius: 8, color: th.themeBtnColor, fontSize: 14, cursor: "pointer", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
                     title={theme === "dark" ? "Switch to Day Mode" : "Switch to Night Mode"}>
                     {themeIcon}
                   </button>
+                  <button onClick={() => { const v = fontScale === 1 ? 1.25 : 1; setFontScale(v); saveToStorage("rv_sim_fontscale", v); }}
+                    style={{ background: th.themeBtnBg, border: `1px solid ${th.themeBtnBorder}`, borderRadius: 8, color: th.themeBtnColor, fontSize: fontScale === 1 ? 13 : 11, fontWeight: 700, cursor: "pointer", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    title={fontScale === 1 ? "Switch to Large Text" : "Switch to Standard Text"}>
+                    {fontScale === 1 ? "A+" : "A"}
+                  </button>
                   <button onClick={() => { setShowSettings(false); setShowHelp(true); }}
-                    style={{ background: th.helpBtnBg, border: `1px solid ${th.helpBtnBorder}`, borderRadius: 8, color: th.helpBtnColor, fontSize: 11, cursor: "pointer", padding: "3px 9px" }}>
+                    style={{ background: th.helpBtnBg, border: `1px solid ${th.helpBtnBorder}`, borderRadius: 8, color: th.helpBtnColor, fontSize: 11, cursor: "pointer", height: 28, padding: "0 9px", display: "flex", alignItems: "center" }}>
                     📖 {language === "zh" ? "帮助" : language === "ko" ? "도움말" : "Help"}
                   </button>
                   <button onClick={() => { setShowSettings(false); setConfirmDest(null); }}
@@ -1041,11 +1078,42 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Time Speed */}
+              {(() => {
+                const speeds = ['slow', 'default', 'fast'];
+                const speedIdx = speeds.indexOf(timeSpeed);
+                const knobLeft = speedIdx === 0 ? 3 : speedIdx === 1 ? 24 : 45;
+                const cycleSpeed = () => { const next = speeds[(speedIdx + 1) % 3]; setTimeSpeed(next); saveToStorage('rv_sim_timespeed', next); };
+                const speedDesc = timeSpeed === 'slow'
+                  ? (language === 'zh' ? '🐌 慢 — 留在这一刻' : language === 'ko' ? '🐌 느림 — 현재 순간에 머무름' : '🐌 Slow — Stay in this moment')
+                  : timeSpeed === 'fast'
+                  ? (language === 'zh' ? '⚡ 快 — 快进到下一次约会' : language === 'ko' ? '⚡ 빠름 — 다음 주요 이벤트로 이동' : '⚡ Fast — Skip to the next dating')
+                  : (language === 'zh' ? '🕛 正常 — 默认叙事节奏' : language === 'ko' ? '🕛 보통 — 기본 서사 속도' : '🕛 Normal — Default narrative pacing');
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, color: th.textPrimary, fontWeight: 600 }}>
+                        {language === 'zh' ? '⏳ 时间流速' : language === 'ko' ? '⏳ 시간 속도' : '⏳ Time Speed'}
+                      </div>
+                      <div onClick={cycleSpeed}
+                        style={{ width: 64, height: 24, borderRadius: 12, background: timeSpeed === 'fast' ? th.reasoningOnBg : th.reasoningOffBg, border: `1px solid ${timeSpeed === 'fast' ? th.reasoningOnBorder : th.reasoningOffBorder}`, cursor: 'pointer', position: 'relative', transition: 'all .2s', flexShrink: 0 }}>
+                        <div style={{ position: 'absolute', top: 3, left: knobLeft, width: 16, height: 16, borderRadius: '50%', background: timeSpeed === 'fast' ? '#fff' : th.reasoningKnob, transition: 'left .2s' }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: th.textMuted, lineHeight: 1.5 }}>{speedDesc}</div>
+                  </div>
+                );
+              })()}
+
               <div style={{ height: 1, background: th.settingsDivider, marginBottom: 20 }} />
 
-              {/* Switch LLM + Back to cover */}
+              {/* Nav buttons / popups */}
               {confirmDest === null ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button onClick={() => setConfirmDest("export")}
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: `1px solid ${th.border}`, background: th.cardBg, color: th.textSecondary, fontSize: 13, cursor: "pointer" }}>
+                    {language === "zh" ? "📖 导出完整故事" : language === "ko" ? "📖 전체 스토리 내보내기" : "📖 Export Full Story"}
+                  </button>
                   <button onClick={() => setConfirmDest("keyInput")}
                     style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: `1px solid ${th.switchLlmBorder}`, background: th.switchLlmBg, color: th.switchLlmColor, fontSize: 13, cursor: "pointer" }}>
                     {language === "zh" ? "🔑 切换模型 / API Key" : language === "ko" ? "🔑 모델 / API Key 전환" : "🔑 Switch Model / API Key"}
@@ -1053,6 +1121,36 @@ export default function App() {
                   <button onClick={() => setConfirmDest("cover")}
                     style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: `1px solid ${th.coverContinueBorder}`, background: th.cardBg, color: th.coverContinueColor, fontSize: 13, cursor: "pointer" }}>
                     {t.settings?.backToCover}
+                  </button>
+                </div>
+              ) : confirmDest === "export" ? (
+                <div style={{ background: th.cardBg, border: `1px solid ${th.border}`, borderRadius: 12, padding: "14px 14px" }}>
+                  <div style={{ fontSize: 12, color: th.textHeading, fontWeight: 600, marginBottom: 4 }}>
+                    {language === "zh" ? "选择导出格式" : language === "ko" ? "내보내기 형식 선택" : "Choose export format"}
+                  </div>
+                  {messages.filter(m => m.role === "assistant" && !m.hidden).length === 0 ? (
+                    <div style={{ fontSize: 11, color: th.textFaint, margin: "10px 0" }}>
+                      {language === "zh" ? "暂无故事内容" : language === "ko" ? "스토리 없음" : "No story yet"}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                      <button onClick={exportClipboard}
+                        style={{ width: "100%", padding: "9px 0", borderRadius: 10, border: `1px solid ${th.border}`, background: "transparent", color: th.textPrimary, fontSize: 12, cursor: "pointer" }}>
+                        📋 {language === "zh" ? "复制到剪贴板" : language === "ko" ? "클립보드에 복사" : "Copy to Clipboard"}
+                      </button>
+                      <button onClick={exportTxt}
+                        style={{ width: "100%", padding: "9px 0", borderRadius: 10, border: `1px solid ${th.border}`, background: "transparent", color: th.textPrimary, fontSize: 12, cursor: "pointer" }}>
+                        📄 {language === "zh" ? "下载 .txt 文件" : language === "ko" ? ".txt 파일 다운로드" : "Download .txt File"}
+                      </button>
+                      <button onClick={exportPdf}
+                        style={{ width: "100%", padding: "9px 0", borderRadius: 10, border: `1px solid ${th.border}`, background: "transparent", color: th.textPrimary, fontSize: 12, cursor: "pointer" }}>
+                        🖨️ {language === "zh" ? "打印 / 存为 PDF" : language === "ko" ? "인쇄 / PDF 저장" : "Print / Save as PDF"}
+                      </button>
+                    </div>
+                  )}
+                  <button onClick={() => setConfirmDest(null)}
+                    style={{ width: "100%", padding: "7px 0", borderRadius: 10, border: `1px solid ${th.border}`, background: "transparent", color: th.textMuted, fontSize: 11, cursor: "pointer", marginTop: 10 }}>
+                    {language === "zh" ? "取消" : language === "ko" ? "취소" : "Cancel"}
                   </button>
                 </div>
               ) : (
@@ -1131,10 +1229,10 @@ export default function App() {
           </div>
         )}
 
-        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} fontScale={fontScale} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
         {overlay?.type === "instagram" && <InstagramOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
         {overlay?.type === "weverse" && <WeverseOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} fontScale={fontScale} t={t} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
       </div>
     </div>
   );

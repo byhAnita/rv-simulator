@@ -115,8 +115,8 @@ const en = {
   settings: {
     title: "⚙️ Settings",
     reasoningTitle: "🧠 Deep Thinking (Reasoning)",
-    reasoningOn: "ON — model thinks before writing. Richer story, ~2× cost, slower.",
-    reasoningOff: "OFF — faster responses, lower cost. ",
+    reasoningOn: "💰 ON — model thinks before writing. Richer story, ~2× cost, slower.",
+    reasoningOff: "⚡ OFF — faster responses, lower cost. ",
     backToCover: "🏠 Back to Cover Page",
     saveWarningTitle: "⚠️ Save your progress first!",
     saveWarningDesc: "Returning to the cover page will end your current session. Make sure to save before leaving.",

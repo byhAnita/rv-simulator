@@ -183,7 +183,7 @@ function GuideEn() {
       <Step n={1}>Open <A href="https://platform.qianwenai.com">platform.qianwenai.com</A> — sign up and log in</Step>
       <Step n={2}>New users get free credits — no top-up needed to get started!</Step>
       <Step n={3}>Go to "Get API Keys" → click "Create API Key"</Step>
-      <Step n={4}>Copy the key shown (starts with <Code>sk-…</Code>)</Step>
+      <Step n={4}>Copy the key shown (starts with <Code>sk-ws-…</Code>)</Step>
       <Step n={5}>Paste it into the Key field in-game and tap Confirm</Step>
       <Step n={6}>Tip: tap Share → Add to Home Screen in your browser to save this game as an app icon</Step>
       <div style={{ height: 8 }} />
@@ -215,7 +215,7 @@ function GuideZh() {
       <Step n={1}>打开 <A href="https://platform.qianwenai.com">platform.qianwenai.com</A>，注册并登录</Step>
       <Step n={2}>新用户即享免费额度，无需充值即可开始游戏！</Step>
       <Step n={3}>进入「获取 API Key」，点击「创建 API Key」</Step>
-      <Step n={4}>复制生成的 Key（以 <Code>sk-…</Code> 开头）</Step>
+      <Step n={4}>复制生成的 Key（以 <Code>sk-ws-…</Code> 开头）</Step>
       <Step n={5}>粘贴到游戏中的 Key 输入框，点击确认</Step>
       <Step n={6}>提示：手机浏览器「分享」→「添加到主屏幕」可将游戏保存为桌面图标</Step>
       <div style={{ height: 8 }} />
@@ -247,7 +247,7 @@ function GuideKo() {
       <Step n={1}><A href="https://platform.qianwenai.com">platform.qianwenai.com</A> 접속 후 회원가입 및 로그인</Step>
       <Step n={2}>신규 사용자는 무료 크레딧 제공 — 충전 없이 바로 시작 가능!</Step>
       <Step n={3}>"API Key 발급" 페이지에서 "API Key 생성" 클릭</Step>
-      <Step n={4}>생성된 Key 복사 (<Code>sk-…</Code>로 시작)</Step>
+      <Step n={4}>생성된 Key 복사 (<Code>sk-ws-…</Code>로 시작)</Step>
       <Step n={5}>게임 내 Key 입력창에 붙여넣기 후 확인 클릭</Step>
       <Step n={6}>팁: 브라우저 공유 → 홈 화면에 추가로 게임을 앱 아이콘으로 저장 가능</Step>
       <div style={{ height: 8 }} />

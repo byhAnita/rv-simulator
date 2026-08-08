@@ -114,9 +114,9 @@ const ko = {
 
   settings: {
     title: "⚙️ 설정",
-    reasoningTitle: "🧠 딥씽킹 (Reasoning)",
-    reasoningOn: "ON — 모델이 작성 전에 추론합니다. 스토리가 더 풍부하지만 비용 ~2배, 속도 느림.",
-    reasoningOff: "OFF — 빠른 응답, 낮은 비용. ",
+    reasoningTitle: "🧠 딥씽킹",
+    reasoningOn: "💰 ON — 모델이 작성 전에 추론합니다. 스토리가 더 풍부하지만 비용 ~2배, 속도 느림.",
+    reasoningOff: "⚡ OFF — 빠른 응답, 낮은 비용. ",
     backToCover: "🏠 커버 페이지로 돌아가기",
     saveWarningTitle: "⚠️ 먼저 진행 상황을 저장하세요!",
     saveWarningDesc: "커버 페이지로 돌아가면 현재 세션이 종료됩니다. 떠나기 전에 저장하세요.",
