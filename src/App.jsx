@@ -386,12 +386,15 @@ export default function App() {
       .card-body p:last-child{margin-bottom:0}
       *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
       @media print{body{padding:14px 12px}@page{margin:12mm}}
-    </style></head><body>${cards}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+    </style></head><body>${cards}</body></html>`;
 
-    const win = window.open("", "_blank");
-    if (!win) { showNotif("Pop-up blocked — allow pop-ups and retry", "error"); return; }
-    win.document.write(html);
-    win.document.close();
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;visibility:hidden";
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentDocument || iframe.contentWindow.document;
+    idoc.open(); idoc.write(html); idoc.close();
+    iframe.contentWindow.onafterprint = () => document.body.removeChild(iframe);
+    setTimeout(() => iframe.contentWindow.print(), 300);
   };
 
   const startNewGame = async () => {
