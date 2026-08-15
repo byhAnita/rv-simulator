@@ -132,7 +132,7 @@ ${lr.socialRule}
 ╔══════════════════════════════════════════╗
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
-CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text outside JSON.
+CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text, code fences, explanations, verification checks, or natural language outside JSON.
 Every key (statChanges, affectionChanges, socialContent, kktMessages, story, summary, options) must appear EXACTLY ONCE.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.

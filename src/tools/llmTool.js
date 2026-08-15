@@ -38,30 +38,35 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   };
 
   
-  if (modelId === "qwen") {
-    // Qwen 3.8/3.7 Max/Plus default thinking ON — disable unless user enabled reasoning
-    body.enable_thinking = "false";
-    body.preserve_thinking = "false";
-  }
-
-  // Reasoning — applied when user has enabled it in Settings
-  if (reasoningEnabled) {
-    if (modelId === "deepseek") {
-      body.thinking = { type: "enabled" };
+  // Thinking/reasoning settings per model.
+  // Each branch sets the OFF default first, then overrides if reasoningEnabled.
+  if (modelId === "deepseek") {
+    // V4 Flash default is AUTO — must explicitly disable
+    body.thinking = reasoningEnabled
+      ? { type: "enabled" }
+      : { type: "disabled" };
+    if (reasoningEnabled) {
       body.reasoning_effort = "high";
       body.max_tokens = 65536;
     }
-    if (modelId === "gpt4omini") {
-      body.reasoning_effort = "high";
+  } else if (modelId === "qwen") {
+    // Qwen 3.x default is ON — must explicitly disable
+    body.enable_thinking  = reasoningEnabled ? "true" : "false";
+    body.preserve_thinking = reasoningEnabled ? "true" : "false";
+    if (reasoningEnabled) {
+      // qwen3.8-max uses "medium" for reasoning_effort; other sub-models use "high"
+      body.reasoning_effort = resolvedModel === "qwen3.8-max" ? "medium" : "high";
     }
-    if (modelId === "gemini") {
+  } else if (modelId === "gemini") {
+    // Gemini reasoning is off by default; only add the field when enabling
+    if (reasoningEnabled) {
       body.reasoning_effort = "high";
       body.max_tokens = 65535;
     }
-    if (modelId === "qwen") {
-      body.enable_thinking = "true";
-      // qwen3.8-max uses reasoning_effort low/medium/xhigh; others use low/high/max
-      body.reasoning_effort = resolvedModel === "qwen3.8-max" ? "medium" : "high";
+  } else if (modelId === "gpt4omini") {
+    // GPT-4o-mini reasoning is off by default; only add the field when enabling
+    if (reasoningEnabled) {
+      body.reasoning_effort = "high";
     }
   }
 
@@ -83,8 +88,8 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
 
   const data = await resp.json();
   const choice = data.choices?.[0];
-  // DeepSeek reasoning models may put output in reasoning_content when content is null
-  const content = choice?.message?.content || choice?.message?.reasoning_content || "";
+  // Always use content only — never fall back to reasoning_content (chain-of-thought)
+  const content = choice?.message?.content || "";
   if (!content) {
     console.warn("[callLLM] Empty content. finish_reason:", choice?.finish_reason, "raw:", JSON.stringify(data).slice(0, 300));
   }
