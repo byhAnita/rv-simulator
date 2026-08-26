@@ -166,7 +166,14 @@ All four use `format: "openai"` and go through the same `fetch` in `llmTool.js`.
 
 The response reader uses `choice.message.content` **only** — never falls back to `reasoning_content`, so chain-of-thought can never leak into the story.
 
-**Known dead config:** `llmTool.js` sets `max_tokens: cfg.maxOutputTokens || 8192`, but no entry in `MODEL_CONFIGS` defines `maxOutputTokens`. Every model therefore gets 8192 unless a reasoning branch overrides it. `MODEL_CONFIGS.qwen.max_completion_tokens: 65535` is likewise never read. Fix the field name or drop them.
+### Output token cap
+
+`MODEL_CONFIGS[*].maxOutputTokens` is the per-provider cap, resolved in `callLLMOnce` into a local `outputCap` **after** the reasoning branches run (enabling reasoning needs headroom for thinking tokens). It is then emitted under the field name the provider expects:
+
+- **Qwen** → `max_completion_tokens` (its API does not accept `max_tokens`)
+- **all others** → `max_tokens`
+
+Current values: `qwen` 65535 (thinking and content share one budget when reasoning is on), `deepseek` / `gpt4omini` / `gemini` 8192, raised to 65536 / 65535 inside the deepseek and gemini reasoning branches. A round only needs ~800 output tokens; these are ceilings, not reservations.
 
 ---
 
@@ -471,8 +478,10 @@ git push origin v13.0.0
 
 ## Known Inconsistencies (fix before they bite)
 
-1. **`maxOutputTokens` never defined** — `llmTool.js` reads `cfg.maxOutputTokens`, no model config sets it; everything silently gets `8192`. `MODEL_CONFIGS.qwen.max_completion_tokens` is also never read.
-2. **`probabilityEngine` reads `memory.storyRounds`** — a removed v11 field, so the recency term is inert (see Member Probability Engine above).
-3. **`NPC_APPEARANCE_CHANCE` / `NPC_COOLDOWN_ROUNDS` unused** — NPC behavior is prompt-driven only.
-4. **In-app cost strings are stale** — `MODEL_CONFIGS[*].gameplay` still quotes the pre-repricing hours-per-$1 figures (e.g. DeepSeek "$1 ≈ 56 hrs"). The README cost table is the corrected source; update `modelConfigs.js` to match on the next deploy.
-5. **`package.json` version is `1.0.0`** while the app displays `v1.3.1` — the displayed version lives in `App.jsx` cover strings and `src/i18n/*.js`, so a version bump means editing four places.
+1. **`probabilityEngine` reads `memory.storyRounds`** — a removed v11 field, so the recency term is inert (see Member Probability Engine above).
+2. **`NPC_APPEARANCE_CHANCE` / `NPC_COOLDOWN_ROUNDS` unused** — NPC behavior is prompt-driven only.
+3. **`package.json` version is `1.0.0`** while the app displays `v1.3.1` — the displayed version lives in `App.jsx` cover strings and `src/i18n/*.js`, so a version bump means editing four places.
+
+### Cost strings must track README
+
+`MODEL_CONFIGS[*].gameplay` (and each `subModels[*].gameplay`) is rendered on the key-input page through `t.guide.billing`. These strings are hand-derived from the README cost table — **when provider pricing changes, update both**. zh quotes hours per ￥1, en per \$1, ko per ₩1,000.

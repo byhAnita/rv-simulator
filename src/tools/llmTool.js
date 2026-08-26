@@ -33,11 +33,14 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
     model: resolvedModel,
     messages,
     response_format: { type: "json_object" },
-    max_tokens: cfg.maxOutputTokens || 8192,  // ← Prioritize model's own limit
     temperature: 0.92,
   };
 
-  
+  // Output cap. Qwen's API names this field max_completion_tokens; the rest use
+  // max_tokens. Resolved after the reasoning branches below, since turning
+  // reasoning on needs extra headroom for thinking tokens.
+  let outputCap = cfg.maxOutputTokens || 8192;
+
   // Thinking/reasoning settings per model.
   // Each branch sets the OFF default first, then overrides if reasoningEnabled.
   if (modelId === "deepseek") {
@@ -47,7 +50,7 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
       : { type: "disabled" };
     if (reasoningEnabled) {
       body.reasoning_effort = "high";
-      body.max_tokens = 65536;
+      outputCap = 65536;
     }
   } else if (modelId === "qwen") {
     // Qwen 3.x default is ON — must explicitly disable
@@ -61,7 +64,7 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
     // Gemini reasoning is off by default; only add the field when enabling
     if (reasoningEnabled) {
       body.reasoning_effort = "high";
-      body.max_tokens = 65535;
+      outputCap = 65535;
     }
   } else if (modelId === "gpt4omini") {
     // GPT-4o-mini reasoning is off by default; only add the field when enabling
@@ -69,6 +72,9 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
       body.reasoning_effort = "high";
     }
   }
+
+  if (modelId === "qwen") body.max_completion_tokens = outputCap;
+  else body.max_tokens = outputCap;
 
 
   const resp = await fetch(cfg.url, {
