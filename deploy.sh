@@ -33,7 +33,7 @@ sed -i \
 
 echo "=== [5/5] Commit and push ==="
 MSG="${DEPLOY_MSG:-deploy: ${JS}}"
-git add index.html assets/ src/
+git add index.html assets/ src/ README.md CLAUDE.md
 git commit -m "$MSG"
 git push origin main
 
