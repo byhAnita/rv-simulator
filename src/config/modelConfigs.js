@@ -2,8 +2,9 @@
 // 4 LLM provider configurations (qwen exposes 3 sub-models)
 //
 // maxOutputTokens — read by llmTool.js as the per-provider output cap.
-// Qwen's API expects this as `max_completion_tokens`; the others expect
-// `max_tokens`. llmTool.js picks the correct field name per provider.
+// llmTool.js emits it as `max_completion_tokens` for Qwen and `max_tokens`
+// for the others. Qwen accepts either name (verified live); the split just
+// tracks the field OpenAI-compatible APIs are standardising on.
 //
 // gameplay — hours of play per $1 (per ￥1 for zh, per ₩1,000 for ko),
 // derived from the cost table in README.md. Keep the two in sync when

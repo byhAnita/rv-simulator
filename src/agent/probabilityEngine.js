@@ -21,11 +21,15 @@ export function calculateProbability(memberId, allTargetIds, affections, memory)
     ? otherIds.reduce((s, id) => s + (affections[id] || 0), 0) / otherIds.length
     : 0;
 
-  // 近期出场次数
+  // 近期出场次数 — window is the last 4 rounds.
+  // The reference round comes from the tail of the history ledger. This used to
+  // read memory.storyRounds, a v11 field removed in v13: it was always
+  // undefined, so lastRound pinned to 0, the filter degenerated to `r >= -3`
+  // (i.e. every recorded appearance counted as recent), and both the recency
+  // penalty and the "absent for 4+ rounds" floor were effectively dead.
   const appearances = memory.memberAppearances?.[memberId] || [];
-  const lastRound = memory.storyRounds?.length > 0
-    ? memory.storyRounds[memory.storyRounds.length - 1]?.round
-    : 0;
+  const history = memory.history;
+  const lastRound = history?.length > 0 ? (history[history.length - 1].round || 0) : 0;
   const recentCount = appearances.filter(r => r >= lastRound - 3).length;
 
   const affWeight = (aff / 100) * 0.4;  // main member affection weight 0.4

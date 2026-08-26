@@ -168,10 +168,12 @@ The response reader uses `choice.message.content` **only** — never falls back 
 
 ### Output token cap
 
-`MODEL_CONFIGS[*].maxOutputTokens` is the per-provider cap, resolved in `callLLMOnce` into a local `outputCap` **after** the reasoning branches run (enabling reasoning needs headroom for thinking tokens). It is then emitted under the field name the provider expects:
+`MODEL_CONFIGS[*].maxOutputTokens` is the per-provider cap, resolved in `callLLMOnce` into a local `outputCap` **after** the reasoning branches run (enabling reasoning needs headroom for thinking tokens). It is then emitted as:
 
-- **Qwen** → `max_completion_tokens` (its API does not accept `max_tokens`)
+- **Qwen** → `max_completion_tokens`
 - **all others** → `max_tokens`
+
+Qwen's OpenAI-compatible endpoint honors **both** names — verified live 2026-08-26: a cap of 16 truncates with `finish_reason:'length'` under either. (An earlier comment claimed Qwen rejects `max_tokens`; that was wrong.) The split simply tracks the field OpenAI-compatible APIs are standardising on. `test/smoke.mjs --live` asserts the cap is genuinely honored, not merely accepted, since an ignored unknown field would still return HTTP 200.
 
 Current values: `qwen` 65535 (thinking and content share one budget when reasoning is on), `deepseek` / `gpt4omini` / `gemini` 8192, raised to 65536 / 65535 inside the deepseek and gemini reasoning branches. A round only needs ~800 output tokens; these are ceilings, not reservations.
 
@@ -352,7 +354,7 @@ weight = affection(40%) + balance(30%) + recency(20%) + random(10%)
 
 **Scope correction:** the engine does **not** select which members appear in the prompt. In `executeRound`, `roundMemberIds = allTargetIds` (main + all subs), so KKT injection covers every target member. The engine's only live output is `primaryId`.
 
-**Known bug:** `calculateProbability` reads `memory.storyRounds`, a v11 field that no longer exists. `lastRound` is therefore always `0`, `recentCount` collapses to `appearances.filter(r => r >= -3).length` (i.e. all recorded appearances), and the "absent 4+ rounds" floor almost never triggers. Fix by deriving `lastRound` from `memory.history` instead.
+The recency window's reference round comes from the tail of `memory.history`. It previously read `memory.storyRounds` — a v11 field removed in v13 — which pinned `lastRound` to `0`, degenerated the filter to `r >= -3` (every recorded appearance counted as recent), and left both the recency penalty and the "absent 4+ rounds" floor effectively dead. Fixed in v1.3.1; `test/smoke.mjs` Layer D guards it with pinned `Math.random`, and that guard is verified to fail against the old implementation.
 
 ---
 
@@ -478,9 +480,7 @@ git push origin v13.0.0
 
 ## Known Inconsistencies (fix before they bite)
 
-1. **`probabilityEngine` reads `memory.storyRounds`** — a removed v11 field, so the recency term is inert (see Member Probability Engine above).
-2. **`NPC_APPEARANCE_CHANCE` / `NPC_COOLDOWN_ROUNDS` unused** — NPC behavior is prompt-driven only.
-3. **`package.json` version is `1.0.0`** while the app displays `v1.3.1` — the displayed version lives in `App.jsx` cover strings and `src/i18n/*.js`, so a version bump means editing four places.
+1. **`package.json` version is `1.0.0`** while the app displays `v1.3.1` — the displayed version lives in `App.jsx` cover strings and `src/i18n/*.js`, so a version bump means editing four places.
 
 ### Cost strings must track README
 

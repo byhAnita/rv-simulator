@@ -7,5 +7,8 @@ export const KKT_MAX = 10;            // Q: KKT messages per member
 export const MAIN_INITIAL_AFFECTION = 12;
 export const SUB_INITIAL_AFFECTION_MIN = 5;
 export const SUB_INITIAL_AFFECTION_MAX = 10;
-export const NPC_APPEARANCE_CHANCE = 0.3;      // 队友NPC出场概率
-export const NPC_COOLDOWN_ROUNDS = 2;           // 队友NPC冷却回合
+
+// NPC_APPEARANCE_CHANCE / NPC_COOLDOWN_ROUNDS were removed in v1.3.1: nothing
+// imported them. NPC appearance is driven entirely by the NPC rules in
+// buildSystemPrompt() plus the [NPC Appearances] block in the dynamic tail.
+// Tune NPC behaviour there, not here.

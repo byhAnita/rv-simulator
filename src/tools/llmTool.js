@@ -1,7 +1,7 @@
 // src/tools/llmTool.js
 // LLM Tool: 4 model API routing
 // VERSION: v4-gemini-3.5-flash-lite-20260806
-console.log("🔥 llmTool.js LOADED — version v4-gemini-3.5-flash-lite");
+// console.log("llmTool.js LOADED — version v4-gemini-3.5-flash-lite");
 import { MODEL_CONFIGS } from "../config/modelConfigs";
 
 /**
@@ -26,8 +26,8 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
   ];
 
   const resolvedModel = (modelId === "qwen" && qwenSubModel) ? qwenSubModel : cfg.model;
-  console.log("🔥🔥🔥 callLLM v4 entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId, "resolvedModel:", resolvedModel);
-  console.log("[DEBUG] Messages count:", messages.length);
+  // console.log("callLLM entered — prebuiltMessages:", !!prebuiltMessages, "model:", modelId, "resolvedModel:", resolvedModel);
+  // console.log("[DEBUG] Messages count:", messages.length);
 
   const body = {
     model: resolvedModel,
@@ -36,9 +36,15 @@ async function callLLMOnce(userMsg, history, systemPrompt, apiKey, modelId, sign
     temperature: 0.92,
   };
 
-  // Output cap. Qwen's API names this field max_completion_tokens; the rest use
-  // max_tokens. Resolved after the reasoning branches below, since turning
+  // Output cap, resolved after the reasoning branches below since turning
   // reasoning on needs extra headroom for thinking tokens.
+  //
+  // Field name: Qwen's OpenAI-compatible endpoint honors BOTH max_tokens and
+  // max_completion_tokens (verified live 2026-08-26 — a cap of 16 truncates
+  // with finish_reason:'length' under either name). We send
+  // max_completion_tokens for Qwen because that is the field OpenAI-compatible
+  // APIs are standardising on and max_tokens is deprecated there; the other
+  // three providers still take max_tokens.
   let outputCap = cfg.maxOutputTokens || 8192;
 
   // Thinking/reasoning settings per model.

@@ -266,6 +266,91 @@ async function layerB(callLLM, MODEL_CONFIGS) {
       !/<think>|<\/think>|reasoning_content/i.test(parsed.story || ""));
     console.log(`       latency ${secs}s · ${content.length} chars`);
   }
+
+  // The cap must be HONORED, not merely accepted. An unknown field would be
+  // silently ignored and still return 200, so assert a tiny cap truncates.
+  console.log("\n  output cap is honored (not just accepted)");
+  {
+    const capField = MODEL_ID === "qwen" ? "max_completion_tokens" : "max_tokens";
+    const resp = await fetch(cfg.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY.trim()}` },
+      body: JSON.stringify({
+        model: MODEL_ID === "qwen" ? "qwen3.8-max" : cfg.model,
+        messages: [{ role: "user", content: "Write a 400 word story about a rabbit. Plain text." }],
+        ...(MODEL_ID === "qwen" ? { enable_thinking: "false" } : {}),
+        ...(MODEL_ID === "deepseek" ? { thinking: { type: "disabled" } } : {}),
+        [capField]: 16,
+      }),
+    });
+    const data = await resp.json();
+    const choice = data.choices?.[0];
+    check(`${capField}:16 -> HTTP 200`, resp.ok, `HTTP ${resp.status} ${data.error?.message || ""}`);
+    check(`${capField}:16 -> finish_reason "length" (cap took effect)`,
+      choice?.finish_reason === "length",
+      `got "${choice?.finish_reason}" — provider may be ignoring ${capField}`);
+    check(`${capField}:16 -> output actually short`,
+      (choice?.message?.content || "").length < 200,
+      `len=${(choice?.message?.content || "").length}`);
+  }
+}
+
+// ==================================== LAYER D (offline, pure logic)
+async function layerD(ROOT_) {
+  section("LAYER D — probability engine recency window (offline)");
+  const esbuild = await import("esbuild");
+  const outfile = join(OUT, "probabilityEngine.mjs");
+  await esbuild.build({
+    entryPoints: [join(ROOT, "src", "agent", "probabilityEngine.js")],
+    bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
+  });
+  const { calculateProbability } = await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  // calculateProbability mixes in Math.random()*0.1. Pin it so the assertions
+  // below are deterministic — otherwise the regression guard can pass by luck
+  // against the buggy implementation.
+  const realRandom = Math.random;
+  Math.random = () => 0.5;
+
+  const ids = ["irene", "seulgi"];
+  const aff = { irene: 50, seulgi: 50 };
+  const hist = (n) => ({ history: [{ round: n, type: "full", text: "x" }] });
+
+  // A member who appeared every recent round must NOT get the "absent" floor.
+  const saturated = { ...hist(20), memberAppearances: { irene: [17, 18, 19, 20], seulgi: [] } };
+  // A member last seen long ago must clear the 0.3 floor.
+  const stale = { ...hist(20), memberAppearances: { irene: [1, 2, 3], seulgi: [] } };
+
+  const pSat = calculateProbability("irene", ids, aff, saturated);
+  const pStale = calculateProbability("irene", ids, aff, stale);
+
+  // With Math.random pinned at 0.5 the arithmetic is fully determined:
+  //   saturated: recentCount=4 -> penalty 0      -> 0.20+0.15+0.00+0.05 = 0.40
+  //   stale:     recentCount=0 -> absent branch  -> 0.20+0.15+0.20+0.05 = 0.60
+  // Under the storyRounds bug both collapse to recentCount>0, giving 0.40/0.42.
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
+  check("saturated member scores exactly 0.40 (recency penalty applied)",
+    near(pSat, 0.40), `got ${pSat.toFixed(3)}`);
+  check("long-absent member scores exactly 0.60 (absent branch taken)",
+    near(pStale, 0.60), `got ${pStale.toFixed(3)} — 0.42 means the recency window is inert`);
+  check("long-absent scores strictly higher than saturated",
+    pStale > pSat, `stale=${pStale.toFixed(3)} saturated=${pSat.toFixed(3)}`);
+
+  // Regression guard: with the old storyRounds read, lastRound pinned to 0 and
+  // every appearance counted as recent, so these two states were identical.
+  check("the two states are distinguishable (storyRounds bug would collapse them)",
+    Math.abs(pStale - pSat) > 0.05, `delta=${Math.abs(pStale - pSat).toFixed(3)}`);
+  Math.random = realRandom;
+
+  // Dead NPC constants must stay gone.
+  const consts = readFileSync(join(ROOT, "src", "config", "constants.js"), "utf8");
+  check("NPC_APPEARANCE_CHANCE removed", !/^export const NPC_APPEARANCE_CHANCE/m.test(consts));
+  check("NPC_COOLDOWN_ROUNDS removed", !/^export const NPC_COOLDOWN_ROUNDS/m.test(consts));
+
+  // Debug logging must not ship to players.
+  const tool = readFileSync(join(ROOT, "src", "tools", "llmTool.js"), "utf8");
+  const activeLogs = tool.split("\n").filter(l => /^\s*console\.log\(/.test(l));
+  check("no active console.log in llmTool.js", activeLogs.length === 0, activeLogs.join(" | "));
 }
 
 // ============================================================ LAYER C
@@ -339,6 +424,7 @@ function layerC() {
   await layerA(callLLM, MODEL_CONFIGS);
   await layerB(callLLM, MODEL_CONFIGS);
   layerC();
+  await layerD();
 
   console.log(`\n\x1b[1m${fail === 0 ? "\x1b[32mALL PASS" : "\x1b[31mFAILURES"}\x1b[0m  ${pass} passed, ${fail} failed`);
   if (fail) { console.log("failed:\n  - " + failures.join("\n  - ")); process.exit(1); }
