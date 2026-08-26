@@ -462,4 +462,4 @@ A single append-only `history[]` ledger. Each entry is either a collapsed `summa
 
 ## 📝 License
 
-**[MIT License](LICENSE)** — fan-made non-profit project. All idol content is fictional parallel-universe creation and does not represent real artists.
+[MIT](LICENSE)
