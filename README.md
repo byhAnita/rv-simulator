@@ -462,6 +462,4 @@ A single append-only `history[]` ledger. Each entry is either a collapsed `summa
 
 ## 📝 License
 
-Source code is released under the **[MIT License](LICENSE)**.
-
-The MIT grant covers the original code only. This is a fan-made, non-commercial project: the names, likenesses, and personas of real artists belong to those individuals and their agencies and are **not** licensed here. All narrative content is fictional parallel-universe creation, is unaffiliated with and unendorsed by any artist, agency, or label, and does not represent real people or events. The group configs under `public/groups/` are excluded from the MIT grant — if you reuse this code, bring your own character data. See [LICENSE](LICENSE) for the full notice.
+**[MIT License](LICENSE)** — fan-made non-profit project. All idol content is fictional parallel-universe creation and does not represent real artists.
