@@ -1,4 +1,13 @@
 node_modules
 dist
-.env
 .DS_Store
+
+# Secrets — never commit. Broad patterns so .env.local, .env.test.local,
+# smoke-test creds etc. are all covered, not just a bare `.env`.
+.env
+.env.*
+*.local
+!.gitignore
+
+# Local smoke-test scratch output
+test/.out/
