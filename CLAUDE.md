@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.1** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.2** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -18,12 +18,21 @@ Measured production numbers (real player sessions, reasoning off): **~95.8% prom
 
 ```bash
 npx vite                              # local dev - hot reload, always works
-npm run build 2>&1 | tail -12         # validate build (no test suite)
+npm run build 2>&1 | tail -12         # validate build
+node test/smoke.mjs                   # offline checks: request bodies, error classifier, router, legacy saves
+node test/smoke.mjs --live            # + one real round on the provider in .env.local (spends credits)
+node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, then one routed round
+node test/playthrough.mjs             # live: real multi-round games, one per model family
+node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
 npm run deploy                        # full deploy: build -> patch index.html -> push main -> restore dev mode
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 ```
 
-Validate every change with `npm run build`. No lint config, no test suite.
+Validate every change with `npm run build` **and** `node test/smoke.mjs`. No lint config.
+
+`test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.
+
+**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
 
 ---
 
@@ -40,26 +49,33 @@ Validate every change with `npm run build`. No lint config, no test suite.
 *   **Dynamic fields isolated to tail:** Player stats, affections, stage changes, NPC appearances, and the Time Speed `[Pacing]` hint live exclusively in the dynamic tail message and are never embedded in the history ledger, to avoid invalidating the prefix.
 *   **Save schema:** `rv_sim_saves_v13`. `isLegacyMemory` detects `memory.history === undefined`. On legacy load, memory is wiped to `createEmptyMemory()` while stats and affections are preserved — no crash.
 
-### Regenerate Feature
+### Regenerate & Edit Features
 
-The current round can be regenerated without consuming a new round counter or corrupting memory:
+The current round can be regenerated or edited without consuming a new round counter or corrupting memory:
 
-- **`preRoundSnapshotRef`** (`useRef`) in `App.jsx` — captures `{ stats, memory, kktUnlocked, kktMessages, triggeredAchievements, playerChoice }` before every `executeRound` call (both in `startNewGame` and `sendMessage`). `socialFeeds` is intentionally **not** snapshotted — `popPendingSocial()` already ran and correctly applied the previous round's social to UI state.
-- **`regenerateRound()`** in `App.jsx` — restores all snapshotted state, removes the last assistant message, calls `resetPendingSocial()` (clearing the discarded round's pending social), then re-calls `executeRound` with the same `playerChoice`.
+- **`preRoundSnapshotRef`** (`useRef`) in `App.jsx` — captures `{ stats, memory, kktUnlocked, kktMessages, triggeredAchievements, playerChoice }` before every `executeRound` call (both in `startNewGame` and `sendMessage`). `socialFeeds` is intentionally **not** snapshotted — `popPendingSocial()` already ran and correctly applied the previous round's social to UI state. **`loadSave` nulls it** — see Save Compatibility.
+- **`regenerateRound(overrideChoice)`** in `App.jsx` — restores all snapshotted state, removes the last assistant message, calls `resetPendingSocial()` (clearing the discarded round's pending social), then re-calls `executeRound`. With no argument it reuses the snapshot's `playerChoice` (the ↺ Retry path); with one it substitutes the edited choice and updates the snapshot so a later ↺ keeps it.
 - **`resetPendingSocial()`** exported from `mainAgent.js` — clears module-level `pendingSocialFeeds` and `pendingNotifications`.
-- **UI**: `⎘ Copy` and `↺ Retry` appear bottom-right of the last assistant message only, hidden during loading. Copy strips the stats box and option lines, leaving pure story text.
+- **Edit last choice (✎ on the newest user bubble)** — replaces the choice and re-runs the round through `regenerateRound(edited)`. Same sanitisation and 300-char cap as `sendMessage`. Round 1 has no user message (it comes from `startNewGame`), so no button appears there.
+- **Edit last story (✎ beside ⎘ and ↺)** — edits the prose only, keeping the stats box, and writes to **two** places: `messages[last].content` and `memoryRef.current.history.at(-1).text`. Both are required; without the second the player's screen and the model's context silently diverge. Capped at 4,000 chars so a paste cannot bloat every later round's prompt.
+  - **This is free in cache terms.** A story generated in round N first enters the prompt at round N+1, and the button only ever appears on the newest story — so the edited text has never been sent and nothing cached is invalidated.
+  - The original English `summary` is **kept**. It is the collapse target, and blanking it would make `collapseHistoryIfNeeded` fall back to `text.substring(0,150)` — a truncated slice in the player's language, which is worse than a slightly stale gist.
+  - ↺ Retry after an edit discards it, by design: it regenerates from the pre-round snapshot.
+- **UI**: `⎘ Copy`, `✎ Edit` and `↺ Retry` appear bottom-right of the last assistant message only, hidden during loading and gated on `preRoundSnapshotRef.current`. Copy strips the stats box and option lines, leaving pure story text. The editor **auto-grows to its content** (min 220px, capped at 66vh): a story is 600-2,400 characters, so a fixed box means scrolling to read your own text. Opening an editor hides **both** the option bar and the custom-input row, and `sendMessage` closes it, because `editingIdx` is an index into `messages` and appending a turn would point the draft at the wrong message. Smoke Layer G guards all three.
 
 ### Data Flow per Round (cache-optimized)
 
 ```
 Player choice
-  -> executeRound({..., reasoningEnabled, qwenSubModel, timeSpeed})
-  -> collapseHistoryIfNeeded(memory)   // in-place: full->summary if full count >= N
+  -> executeRound({..., reasoningEnabled, aliyun, timeSpeed})
+  -> memory = clone(memory)            // collapse works on a clone; a failed round
+  -> collapseHistoryIfNeeded(memory)   // must not destroy the caller's full stories
   -> buildHistoryLedger(memory)        // serializes history[] - CACHEABLE prefix
   -> buildDynamicTail(memory, members) // stats, affections, KKT - always tail
   -> buildSystemPrompt(...)            // static - 100% cache hit
-  -> callLLM([system, ledger, tail + pacing + choice], ..., reasoningEnabled, qwenSubModel)
-     // 90s timeout, 2x retry
+  -> callLLM([system, ledger, tail + pacing + choice], ..., reasoningEnabled, aliyun)
+     // 90s timeout, per-error-kind retry; Aliyun free mode walks the route
+     // throws LLMError {kind} -> App shows t.errors[kind] as the round's message
   -> parseLLMOutput()                  // 4-level fallback
   -> validateAndFixOutput()
   -> update stats / affections
@@ -80,10 +96,12 @@ Player choice
 | `src/agent/mainAgent.js` | `executeRound`, `buildSystemPrompt`, `parseLLMOutput`, `validateAndFixOutput`, `popPendingSocial`, `resetPendingSocial`, `createInitialStats` |
 | `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory`, `getTopMember` |
 | `src/agent/probabilityEngine.js` | `calculateProbability`, `pickPrimaryMember` — picks which target member drives this round |
-| `src/tools/llmTool.js` | Unified OpenAI-compatible client + per-provider reasoning flags, 90s timeout, 2x retry |
+| `src/tools/llmTool.js` | Unified OpenAI-compatible client + per-provider reasoning flags, 90s timeout, per-kind retry, Aliyun free-credit router |
+| `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
+| `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` |
 | `src/config/constants.js` | Numeric game constants (see below) |
-| `src/config/modelConfigs.js` | 4 providers; `qwen` carries 3 sub-models |
+| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
@@ -108,14 +126,17 @@ Player choice
 | `rv_sim_social_v11` | `STORAGE_KEYS.SOCIAL_FEEDS` | Social feed cache |
 | `rv_sim_model_v11` | `STORAGE_KEYS.SELECTED_MODEL` | Provider id |
 | `rv_sim_reasoning_v13` | `STORAGE_KEYS.REASONING` | Deep Thinking on/off |
-| `rv_sim_qwen_submodel` | inline literal | Selected Qwen sub-model id |
+| `rv_sim_aliyun_mode` | `STORAGE_KEYS.ALIYUN_MODE` | `"free"` / `"paid"` |
+| `rv_sim_aliyun_paid_model` | `STORAGE_KEYS.ALIYUN_PAID_MODEL` | Paid-mode model id |
+| `rv_sim_aliyun_route` | `STORAGE_KEYS.ALIYUN_ROUTE` | Free-route state `{keyHash, exhausted, unavailable, lastModel}` |
+| `rv_sim_qwen_submodel` | inline literal | **Legacy, read-only** — seeds `ALIYUN_PAID_MODEL` once for players upgrading from the 3-sub-model UI |
 | `rv_sim_theme` | inline literal | `"dark"` / `"light"` |
 | `rv_sim_timespeed` | inline literal | `"slow"` / `"default"` / `"fast"` |
 | `rv_sim_fontscale` | inline literal | `1` / `1.25` |
 | `rv_sim_language` | inline literal | `zh` / `en` / `ko` |
 | `rv_sim_group` | inline literal | Selected group id |
 
-Note the inconsistency: only six keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
+Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
 
 ---
 
@@ -144,14 +165,93 @@ NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 
 | id | Display | Model string | Default? | Notes |
 | --- | --- | --- | --- | --- |
-| `qwen` | Qwen | `qwen3.8-max` (+ sub-models) | ✅ **default** | Alibaba Cloud; free credits per sub-model for new users |
-| `deepseek` | DeepSeek V4 Flash | `deepseek-v4-flash` | | Repriced upward — see README cost table |
+| `qwen` | Aliyun | free route / paid picker (see below) | ✅ **default** | Alibaba Cloud Bailian: Qwen, DeepSeek and GLM behind one `sk-ws-` key. The code id stays `qwen` so saves and `rv_sim_model_v11` keep working — only the UI label changed |
+| `deepseek` | DeepSeek V4.1 Flash | `deepseek-flash` | | DeepSeek's own platform. The button is named for the model, not the platform, so the player can see what they will run; the platform name lives in the card description. The legacy `deepseek-v4-flash` name is retired upstream and served by V4.1 anyway |
 | `gpt4omini` | GPT-5.6 Luna | `gpt-5.6-luna` | | key `gpt4omini` is legacy, the model string is current |
 | `gemini` | Gemini 3.5 Flash-Lite | `gemini-3.5-flash-lite` | | OpenAI-compat endpoint |
 
-All four use `format: "openai"` and go through the same `fetch` in `llmTool.js`. `character-plus` was removed.
+All four use `format: "openai"` and go through the same `fetch` in `llmTool.js`. `character-plus` and the three Qwen sub-models (`qwen3.7-max` has no JSON mode) were removed.
 
-**Qwen sub-models** — `MODEL_CONFIGS.qwen.subModels[]` holds `qwen3.8-max`, `qwen3.7-max`, `qwen3.7-plus`. `App.jsx` keeps `selectedQwenSubModel` (persisted to `rv_sim_qwen_submodel`) and passes it into `executeRound` as `qwenSubModel`, which `callLLMOnce` resolves: `resolvedModel = (modelId === "qwen" && qwenSubModel) ? qwenSubModel : cfg.model`. Each sub-model has its own free-credit allowance, so "run one dry, switch versions" is an intended gameplay path.
+### Aliyun modes
+
+`aliyunMode` (`free` default / `paid`, persisted to `STORAGE_KEYS.ALIYUN_MODE`) reaches the client as `executeRound({ aliyun: { mode, paidModel, onModelSwitch, onRouteStep } })` -> `callLLM`. `aliyun: null` behaves as paid mode on `qwen3.8-max`.
+
+- **Free** — `callAliyunFreeRoute` walks `ALIYUN_FREE_ROUTE` (28 models, best storytelling first; every entry has its own ~1M-token new-user allowance) and serves the round from the first model that answers:
+  - `free_exhausted` -> marked used up for this key, permanently (see the recovery probe below)
+  - `model_unavailable` -> skipped for 24h (not activated, or a dated snapshot retired)
+  - `bad_request` -> skipped for the browser session and `console.error`ed — it means that model's family entry is wrong
+  - `bad_response` (truncated or degenerate output, after same-model retries) -> next model, marked for 1h
+  - `timeout` -> marked for 1h, next model — but see the two-timeout rule below
+  - `rate_limit` (after same-model retries) -> next model for this round only, nothing marked
+  - anything else -> stops the round
+  
+  When the route runs dry it throws `free_all_exhausted` carrying `.cause = {model, kind, code, message}` — the last model that was skipped and why. Without it a mis-parameterised model is invisible: its `bad_request` is swallowed by the walk and the round reports only "all models exhausted". Layer H asserts on `.cause`.
+  
+  When the served model differs from the previous round's, `onModelSwitch` fires a toast; `onRouteStep` fires before each attempt after the first, so the UI can say "trying another model".
+
+  **Round budget.** A walk stops after `MAX_MODELS_PER_ROUND` (4) attempts or `ROUND_BUDGET_MS` (120s, doubled with Deep Thinking on), whichever comes first. Without it a player whose key has many spent models pays a long silent walk on the first round after exhaustion, and a rotated key re-walks the whole route.
+
+  **Timeout: slow model vs bad connection.** A per-attempt limit of 90s (180s with Deep Thinking on — measured, ~15% of thinking rounds exceed 90s) applies to the *first* attempt only; every later attempt in the same round gets `RETRY_TIMEOUT_MS` (30s), because a healthy model answers in 10-20s. **Two consecutive timeouts abort the round** with `timeout` and the second model is not marked: two failures at very different limits indicate the player's connection, not the models. Worst case is 90 + 30 = 120s, matching the budget.
+
+  **Recovery probe.** `exhausted` marks are permanent, because for a given Aliyun account a spent free tier does not come back. The one thing that changes it is a top-up — so when the route is empty, the walk fires a single probe at the first route model, at most once per hour (`lastProbe` in the route state). If it answers, the account clearly has balance: every `exhausted` mark is cleared and the round is served. This is what stops a player who tops up from being permanently stuck in `free_all_exhausted`. `resetFreeRoute(apiKey)` does the same thing on demand, behind a control on the key page.
+
+  **The reset control is always visible in free mode**, sitting on the status row. It was first shipped gated behind `available < total`, which meant a fresh key (28/28) never showed it at all — the one affordance for a stuck route was invisible until the route was already damaged. Smoke Layer G guards against that gate returning.
+
+  State lives in `STORAGE_KEYS.ALIYUN_ROUTE` and resets when the API key's FNV-1a hash changes — which is what makes a brand-new account with a brand-new key start from a full route. A *rotated* key on the same account also resets, and then re-learns its marks; the round budget caps that cost at 4 failed calls rather than 28. Switching model costs one full prompt-cache miss — acceptable, since it happens only on exhaustion.
+- **Paid** — the player picks from `ALIYUN_PAID_MODELS` (9 models, each with a `gameplay` cost string; `peakPricing` marks DeepSeek's 2x daytime rate). `resolvePaidModel` maps unknown ids to `qwen3.8-max`, which covers `qwen3.7-max` arriving through the legacy `rv_sim_qwen_submodel`.
+
+**Free mode depends on a console switch.** Aliyun returns `403 AllocationQuota.FreeTierOnly` only when the account is unverified or "stop when free quota is used up" is ON. Otherwise it silently starts pay-as-you-go billing and no router can notice. The key page warns about this in free mode.
+
+**Token Plan (`sk-sp-`) cannot be called from the browser.** It requires `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`, whose CORS preflight answers 401 with no `Access-Control-Allow-Origin` (probed 2026-09-15; `dashscope.aliyuncs.com` answers `*`). `callLLM` rejects `sk-sp-` keys up front with `token_plan_key`, and the key page's Token Plan subscription hint is gated behind `ALIYUN_TOKEN_PLAN_SUPPORTED = false`. Turning it on needs a server-side proxy first.
+
+**Per-model params (`getAliyunModelFamily` / `getAliyunModelParams`).** Aliyun hosts three vendors behind one endpoint and they do not share a parameter dialect, so each model resolves to a family (by id pattern, no per-model list to maintain when Aliyun adds a snapshot). Source: `docs/api_references/aliyun_references.md`.
+
+| Family | Models | Thinking | `reasoning_effort` when ON | Cap field | Cap OFF / ON |
+| --- | --- | --- | --- | --- | --- |
+| `qwen38` | `qwen3.8-max*`, `qwen3.8-flash` | toggle + `preserve_thinking` | `medium` (of `low`/`medium`/`xhigh`) | `max_completion_tokens` | 8192 / 65535 |
+| `qwenHybrid` | `qwen3.{5,6,7}-{plus,flash}*` | toggle + `preserve_thinking` | **omitted** — the reference's effort table does not cover them | `max_completion_tokens` | 8192 / 65535 |
+| `qwenOpen` | `*-397b-a17b`, `*-122b-a10b`, `*-35b-a3b`, `*-27b` | **never** — always `false` | n/a | `max_tokens` — open-weight builds are not on the `max_completion_tokens` list | 8192 / 8192 |
+| `deepseek` | `deepseek-v4-*` on Aliyun | toggle | `high` (of `high`/`max`) | `max_completion_tokens` | 8192 / 65535 |
+| `glm` | `glm-5.2`, `glm-5.1` | toggle | `high` (of `high`/`max`) | `max_completion_tokens` | 8192 / 65535 |
+| `glmAlways` | `glm-5.3` | **none sent** | `max` (its only value) | `max_completion_tokens` | 32768 / 65535 |
+
+**`glm-5.3` cannot stop thinking.** It rejects `enable_thinking:false` / `thinking.type:'disabled'` (documented), so it gets no toggle and an OFF cap large enough for thinking plus answer. Live data confirms the cap is needed: it spends 2,300-8,000 reasoning tokens per round regardless, and hit 9,019 completion tokens once. It costs roughly 2x the tokens and time of everything else even with Deep Thinking off, which is why it sits **last** in the free route.
+
+`qwen3.8-2.4t-a95b` had the same restriction, undocumented, and was removed from the route entirely — it could not finish a round inside 90s (0 of 12). Its `qwenOpenAlways` family went with it. If it is ever re-added, it needs both a family with no thinking toggle and a much longer timeout.
+
+**Deep Thinking is a no-op for `qwenOpen`.** Those builds score 12/12 clean with thinking off and 1/4 with it on — they return the whole JSON escaped inside a string, which no parser level can recover. The family therefore always sends `enable_thinking: false` and ignores `reasoningEnabled`.
+
+Only the live probe can find this class of bug: the reference documents what a parameter does, not which models reject it, and it says nothing about which models *break* under a legal parameter. `node test/smoke.mjs --live-free` covers the first, `node test/playthrough.mjs` the second. Re-run both whenever a model is added to `ALIYUN_FREE_ROUTE` or a family pattern changes.
+
+**Effort levels are chosen for the player.** The settings page only exposes Deep Thinking on/off; when it is on, each family uses one level below its maximum (`max` only where that is the sole legal value). Never surface `low`/`medium`/`high` to players.
+
+### Error Layer (`src/tools/llmErrors.js`)
+
+Every failed call throws `LLMError {kind, provider, model, status, code, message}`. `parseErrorBody` accepts OpenAI-style `{error:{code,message}}` (verified live on both Aliyun endpoints), DashScope-native `{code,message}`, and Gemini's `{error:{status,details[].reason}}`, array-wrapped or not. `classifyError(provider, httpStatus, body)` then picks one kind, using `docs/error_code/*.md` as the source of truth:
+
+| kind | Sources | Same-model retry |
+| --- | --- | --- |
+| `auth` | 401 everywhere; Gemini 400 `API_KEY_INVALID`; Gemini/OpenAI 403 permission; Aliyun `AccessDenied.Unpurchased`; missing key | none |
+| `free_exhausted` | Aliyun 403 `AllocationQuota.FreeTierOnly`; Aliyun 429 "Free allocated quota exceeded" | none |
+| `free_all_exhausted` | router ran out of candidates | none |
+| `balance` | Aliyun `Arrearage` / overdue bills; DeepSeek 402; OpenAI 429 `credit_balance_exhausted`, `*_spend_limit_exceeded`, `*_usage_limit_exceeded`, `insufficient_quota` | none |
+| `rate_limit` | every other 429 | 2s, then 5s |
+| `server_busy` | 500 / 503 | 1s, 1s |
+| `network` | `fetch` rejected (offline, DNS, CORS) | 1s, 1s |
+| `timeout` | 90s abort; Gemini 504 | none |
+| `model_unavailable` | Aliyun 403 `AccessDenied` / `Endpoint.AccessDenied` / `Model.AccessDenied`, 404 everywhere | none |
+| `bad_request` | other 400 / 422, incl. Aliyun `InvalidParameter.NotSupportEnableThinking` | none |
+| `bad_response` | HTTP 200 whose content is unusable: empty, `finish_reason: "length"` (truncated mid-JSON), or a parsed story under `MIN_STORY_CHARS` (40) | 2 retries, then next model |
+| `content_blocked` | Aliyun `DataInspectionFailed` | none |
+| `region` | Gemini `FAILED_PRECONDITION`; OpenAI 403 unsupported country | none |
+| `token_plan_key` | `sk-sp-` key on Aliyun | none |
+| `unknown` | anything unmatched | none |
+
+Order matters inside the Aliyun rule: `free_exhausted` and `balance` are matched on code/message **before** falling back to status, because `Throttling.AllocationQuota` is a 429 that means either "free quota gone" or plain TPM throttling, and `Arrearage` arrives as a 400.
+
+**`bad_response` exists so broken output never reaches the player.** A truncated response is unusable by construction — the parser's repair levels cannot close a string cut deep inside `socialContent`, so level 4 returns `text.substring(0, 500)` and the player is shown raw JSON. Measured on `glm-5.1` at 5 of 12 rounds before this existed. The degenerate case is the twin: `validateAndFixOutput` replaces any story under 20 chars with `"The story continues..."`, silently accepting a dead round (`qwen3.8-max`, ~8% of rounds). Both are now retried instead of rendered, as is a completely empty body — which previously returned `""` and let the parser's safe defaults stand in. The story-length check is supplied by `executeRound` as a `validateContent` callback so `llmTool.js` stays ignorant of the game schema.
+
+**UI contract.** `App.jsx#llmErrorNotice(e)` renders `t.errors[e.kind]` — one short line in the player's language, most ending with "tap ↺ Retry" — as the round's assistant message tagged `{error: true}`, and `console.error`s the raw `kind/code/message`. The tag keeps error notices out of story exports and save slots. The Help Center **Errors** tab renders the same `t.errors` strings with what to do for each.
 
 ### Reasoning / Deep Thinking (`llmTool.js`)
 
@@ -159,27 +259,34 @@ All four use `format: "openai"` and go through the same `fetch` in `llmTool.js`.
 
 | Provider | OFF | ON |
 | --- | --- | --- |
-| `deepseek` | `thinking: {type:'disabled'}` (V4 Flash defaults to AUTO — must disable) | `thinking:{type:'enabled'}`, `reasoning_effort:'high'`, `max_tokens: 65536` |
-| `qwen` | `enable_thinking:'false'`, `preserve_thinking:'false'` (Qwen 3.x defaults ON) | same flags `'true'` + `reasoning_effort` — `'medium'` for `qwen3.8-max`, `'high'` for others |
-| `gemini` | field omitted (off by default) | `reasoning_effort:'high'`, `max_tokens: 65535` |
-| `gpt4omini` | field omitted (off by default) | `reasoning_effort:'high'` |
+| `deepseek` | `thinking:{type:'disabled'}` (thinking is the upstream default — must disable) | `thinking:{type:'enabled'}`, `reasoning_effort:'high'`, `max_tokens: 65536` |
+| `qwen` (Aliyun) | `enable_thinking: false` **boolean** (Qwen 3.x, and DeepSeek/GLM on Aliyun, all default ON), plus `preserve_thinking: false` where supported | `enable_thinking: true` + the family's `reasoning_effort` from `getAliyunModelParams(model)`; the `qwenOpen` family stays `false` — see above |
+| `gemini` | field omitted — Gemini 3+ has no documented off switch; `thinkingLevel` bottoms out at `MINIMAL`, which is flash-lite's default | `reasoning_effort:'high'`, `max_tokens: 65535` |
+| `gpt4omini` | `reasoning_effort:'none'` (the reference lists `none` as a value, so OFF is explicit) | `reasoning_effort:'high'`, `max_completion_tokens: 32768` |
+
+`preserve_thinking` is always `false`, never `true`: the game never sends `reasoning_content` back, and Aliyun bills preserved thinking as input on the next round. The `qwen3.8-max`/`qwen3.8-flash` docs also require echoing `reasoning_content` in its own field when preserving, which this architecture deliberately does not do.
 
 The response reader uses `choice.message.content` **only** — never falls back to `reasoning_content`, so chain-of-thought can never leak into the story.
 
 ### Output token cap
 
-`MODEL_CONFIGS[*].maxOutputTokens` is the per-provider cap, resolved in `callLLMOnce` into a local `outputCap` **after** the reasoning branches run (enabling reasoning needs headroom for thinking tokens). It is then emitted as:
+`buildRequestBody` resolves two things per request: **which field** carries the cap and **which value** it takes.
 
-- **Qwen** → `max_completion_tokens`
-- **all others** → `max_tokens`
+- Field: `cfg.capField` per provider (`max_completion_tokens` for Aliyun and OpenAI, `max_tokens` for DeepSeek Official and Gemini), overridden per model on Aliyun by `getAliyunModelParams(model).capField`.
+- Value: `cfg.maxOutputTokens` with reasoning off, `cfg.maxOutputTokensReasoning` with it on; on Aliyun, the family's `[OFF, ON]` pair.
 
-Qwen's OpenAI-compatible endpoint honors **both** names — verified live 2026-08-26: a cap of 16 truncates with `finish_reason:'length'` under either. (An earlier comment claimed Qwen rejects `max_tokens`; that was wrong.) The split simply tracks the field OpenAI-compatible APIs are standardising on. `test/smoke.mjs --live` asserts the cap is genuinely honored, not merely accepted, since an ignored unknown field would still return HTTP 200.
+| Provider | OFF | ON |
+| --- | --- | --- |
+| `qwen` (Aliyun) | 8192 (`glm-5.3`: 32768) | 65535 (`qwenOpen`: 8192, it never thinks) |
+| `deepseek` | 8192 (upstream non-thinking default) | 65536 (upstream thinking default is 64K) |
+| `gpt4omini` | 8192 | 32768 — at 8192 reasoning tokens could consume the whole budget and return empty content |
+| `gemini` | 8192 | 65535 |
 
-Current values: `qwen` 65535 (thinking and content share one budget when reasoning is on), `deepseek` / `gpt4omini` / `gemini` 8192, raised to 65536 / 65535 inside the deepseek and gemini reasoning branches. A round only needs ~800 output tokens; these are ceilings, not reservations.
+A round only needs ~800 output tokens; these are ceilings, not reservations. Aliyun honors **both** cap names — verified live 2026-08-26: a cap of 16 truncates with `finish_reason:'length'` under either — so the per-model split is about matching the documented field, not about one being rejected. `test/smoke.mjs --live` asserts the cap is genuinely honored, not merely accepted, since an ignored unknown field would still return HTTP 200.
 
 ---
 
-## Add-on Features (v1.3.1)
+## Add-on Features (v1.3.2)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -188,7 +295,7 @@ Current values: `qwen` 65535 (thinking and content share one budget when reasoni
 | Day/Night | `theme` (`dark`/`light`) | `rv_sim_theme` | `THEMES[theme]` -> `th` token object, threaded into every overlay as a `theme` prop |
 | Text size | `fontScale` (`1`/`1.25`) | `rv_sim_fontscale` | `Math.round(base * fontScale)` on story/option text; passed to Bubble and Kakao overlays |
 | Export | `exportClipboard` / `exportTxt` / `exportPdf` | — | Shares `extractStoryText()`; PDF renders themed HTML into a hidden iframe and calls `print()` |
-| Help Center | `showHelp` | — | `HelpOverlay.jsx`, 4 tabs x 3 languages |
+| Help Center | `showHelp` | — | `HelpOverlay.jsx`, 4 tabs x 3 languages; the Errors tab reads `t.errors` so it always matches the in-game notices |
 
 **Time Speed placement matters.** The pacing hint is concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger. Toggling it mid-run therefore costs nothing in cache terms. Never move it into `buildSystemPrompt` or `buildHistoryLedger`.
 
@@ -249,7 +356,9 @@ R15   | collapse->[S0..S14]  | S0..S11 HIT . S12 S13 S14 MISS *   | [S0..S14 F15
 
 ### Collapse Logic (`collapseHistoryIfNeeded`)
 
-Called at the **start** of each round, before building the prompt. Counts `history.filter(h => h.type === 'full').length`. If `>= HISTORY_FULL_MAX`:
+Called at the **start** of each round, before building the prompt, **on a clone of the caller's memory**. It mutates in place, so running it on the live object meant a failed LLM call left the full stories permanently collapsed — the player's next attempt sent a degraded ledger. `executeRound` now clones first and only hands the clone back on success.
+
+Counts `history.filter(h => h.type === 'full').length`. If `>= HISTORY_FULL_MAX`:
 - Rebuild every `full` entry as `{round, type:'summary', text: h.summary || h.text.substring(0,150)}` — the long story text is dropped
 - Do NOT remove or reorder entries — the prefix must stay byte-identical for entries that existed in the previous round
 - Batch prune: if total summary count exceeds `HISTORY_PRUNE_BATCH * 3` (45), drop the oldest `HISTORY_PRUNE_BATCH` (15) summary entries — one miss penalty every ~45 rounds
@@ -294,6 +403,10 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
 ### Save Compatibility (`isLegacyMemory`)
 
 `rv_sim_saves_v13` is the current standard. On `loadSave`, if `memory.history === undefined`, memory is reset to `createEmptyMemory()` (pool wiped) while stats, form, and affections are still restored. Prevents the old `summaries`/`fullStories` (v12) and `storyRounds` (v11) shapes from crashing the engine.
+
+**`preRoundSnapshotRef` must be cleared on every game boundary.** It holds the pre-round state that ↺ Retry and the ✎ edit controls restore, and it is set only by `startNewGame` and `sendMessage`. `loadSave` must null it: otherwise a player who plays game A and then loads save B sees ↺ on B's last message, and tapping it restores **game A's** stats and memory into B. This also gives the intended gating for free — after loading a save there is no ↺ and no ✎ until one round has been played in this session, so the edit features can never touch a history entry they did not create.
+
+**Model settings are not part of a save.** Save slots hold no provider or model field, so model-layer changes cannot break them — keep it that way. Legacy *settings* are handled at read time instead: `rv_sim_model_v11 = "qwen"` still resolves (the id never changed), `rv_sim_qwen_submodel` seeds the paid pick through `resolvePaidModel` (unknown or removed ids -> `qwen3.8-max`), `rv_sim_aliyun_mode` accepts only `"paid"` and otherwise means `"free"`, and `aliyunRoute.js` treats any malformed `rv_sim_aliyun_route` as empty. `test/smoke.mjs` Layer G guards all four.
 
 ---
 
@@ -402,7 +515,7 @@ Cover Page
   -> Select group (required) + language + theme -> New Game or Load Save
       |
 Key Input Page
-  -> Enter API key + choose model (+ Qwen sub-model)
+  -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
 Setup Page
   -> Main member + Sub members + Identity (7+1) + Pace + Name/Age
@@ -478,10 +591,83 @@ git push origin v13.0.0
 
 ---
 
+## Project Status (2026-09-16)
+
+Working branch: `main`, **uncommitted and undeployed**. Everything below is code-complete, validated offline (`npm run build` + **371 checks** in `node test/smoke.mjs`), exercised against the live Aliyun API (**381 checks** with `--live-free`), and hand-tested by the author on device.
+
+Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`**. Read it before touching the route, the retry policy or the cost strings — the *why* is not reconstructible from the diff.
+
+### Landed in this cycle
+
+**Model layer**
+1. **Aliyun free-credit auto-route** — 28 models, per-key state, automatic switch on exhaustion (`aliyunRoute.js`, `callAliyunFreeRoute`). Bounded to 4 models / 120s per round (240s thinking) with a "trying another model" toast.
+2. **Aliyun paid mode** — 9 selectable models with per-model cost strings, collapsible picker + cost box on the key page.
+3. **Error layer** — `llmErrors.js` maps all four providers' failures to one of 15 `kind`s; retry policy is per kind; each shows one localized line via `t.errors[kind]`; the Help Center Errors tab lists them all. Smoke Layer E2 fails the build if a kind lacks a translation or a help entry in any of zh/en/ko.
+4. **Per-model request params** from `docs/api_references/` plus live probing — thinking off by default, one effort level per family when on, correct cap field and size per model.
+5. **`bad_response`** — empty, truncated (`finish_reason: length`) or degenerate (<40-char story) output is retried, then routed past, instead of being rendered. This is what stopped players seeing raw JSON.
+6. **Timeout policy** — 90s (180s thinking) on the first attempt, 30s on later ones; a timeout walks the route, but two in a row abort and blame the connection.
+7. **Free-credit recovery** — an exhausted route probes once an hour and clears itself if the account has been topped up; plus a manual reset on the key page and a localized notice explaining the options.
+
+**Game layer**
+8. **Edit controls** — ✎ on the last choice replays the round with new text; ✎ on the last story rewrites both the screen and `memory.history`, so the model follows the edit. Free in cache terms (the newest story has not been sent yet).
+9. **Failed rounds no longer degrade memory** — `executeRound` collapses a clone and commits only on success.
+10. **Save-corruption fix** — `loadSave` clears `preRoundSnapshotRef`. Previously, loading save B after playing game A left ↺ Retry restoring A's stats and memory into B.
+11. **Error notices tagged** `error: true` and filtered out of story exports and save slots.
+
+**Test layer**
+12. **`test/playthrough.mjs`** (new) — plays real multi-round games and grades JSON validity, language lock, option format, stat bounds, CoT leakage, and the ledger-prefix cache invariant; reads `usage.cached_tokens` to measure the cache directly.
+13. **Smoke suite 145 → 371 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
+
+### Live test results (2026-09-16)
+
+Roughly 600 real rounds against the Aliyun endpoint, across two passes.
+
+* **28/28 free-route models accept our parameters.** Getting there needed one fix no document could have supplied: `qwen3.8-2.4t-a95b` rejects `enable_thinking:false` with an undocumented error. It was later removed from the route anyway (see below).
+* **The cache invariant holds** — 0 ledger prefix breaks across 87 collapses in the 348-round sweep, 0 across 18 in a 30-round game, 0 in every run since. The append-only ledger behaves exactly as this file describes.
+* **Language lock is solid** — zh/en/ko playthroughs clean; no model narrated in the wrong language while otherwise working.
+* **Four models misbehaved in play**, none of them a parameter bug. Two were removed from the route (`qwen3.5-27b` answers literal `null`, 12/12 unusable; `qwen3.8-2.4t-a95b` never finished inside 90s, 0/12). Two are now handled at runtime (`glm-5.1` ran away to the output cap and showed raw JSON, 5/12; `qwen3.8-max` returned a sub-20-char story ~8% of rounds).
+* **After the fixes**: `glm-5.1` 7/12 → **12/12 clean**, live route playthrough **8/8 clean**.
+* **Measured Aliyun prompt-cache hit rate is ~83%**, flat across 0/1/2 sub-members and not converging upward over 30 rounds. Twelve of the route models (every `qwen3.5-*` and `qwen3.6-*`) report no `cached_tokens` field at all. **This does not contradict the 95.8% figure**, which comes from DeepSeek Official billing on a different platform with a finer-grained cache — see to-do 2.
+
+**To-do, in order**
+
+**Release this cycle (in order)**
+
+1. ~~**Version bump to v1.3.2.**~~ **Done** — all 14 strings across five files, `package.json` included (it was stuck at `1.0.0` and now tracks the displayed version). See Known Inconsistencies below for the list.
+2. **Commit** — one commit on `main`. Suggested subject: `feat: Aliyun free-credit route, bad_response recovery, round editing`. Untracked files that must be added: `src/tools/aliyunRoute.js`, `src/tools/llmErrors.js`, `test/playthrough.mjs`, `docs/`.
+3. **Tag `v1.3.2`** and `npm run deploy` (builds, patches `index.html` to production mode, pushes `main`, restores dev mode — never edit `index.html` by hand).
+4. **Cherry-pick to `dev-v13.0.0`** so the branch does not drift.
+
+> `npm run deploy` pushes to production. It is a red-line action — confirm before running it.
+
+**Open questions (not blocking release)**
+
+5. **The empty-route notice has never been rendered.** It only appears at 0/28 available, which needs a genuinely exhausted key. Everything else on the key page has now been hand-checked at 390px.
+6. **Re-check the 95.8% cache figure against DeepSeek Official billing** after a long hand-played session. That figure comes from DeepSeek's platform; the ~83% measured here is Aliyun-specific and the two are not comparable, so pricing stays as published until then. `docs/TEST_FINDINGS.md` records the size of the gap if it does need revising, and the open `qwen3.6-flash` question (Aliyun reports no cached tokens for it at all).
+7. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed.
+8. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
+
+**Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js`, `stageConfig.js` and `groupLoader.js` still carry Chinese comments, against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
+
+---
+
 ## Known Inconsistencies (fix before they bite)
 
-1. **`package.json` version is `1.0.0`** while the app displays `v1.3.1` — the displayed version lives in `App.jsx` cover strings and `src/i18n/*.js`, so a version bump means editing four places.
+1. **The version string lives in 14 places across five files.** `package.json` had been stuck at `1.0.0` since the beginning while the app displayed `v1.3.1`; it was brought into sync at v1.3.2 and must now be bumped with the rest. A bump means editing all of these:
+
+   | File | Count | Where |
+   | --- | --- | --- |
+   | `package.json` | 1 | `"version"` (line 4) |
+   | `src/i18n/{zh,en,ko}.js` | 3 | `cover.desc` (line 4 in each) |
+   | `src/App.jsx` | 3 | the fallback cover strings, zh/en/ko (~line 712) |
+   | `README.md` | 7 | title, version badge, cost-section heading, new "What's New" heading, three ASCII sketches |
+
+   The sketch lines are column-aligned ASCII art, so only same-width bumps are safe there (`1.3.1` -> `1.3.2` is; `1.3.9` -> `1.3.10` is not).
+
+   **`App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx`, so a bump edited in only one place leaves the two disagreeing depending on which path renders. Worth collapsing into one source before the next release.
 
 ### Cost strings must track README
 
-`MODEL_CONFIGS[*].gameplay` (and each `subModels[*].gameplay`) is rendered on the key-input page through `t.guide.billing`. These strings are hand-derived from the README cost table — **when provider pricing changes, update both**. zh quotes hours per ￥1, en per \$1, ko per ₩1,000.
+`MODEL_CONFIGS[*].gameplay` (rendered through `t.guide.billing`) and each `ALIYUN_PAID_MODELS[*].gameplay` (rendered in the paid-mode cost box) are hand-derived from the README cost table — **when provider pricing changes, update both**. zh quotes hours per ￥1, en per \$1, ko per ₩1,000.
+
+Derivation: README token profile (7,664 cache-hit + 336 cache-miss input, 800 output per round, 12 rounds/hour). CNY-priced Aliyun models convert at ￥7.1 = \$1; ₩1,000 = \$0.72. Peak-priced models are blended: Aliyun DeepSeek is 2x for 14 of 24 hours daily (08:00–22:00 Beijing), DeepSeek Official is 2x for 35 of 168 weekly hours.

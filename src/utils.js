@@ -12,6 +12,9 @@ export const STORAGE_KEYS = {
   SOCIAL_FEEDS: "rv_sim_social_v11",
   SELECTED_MODEL: "rv_sim_model_v11",
   REASONING: "rv_sim_reasoning_v13",
+  ALIYUN_MODE: "rv_sim_aliyun_mode",
+  ALIYUN_PAID_MODEL: "rv_sim_aliyun_paid_model",
+  ALIYUN_ROUTE: "rv_sim_aliyun_route",
 };
 
 export const loadFromStorage = (key) => {

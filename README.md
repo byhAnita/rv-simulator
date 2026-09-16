@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.1
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.2
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.1-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.2-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -10,9 +10,9 @@
 
 ## ✨ Features
 
-- 🐉 **Free to start** — Qwen (Alibaba Cloud) is the default model, and new accounts get free credits on **each** of the three Qwen versions. Run one dry, switch to the next, keep playing.
+- 🐉 **Free to start** — Aliyun (Alibaba Cloud) is the default provider. New accounts get ~1M free tokens on **each** of 28 JSON-capable models (Qwen, DeepSeek, GLM), and the game's **free-credit mode switches models for you** when one runs dry.
 - ⚡ **~10s per round** — Steady-state generation lands around 10 seconds with Deep Thinking off (the default), backed by a **~95.8% measured prompt-cache hit rate**.
-- 🔄 **Regenerate & Copy** — Not happy with a round? Hit ↺ Retry for a fresh story on the same choice — stats, memory, KKT, and achievements all rewind cleanly. ⎘ Copy grabs the pure story text.
+- 🔄 **Regenerate, Edit & Copy** — Not happy with a round? ↺ Retry rewrites it on the same choice, rewinding stats, memory, KKT and achievements cleanly. ✎ Edit lets you reword the generated story, or change your last choice and replay the round — the model reads your edit from then on. ⎘ Copy grabs the pure story text.
 - 🧠 **Deep Thinking toggle** — Reasoning is OFF by default (fast, cheap, and it reads well). Flip it on in Settings when you want the model to deliberate.
 - ⏳ **Time Speed control** — 🐌 Slow (linger in the moment) / 🕛 Normal / ⚡ Fast (skip ahead to the next date). Steers narrative pacing per round.
 - 🌗 **Day / Night mode** — Full light and dark themes across every screen, including the social overlays and the PDF export.
@@ -26,14 +26,15 @@
 - 🎭 **7+1 Player Identities** — Trainee, Staff, Artist, Fan, Student, Chaebol, Ex-Girlfriend, Custom
 - 💾 **Save / Load System** — Cover-page quick load, save, delete
 - 📲 **PWA Support** — Add to Home Screen (iOS + Android), fullscreen
-- 🔑 **Multi-Model** — Qwen 3.8 Max / 3.7 Max / 3.7 Plus · DeepSeek V4 Flash · GPT-5.6 Luna · Gemini 3.5 Flash-Lite
+- 🔑 **Multi-Model** — Aliyun (28-model free route, or 9 paid picks across Qwen / DeepSeek / GLM) · DeepSeek V4.1 Flash · GPT-5.6 Luna · Gemini 3.5 Flash-Lite
+- 🩺 **Readable errors** — failures show one short line in your language (credits used up, server busy, key invalid…) instead of raw API text
 
 ---
 
 ## 🚀 Quick Start
 
 1. Open 🎮 [https://byhanita.github.io/rv-simulator/](https://byhanita.github.io/rv-simulator/)
-2. Enter your API Key. **Default: Qwen** — sign up at [platform.qianwenai.com](https://platform.qianwenai.com); new users get free credits, no top-up needed to start.
+2. Enter your API Key. **Default: Aliyun, free-credit mode** — sign up at [platform.qianwenai.com](https://platform.qianwenai.com); new users get free credits, no top-up needed to start. Turn **ON** "stop when free quota is used up" in the console so you are never billed by surprise.
 3. Select a girl group, choose your main member, and start your story.
 4. Add to Home Screen (Share → Add to Home Screen) for a fullscreen app icon.
 
@@ -42,7 +43,7 @@
 ## 📖 How to Play
 
 1. **Cover Page** — Select girl group → choose language → New Game or Load Save
-2. **Key Input** — Paste your API Key → pick a model (and a Qwen version, if using Qwen)
+2. **Key Input** — Paste your API Key → pick a provider (for Aliyun: 🎁 Free credits or 💳 Paid + model)
 3. **Character Creation** — Main member + Sub members + Identity + Name/Age + Pace
 4. **Game** — Read story → choose A/B/C/D (or type a custom action) → repeat
 5. **Social Media** — Check Bubble / Instagram / Weverse / KKT for member updates while the next round generates
@@ -64,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.1)
+## 💰 API Cost & Performance (v1.3.2)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -82,49 +83,91 @@
 
 ### Cost per model
 
+#### 🐉 Aliyun — paid mode (thinking off)
+
+Aliyun bills in CNY; USD columns convert at ￥7.1 = $1.
+
+| Model | ￥ / Round | $ / Round | Full Run (40r) | Gameplay / ￥1 | Gameplay / $1 |
+| --- | --- | --- | --- | --- | --- |
+| **Qwen 3.8 Max** *(default)* | ~￥0.060 | ~$0.0085 | ~$0.34 | ~1.4 hrs | ~10 hrs |
+| Qwen 3.8 Flash | ~￥0.0032 | ~$0.00045 | ~$0.018 | ~26 hrs | ~190 hrs |
+| Qwen 3.7 Plus | ~￥0.012 | ~$0.0017 | ~$0.07 | ~7 hrs | ~49 hrs |
+| Qwen 3.6 Flash † | ~￥0.0080 | ~$0.0011 | ~$0.045 | ~10 hrs | ~74 hrs |
+| DeepSeek V4 Pro | ~￥0.031 | ~$0.0044 | ~$0.17 | ~2.7 hrs | ~19 hrs |
+| DeepSeek V4 Pro 0813 * | ~￥0.025 | ~$0.0035 | ~$0.14 | ~3.3 hrs | ~24 hrs |
+| DeepSeek V4.1 Flash * | ~￥0.0068 | ~$0.00096 | ~$0.038 | ~12 hrs | ~87 hrs |
+| DeepSeek V4 Flash 0731 * | ~￥0.0083 | ~$0.0012 | ~$0.047 | ~10 hrs | ~71 hrs |
+| GLM-5.2 | ~￥0.040 | ~$0.0057 | ~$0.23 | ~2.1 hrs | ~15 hrs |
+
+> \* **Peak pricing on Aliyun DeepSeek.** Prices double outside off-peak hours (off-peak = 22:00–08:00 Beijing time), so figures are a daily blend with 14 of 24 hours at peak. Off-peak (per 1M tokens, cache-hit / miss / output): V4.1 Flash ￥0.1 / ￥1 / ￥4 · V4 Flash 0731 ￥0.15 / ￥1.5 / ￥4.5 · V4 Pro 0813 ￥0.45 / ￥4.5 / ￥13.5. Flat-rate: V4 Pro ￥1 / ￥12 / ￥24 · GLM-5.2 ￥2 / ￥8 / ￥28 · Qwen 3.8 Flash ￥0.1 / ￥0.8 / ￥2.7.
+>
+> † Aliyun lists no implicit cache-hit price for Qwen 3.6 Flash (input ￥1.2, output ￥7.2). The row assumes the usual 20%-of-input cache-hit rate (￥0.24); if implicit caching is not applied, expect roughly 3x the cost.
+>
+> 💡 Playing a lot? Aliyun's [Token Plan](https://www.qianwenai.com/benefits/tokenplan) subscription covers these models at a flat rate. ⚠️ Token Plan keys (`sk-sp-`) do **not** work in-game yet: the Token Plan endpoint blocks browser requests (CORS), so use a general `sk-ws-` key.
+
+#### Other providers
+
 | Model | Thinking | Cost / Round | Full Run (40r) | Gameplay / $1 |
 | --- | --- | --- | --- | --- |
-| **Qwen 3.7 Plus** 🐉 | ❌ Off *(Default)* | ~$0.0017 | ~$0.07 | ~49 hrs |
-| Qwen 3.7 Plus | ✅ High | ~$0.0034 | ~$0.14 | ~25 hrs |
-| **Qwen 3.7 Max** 🐉 | ❌ Off *(Default)* | ~$0.0061 | ~$0.24 | ~14 hrs |
-| Qwen 3.7 Max | ✅ High | ~$0.0122 | ~$0.49 | ~7 hrs |
-| **Qwen 3.8 Max** 🐉 | ❌ Off *(Default)* | ~$0.0085 | ~$0.34 | ~10 hrs |
-| Qwen 3.8 Max | ✅ Medium | ~$0.0170 | ~$0.68 | ~5 hrs |
-| **DeepSeek V4 Flash** 🐋 | ❌ Off *(Default)* | ~$0.0024 * | ~$0.10 * | ~35 hrs |
-| DeepSeek V4 Flash | ✅ High | ~$0.0048 * | ~$0.19 * | ~17 hrs |
+| **DeepSeek Official (V4.1 Flash)** 🐋 | ❌ Off *(Default)* | ~$0.00067 * | ~$0.027 * | ~120 hrs |
+| DeepSeek Official (V4.1 Flash) | ✅ High | ~$0.0013 * | ~$0.054 * | ~60 hrs |
 | **GPT-5.6 Luna** ⚡ | ❌ Off *(Default)* | ~$0.0023 | ~$0.09 | ~37 hrs |
 | GPT-5.6 Luna | ✅ High | ~$0.0046 | ~$0.19 | ~18 hrs |
 | **Gemini 3.5 Flash-Lite** 💎 | ❌ Off *(Default)* | ~$0.0029 | ~$0.12 | ~29 hrs |
 | Gemini 3.5 Flash-Lite | ✅ High | ~$0.0058 | ~$0.23 | ~14 hrs |
 
-> \* **DeepSeek repriced.** V4 Flash now bills **$0.022 / 1M cache-hit input · $0.66 / 1M cache-miss input · $1.98 / 1M output** off-peak, and **2x all three** during peak hours (01:00–04:00 and 06:00–10:00 UTC, Mon–Fri). Figures above are a 7-day blended average (~21% of hours are peak). This is a significant increase over its previous tier — DeepSeek went from the cheapest option to roughly mid-pack, which is part of why Qwen is now the default.
+> \* **DeepSeek repriced again.** The `deepseek-flash` model name now serves **DeepSeek-V4.1-Flash** at **$0.003 / 1M cache-hit input · $0.15 / 1M cache-miss input · $0.60 / 1M output** off-peak, and **2x all three** during peak hours (01:00–04:00 and 06:00–10:00 UTC, Mon–Fri). Figures are a 7-day blend (35 of 168 hours at peak). That is roughly 3.6x cheaper per round than the V4 Flash pricing it replaces. The legacy `deepseek-v4-flash` name still works but is served by V4.1 Flash.
 >
-> ⚠️ Per-token prices for GPT-5.6 Luna and Gemini 3.5 Flash-Lite are estimates based on comparable tiers — verify on your provider's pricing page. DeepSeek and Qwen figures use published pricing.
+> ⚠️ Per-token prices for GPT-5.6 Luna and Gemini 3.5 Flash-Lite are estimates based on comparable tiers — verify on your provider's pricing page. DeepSeek and Aliyun figures use published pricing.
 >
 > 💡 "Thinking ON" rows assume ~1,000–2,000 reasoning tokens billed at the output rate, which roughly doubles per-round cost. That is why reasoning ships **off by default**.
 
-### 🐉 Why Qwen is the default
+### 🎁 Why Aliyun is the default — free-credit auto-route
 
-Alibaba Cloud grants new accounts a free token allowance **per model**, and the game exposes three Qwen versions:
+Alibaba Cloud grants new accounts ~1M free tokens **per model**, valid 90 days after sign-up. In **🎁 Free credits** mode the game plays through 28 JSON-capable models in quality order, and when one model's credits run out it moves to the next automatically, with a small toast:
 
-| Version | Character | Free credits |
-| --- | --- | --- |
-| **Qwen 3.8 Max** | Flagship reasoning, highest story quality | ~1M tokens (~10–14 hrs) |
-| **Qwen 3.7 Max** | Balanced quality and speed | ~1M tokens (~10–14 hrs) |
-| **Qwen 3.7 Plus** | Most affordable, fastest | ~1M tokens (~10–14 hrs) |
+| Tier | Models |
+| --- | --- |
+| Flagship | qwen3.8-max · qwen3.8-max-0902 · deepseek-v4-pro · deepseek-v4-pro-0813 · glm-5.2 · glm-5.1 |
+| Mid | qwen3.7-plus (+ 2026-05-26) · qwen3.6-plus (+ 2026-04-02) · qwen3.5-plus (+ 2026-04-20, 2026-02-15) · qwen3.5-397b-a17b · deepseek-v4.1-flash · deepseek-v4-flash |
+| Flash | qwen3.8-flash · qwen3.7-flash (+ 2026-07-15) · qwen3.6-flash (+ 2026-04-16) · qwen3.5-flash (+ 2026-02-23) · qwen3.5-122b-a10b |
+| Small | qwen3.6-35b-a3b · qwen3.6-27b · qwen3.5-35b-a3b |
+| Last resort | glm-5.3 — flagship quality, but it always thinks, so ~2x the tokens and 3-5x slower |
 
-That is roughly **30–40 hours of free gameplay** before you pay anything. When one version's credits run out, switch to another in Settings → Switch Model and keep going. Free credits are valid 90 days after sign-up.
+One model's allowance lasts roughly 100 rounds (~8 hrs), so the full route is on the order of hundreds of hours. Story voice shifts a little when the route moves down a tier.
+
+> ⚠️ **Turn ON "stop when free quota is used up"** in the Aliyun console. Aliyun only reports "free credits exhausted" when that switch is on (or the account is unverified). With it off, a verified account quietly starts pay-as-you-go billing, and the game cannot detect the change.
 
 ---
 
-## 🔄 Regenerate & Copy
+## 🔄 Regenerate, Edit & Copy
 
-After every round, two small buttons appear below the story:
+After every round, three small buttons appear below the story:
 
 - **↺ Retry** — Re-generates the story for the same player choice. Stats, memory ledger, KKT messages, achievements, and stage changes all rewind to exactly before the round ran, so the new generation starts clean. The previous version is replaced — no history page, no extra UI.
+- **✎ Edit** — Rewrite the story yourself when a round is *almost* right. Your text replaces the round both on screen and in the model's memory, so later rounds follow what you wrote. Edit as often as you like; only the latest version is kept.
 - **⎘ Copy** — Copies pure story text (no stats box, no option labels) to your clipboard.
 
+A ✎ also sits beside your last choice. Tapping it lets you reword what you did and replay the round — useful when a typo or a half-finished custom action sent the story somewhere you did not mean.
+
+> Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
+
 ---
+
+## 🎉 What's New in v1.3.2
+
+* 🎁 **Aliyun free-credit auto-route** — 28 models, each with its own new-user allowance; the game switches model when one runs out, and tells you when it does.
+* 💳 **Aliyun paid mode** — a 9-model list (Qwen / DeepSeek / GLM) with a per-model cost guide.
+* 🩺 **Readable, localized errors** — every provider's errors are classified (key invalid, credits used up, rate limited, server busy, content blocked…) and shown as one short line in zh / en / ko. The Help Center Errors tab lists them all.
+* ⚙️ **Per-model request parameters** set from each provider's official API reference (`docs/api_references/`): thinking is explicitly off by default everywhere, and turning Deep Thinking on picks the right effort level per model automatically. `glm-5.3` is exempt because it cannot stop thinking, so it runs richer, slower and at roughly 2x the tokens — which is why it sits last in the free route.
+* 🐋 **DeepSeek Official → V4.1 Flash** (`deepseek-flash`), repriced; costs updated above. The provider button is now labelled for the model rather than the platform.
+* ✎ **Edit what you just played** — reword the generated story, or change your last choice and replay the round. Only the latest version is kept.
+* 🔁 **Broken rounds are retried, not shown** — a truncated or near-empty answer is re-requested automatically, and in free mode the game moves to another model, so raw JSON and placeholder stories no longer reach the screen.
+* ⏱️ **Bounded waiting** — a round tries at most 4 models and ~2 minutes before giving up, with a toast while it walks. Deep Thinking gets double the time limit, because thinking rounds genuinely take longer.
+* ♻️ **Free route can be reset** — topped up your Aliyun account? The game notices automatically, and there is a manual reset on the key page.
+* 🧹 **Key page decluttered** — provider and mode buttons are single-line, and the paid model list is a collapsible picker instead of nine always-open rows.
+* 💾 **Save-loading bug fixed** — loading a save straight after playing another game could make ↺ Retry restore the *other* game's stats and memory. Error messages also no longer end up inside saves or story exports.
+* 🗑️ Qwen 3.7 Max removed (no JSON mode). `qwen3.8-2.4t-a95b` and `qwen3.5-27b` dropped from the free route after live testing — neither could finish a playable round. The provider id stays `qwen`, so existing saves and settings load unchanged.
 
 ## 🎉 What's New in v1.3.1
 
@@ -154,7 +197,7 @@ After every round, two small buttons appear below the story:
 ## 🎯 Tech Stack
 
 - **Frontend** — React 18 + Vite, all inline styles (no CSS framework), mobile-first 390×844
-- **LLM** — Qwen 3.8 Max / 3.7 Max / 3.7 Plus · DeepSeek V4 Flash · GPT-5.6 Luna · Gemini 3.5 Flash-Lite, through one unified OpenAI-compatible client
+- **LLM** — Aliyun (Qwen / DeepSeek / GLM, free-credit auto-route or paid) · DeepSeek Official V4.1 Flash · GPT-5.6 Luna · Gemini 3.5 Flash-Lite, through one unified OpenAI-compatible client with a shared error classifier
 - **State** — React hooks only (no Redux/Zustand), `useRef` for non-rendering mutable data
 - **i18n** — Custom translation engine (zh/en/ko) with `${var}` interpolation
 - **PWA** — Web App Manifest + iOS/Android fullscreen
@@ -195,7 +238,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.1              | |
+|  |              LLM Text Adventure . v1.3.2              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -208,8 +251,9 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  Key Input Page                                            |
 |  +-------------------------------------------------------+ |
 |  |  API Key            [day/night] [Help]                | |
-|  |  [Qwen] [DeepSeek] [GPT] [Gemini]                     | |
-|  |  Qwen version: [3.8 Max] [3.7 Max] [3.7 Plus]         | |
+|  |  [Aliyun] [DeepSeek V4.1] [GPT] [Gemini]              | |
+|  |  Aliyun: [🎁 Free credits · auto] [💳 Paid]           | |
+|  |    Paid -> model list + cost guide for the pick       | |
 |  |  [ sk-...                            ]  [Confirm]     | |
 |  +-------------------------------------------------------+ |
 +------------------------------------------------------------+
@@ -297,7 +341,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.1 - Architecture                     |
+|          Idol Dating Sim  v1.3.2 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -353,7 +397,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.1 Round Flow                            |
+|                    v1.3.2 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

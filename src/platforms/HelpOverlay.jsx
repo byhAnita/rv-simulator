@@ -1,4 +1,5 @@
 import { useState, createContext, useContext } from "react";
+import { getTranslations } from "../i18n";
 
 // ── Per-theme color tokens ────────────────────────────────────────────────
 const DARK = {
@@ -166,33 +167,25 @@ function Hi({ children }) {
   return <span style={{ fontWeight: 600, color: c.hi }}>{children}</span>;
 }
 
-function EmptyState({ children }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "44px 20px", textAlign: "center" }}>
-      <div style={{ fontSize: 34, marginBottom: 12 }}>🚧</div>
-      {children}
-    </div>
-  );
-}
 
 // ── Guide ─────────────────────────────────────────────────────────────────
 function GuideEn() {
   return (
     <>
-      <SH>🐉 Qwen — Free to Start (Recommended)</SH>
+      <SH>🐉 Aliyun — Free to Start (Recommended)</SH>
       <Step n={1}>Open <A href="https://platform.qianwenai.com">platform.qianwenai.com</A> — sign up and log in</Step>
-      <Step n={2}>New users get free credits — no top-up needed to get started!</Step>
-      <Step n={3}>Go to "Get API Keys" → click "Create API Key"</Step>
-      <Step n={4}>Copy the key shown (starts with <Code>sk-ws-…</Code>)</Step>
-      <Step n={5}>Paste it into the Key field in-game and tap Confirm</Step>
+      <Step n={2}>New users get ~1M free tokens on each of 30 models — no top-up needed!</Step>
+      <Step n={3}>In the console, turn <Hi>ON</Hi> "Stop when free quota is used up" so you're never billed by surprise</Step>
+      <Step n={4}>Go to "API Keys" → "Create API Key" and copy it (starts with <Code>sk-ws-…</Code>)</Step>
+      <Step n={5}>Paste it in-game, choose Aliyun → 🎁 Free credits, and tap Confirm</Step>
       <Step n={6}>Tip: tap Share → Add to Home Screen in your browser to save this game as an app icon</Step>
       <div style={{ height: 8 }} />
-      <Tip>💰 Free credits ≈ 14 hrs of gameplay. Check usage anytime on the platform.</Tip>
-      <Tip>💡 Each Qwen version (3.8-Max / 3.7-Max / 3.7-Plus) has ~14 hrs of free credits, valid 90 days after sign-up. When one runs out, switch to another — keep playing for free!</Tip>
+      <Tip>🎁 Free credits mode moves to the next model automatically when one runs out — about 100 rounds per model. Credits are valid 90 days after sign-up.</Tip>
+      <Tip>💳 Paid mode: pick a model yourself; the API Key page shows its cost. Token Plan keys (<Code>sk-sp-</Code>) don't work in-game yet — use a general <Code>sk-ws-</Code> key.</Tip>
 
       <div style={{ height: 16 }} />
       <SH>Other AI Platforms (small top-up required)</SH>
-      <PL emoji="🐋" name="DeepSeek" href="platform.deepseek.com" />
+      <PL emoji="🐋" name="DeepSeek Official" href="platform.deepseek.com" />
       <PL emoji="⚡" name="ChatGPT" href="platform.openai.com" />
       <PL emoji="💎" name="Gemini" href="aistudio.google.com" />
       <div style={{ height: 6 }} />
@@ -211,20 +204,20 @@ function GuideEn() {
 function GuideZh() {
   return (
     <>
-      <SH>🐉 通义千问 Qwen — 免费开始（推荐）</SH>
+      <SH>🐉 阿里云 Aliyun — 免费开始（推荐）</SH>
       <Step n={1}>打开 <A href="https://platform.qianwenai.com">platform.qianwenai.com</A>，注册并登录</Step>
-      <Step n={2}>新用户即享免费额度，无需充值即可开始游戏！</Step>
-      <Step n={3}>进入「获取 API Key」，点击「创建 API Key」</Step>
-      <Step n={4}>复制生成的 Key（以 <Code>sk-ws-…</Code> 开头）</Step>
-      <Step n={5}>粘贴到游戏中的 Key 输入框，点击确认</Step>
+      <Step n={2}>新用户在 30 个模型上各享约 100 万 Token 免费额度，无需充值！</Step>
+      <Step n={3}>在控制台<Hi>开启</Hi>「免费额度用完即停」，避免额度用完后被自动扣费</Step>
+      <Step n={4}>进入「API Key」页面创建 Key 并复制（以 <Code>sk-ws-…</Code> 开头）</Step>
+      <Step n={5}>粘贴到游戏中，选择 Aliyun → 🎁 新用户免费额度，点击确认</Step>
       <Step n={6}>提示：手机浏览器「分享」→「添加到主屏幕」可将游戏保存为桌面图标</Step>
       <div style={{ height: 8 }} />
-      <Tip>💰 免费额度 ≈ 14 小时游戏时间。可在平台随时查看用量。</Tip>
-      <Tip>💡 每个 Qwen 版本（3.8-Max / 3.7-Max / 3.7-Plus）各有约 14 小时免费额度，注册后 90 天内有效。一个用完后切换到另一个版本，继续免费游玩！</Tip>
+      <Tip>🎁 免费额度模式会在一个模型额度用完后自动切换到下一个，每个模型约可玩 100 回合。额度在注册后 90 天内有效。</Tip>
+      <Tip>💳 付费模式：自行选择模型，API Key 页面会显示对应费用。Token Plan 专属 Key（<Code>sk-sp-</Code>）暂不支持，请使用通用 <Code>sk-ws-</Code> Key。</Tip>
 
       <div style={{ height: 16 }} />
       <SH>其他 AI 平台（需少量充值）</SH>
-      <PL emoji="🐋" name="DeepSeek" href="platform.deepseek.com" />
+      <PL emoji="🐋" name="DeepSeek Official" href="platform.deepseek.com" />
       <PL emoji="⚡" name="ChatGPT" href="platform.openai.com" />
       <PL emoji="💎" name="Gemini" href="aistudio.google.com" />
       <div style={{ height: 6 }} />
@@ -243,20 +236,20 @@ function GuideZh() {
 function GuideKo() {
   return (
     <>
-      <SH>🐉 Qwen — 무료 시작 (추천)</SH>
+      <SH>🐉 알리윈 Aliyun — 무료 시작 (추천)</SH>
       <Step n={1}><A href="https://platform.qianwenai.com">platform.qianwenai.com</A> 접속 후 회원가입 및 로그인</Step>
-      <Step n={2}>신규 사용자는 무료 크레딧 제공 — 충전 없이 바로 시작 가능!</Step>
-      <Step n={3}>"API Key 발급" 페이지에서 "API Key 생성" 클릭</Step>
-      <Step n={4}>생성된 Key 복사 (<Code>sk-ws-…</Code>로 시작)</Step>
-      <Step n={5}>게임 내 Key 입력창에 붙여넣기 후 확인 클릭</Step>
+      <Step n={2}>신규 사용자는 30개 모델마다 약 100만 토큰 무료 — 충전 없이 시작!</Step>
+      <Step n={3}>콘솔에서 '무료 할당량 소진 시 중지'를 <Hi>켜서</Hi> 예상치 못한 과금을 막으세요</Step>
+      <Step n={4}>"API Key" 페이지에서 키를 생성하고 복사 (<Code>sk-ws-…</Code>로 시작)</Step>
+      <Step n={5}>게임에 붙여넣고 Aliyun → 🎁 무료 크레딧 선택 후 확인</Step>
       <Step n={6}>팁: 브라우저 공유 → 홈 화면에 추가로 게임을 앱 아이콘으로 저장 가능</Step>
       <div style={{ height: 8 }} />
-      <Tip>💰 무료 크레딧 ≈ 14시간 게임 플레이. 플랫폼에서 사용량 확인 가능.</Tip>
-      <Tip>💡 각 Qwen 버전 (3.8-Max / 3.7-Max / 3.7-Plus)마다 약 14시간 무료 크레딧 (가입 후 90일 유효). 한 버전 소진 시 다른 버전으로 전환하여 계속 무료 플레이!</Tip>
+      <Tip>🎁 무료 크레딧 모드는 한 모델이 소진되면 자동으로 다음 모델로 전환합니다. 모델당 약 100라운드, 가입 후 90일 유효.</Tip>
+      <Tip>💳 유료 모드: 모델을 직접 선택하며 API Key 페이지에 비용이 표시됩니다. Token Plan 전용 키(<Code>sk-sp-</Code>)는 아직 지원되지 않으니 일반 <Code>sk-ws-</Code> 키를 사용하세요.</Tip>
 
       <div style={{ height: 16 }} />
       <SH>다른 AI 플랫폼 (소액 충전 필요)</SH>
-      <PL emoji="🐋" name="DeepSeek" href="platform.deepseek.com" />
+      <PL emoji="🐋" name="DeepSeek Official" href="platform.deepseek.com" />
       <PL emoji="⚡" name="ChatGPT" href="platform.openai.com" />
       <PL emoji="💎" name="Gemini" href="aistudio.google.com" />
       <div style={{ height: 6 }} />
@@ -291,17 +284,13 @@ function IssuesEn() {
         2. Switch to a different browser<br />
         3. Open in Incognito / Private mode
       </IB>
-      <IB q={`Start failed: "Authentication failed" or API key invalid`}>
-        Your key is incorrect, or the key and model don't match.<br />
-        → Return to the API Key page and double-check both the model and key.
+      <IB q="An error notice appears instead of the story">
+        Each notice names the cause (key invalid, credits used up, server busy…).<br />
+        → See the <Hi>Errors</Hi> tab for what each one means and how to fix it.
       </IB>
-      <IB q={`Start failed: "Incorrect API key provided"`}>
-        Same issue — the key doesn't match the selected model.<br />
-        → Make sure you copied the full key from the correct platform.
-      </IB>
-      <IB q={`Start failed: "Insufficient Balance"`}>
-        Your credits on this model's platform are used up.<br />
-        → Top up your account, or switch to a model with available credits.
+      <IB q="Can Free-credit mode charge me?">
+        Only if Aliyun's <Hi>"Stop when free quota is used up"</Hi> switch is OFF — a verified account then quietly moves to pay-as-you-go.<br />
+        → Turn it ON in the Aliyun console before playing.
       </IB>
       <IB q="Key lost or leaked?">
         Go to the platform where the key was created, delete the old key, and create a new one. Then update it in the game.
@@ -337,17 +326,13 @@ function IssuesZh() {
         2. 更换浏览器<br />
         3. 在无痕 / 隐私模式下打开
       </IB>
-      <IB q="启动失败：Authentication failed / API key invalid">
-        Key 填写有误，或 Key 与所选模型不匹配。<br />
-        → 返回 API Key 设置页面，重新核对模型与 Key 是否一致。
+      <IB q="故事区域出现报错提示">
+        每条提示都会说明原因（Key 无效、额度用完、服务器繁忙等）。<br />
+        → 在「<Hi>错误代码</Hi>」标签页查看每条提示的含义与解决方法。
       </IB>
-      <IB q="启动失败：Incorrect API key provided">
-        与上述问题相同——Key 与模型不匹配。<br />
-        → 确认你从正确的平台复制了完整的 Key。
-      </IB>
-      <IB q="启动失败：Insufficient Balance">
-        当前模型所在平台的余额已用完。<br />
-        → 前往对应平台充值，或切换到有余额的其他模型。
+      <IB q="免费额度模式会扣费吗？">
+        只有在阿里云「<Hi>免费额度用完即停</Hi>」开关关闭时才会——已实名的账号会在额度用完后自动转为按量付费。<br />
+        → 开始游戏前请在阿里云控制台开启该开关。
       </IB>
       <IB q="Key 丢失或泄露？">
         前往创建该 Key 的平台，删除旧 Key 并重新创建。然后在游戏中更新新的 Key。
@@ -383,17 +368,13 @@ function IssuesKo() {
         2. 다른 브라우저로 변경<br />
         3. 시크릿 / 프라이빗 모드로 열기
       </IB>
-      <IB q={`시작 실패: "Authentication failed" 또는 API 키 오류`}>
-        키가 올바르지 않거나, 키와 모델이 일치하지 않습니다.<br />
-        → API Key 설정 페이지로 돌아가 모델과 키를 다시 확인하세요.
+      <IB q="스토리 대신 오류 알림이 표시될 때">
+        각 알림에 원인(키 오류, 크레딧 소진, 서버 혼잡 등)이 표시됩니다.<br />
+        → <Hi>오류 코드</Hi> 탭에서 의미와 해결 방법을 확인하세요.
       </IB>
-      <IB q={`시작 실패: "Incorrect API key provided"`}>
-        동일한 문제 — 키와 선택한 모델이 일치하지 않습니다.<br />
-        → 올바른 플랫폼에서 전체 키를 복사했는지 확인하세요.
-      </IB>
-      <IB q={`시작 실패: "Insufficient Balance"`}>
-        현재 모델 플랫폼의 크레딧이 모두 소진되었습니다.<br />
-        → 해당 플랫폼에서 충전하거나, 크레딧이 남은 다른 모델로 전환하세요.
+      <IB q="무료 크레딧 모드에서 요금이 청구될 수 있나요?">
+        알리윈의 <Hi>'무료 할당량 소진 시 중지'</Hi> 스위치가 꺼져 있을 때만 그렇습니다 — 인증된 계정은 소진 후 자동으로 종량제로 전환됩니다.<br />
+        → 플레이 전에 알리윈 콘솔에서 스위치를 켜세요.
       </IB>
       <IB q="키 분실 또는 유출 시">
         키를 생성한 플랫폼에서 기존 키를 삭제하고 새로 생성하세요. 그런 다음 게임에서 새 키로 업데이트하세요.
@@ -411,44 +392,94 @@ function IssuesKo() {
   );
 }
 
-// ── Error Codes (placeholder) ─────────────────────────────────────────────
-function ErrorsEn() {
+// ── Error Codes ───────────────────────────────────────────────────────────
+// Notice lines come from t.errors, so this tab always matches what the game shows.
+const ERROR_ORDER = [
+  "free_all_exhausted", "free_exhausted", "balance", "auth", "token_plan_key",
+  "rate_limit", "server_busy", "timeout", "network", "bad_response",
+  "model_unavailable", "content_blocked", "region", "bad_request", "unknown",
+];
+
+function ErrorList({ lang, intro, help }) {
   const c = useContext(HT);
+  const notices = getTranslations(lang).errors;
   return (
-    <EmptyState>
-      <div style={{ fontSize: 13, color: c.emptyTitle, fontWeight: 600, marginBottom: 8 }}>Coming Soon</div>
-      <div style={{ fontSize: 11, color: c.emptyBody, lineHeight: 1.75 }}>
-        Error code documentation is being written.<br />
-        For now, check the <span style={{ color: c.emptyAccent }}>Issues</span> tab for common error messages.
-      </div>
-    </EmptyState>
+    <>
+      <Tip>{intro}</Tip>
+      {ERROR_ORDER.map(kind => (
+        <div key={kind} style={{ marginBottom: 10, background: c.ibBg, border: `1px solid ${c.ibBorder}`, borderRadius: 10, padding: "9px 12px" }}>
+          <div style={{ fontSize: 12, color: c.ibQ, fontWeight: 600, marginBottom: 4 }}>{notices[kind]}</div>
+          <div style={{ fontSize: 11, color: c.ibA, lineHeight: 1.7 }}>{help[kind]}</div>
+        </div>
+      ))}
+    </>
   );
+}
+
+const ERROR_HELP_EN = {
+  free_all_exhausted: "Every model in the free route has used its new-user credits (or is unavailable). Switch Aliyun to 💳 Paid on the API Key page, or top up.",
+  free_exhausted: "Paid mode only: the chosen model's free credits ran out and your console has \"Stop when free quota is used up\" ON. Turn that switch off to continue pay-as-you-go, or go back to 🎁 Free mode.",
+  balance: "The account has no balance or an overdue bill (Aliyun Arrearage, DeepSeek 402, OpenAI credit or spend limit). Top up on the platform; the balance can take a few minutes to refresh.",
+  auth: "The key is wrong, deleted, or from another platform. Aliyun keys start with sk-ws-, DeepSeek / OpenAI with sk-, Gemini with AIza. Copy the full key again, without spaces.",
+  token_plan_key: "Aliyun Token Plan keys (sk-sp-) only work on the Token Plan address, which blocks requests from web pages. Create a general key (sk-ws-) instead.",
+  rate_limit: "Too many requests or tokens per minute. The game already waited and retried (Free mode also tried the next model). Wait about a minute.",
+  server_busy: "The provider had an internal error or is overloaded. Nothing is wrong with your key — retry shortly.",
+  timeout: "No answer within 90 seconds. Common with Deep Thinking on or at peak hours. Retry, or turn Deep Thinking off.",
+  network: "The request never reached the provider: offline, unstable Wi-Fi, or a blocked network. Try switching between Wi-Fi and mobile data.",
+  model_unavailable: "The model isn't activated for your account or has been retired. Free mode skips it automatically for 24 hours.",
+  content_blocked: "Aliyun's safety filter flagged the input or output. Retry, or pick a milder option.",
+  region: "The provider doesn't offer this model in your country or region (e.g. the Gemini free tier). Use another provider.",
+  bad_request: "The model rejected the request parameters. Free mode skips that model for this session. If it keeps happening, report it with the model name.",
+  bad_response: "The model returned a truncated or near-empty story. The game retries automatically, then moves to another model in free mode, so you should rarely see this. If you do, switch model.",
+  unknown: "An error the game doesn't recognize. Retry; if it repeats, report it from the Contact tab.",
+};
+
+const ERROR_HELP_ZH = {
+  free_all_exhausted: "免费路由中所有模型的新用户额度均已用完（或暂不可用）。请在 API Key 页面将 Aliyun 切换为 💳 付费模式，或前往平台充值。",
+  free_exhausted: "仅在付费模式出现：所选模型的免费额度已用完，且控制台开启了「免费额度用完即停」。关闭该开关即可按量付费继续，或切回 🎁 免费模式。",
+  balance: "账户余额不足或存在欠费（阿里云 Arrearage、DeepSeek 402、OpenAI 额度或消费上限）。请前往平台充值，余额刷新可能有几分钟延迟。",
+  auth: "Key 填写错误、已被删除，或属于其他平台。阿里云 Key 以 sk-ws- 开头，DeepSeek / OpenAI 以 sk- 开头，Gemini 以 AIza 开头。请重新完整复制，注意不要带空格。",
+  token_plan_key: "阿里云 Token Plan 专属 Key（sk-sp-）只能用于 Token Plan 专属地址，而该地址禁止网页直接访问。请改用通用 Key（sk-ws-）。",
+  rate_limit: "每分钟请求数或 Token 数超限。游戏已自动等待并重试（免费模式下还会尝试下一个模型），请等待约 1 分钟。",
+  server_busy: "平台内部错误或负载过高，与你的 Key 无关，稍后重试即可。",
+  timeout: "90 秒内未返回结果，开启深度思考或高峰时段较常见。请重试，或关闭深度思考。",
+  network: "请求未能到达平台：断网、Wi-Fi 不稳定或网络受限。可尝试切换 Wi-Fi / 移动数据。",
+  model_unavailable: "该模型未对你的账号开通或已下线。免费模式下游戏会自动跳过它 24 小时。",
+  content_blocked: "阿里云内容安全审核拦截了输入或输出。请重试，或选择更温和的选项。",
+  region: "该平台在你所在的国家或地区不提供此模型（例如 Gemini 免费层）。请换一个平台。",
+  bad_request: "模型不接受本次请求参数。免费模式下游戏会在本次会话中跳过该模型。若反复出现，请附上模型名反馈给开发者。",
+  bad_response: "模型返回了被截断或几乎空白的剧情。游戏会自动重试，免费模式下还会换下一个模型，所以你很少会看到它。若出现，请换一个模型。",
+  unknown: "游戏无法识别的错误。请重试；若反复出现，请通过「联系作者」反馈。",
+};
+
+const ERROR_HELP_KO = {
+  free_all_exhausted: "무료 경로의 모든 모델이 신규 사용자 크레딧을 소진했거나 사용할 수 없습니다. API Key 페이지에서 Aliyun을 💳 유료 모드로 바꾸거나 충전하세요.",
+  free_exhausted: "유료 모드에서만 표시: 선택한 모델의 무료 크레딧이 소진되었고 콘솔의 '무료 할당량 소진 시 중지'가 켜져 있습니다. 스위치를 끄면 종량제로 계속할 수 있고, 🎁 무료 모드로 돌아갈 수도 있습니다.",
+  balance: "잔액 부족 또는 연체 상태입니다(알리윈 Arrearage, DeepSeek 402, OpenAI 크레딧 / 지출 한도). 플랫폼에서 충전하세요. 잔액 반영까지 몇 분 걸릴 수 있습니다.",
+  auth: "키가 잘못되었거나 삭제되었거나 다른 플랫폼의 키입니다. 알리윈은 sk-ws-, DeepSeek / OpenAI는 sk-, Gemini는 AIza로 시작합니다. 공백 없이 전체 키를 다시 복사하세요.",
+  token_plan_key: "알리윈 Token Plan 전용 키(sk-sp-)는 Token Plan 전용 주소에서만 작동하며, 이 주소는 웹페이지의 요청을 차단합니다. 일반 키(sk-ws-)를 사용하세요.",
+  rate_limit: "분당 요청 수 또는 토큰 수 한도를 초과했습니다. 게임이 이미 대기 후 재시도했습니다(무료 모드에서는 다음 모델도 시도). 약 1분 기다리세요.",
+  server_busy: "플랫폼 내부 오류 또는 과부하입니다. 키 문제가 아니므로 잠시 후 다시 시도하세요.",
+  timeout: "90초 안에 응답이 없었습니다. 딥씽킹 ON이나 피크 시간에 자주 발생합니다. 다시 시도하거나 딥씽킹을 끄세요.",
+  network: "요청이 플랫폼에 도달하지 못했습니다: 오프라인, 불안정한 Wi-Fi, 차단된 네트워크. Wi-Fi와 모바일 데이터를 전환해 보세요.",
+  model_unavailable: "계정에 개통되지 않았거나 서비스가 종료된 모델입니다. 무료 모드에서는 24시간 동안 자동으로 건너뜁니다.",
+  content_blocked: "알리윈 콘텐츠 안전 필터가 입력 또는 출력을 차단했습니다. 다시 시도하거나 더 순한 선택지를 고르세요.",
+  region: "해당 플랫폼이 현재 국가 / 지역에서 이 모델을 제공하지 않습니다(예: Gemini 무료 티어). 다른 플랫폼을 사용하세요.",
+  bad_request: "모델이 요청 파라미터를 거부했습니다. 무료 모드에서는 이번 세션 동안 해당 모델을 건너뜁니다. 계속 발생하면 모델 이름과 함께 알려주세요.",
+  bad_response: "모델이 잘리거나 거의 비어 있는 이야기를 반환했습니다. 게임이 자동으로 재시도하고 무료 모드에서는 다른 모델로 넘어가므로 거의 보이지 않습니다. 보인다면 모델을 바꿔보세요.",
+  unknown: "게임이 인식하지 못한 오류입니다. 다시 시도하고, 반복되면 '문의' 탭으로 알려주세요.",
+};
+
+function ErrorsEn() {
+  return <ErrorList lang="en" help={ERROR_HELP_EN} intro="Every failed round shows one of these notices. Fix the cause, then tap ↺ Retry under the notice." />;
 }
 
 function ErrorsZh() {
-  const c = useContext(HT);
-  return (
-    <EmptyState>
-      <div style={{ fontSize: 13, color: c.emptyTitle, fontWeight: 600, marginBottom: 8 }}>建设中</div>
-      <div style={{ fontSize: 11, color: c.emptyBody, lineHeight: 1.75 }}>
-        错误代码文档正在撰写中。<br />
-        目前请参考「<span style={{ color: c.emptyAccent }}>常见问题</span>」标签页中的常见报错信息。
-      </div>
-    </EmptyState>
-  );
+  return <ErrorList lang="zh" help={ERROR_HELP_ZH} intro="每次生成失败都会显示以下提示之一。解决问题后，点提示下方的 ↺ 重试 即可。" />;
 }
 
 function ErrorsKo() {
-  const c = useContext(HT);
-  return (
-    <EmptyState>
-      <div style={{ fontSize: 13, color: c.emptyTitle, fontWeight: 600, marginBottom: 8 }}>준비 중</div>
-      <div style={{ fontSize: 11, color: c.emptyBody, lineHeight: 1.75 }}>
-        오류 코드 문서를 작성 중입니다.<br />
-        현재는 <span style={{ color: c.emptyAccent }}>문제 해결</span> 탭에서 일반적인 오류 메시지를 확인하세요.
-      </div>
-    </EmptyState>
-  );
+  return <ErrorList lang="ko" help={ERROR_HELP_KO} intro="생성에 실패하면 아래 알림 중 하나가 표시됩니다. 원인을 해결한 뒤 알림 아래의 ↺ 다시 시도를 누르세요." />;
 }
 
 // ── Contact ───────────────────────────────────────────────────────────────

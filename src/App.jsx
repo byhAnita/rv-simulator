@@ -5,7 +5,8 @@ import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
-import { MODEL_CONFIGS } from "./config/modelConfigs";
+import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
+import { getFreeRouteStatus, resolvePaidModel, resetFreeRoute } from "./tools/aliyunRoute";
 import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
@@ -16,6 +17,23 @@ import WeverseOverlay from "./platforms/WeverseOverlay";
 import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
 import HelpOverlay from "./platforms/HelpOverlay";
+
+// Normalises a player choice before it reaches the prompt: fullwidth dashes and
+// brackets confuse the JSON schema, control characters break it outright.
+// Shared by typing a choice and editing one, so both behave identically.
+const sanitizeChoice = (text) =>
+  text.replace(/——/g, '--').replace(/[【】「」『』]/g, '').replace(/[“”〝〞]/g, '"')
+    .replace(/​/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 300);
+
+// The story prose inside an assistant message, without the stats box or any
+// trailing option lines — i.e. exactly what the player sees, which is what the
+// editor must be seeded with and what gets written back.
+const STATS_BOX_RE = /╔[\s\S]*?╚[═─]+╝/;
+const storyPartOf = (content) => {
+  const sb = content.match(STATS_BOX_RE);
+  const body = sb ? content.slice(content.indexOf(sb[0]) + sb[0].length) : content;
+  return body.replace(/\n?[ABCD][.、．]\s*.+/g, "").trim();
+};
 
 const IDENTITIES = [
   { id: "练习生", label: "练习生" },
@@ -255,9 +273,17 @@ export default function App() {
   const [phase, setPhase] = useState("cover");
   const [apiKey, setApiKey] = useState(() => loadFromStorage(STORAGE_KEYS.API_KEY) || "");
   const [selectedModel, setSelectedModel] = useState(() => loadFromStorage(STORAGE_KEYS.SELECTED_MODEL) || "qwen");
-  const [selectedQwenSubModel, setSelectedQwenSubModel] = useState(() => loadFromStorage("rv_sim_qwen_submodel") || "qwen3.8-max");
+  const [aliyunMode, setAliyunMode] = useState(() => loadFromStorage(STORAGE_KEYS.ALIYUN_MODE) === "paid" ? "paid" : "free");
+  // rv_sim_qwen_submodel is the legacy 3-sub-model key; read once to seed the paid pick.
+  const [aliyunPaidModel, setAliyunPaidModel] = useState(() => resolvePaidModel(loadFromStorage(STORAGE_KEYS.ALIYUN_PAID_MODEL) || loadFromStorage("rv_sim_qwen_submodel")));
   const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
   const [messages, setMessages] = useState([]);
+  // Index of the message being edited (choice or story), and its draft text.
+  // Bumped after resetFreeRoute so the key page re-reads route state.
+  const [routeVersion, setRouteVersion] = useState(0);
+  const [paidListOpen, setPaidListOpen] = useState(false);
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editDraft, setEditDraft] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [groupConfig, setGroupConfig] = useState(null);
@@ -320,14 +346,39 @@ export default function App() {
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   const showNotif = (msg, type = "info") => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
-  const saveApiKey = (key) => { const k = key.trim(); setApiKey(k); if (k) { saveToStorage(STORAGE_KEYS.API_KEY, k); showNotif("Key saved"); } };
+  const saveApiKey = (key) => {
+    const k = key.trim();
+    if (selectedModel === "qwen" && k.startsWith("sk-sp-")) { showNotif(t.errors.token_plan_key, "error"); return false; }
+    setApiKey(k);
+    if (k) { saveToStorage(STORAGE_KEYS.API_KEY, k); showNotif("Key saved"); }
+    return !!k;
+  };
   const handleModelSelect = (id) => { setSelectedModel(id); saveToStorage(STORAGE_KEYS.SELECTED_MODEL, id); showNotif("Switched to " + MODEL_CONFIGS[id]?.name); };
-  const handleQwenSubModelSelect = (subId) => { setSelectedQwenSubModel(subId); saveToStorage("rv_sim_qwen_submodel", subId); };
+  const handleAliyunModeSelect = (mode) => { setAliyunMode(mode); saveToStorage(STORAGE_KEYS.ALIYUN_MODE, mode); };
+  const handleAliyunPaidModelSelect = (id) => { setAliyunPaidModel(id); saveToStorage(STORAGE_KEYS.ALIYUN_PAID_MODEL, id); };
+  const aliyunOptions = () => selectedModel === "qwen"
+    ? {
+      mode: aliyunMode, paidModel: aliyunPaidModel,
+      onModelSwitch: ({ to }) => showNotif(t.aliyun.switched.replace("{model}", to)),
+      // Fires before each attempt after the first, so a walk is visible rather
+      // than looking like the game has hung.
+      onRouteStep: ({ model }) => showNotif(t.aliyun.trying.replace("{model}", model)),
+    }
+    : null;
+  // One short localized line for the story panel; raw details stay in the console.
+  const llmErrorNotice = (e) => {
+    console.error("[round] failed:", e?.kind, e?.code, e?.message, e);
+    return t.errors?.[e?.kind] || t.errors?.unknown || String(e?.message);
+  };
 
   const hasSaves = () => (loadFromStorage(STORAGE_KEYS.SAVES) || []).length > 0;
 
+  // Error notices are tagged `error: true` so they never land in an exported
+  // story or a save slot — they are UI feedback, not narrative.
+  const storyMessages = (list) => list.filter(m => !m.error);
+
   const extractStoryText = () =>
-    messages.filter(m => m.role === "assistant" && !m.hidden)
+    messages.filter(m => m.role === "assistant" && !m.hidden && !m.error)
       .map((m, i) => {
         const story = m.content.split("\n\n")
           .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
@@ -436,7 +487,7 @@ export default function App() {
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId, subIds, groupConfig, apiKey, selectedModel, kktUnlocked: {}, language,
-        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null, timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed,
       });
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
@@ -448,14 +499,19 @@ export default function App() {
       setCurrentOptions(result.options);
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
-      console.error("Start failed:", e);
-      setMessages([{ role: "assistant", content: "Start failed: " + e.message }]);
+      setMessages([{ role: "assistant", content: llmErrorNotice(e), error: true }]);
     }
     setLoading(false);
   };
 
   const loadSave = (save) => {
     if (!save) return;
+    // Drop the previous game's pre-round snapshot. Without this, ↺ Retry and the
+    // ✎ edit controls would appear straight away on the loaded save's last
+    // message and restore the *other* game's stats and memory into it. It also
+    // gives the intended gating: no retry or edit until a round is played here.
+    preRoundSnapshotRef.current = null;
+    resetPendingSocial();
     setForm(save.form);
     setMessages(save.messages);
     statsRef.current = save.stats;
@@ -479,7 +535,10 @@ export default function App() {
 
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return;
-    const cleanText = text.replace(/——/g, '--').replace(/[【】「」『』]/g, '').replace(/[""〝〞]/g, '"').replace(/​/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim().substring(0, 300);
+    // An open editor indexes into `messages`; appending to it would leave the
+    // draft pointing at the wrong turn.
+    cancelEdit();
+    const cleanText = sanitizeChoice(text);
     const um = { role: "user", content: cleanText }, nh = [...messages, um];
     setMessages(nh); setInput(""); setLoading(true);
     try {
@@ -500,7 +559,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null, timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -520,7 +579,7 @@ export default function App() {
       setCurrentOptions(result.options);
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
-      setMessages(p => [...p, { role: "assistant", content: "Error: " + e.message }]);
+      setMessages(p => [...p, { role: "assistant", content: llmErrorNotice(e), error: true }]);
     }
     setLoading(false);
   };
@@ -532,9 +591,53 @@ export default function App() {
     navigator.clipboard.writeText(text).then(() => { setCopiedStory(true); setTimeout(() => setCopiedStory(false), 2000); });
   };
 
-  const regenerateRound = async () => {
+  // --- Edit controls -------------------------------------------------------
+  // Only the newest turn is editable, and only once a round has been generated
+  // in this session (preRoundSnapshotRef). After loading a save there is nothing
+  // to edit until the player plays, which keeps edits away from history entries
+  // this session did not create.
+  const MAX_STORY_EDIT_CHARS = 4000;
+
+  const beginEdit = (idx, text) => { setEditingIdx(idx); setEditDraft(text); };
+  const cancelEdit = () => { setEditingIdx(null); setEditDraft(""); };
+
+  // Replacing the choice re-runs the round; there is no branch history, the old
+  // selection is simply gone.
+  const saveChoiceEdit = async () => {
+    const text = editDraft.trim();
+    const idx = editingIdx;
+    cancelEdit();
+    if (!text || idx == null) return;
+    const cleanText = sanitizeChoice(text);
+    setMessages(p => p.map((m, i) => (i === idx ? { ...m, content: cleanText } : m)));
+    await regenerateRound(cleanText);
+  };
+
+  // Editing the story rewrites what the player sees AND what the model will read
+  // next round. Both writes are required or the two silently diverge.
+  const saveStoryEdit = () => {
+    const idx = editingIdx;
+    const edited = editDraft.trim().slice(0, MAX_STORY_EDIT_CHARS);
+    cancelEdit();
+    if (!edited || idx == null) return;
+    setMessages(p => p.map((m, i) => {
+      if (i !== idx) return m;
+      const sb = m.content.match(/╔[\s\S]*?╚[═─]+╝/);
+      return { ...m, content: sb ? `${sb[0]}\n\n${edited}` : edited };
+    }));
+    const entry = memoryRef.current?.history?.at(-1);
+    // Keep the original English summary: it is the collapse target, and a
+    // truncated slice of the edited text would be a worse one.
+    if (entry && entry.type === "full") entry.text = edited;
+    showNotif(t.editSaved || "Saved");
+  };
+
+  // No argument = ↺ Retry (same choice). With one = the player edited their
+  // choice, so it replaces the snapshot's too, keeping a later ↺ consistent.
+  const regenerateRound = async (overrideChoice = null) => {
     const snap = preRoundSnapshotRef.current;
     if (!snap || loading) return;
+    if (overrideChoice != null) snap.playerChoice = overrideChoice;
     statsRef.current = { ...snap.stats };
     setStats({ ...snap.stats });
     memoryRef.current = JSON.parse(JSON.stringify(snap.memory));
@@ -554,7 +657,7 @@ export default function App() {
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
-        qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null, timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed,
       });
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -578,7 +681,7 @@ export default function App() {
       setCurrentOptions(result.options);
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
-      setMessages(p => [...p, { role: "assistant", content: "Regenerate failed: " + e.message }]);
+      setMessages(p => [...p, { role: "assistant", content: llmErrorNotice(e), error: true }]);
     }
     setLoading(false);
   };
@@ -606,9 +709,9 @@ export default function App() {
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.1", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.1", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.1", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.2", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.2", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.2", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
     const titleGrad = theme === "dark"
@@ -673,7 +776,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={messages} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -689,17 +792,17 @@ export default function App() {
     const platformUrl = currentPlatformName ? `https://${currentPlatformName}` : null;
 
     const renderGuideStep = (step, i) => {
-      if (i === 1 && MODEL_CONFIGS[selectedModel]?.hasFreeCredits && t.guide?.freeStep2) step = t.guide.freeStep2;
+      if (i === 1 && MODEL_CONFIGS[selectedModel]?.hasFreeCredits && aliyunMode === "free" && t.guide?.freeStep2) step = t.guide.freeStep2;
       step = step.replace('{prefix}', MODEL_CONFIGS[selectedModel]?.keyPrefix || 'sk-');
       if (step.includes('{platform}') && platformUrl) {
         const [before, after] = step.split('{platform}');
         return (
-          <p key={i} style={{ fontSize: 11, color: th.guideText, marginBottom: 2, lineHeight: 2 }}>
+          <p key={i} style={{ fontSize: 11, color: th.guideText, marginBottom: 2, lineHeight: 1.7 }}>
             {before}<a href={platformUrl} target="_blank" rel="noopener noreferrer" style={{ color: th.accent, textDecoration: "underline" }}>{currentPlatformName}</a>{after}
           </p>
         );
       }
-      return <p key={i} style={{ fontSize: 11, color: th.guideText, marginBottom: 2, lineHeight: 2 }}>{step}</p>;
+      return <p key={i} style={{ fontSize: 11, color: th.guideText, marginBottom: 2, lineHeight: 1.7 }}>{step}</p>;
     };
 
     return (
@@ -728,46 +831,107 @@ export default function App() {
           {/* Model Selector */}
           <div style={{ width: "100%", marginBottom: 12 }}>
             <p style={{ fontSize: 11, color: th.textMuted, marginBottom: 6, textAlign: "center" }}>{t.keyInput.selectModel}</p>
+            {/* One line per provider: the description of whichever is selected
+                is shown once below, instead of four descriptions competing. */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
               {Object.values(MODEL_CONFIGS).map(c => (
                 <div key={c.id} onClick={() => handleModelSelect(c.id)}
-                  style={{ padding: "7px 9px", borderRadius: 10, border: `1px solid ${selectedModel === c.id ? c.color : th.border}`, background: selectedModel === c.id ? th.langBtnActiveBg : th.modelCardBg, cursor: "pointer", userSelect: "none" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: selectedModel === c.id ? c.color : th.modelCardColor }}>{c.emoji} {c.name}</div>
-                  <div style={{ fontSize: 8, color: th.guideText, marginTop: 1 }}>{c.desc?.[language]}</div>
+                  style={{ padding: "8px 9px", borderRadius: 10, border: `1px solid ${selectedModel === c.id ? c.color : th.border}`, background: selectedModel === c.id ? th.langBtnActiveBg : th.modelCardBg, cursor: "pointer", userSelect: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{c.emoji}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: selectedModel === c.id ? c.color : th.modelCardColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
                 </div>
               ))}
             </div>
-            {selectedModel === "qwen" && (
-              <div style={{ marginTop: 8 }}>
-                <p style={{ fontSize: 10, color: th.textMuted, marginBottom: 4, textAlign: "center" }}>
-                  {language === "zh" ? "选择 Qwen 版本" : language === "ko" ? "Qwen 버전 선택" : "Select Qwen version"}
-                </p>
-                <div style={{ display: "flex", gap: 5 }}>
-                  {(MODEL_CONFIGS.qwen.subModels || []).map(sub => (
-                    <div key={sub.id} onClick={() => handleQwenSubModelSelect(sub.id)}
-                      style={{ flex: 1, padding: "6px 8px", borderRadius: 8, textAlign: "center", border: `1px solid ${selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : th.border}`, background: selectedQwenSubModel === sub.id ? th.langBtnActiveBg : th.subModelCardBg, cursor: "pointer", userSelect: "none" }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: selectedQwenSubModel === sub.id ? MODEL_CONFIGS.qwen.color : th.subModelCardColor }}>{sub.name}</div>
-                      <div style={{ fontSize: 8, color: th.textMuted, marginTop: 1 }}>{sub.desc?.[language]}</div>
+            <p style={{ fontSize: 9, color: th.guideText, marginTop: 5, textAlign: "center" }}>
+              {MODEL_CONFIGS[selectedModel]?.desc?.[language]}
+            </p>
+            {selectedModel === "qwen" && (() => {
+              const qc = MODEL_CONFIGS.qwen.color;
+              void routeVersion;   // re-read after a manual reset
+              const routeStatus = getFreeRouteStatus(apiKey);
+              const paid = ALIYUN_PAID_MODELS.find(m => m.id === aliyunPaidModel) || ALIYUN_PAID_MODELS[0];
+              return (
+                <div style={{ marginTop: 8 }}>
+                  {/* Mode switch */}
+                  {/* Segmented control: one line each, description below. */}
+                  <div style={{ display: "flex", gap: 5 }}>
+                    {["free", "paid"].map(mode => (
+                      <div key={mode} onClick={() => handleAliyunModeSelect(mode)}
+                        style={{ flex: 1, padding: "7px 8px", borderRadius: 8, textAlign: "center", border: `1px solid ${aliyunMode === mode ? qc : th.border}`, background: aliyunMode === mode ? th.langBtnActiveBg : th.subModelCardBg, cursor: "pointer", userSelect: "none" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: aliyunMode === mode ? qc : th.subModelCardColor }}>{t.aliyun[mode].title}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {aliyunMode === "free" ? (
+                    <div style={{ marginTop: 6, fontSize: 9, lineHeight: 1.6 }}>
+                      {/* Status and reset share a row: the reset must be findable
+                          before anything is used up, not only after. */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <p style={{ color: th.guideText, flex: 1 }}>{t.aliyun.free.status.replace("{model}", routeStatus.current || "—").replace("{available}", routeStatus.available).replace("{total}", routeStatus.total)}</p>
+                        <span onClick={() => { resetFreeRoute(apiKey); setRouteVersion(v => v + 1); showNotif(t.aliyun.resetDone); }}
+                          title={t.aliyun.resetHint}
+                          style={{ flexShrink: 0, padding: "3px 7px", borderRadius: 7, border: `1px solid ${routeStatus.available < routeStatus.total ? qc : th.border}`, background: th.subModelCardBg, color: routeStatus.available < routeStatus.total ? qc : th.textMuted, fontWeight: 700, cursor: "pointer", userSelect: "none" }}>
+                          {t.aliyun.resetBtn}
+                        </span>
+                      </div>
+                      {/* An empty route is a dead end unless we say what to do about it. */}
+                      {routeStatus.available === 0 && (
+                        <p style={{ color: th.guideWarning, fontWeight: 600, marginTop: 3 }}>{t.aliyun.allUsedUp}</p>
+                      )}
+                      <p style={{ color: th.guideWarning, fontWeight: 600, marginTop: 3 }}>{t.aliyun.free.stopWarning}</p>
+                      {reasoningEnabled && <p style={{ color: th.guideHint }}>{t.aliyun.free.thinkingWarning}</p>}
                     </div>
-                  ))}
+                  ) : (
+                    <div style={{ marginTop: 6 }}>
+                      {/* Collapsed to one row; opens into a scrollable panel so
+                          nine models cannot push the key field off screen. */}
+                      <div onClick={() => setPaidListOpen(o => !o)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, border: `1px solid ${paidListOpen ? qc : th.border}`, background: th.subModelCardBg, cursor: "pointer", userSelect: "none" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: qc, whiteSpace: "nowrap" }}>{paid.name}</span>
+                        <span style={{ fontSize: 8, color: th.textMuted, marginLeft: "auto", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{paid.desc?.[language]}</span>
+                        <span style={{ fontSize: 9, color: th.textMuted, flexShrink: 0, transform: paidListOpen ? "rotate(180deg)" : "none" }}>▾</span>
+                      </div>
+                      {paidListOpen && (
+                        <div style={{ marginTop: 4, border: `1px solid ${th.border}`, borderRadius: 8, overflowY: "auto", maxHeight: 168 }}>
+                          {ALIYUN_PAID_MODELS.map((m, i) => {
+                            const active = m.id === paid.id;
+                            return (
+                              <div key={m.id} onClick={() => { handleAliyunPaidModelSelect(m.id); setPaidListOpen(false); }}
+                                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderTop: i ? `1px solid ${th.borderDim}` : "none", background: active ? th.langBtnActiveBg : th.subModelCardBg, cursor: "pointer", userSelect: "none" }}>
+                                <span style={{ fontSize: 9, color: active ? qc : th.textFaint }}>{active ? "●" : "○"}</span>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: active ? qc : th.subModelCardColor, whiteSpace: "nowrap" }}>{m.name}</span>
+                                <span style={{ fontSize: 8, color: th.textMuted, marginLeft: "auto", textAlign: "right" }}>{m.desc?.[language]}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Cost guide for the selected model */}
+                      <div style={{ marginTop: 6, padding: "6px 10px", borderRadius: 8, background: th.guideBg, border: `1px solid ${th.borderDim}`, fontSize: 9, lineHeight: 1.6 }}>
+                        <p style={{ color: th.guideBilling, fontWeight: 600, fontSize: 11 }}>💰 {paid.name}: {paid.gameplay?.[language]}</p>
+                        {paid.peakPricing && <p style={{ color: th.guideHint }}>{t.aliyun.paid.peakNote}</p>}
+                        {ALIYUN_TOKEN_PLAN_SUPPORTED && (
+                          <p style={{ color: th.guideText }}>{t.aliyun.paid.tokenPlanHint} <a href={ALIYUN_TOKEN_PLAN_URL} target="_blank" rel="noopener noreferrer" style={{ color: th.accent, textDecoration: "underline" }}>Token Plan →</a></p>
+                        )}
+                        <p style={{ color: th.guideMuted }}>{t.aliyun.paid.keyNote}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* API Key Guide */}
           <div style={{ width: "100%", marginBottom: 10, padding: "10px 12px", background: th.guideBg, borderRadius: 12, border: `1px solid ${th.borderDim}` }}>
             <p style={{ fontSize: 11, color: th.guideText, fontWeight: 700, marginBottom: 4 }}>{t.guide?.title}</p>
             {(t.guide?.steps || []).map((step, i) => renderGuideStep(step, i))}
-            <p style={{ fontSize: 12, color: th.guideBilling, marginTop: 6, fontWeight: 600 }}>{(t.guide?.billing || "").replace("{gameplay}", (() => {
-              if (selectedModel === "qwen") {
-                const sub = (MODEL_CONFIGS.qwen.subModels || []).find(s => s.id === selectedQwenSubModel);
-                return sub?.gameplay?.[language] || MODEL_CONFIGS.qwen.gameplay?.[language] || "";
-              }
-              return MODEL_CONFIGS[selectedModel]?.gameplay?.[language] || "";
-            })())}</p>
-            {selectedModel === "qwen" && t.guide?.qwenSwitchHint && (
-              <p style={{ fontSize: 10, color: th.guideHint, marginTop: 4, fontWeight: 500 }}>{t.guide.qwenSwitchHint}</p>
+            {selectedModel !== "qwen" ? (
+              <p style={{ fontSize: 12, color: th.guideBilling, marginTop: 6, fontWeight: 600 }}>{(t.guide?.billing || "").replace("{gameplay}", MODEL_CONFIGS[selectedModel]?.gameplay?.[language] || "")}</p>
+            ) : aliyunMode === "free" && (
+              // Paid mode shows its cost guide under the model list instead.
+              <p style={{ fontSize: 12, color: th.guideBilling, marginTop: 6, fontWeight: 600 }}>{t.aliyun.free.billing}</p>
             )}
             <p style={{ fontSize: 9, color: th.guideWarning, marginTop: 3, fontWeight: 450 }}>{t.guide?.warning}</p>
             <p style={{ fontSize: 9, color: th.guideMuted, marginTop: 2, fontWeight: 450 }}>{t.guide?.keyManagement}</p>
@@ -781,7 +945,7 @@ export default function App() {
 
           {!keyJustSaved ? (
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { if (apiKey?.trim()) { saveApiKey(apiKey); setKeyJustSaved(true); } else showNotif(t.common?.enterKey || "Please enter API Key", "error"); }} disabled={!apiKey?.trim()}
+              <button onClick={() => { if (apiKey?.trim()) { if (saveApiKey(apiKey)) setKeyJustSaved(true); } else showNotif(t.common?.enterKey || "Please enter API Key", "error"); }} disabled={!apiKey?.trim()}
                 style={{ padding: "10px 28px", borderRadius: 40, border: "none", cursor: apiKey?.trim() ? "pointer" : "not-allowed", background: apiKey?.trim() ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 600 }}>
                 {t.keyInput.confirm}
               </button>
@@ -827,7 +991,7 @@ export default function App() {
             <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{groupConfig?.group?.name || "Loading..."}</p>
             <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
               <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
-              <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}</span>
+              <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
               <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
             </div>
           </div>
@@ -995,15 +1159,47 @@ export default function App() {
           )}
           {(() => {
             const lastAsstIdx = messages.reduce((acc, m, i) => !m.hidden && m.role === "assistant" ? i : acc, -1);
-            const actionBar = (content) => (
+            const lastUserIdx = messages.reduce((acc, m, i) => !m.hidden && m.role === "user" ? i : acc, -1);
+            // Every edit/retry control needs a snapshot from this session.
+            const canEdit = !!preRoundSnapshotRef.current && !loading;
+            const btn = { background: th.actionBtnBg, border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: th.actionColor, fontWeight: 700, cursor: "pointer", lineHeight: 1 };
+
+            // Shared inline editor for both the choice bubble and the story.
+            // A story runs 600-2,400 characters, so a fixed box means scrolling
+            // to read your own text. Grow to fit the content, capped so the
+            // save/cancel row stays reachable on a 390x844 screen.
+            const autoGrow = (el) => {
+              if (!el) return;
+              el.style.height = "auto";
+              el.style.height = `${Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.66))}px`;
+            };
+            const editor = (onSave, maxLength) => (
+              <div style={{ marginTop: 6 }}>
+                <textarea value={editDraft} maxLength={maxLength} autoFocus
+                  ref={autoGrow}
+                  onChange={(e) => { setEditDraft(e.target.value); autoGrow(e.target); }}
+                  style={{ width: "100%", minHeight: 220, boxSizing: "border-box", background: th.storyBg, color: th.textStory, border: `1px solid ${th.borderAccent}`, borderRadius: 10, padding: "10px 12px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, fontFamily: "inherit", resize: "vertical", overflowY: "auto" }} />
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 9, color: th.textFaint, marginRight: "auto" }}>{editDraft.length}/{maxLength}</span>
+                  <button onClick={cancelEdit} title={t.editCancel} style={{ ...btn, fontSize: 15 }}>✕</button>
+                  <button onClick={onSave} title={t.editSave} style={{ ...btn, fontSize: 15, color: th.copiedColor }}>✓</button>
+                </div>
+              </div>
+            );
+
+            const actionBar = (content, idx) => (
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
                 <button onClick={() => copyStory(content)} title="Copy story"
-                  style={{ background: th.actionBtnBg, border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: copiedStory ? th.copiedColor : th.actionColor, fontSize: 16, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>
+                  style={{ ...btn, fontSize: 16, color: copiedStory ? th.copiedColor : th.actionColor }}>
                   {copiedStory ? "✓" : "⎘"}
                 </button>
+                {canEdit && (
+                  <button onClick={() => beginEdit(idx, storyPartOf(content))} title={t.editStory} style={{ ...btn, fontSize: 14 }}>
+                    ✎
+                  </button>
+                )}
                 {preRoundSnapshotRef.current && (
-                  <button onClick={regenerateRound} title="Retry this round"
-                    style={{ background: th.actionBtnBg, border: `1px solid ${th.actionBtnBorder}`, borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: th.actionColor, fontSize: 18, fontWeight: 700, cursor: "pointer", lineHeight: 1 }}>
+                  <button onClick={() => regenerateRound()} title="Retry this round" style={{ ...btn, fontSize: 18 }}>
                     ↺
                   </button>
                 )}
@@ -1011,11 +1207,18 @@ export default function App() {
             );
             return messages.map((msg, i) => {
               if (msg.hidden) return null;
-              if (msg.role === "user") return (
-                <div key={i} style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-                  <div style={{ background: th.accentGrad, color: "#fff", padding: "8px 14px", borderRadius: "14px 14px 3px 14px", maxWidth: "80%", fontSize: 12, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.content}</div>
-                </div>
-              );
+              if (msg.role === "user") {
+                if (editingIdx === i) return <div key={i}>{editor(saveChoiceEdit, 300)}</div>;
+                return (
+                  <div key={i} style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    {i === lastUserIdx && canEdit && (
+                      <button onClick={() => beginEdit(i, msg.content)} title={t.editChoice}
+                        style={{ ...btn, width: 24, height: 24, fontSize: 12, flexShrink: 0 }}>✎</button>
+                    )}
+                    <div style={{ background: th.accentGrad, color: "#fff", padding: "8px 14px", borderRadius: "14px 14px 3px 14px", maxWidth: "80%", fontSize: 12, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.content}</div>
+                  </div>
+                );
+              }
               const isLast = i === lastAsstIdx && !loading;
               const sb = msg.content.match(/╔[\s\S]*?╚[═─]+╝/);
               if (sb) {
@@ -1024,15 +1227,19 @@ export default function App() {
                 return (
                   <div key={i} style={{ marginBottom: 14 }}>
                     <div style={{ background: th.statsBg, border: `1px solid ${th.borderAccent}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontFamily: "'Courier New',monospace", fontSize: 10, color: th.textStats, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{sb[0]}</div>
-                    {af && <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "14px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{af}</div>}
-                    {isLast && actionBar(msg.content)}
+                    {editingIdx === i
+                      ? editor(saveStoryEdit, MAX_STORY_EDIT_CHARS)
+                      : af && <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "14px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{af}</div>}
+                    {isLast && editingIdx !== i && actionBar(msg.content, i)}
                   </div>
                 );
               }
               return (
                 <div key={i} style={{ marginBottom: 14 }}>
-                  <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{msg.content}</div>
-                  {isLast && actionBar(msg.content)}
+                  {editingIdx === i
+                    ? editor(saveStoryEdit, MAX_STORY_EDIT_CHARS)
+                    : <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{msg.content}</div>}
+                  {isLast && editingIdx !== i && actionBar(msg.content, i)}
                 </div>
               );
             });
@@ -1047,7 +1254,7 @@ export default function App() {
         </div>
 
         {/* Options */}
-        {quickOptions.length > 0 && !loading && (
+        {quickOptions.length > 0 && !loading && editingIdx === null && (
           <div style={{ padding: "5px 8px", display: "flex", flexWrap: "wrap", gap: 4, borderTop: `1px solid ${th.borderSubtle}`, background: th.optionsBg, flexShrink: 0 }}>
             {quickOptions.map(opt => (
               <button key={opt.letter}
@@ -1065,7 +1272,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Input */}
+        {/* Input — hidden while editing, like the option bar: sending a message
+            would append a turn and leave the open draft on the wrong index. */}
+        {editingIdx === null && (
         <div style={{ padding: "6px 8px", background: th.inputAreaBg, borderTop: `1px solid ${th.borderFaint}`, display: "flex", gap: 5, alignItems: "flex-end", flexShrink: 0 }}>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
@@ -1075,9 +1284,10 @@ export default function App() {
           <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
             style={{ width: 34, height: 34, borderRadius: "50%", border: th.border, background: input.trim() && !loading ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↑</button>
         </div>
+        )}
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={messages} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
 
         {/* Settings Overlay */}
@@ -1247,7 +1457,7 @@ export default function App() {
                       form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
                       groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-                      qwenSubModel: selectedModel === "qwen" ? selectedQwenSubModel : null,
+                      aliyun: aliyunOptions(),
                     });
                     const epStats = epilogue.newStats || statsRef.current;
                     const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);
@@ -1255,7 +1465,7 @@ export default function App() {
                     const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
                     setCurrentOptions([backLabel]);
                   } catch (e) {
-                    setMessages(p => [...p, { role: "assistant", content: "Epilogue generation failed." }]);
+                    setMessages(p => [...p, { role: "assistant", content: llmErrorNotice(e), error: true }]);
                     const backLabel = language === "zh" ? "A. 返回封面页" : language === "ko" ? "A. 커버 페이지로 돌아가기" : "A. Return to Cover Page";
                     setCurrentOptions([backLabel]);
                   }

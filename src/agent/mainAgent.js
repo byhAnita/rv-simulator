@@ -8,6 +8,13 @@ import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_M
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 
+// Shortest story we will show the player. The prompt asks for 250-350 words, so
+// anything this brief is a non-answer: it also catches validateAndFixOutput's own
+// 22-character "The story continues..." placeholder, which used to be rendered
+// as a silently wasted round. Safe across zh/en/ko, where the same content runs
+// ~650 / ~2,400 / ~1,000 characters.
+const MIN_STORY_CHARS = 40;
+
 // Module-level globals: social media delayed by one round
 let pendingSocialFeeds = null;
 let pendingNotifications = [];
@@ -479,15 +486,20 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
-  groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, qwenSubModel = null,
+  groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
   timeSpeed = "default",
 }) {
   const allTargetIds = [mainId, ...subIds];
   const roundNum = stats.week;
   const npcIds = members.map(m => m.id).filter(id => !allTargetIds.includes(id));
 
-  // Step 1: Collapse history if N full stories reached (in-place mutation before building context)
+  // Step 1: Collapse history if N full stories reached.
+  // collapseHistoryIfNeeded mutates in place and destroys full story text, so it
+  // runs on a clone: a round that fails at the LLM call must leave the caller's
+  // memory exactly as it was, or the player's next attempt sends a ledger that
+  // was collapsed early. The clone is handed back only on success.
   const roundMemberIds = allTargetIds;
+  memory = JSON.parse(JSON.stringify(memory));
   collapseHistoryIfNeeded(memory);
 
   // Step 1a: Build 3-tier prompt blocks
@@ -509,7 +521,19 @@ export async function executeRound({
     { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${timeSpeed === "slow" ? "\n[Pacing] slow — stay in this moment, don't advance time much this round" : timeSpeed === "fast" ? "\n[Pacing] fast — advance time noticeably, skip ahead to the next event or date" : ""}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
-  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, qwenSubModel);
+  // A response that parses but carries no real story is a wasted round. Rather
+  // than let validateAndFixOutput quietly swap in a placeholder, tell the client
+  // it is unusable so it retries and, in free mode, moves to another model.
+  const hasUsableStory = (content) => {
+    try {
+      const story = parseLLMOutput(content)?.story || "";
+      return story.trim().length >= MIN_STORY_CHARS;
+    } catch {
+      return false;    // unparseable is the client's problem to retry, not ours
+    }
+  };
+
+  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, hasUsableStory);
   const parsed = parseLLMOutput(llmOutput);
 
   // Step 3: Compute
