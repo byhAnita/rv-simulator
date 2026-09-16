@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.4
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.5
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.4-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.5-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.4)
+## 💰 API Cost & Performance (v1.3.5)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -153,6 +153,11 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.3.5
+
+* 🐛 **All groups load on every mirror again** — on the Vercel and Cloudflare mirrors the cover page showed only Red Velvet, because the group data was being requested from a path that only exists on the GitHub Pages site. All nine groups are back everywhere. The GitHub Pages site was never affected.
+* 📱 **Install-to-home-screen fixed on the mirrors** — the app icon and standalone launch now work from whichever mirror you installed from.
 
 ## 🎉 What's New in v1.3.4
 
@@ -251,7 +256,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.4              | |
+|  |              LLM Text Adventure . v1.3.5              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -354,7 +359,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.4 - Architecture                     |
+|          Idol Dating Sim  v1.3.5 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -410,7 +415,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.4 Round Flow                            |
+|                    v1.3.5 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

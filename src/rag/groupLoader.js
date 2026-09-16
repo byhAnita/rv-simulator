@@ -1,14 +1,23 @@
 // src/rag/groupLoader.js
-// src/rag/groupLoader.js
+
+// Group JSON is fetched at runtime from wherever the app is served, so the
+// prefix must come from the build, never from the hostname. This used to be
+// `hostname.includes('localhost') ? '/' : '/rv-simulator/'`, which hardcoded
+// the GitHub Pages subpath and 404'd on every other host - the catch below
+// then returned the Red Velvet fallback, so the cover page silently showed a
+// single group on Vercel and Cloudflare.
+//
+// Vite sets BASE_URL from `base` in vite.config.js: './' in a build, so the
+// URL resolves against the page (/rv-simulator/ on Pages, / elsewhere), and
+// '/' under the dev server, which serves public/ at the root.
+const base = () => import.meta.env.BASE_URL;
 
 /**
- * 加载组合索引
- * @returns {Promise<Array>} 组合列表 [{id, name, emoji, members_count, color}]
+ * Load the group index.
+ * @returns {Promise<Array>} [{id, name, emoji, members_count, color}]
  */
 export async function loadGroupIndex() {
-  const isProduction = !window.location.hostname.includes('localhost');
-  const base = isProduction ? '/rv-simulator/' : '/';
-  const url = `${base}groups/index.json`;
+  const url = `${base()}groups/index.json`;
 
   try {
     const response = await fetch(url);
@@ -21,22 +30,20 @@ export async function loadGroupIndex() {
 }
 
 /**
- * 加载女团设定文档
- * @param {string} groupId - 女团 ID（对应文件夹名）
+ * Load a group's RAG config document.
+ * @param {string} groupId - group id (matches the folder name)
  * @param {string} language - zh/en/ko
- * @returns {Promise<object>} 解析后的团设定对象
+ * @returns {Promise<object>} parsed group config
  */
 export async function loadGroupConfig(groupId = "red_velvet", language = "zh") {
-  const isProduction = !window.location.hostname.includes('localhost');
-  const base = isProduction ? '/rv-simulator/' : '/';
-  const url = `${base}groups/${groupId}/${language}.json`;
+  const url = `${base()}groups/${groupId}/${language}.json`;
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
       if (language !== "zh") {
         console.warn(`${groupId}/${language}.json not found, falling back to zh.json`);
-        const fallbackUrl = `${base}groups/${groupId}/zh.json`;
+        const fallbackUrl = `${base()}groups/${groupId}/zh.json`;
         const fallbackResponse = await fetch(fallbackUrl);
         if (!fallbackResponse.ok) throw new Error(`Failed to load: HTTP ${fallbackResponse.status}`);
         const config = await fallbackResponse.json();
@@ -53,7 +60,7 @@ export async function loadGroupConfig(groupId = "red_velvet", language = "zh") {
 }
 
 /**
- * 解析团设定 JSON 为游戏可用的 Background
+ * Parse the group config JSON into the Background the game consumes.
  */
 function parseGroupConfig(config) {
   const { group, members, history } = config;
