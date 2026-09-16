@@ -605,8 +605,12 @@ git checkout main && git pull
 git merge dev --no-ff -m "release: v1.4.0"
 npm run deploy                                    # red line: pushes to production
 git tag v1.4.0 && git push origin v1.4.0
+git checkout -- index.html                        # see note below
 git checkout dev && git merge main && git push origin dev
+node scripts/dev-index.mjs                        # back to dev mode
 ```
+
+**The `index.html` step is not optional and not cosmetic.** `deploy.sh` restores that file to dev mode as an *uncommitted* change, and the deploy commit just rewrote the same file on `main` with the new bundle hash — so `git checkout dev` refuses to switch with "local changes would be overwritten". Discarding it is safe: `scripts/dev-index.mjs` regenerates it exactly, which is what the last line does.
 
 Tag the **deploy commit**, not the merge commit — `npm run deploy` adds a commit after the merge, and a tag placed before it points at a tree whose `index.html` is still in dev mode.
 
@@ -630,7 +634,9 @@ git checkout main
 git merge hotfix/<slug> --no-ff -m "fix: description (v1.3.3)"
 npm run deploy                               # red line: pushes to production
 git tag v1.3.3 && git push origin v1.3.3
+git checkout -- index.html
 git checkout dev && git merge main && git push origin dev
+node scripts/dev-index.mjs
 ```
 
 Deleting the merged `hotfix/*` branch afterwards is your call — the merge commit and the tag both record it, so nothing is lost, but branch deletion is a red-line action and is never done automatically.
@@ -676,6 +682,29 @@ Vercel builds **from source**, unlike GitHub Pages which serves the committed ro
 Because Vercel builds from source, its production deployment can be **ahead of** the GitHub Pages one: a merge to `main` updates Vercel immediately, while Pages only changes when `npm run deploy` commits new artifacts. Deploy promptly after merging, or the two hosts disagree.
 
 Branch previews are the reason this matters — pushing `hotfix/*` gives a URL to hand-test on a real phone before the fix reaches `main`.
+
+### Cloudflare Pages
+
+`idol-dating-sim.pages.dev` is the third mirror. Cloudflare does **not** read `vercel.json`, so the same two settings go in its dashboard by hand:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `node scripts/dev-index.mjs && npm run build` |
+| Output directory | `dist` |
+
+It has the identical entry-point trap as Vercel — without `dev-index.mjs` it re-bundles the committed build and serves a frozen site that looks fine.
+
+### The three mirrors
+
+| Host | URL | Source of truth |
+| --- | --- | --- |
+| GitHub Pages | `byhanita.github.io/rv-simulator/` | committed root `index.html` + `assets/` + `groups/` |
+| Vercel | `idol-dating-sim.vercel.app` | built from `src/` |
+| Cloudflare Pages | `idol-dating-sim.pages.dev` | built from `src/` |
+
+Only Pages serves committed artifacts, which is why `npm run deploy` exists at all. The other two rebuild on any push to `main`, so **deploy promptly after a release merge** or the three disagree.
+
+**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are currently byte-identical to `public/` (root `manifest.json` differs only by a trailing newline), but **nothing keeps the mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
 
 ### index.html rule
 
