@@ -685,7 +685,7 @@ Branch previews are the reason this matters — pushing `hotfix/*` gives a URL t
 
 ### Cloudflare Pages
 
-`idol-sim-test.pages.dev` is the third mirror. Cloudflare does **not** read `vercel.json`, so the same two settings go in its dashboard by hand:
+`idol-dating-sim.pages.dev` is the third mirror. Cloudflare does **not** read `vercel.json`, so the same two settings go in its dashboard by hand:
 
 | Setting | Value |
 | --- | --- |
@@ -700,7 +700,7 @@ It has the identical entry-point trap as Vercel — without `dev-index.mjs` it r
 | --- | --- | --- |
 | GitHub Pages | `byhanita.github.io/rv-simulator/` | committed root `index.html` + `assets/` + `groups/` |
 | Vercel | `idol-dating-sim.vercel.app` | built from `src/` |
-| Cloudflare Pages | `idol-sim-test.pages.dev` | built from `src/` |
+| Cloudflare Pages | `idol-dating-sim.pages.dev` | built from `src/` |
 
 Only Pages serves committed artifacts, which is why `npm run deploy` exists at all. The other two rebuild on any push to `main`, so **deploy promptly after a release merge** or the three disagree.
 

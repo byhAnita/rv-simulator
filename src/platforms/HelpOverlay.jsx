@@ -156,7 +156,7 @@ function Code({ children }) {
 function BL() {
   return (
     <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontSize: 11 }}>🎮 <A href="https://idol-sim-test.pages.dev/">idol-sim-test.pages.dev</A></div>
+      <div style={{ fontSize: 11 }}>🎮 <A href="https://idol-dating-sim.pages.dev/">idol-dating-sim.pages.dev</A></div>
       <div style={{ fontSize: 11 }}>🎮 <A href="https://idol-dating-sim.vercel.app/">idol-dating-sim.vercel.app</A></div>
     </div>
   );
