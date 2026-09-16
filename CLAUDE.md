@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.2** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.5** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -291,7 +291,7 @@ A round only needs ~800 output tokens; these are ceilings, not reservations. Ali
 
 ---
 
-## Add-on Features (v1.3.2)
+## Add-on Features (v1.3.5)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -667,6 +667,12 @@ npm run bump 1.3.3 -- --dry  # show what would change, write nothing
 
 Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 13 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
 
+### Commit identity
+
+Commits must be authored as `52732052+byhAnita@users.noreply.github.com` (set globally, and locally in this repo). **Vercel refuses to deploy a commit whose author it cannot match to a GitHub account** — it rejected the old `1677037640@qq.com` outright, blocking the deployment entirely.
+
+Use the noreply alias rather than one of the account's real addresses: all of them are marked Private on GitHub, which normally also enables *Block command line pushes that expose my email*, and committing as one would start getting pushes rejected with `GH007`. Commits made before 2026-09-16 keep the old address — that is baked into their hashes and not worth rewriting history over.
+
 ### Vercel
 
 Vercel builds **from source**, unlike GitHub Pages which serves the committed root `index.html` + `assets/`. Config lives in `vercel.json`:
@@ -704,7 +710,17 @@ It has the identical entry-point trap as Vercel — without `dev-index.mjs` it r
 
 Only Pages serves committed artifacts, which is why `npm run deploy` exists at all. The other two rebuild on any push to `main`, so **deploy promptly after a release merge** or the three disagree.
 
-**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are currently byte-identical to `public/` (root `manifest.json` differs only by a trailing newline), but **nothing keeps the mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
+**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal. But **nothing keeps the `groups/` mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
+
+`dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
+
+### Never derive a path from the hostname
+
+**Every runtime URL must come from `import.meta.env.BASE_URL`**, which Vite fills from `base` in `vite.config.js` — `'./'` in a build, `'/'` under the dev server. The app is served at two different depths (`/rv-simulator/` on Pages, `/` on the other two), so a path that hardcodes either one breaks the others.
+
+This shipped and reached players. `groupLoader.js` chose its prefix with `hostname.includes('localhost') ? '/' : '/rv-simulator/'`, so both mirrors requested `/rv-simulator/groups/index.json`, got a 404, and fell into `loadGroupIndex`'s `catch` — **which returns a hardcoded Red Velvet entry**. The cover page showed one group instead of nine and logged nothing a player would see, because the fallback swallowed the failure. Fixed in v1.3.5; smoke Layer C now fails the build if any `src/` file contains the literal subpath outside a comment.
+
+The manifest has the same constraint and a subtler trap. `index.html` must reference it as **`/manifest.json`**, not `./manifest.json`: the leading slash makes Vite treat it as a public-dir asset and rewrite it to `./manifest.json` for the relative base. The relative form instead makes Vite resolve the *root* copy and emit a **second, hashed manifest** under `assets/` — one directory deeper, where the relative `./icons.svg` inside it no longer resolves. Making the manifest paths relative without this change fixes nothing.
 
 ### index.html rule
 
@@ -725,9 +741,9 @@ It also **warns, without aborting**, when `v<package.json version>` is already a
 
 Then:
 
-5. `rm -rf dist assets`
-6. `BASE_URL="./" npm run build` — relative-path Vite build
-7. Copy `dist/assets/*.js` + `*.css` into root `assets/`
+5. **`node scripts/dev-index.mjs`** — force `index.html` into dev mode, and install the `EXIT` trap that restores it. Without this the script only worked when `index.html` already happened to be in dev mode; after a `git checkout -- index.html`, a branch switch or a previous failed run it is in *production* mode, and Vite then either re-bundles the old output or dies on `Could not resolve ./assets/<hash>.js`.
+6. `rm -rf dist`, then `BASE_URL="./" npm run build` — relative-path Vite build
+7. **Only now** `rm -rf assets` and copy `dist/assets/*.js` + `*.css` into root `assets/`. Deleting `assets/` before the build meant a failed build wiped the bundle GitHub Pages was serving, leaving the live site broken until someone thought to run `git checkout -- assets/`.
 8. Patch `index.html` to reference the hashed filenames
 9. `git add index.html assets/ src/ README.md CLAUDE.md` -> commit -> `git push origin main`
 10. Restore `index.html` to dev mode (not committed), via the `EXIT` trap
@@ -739,7 +755,18 @@ Then:
 
 ## Project Status (2026-09-16)
 
-**v1.3.2 is released and live.** Working branch is now `dev`. Everything below shipped in it — validated offline (`npm run build` + **371 checks** in `node test/smoke.mjs`), exercised against the live Aliyun API (**381 checks** with `--live-free`), and hand-tested by the author on device.
+**v1.3.5 is released and live on all three mirrors.** Working branch is `dev`; `main` and `dev` are level. Validated offline (`npm run build` + **386 checks** in `node test/smoke.mjs`), exercised against the live Aliyun API with `--live-free`, and hand-tested by the author on device.
+
+Today shipped five releases. v1.3.2 was the feature release; everything after it was infrastructure, and two of them fixed bugs that only existed off GitHub Pages:
+
+| Tag | What |
+| --- | --- |
+| `v1.3.2` | The whole model-layer cycle below — free route, error layer, `bad_response`, edit controls |
+| `v1.3.3` | Vercel config so the mirrors build from source; Help Center link to the new Vercel URL |
+| `v1.3.4` | Help Center link to the new Cloudflare URL; `deploy.sh` robustness; commit identity |
+| `v1.3.5` | **Host-independent paths** — the mirrors showed only Red Velvet and 404'd the PWA icon |
+
+Also today, not tied to a release: branch workflow (`main`/`dev`/`hotfix/*`), `npm run bump`, `deploy.sh` preflight, and `dist/` untracked.
 
 Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`**. Read it before touching the route, the retry policy or the cost strings — the *why* is not reconstructible from the diff.
 
@@ -762,7 +789,7 @@ Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`*
 
 **Test layer**
 12. **`test/playthrough.mjs`** (new) — plays real multi-round games and grades JSON validity, language lock, option format, stat bounds, CoT leakage, and the ledger-prefix cache invariant; reads `usage.cached_tokens` to measure the cache directly.
-13. **Smoke suite 145 → 371 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
+13. **Smoke suite 145 → 386 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
 
 ### Live test results (2026-09-16)
 
@@ -775,7 +802,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 * **After the fixes**: `glm-5.1` 7/12 → **12/12 clean**, live route playthrough **8/8 clean**.
 * **Measured Aliyun prompt-cache hit rate is ~83%**, flat across 0/1/2 sub-members and not converging upward over 30 rounds. Twelve of the route models (every `qwen3.5-*` and `qwen3.6-*`) report no `cached_tokens` field at all. **This does not contradict the 95.8% figure**, which comes from DeepSeek Official billing on a different platform with a finer-grained cache — see to-do 2.
 
-**Released 2026-09-16.** `4936d70` (feature commit) + `35b1e9e` (deploy build) are on `origin/main`, tagged **`v1.3.2`** on the deploy commit. `dev` was branched from that point and the old `dev-v12.0.0` frozen behind tag `archive/dev-v12.0.0`. All work from here goes to `dev` — see Branch & Deploy Workflow.
+**Released 2026-09-16.** `4936d70` (feature commit) + `35b1e9e` (deploy build), tagged **`v1.3.2`** on the deploy commit. `dev` was branched from that point and the old `dev-v12.0.0` frozen behind tag `archive/dev-v12.0.0`. Four further releases followed the same day — head is now `7415ab4`, tagged `v1.3.5`. All work from here goes to `dev` — see Branch & Deploy Workflow.
 
 **Open questions (not blocking release)**
 
@@ -784,7 +811,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed.
 4. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
 
-**Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js`, `stageConfig.js` and `groupLoader.js` still carry Chinese comments, against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
+**Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js` and `stageConfig.js` still carry Chinese comments (`groupLoader.js` was converted in v1.3.5), against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
 
 ---
 
