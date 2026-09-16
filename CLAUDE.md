@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
-- `dev-v13.0.0` — next version development, never deploy from here
+- `dev` — default working branch, never deploy from here
+
+See **Branch & Deploy Workflow** for the release, hotfix and merge-back rules.
 
 Measured production numbers (real player sessions, reasoning off): **~95.8% prompt-cache hit rate**, **~10s generation time per round**.
 
@@ -24,9 +26,12 @@ node test/smoke.mjs --live            # + one real round on the provider in .env
 node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, then one routed round
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
-npm run deploy                        # full deploy: build -> patch index.html -> push main -> restore dev mode
+npm run bump 1.3.3                    # rewrite all 13 version strings (note the `--` for --dry)
+npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 ```
+
+`npm run deploy` refuses to run unless it is on `main`, the staged paths are clean, `main` is level with `origin/main`, **and the smoke suite passes** — see Branch & Deploy Workflow.
 
 Validate every change with `npm run build` **and** `node test/smoke.mjs`. No lint config.
 
@@ -549,51 +554,163 @@ Group JSON size directly drives the static-prompt token count (Red Velvet ~8KB, 
 
 ## Branch & Deploy Workflow
 
+### Branches
+
+| Branch | Role |
+| --- | --- |
+| `main` | Exactly what players are running. Served by GitHub Pages + Vercel. Tagged on every release. |
+| `dev` | Integration branch for feature work. Branched from `main` at v1.3.2. **Never deployed.** |
+| `hotfix/<slug>` | Off `main`, one bug, short-lived. Merged into `main`, then `main` into `dev`. |
+| `feat/<slug>` | Optional, off `dev`, for work risky enough to want to abandon cleanly. Not needed for routine changes. |
+| `dev-v12.0.0` | **Frozen**, last active 2026-07-31, 46 commits behind the v1.3.x line. Never merge it. Also reachable as tag `archive/dev-v12.0.0`. |
+
+**`main` never takes a direct source commit.** The only things that land on it are `--no-ff` merges from `hotfix/*` or `dev`, and `deploy.sh`'s own build-artifact commit. Committing a fix straight onto `main` means that between the first commit and the deploy, `main` is a state nobody has tested — and if you get interrupted there, the branch that defines "what players run" is sitting broken. A `hotfix/*` branch costs one extra command and means **`main` only ever receives changes that were already validated**. If the fix turns out to be wrong, you abandon a branch instead of reverting `main`.
+
+This is enforced, not just asked for: `deploy.sh` refuses to run when the smoke suite is red, so an untested tree cannot reach players even if the process is skipped.
+
+**The branch is named `dev`, not `dev-v<version>`, on purpose.** Its predecessor was `dev-v13.0.0`, created for a release target that never shipped; when the plan changed, the branch belonged to nothing and was never merged again. A plain `dev` has no expiry condition.
+
+### The rule that keeps `dev` alive
+
+**After every deploy, merge `main` back into `dev`.**
+
+```bash
+git checkout dev && git merge main && git push origin dev
+```
+
+This is not optional and not occasional. `deploy.sh` commits build artifacts (`assets/index-*.js`, a production-mode `index.html`) straight onto `main`, so **every single release leaves `main` with a commit `dev` does not have.** Skip the merge-back a few times and `dev` is behind; skip it for a month and it is another `dev-v12.0.0`. Nothing else in this workflow is fragile — this is. `deploy.sh` prints the command on completion for exactly this reason.
+
+### Daily work
+
+Stay on `dev`. Validate with **both** commands before every commit.
+
+```bash
+git checkout dev
+npm run build && node test/smoke.mjs
+git commit -am "feat: ..." && git push origin dev
+```
+
+### Release
+
+Bump the version and write the new README "What's New" section as the **last commits on `dev`**, so the release merge is the only thing `main` sees.
+
+```bash
+git checkout dev
+npm run bump 1.4.0                                # rewrites all 13 version strings
+# hand-write the "## What's New in v1.4.0" section in README.md
+npm run build && node test/smoke.mjs
+git commit -am "chore: bump to v1.4.0" && git push origin dev
+
+git checkout main && git pull
+git merge dev --no-ff -m "release: v1.4.0"
+npm run deploy                                    # red line: pushes to production
+git tag v1.4.0 && git push origin v1.4.0
+git checkout dev && git merge main && git push origin dev
+```
+
+Tag the **deploy commit**, not the merge commit — `npm run deploy` adds a commit after the merge, and a tag placed before it points at a tree whose `index.html` is still in dev mode.
+
+### Hotfix (player-reported bug on a released build)
+
+**First decide whether you need a hotfix at all.** If `dev` has nothing unreleased (`git log main..dev` is empty), there is no reason to branch the process — fix it on `dev` and cut a normal release. The hotfix path exists only for the case where `dev` holds in-flight work that cannot ship yet.
+
+```bash
+git checkout main && git pull                # start from exactly what players run
+git checkout -b hotfix/<slug>
+
+# 1. reproduce the bug first — a fix you cannot reproduce is a guess
+# 2. fix in src/
+# 3. add a regression check to test/smoke.mjs (see below)
+npm run build && node test/smoke.mjs
+npm run bump 1.3.3                           # hotfixes bump too, see below
+git commit -am "fix: description"
+git push -u origin hotfix/<slug>             # gives a Vercel preview URL to hand-test on device
+
+git checkout main
+git merge hotfix/<slug> --no-ff -m "fix: description (v1.3.3)"
+npm run deploy                               # red line: pushes to production
+git tag v1.3.3 && git push origin v1.3.3
+git checkout dev && git merge main && git push origin dev
+```
+
+Deleting the merged `hotfix/*` branch afterwards is your call — the merge commit and the tag both record it, so nothing is lost, but branch deletion is a red-line action and is never done automatically.
+
+**Always add a regression check to `test/smoke.mjs` as part of the fix**, and verify it fails against the unfixed code. This is already the convention in this repo — the Layer G key-page guards each encode a bug that reached a hand test. It also does double duty on the merge-back: if `dev` has rewritten the same area, the merge will conflict, and the guard is what proves the fix survived however you resolve it. Resolve in favour of `dev`'s structure, keep the fix's behaviour, and let the check confirm it.
+
+**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and adds a line to the current README "What's New" section rather than opening a new one.
+
+### Version strings
+
+Thirteen strings across five files must agree, and `npm run bump <x.y.z>` rewrites all of them:
+
+```bash
+npm run bump 1.3.3           # writes; run the validators afterwards
+npm run bump 1.3.3 -- --dry  # show what would change, write nothing
+```
+
+**The `--` before `--dry` is mandatory.** Without it npm keeps the flag for itself (expanding it to its own `--dry-run`) and never passes it through, so `npm run bump 1.3.3 --dry` performs a **real bump** while looking like a rehearsal. Verified the hard way. `node scripts/bump-version.mjs 1.3.3 --dry` has no such trap.
+
+| File | Count | Where |
+| --- | --- | --- |
+| `package.json` | 1 | `"version"` |
+| `src/i18n/{zh,en,ko}.js` | 3 | `cover.desc` |
+| `src/App.jsx` | 3 | the fallback cover strings, zh/en/ko |
+| `README.md` | 6 | title, version badge, cost-section heading, three ASCII sketches |
+
+**The README "What's New in v…" heading is deliberately not bumped.** It is a changelog entry, not a version string — a release *adds* a new section and leaves the old ones alone. `bump` skips every line containing `What's New in` for exactly this reason; rewriting it would silently relabel the previous release's notes.
+
+Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 13 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
+
+### Vercel
+
+Vercel builds **from source**, unlike GitHub Pages which serves the committed root `index.html` + `assets/`. Config lives in `vercel.json`:
+
+```json
+{ "framework": "vite", "installCommand": "npm ci",
+  "buildCommand": "node scripts/dev-index.mjs && npm run build",
+  "outputDirectory": "dist" }
+```
+
+**`scripts/dev-index.mjs` is not optional, and removing it fails silently.** `index.html` is committed in *production* mode because that is what Pages serves — but Vite reads `index.html` to find its entry, so on a clean clone it takes the committed `./assets/index-<hash>.js` as the entry and **re-bundles the previous build instead of compiling `src/`**. Measured: 4 modules transformed instead of 55. The build succeeds, the bundle is the right size, the site runs — it is just frozen at whatever `npm run deploy` last committed, so every branch preview shows `main`'s code while looking perfectly healthy. `dev-index.mjs` rewrites the entry to `/src/main.jsx` first (idempotent). Smoke Layer C asserts the build command still calls it.
+
+Because Vercel builds from source, its production deployment can be **ahead of** the GitHub Pages one: a merge to `main` updates Vercel immediately, while Pages only changes when `npm run deploy` commits new artifacts. Deploy promptly after merging, or the two hosts disagree.
+
+Branch previews are the reason this matters — pushing `hotfix/*` gives a URL to hand-test on a real phone before the fix reaches `main`.
+
 ### index.html rule
 
 Always stays in **dev mode** (`<script type="module" src="/src/main.jsx">`). `deploy.sh` patches to production mode, commits + pushes, then restores dev mode. Never manually edit `index.html`.
 
-If stuck in production mode (pointing at `./assets/index-*.js`), restore the dev `<script>` tag before deploying.
-
-### Hotfix on stable
-
-```bash
-git checkout main
-# fix in src/
-git add src/ README.md CLAUDE.md
-git commit -m "fix: description"
-npm run deploy
-git tag v1.3.x && git push origin v1.3.x
-# sync to dev:
-git checkout dev-v13.0.0
-git cherry-pick <commit-hash>
-git push origin dev-v13.0.0
-```
-
-### Release v13.0.0
-
-```bash
-git checkout main
-git merge dev-v13.0.0 --no-ff -m "release: v13.0.0"
-git tag v13.0.0
-npm run deploy
-git push origin v13.0.0
-```
+Restoration is handled by an `EXIT` trap, so the dev-mode tag comes back even if the build, commit or push fails partway. If you ever do find it stuck in production mode (pointing at `./assets/index-*.js`), restore the dev `<script>` tag before deploying.
 
 ### What `npm run deploy` does
 
-1. `rm -rf dist assets`
-2. `BASE_URL="./" npm run build` — relative-path Vite build
-3. Copy `dist/assets/*.js` + `*.css` into root `assets/`
-4. Patch `index.html` to reference the hashed filenames
-5. `git add index.html assets/ src/ README.md CLAUDE.md` -> commit -> `git push origin main`
-6. Restore `index.html` to dev mode (not committed)
+Preflight — the script **aborts before touching anything** if any of these fail:
+
+1. Current branch is `main`. The script's `git push origin main` pushes the `main` ref regardless of where `HEAD` is, so running it from `dev` would commit the build onto `dev` and push a stale `main`.
+2. `src/`, `README.md` and `CLAUDE.md` have no uncommitted changes. The script stages those paths, so anything half-finished in the working tree would otherwise ship to players silently. Commit first — that is the documented flow anyway.
+3. `main` is not behind `origin/main`. Fails early with a clear message instead of after the commit is already made.
+4. **`node test/smoke.mjs` passes.** This is the mechanism behind "`main` is always stable" — a red suite cannot reach players, whatever the process. There is deliberately no override; a failing check means fix it or remove it, not ship past it.
+
+It also **warns, without aborting**, when `v<package.json version>` is already a tag — the signature of a forgotten `npm run bump`. A warning rather than a hard stop, because re-deploying a botched release at the same version is legitimate.
+
+Then:
+
+5. `rm -rf dist assets`
+6. `BASE_URL="./" npm run build` — relative-path Vite build
+7. Copy `dist/assets/*.js` + `*.css` into root `assets/`
+8. Patch `index.html` to reference the hashed filenames
+9. `git add index.html assets/ src/ README.md CLAUDE.md` -> commit -> `git push origin main`
+10. Restore `index.html` to dev mode (not committed), via the `EXIT` trap
+11. Print the tag and merge-back commands
+
+**The staging list is not everything.** `deploy.sh` does not stage `test/`, `docs/`, `package.json` — or `deploy.sh` itself. In the release flow this never bites, because the merge from `dev` brings them. It does bite if you edit them on `main` and expect deploy to pick them up — commit those yourself first. Preflight check 2 only covers the paths the script *does* stage, so it will not catch these.
 
 ---
 
 ## Project Status (2026-09-16)
 
-Working branch: `main`, **uncommitted and undeployed**. Everything below is code-complete, validated offline (`npm run build` + **371 checks** in `node test/smoke.mjs`), exercised against the live Aliyun API (**381 checks** with `--live-free`), and hand-tested by the author on device.
+**v1.3.2 is released and live.** Working branch is now `dev`. Everything below shipped in it — validated offline (`npm run build` + **371 checks** in `node test/smoke.mjs`), exercised against the live Aliyun API (**381 checks** with `--live-free`), and hand-tested by the author on device.
 
 Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`**. Read it before touching the route, the retry policy or the cost strings — the *why* is not reconstructible from the diff.
 
@@ -629,23 +746,14 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 * **After the fixes**: `glm-5.1` 7/12 → **12/12 clean**, live route playthrough **8/8 clean**.
 * **Measured Aliyun prompt-cache hit rate is ~83%**, flat across 0/1/2 sub-members and not converging upward over 30 rounds. Twelve of the route models (every `qwen3.5-*` and `qwen3.6-*`) report no `cached_tokens` field at all. **This does not contradict the 95.8% figure**, which comes from DeepSeek Official billing on a different platform with a finer-grained cache — see to-do 2.
 
-**To-do, in order**
-
-**Release this cycle (in order)**
-
-1. ~~**Version bump to v1.3.2.**~~ **Done** — all 14 strings across five files, `package.json` included (it was stuck at `1.0.0` and now tracks the displayed version). See Known Inconsistencies below for the list.
-2. **Commit** — one commit on `main`. Suggested subject: `feat: Aliyun free-credit route, bad_response recovery, round editing`. Untracked files that must be added: `src/tools/aliyunRoute.js`, `src/tools/llmErrors.js`, `test/playthrough.mjs`, `docs/`.
-3. **Tag `v1.3.2`** and `npm run deploy` (builds, patches `index.html` to production mode, pushes `main`, restores dev mode — never edit `index.html` by hand).
-4. **Cherry-pick to `dev-v13.0.0`** so the branch does not drift.
-
-> `npm run deploy` pushes to production. It is a red-line action — confirm before running it.
+**Released 2026-09-16.** `4936d70` (feature commit) + `35b1e9e` (deploy build) are on `origin/main`, tagged **`v1.3.2`** on the deploy commit. `dev` was branched from that point and the old `dev-v12.0.0` frozen behind tag `archive/dev-v12.0.0`. All work from here goes to `dev` — see Branch & Deploy Workflow.
 
 **Open questions (not blocking release)**
 
-5. **The empty-route notice has never been rendered.** It only appears at 0/28 available, which needs a genuinely exhausted key. Everything else on the key page has now been hand-checked at 390px.
-6. **Re-check the 95.8% cache figure against DeepSeek Official billing** after a long hand-played session. That figure comes from DeepSeek's platform; the ~83% measured here is Aliyun-specific and the two are not comparable, so pricing stays as published until then. `docs/TEST_FINDINGS.md` records the size of the gap if it does need revising, and the open `qwen3.6-flash` question (Aliyun reports no cached tokens for it at all).
-7. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed.
-8. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
+1. **The empty-route notice has never been rendered.** It only appears at 0/28 available, which needs a genuinely exhausted key. Everything else on the key page has now been hand-checked at 390px.
+2. **Re-check the 95.8% cache figure against DeepSeek Official billing** after a long hand-played session. That figure comes from DeepSeek's platform; the ~83% measured here is Aliyun-specific and the two are not comparable, so pricing stays as published until then. `docs/TEST_FINDINGS.md` records the size of the gap if it does need revising, and the open `qwen3.6-flash` question (Aliyun reports no cached tokens for it at all).
+3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed.
+4. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
 
 **Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js`, `stageConfig.js` and `groupLoader.js` still carry Chinese comments, against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
 
@@ -653,16 +761,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 
 ## Known Inconsistencies (fix before they bite)
 
-1. **The version string lives in 14 places across five files.** `package.json` had been stuck at `1.0.0` since the beginning while the app displayed `v1.3.1`; it was brought into sync at v1.3.2 and must now be bumped with the rest. A bump means editing all of these:
-
-   | File | Count | Where |
-   | --- | --- | --- |
-   | `package.json` | 1 | `"version"` (line 4) |
-   | `src/i18n/{zh,en,ko}.js` | 3 | `cover.desc` (line 4 in each) |
-   | `src/App.jsx` | 3 | the fallback cover strings, zh/en/ko (~line 712) |
-   | `README.md` | 7 | title, version badge, cost-section heading, new "What's New" heading, three ASCII sketches |
-
-   The sketch lines are column-aligned ASCII art, so only same-width bumps are safe there (`1.3.1` -> `1.3.2` is; `1.3.9` -> `1.3.10` is not).
+1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 13 places instead of 10. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the thirteen. See **Version strings** under Branch & Deploy Workflow.
 
    **`App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx`, so a bump edited in only one place leaves the two disagreeing depending on which path renders. Worth collapsing into one source before the next release.
 

@@ -1,12 +1,13 @@
 {
   "name": "rv-simulator-v11",
   "private": true,
-  "version": "1.3.2",
+  "version": "1.3.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "bump": "node scripts/bump-version.mjs",
     "deploy": "bash deploy.sh",
     "deploy:gh": "bash deploy.sh /rv-simulator/"
   },
