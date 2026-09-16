@@ -1045,6 +1045,21 @@ function layerC() {
       `found ${count}, expected ${expected} — run \`npm run bump ${version}\``);
   }
 
+  // --- Vercel builds from source, not from the committed bundle ---
+  //
+  // index.html is committed in production mode for GitHub Pages, so Vite would
+  // otherwise take `./assets/index-<hash>.js` as its entry and re-bundle the
+  // PREVIOUS build instead of compiling src/ - 4 modules instead of 55. The
+  // build still succeeds and the site still runs, it is just frozen at the last
+  // `npm run deploy`, which makes every branch preview silently show main's
+  // code. scripts/dev-index.mjs is what prevents that, so the build command
+  // must keep calling it.
+  const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8"));
+  check("vercel buildCommand normalises index.html first",
+    (vercel.buildCommand || "").includes("dev-index.mjs"),
+    `got "${vercel.buildCommand}" - previews would serve the last deployed build`);
+  check("vercel outputDirectory is dist", vercel.outputDirectory === "dist", vercel.outputDirectory);
+
   // The README changelog must never be rewritten by a bump: the heading for
   // the *current* release is written by hand, and older ones stay untouched.
   const readme = readFileSync(join(ROOT, "README.md"), "utf8");

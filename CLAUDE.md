@@ -661,6 +661,22 @@ npm run bump 1.3.3 -- --dry  # show what would change, write nothing
 
 Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 13 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
 
+### Vercel
+
+Vercel builds **from source**, unlike GitHub Pages which serves the committed root `index.html` + `assets/`. Config lives in `vercel.json`:
+
+```json
+{ "framework": "vite", "installCommand": "npm ci",
+  "buildCommand": "node scripts/dev-index.mjs && npm run build",
+  "outputDirectory": "dist" }
+```
+
+**`scripts/dev-index.mjs` is not optional, and removing it fails silently.** `index.html` is committed in *production* mode because that is what Pages serves — but Vite reads `index.html` to find its entry, so on a clean clone it takes the committed `./assets/index-<hash>.js` as the entry and **re-bundles the previous build instead of compiling `src/`**. Measured: 4 modules transformed instead of 55. The build succeeds, the bundle is the right size, the site runs — it is just frozen at whatever `npm run deploy` last committed, so every branch preview shows `main`'s code while looking perfectly healthy. `dev-index.mjs` rewrites the entry to `/src/main.jsx` first (idempotent). Smoke Layer C asserts the build command still calls it.
+
+Because Vercel builds from source, its production deployment can be **ahead of** the GitHub Pages one: a merge to `main` updates Vercel immediately, while Pages only changes when `npm run deploy` commits new artifacts. Deploy promptly after merging, or the two hosts disagree.
+
+Branch previews are the reason this matters — pushing `hotfix/*` gives a URL to hand-test on a real phone before the fix reaches `main`.
+
 ### index.html rule
 
 Always stays in **dev mode** (`<script type="module" src="/src/main.jsx">`). `deploy.sh` patches to production mode, commits + pushes, then restores dev mode. Never manually edit `index.html`.
