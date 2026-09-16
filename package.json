@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "bump": "node scripts/bump-version.mjs",
     "deploy": "bash deploy.sh",
     "deploy:gh": "bash deploy.sh /rv-simulator/"
   },

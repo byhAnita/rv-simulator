@@ -12,7 +12,7 @@ set -euo pipefail
 
 BASE="${1:-./}"
 
-echo "=== [0/6] Preflight ==="
+echo "=== [0/7] Preflight ==="
 
 # 1. Must be on main. `git push origin main` below pushes the main ref no
 #    matter where HEAD is, so running this from dev would commit the build
@@ -41,15 +41,39 @@ if [ "$BEHIND" -gt 0 ]; then
   echo "    ABORT: main is ${BEHIND} commit(s) behind origin/main. Pull first." >&2
   exit 1
 fi
-echo "    on main, tree clean, up to date with origin"
 
-echo "=== [1/6] Clean old build ==="
+# 4. The smoke suite must pass. This is the mechanism behind "main is always
+#    stable" - a red suite cannot reach players, whatever the process. There is
+#    deliberately no override: a failing check means fix it or remove it.
+echo "    running smoke suite..."
+strip_ansi() { sed 's/\x1b\[[0-9;]*m//g'; }
+if ! SMOKE=$(node test/smoke.mjs 2>&1); then
+  # Match only real failure rows, not check names that happen to contain
+  # "failed" (data_inspection_failed, etc). Rows are "  FAIL <name>".
+  echo "$SMOKE" | strip_ansi | grep -E "^ +FAIL |passed, [0-9]+ failed" >&2 || true
+  echo "    ABORT: smoke suite is red, refusing to deploy." >&2
+  echo "           Full output: node test/smoke.mjs" >&2
+  exit 1
+fi
+echo "    $(echo "$SMOKE" | strip_ansi | tail -1)"
+
+# 5. Warn (do not abort) when this version is already tagged - the signature of
+#    a forgotten `npm run bump`. Re-deploying a botched release is legitimate.
+VERSION=$(node -p "require('./package.json').version")
+if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+  echo "    WARN: v${VERSION} is already tagged. Forgot 'npm run bump'?"
+  echo "          Continuing - re-deploying the same version is allowed."
+fi
+
+echo "    on main, tree clean, up to date with origin, tests green"
+
+echo "=== [1/7] Clean old build ==="
 rm -rf dist assets
 
-echo "=== [2/6] Build (base=${BASE}) ==="
+echo "=== [2/7] Build (base=${BASE}) ==="
 BASE_URL="$BASE" npm run build
 
-echo "=== [3/6] Copy assets to root ==="
+echo "=== [3/7] Copy assets to root ==="
 mkdir -p assets
 cp dist/assets/*.js  assets/
 cp dist/assets/*.css assets/
@@ -59,7 +83,7 @@ CSS=$(basename dist/assets/*.css)
 echo "    JS : $JS"
 echo "    CSS: $CSS"
 
-echo "=== [4/6] Patch index.html ==="
+echo "=== [4/7] Patch index.html ==="
 # Save dev-mode index.html and restore it on ANY exit path. Without the trap a
 # failed build, commit or push leaves index.html stuck in production mode and
 # the next `npx vite` serves a stale bundle instead of src/.
@@ -71,16 +95,14 @@ sed -i \
   "s|<script type=\"module\" src=\"/src/main.jsx\"></script>|<script type=\"module\" crossorigin src=\"./assets/${JS}\"></script>\n  <link rel=\"stylesheet\" crossorigin href=\"./assets/${CSS}\">|" \
   index.html
 
-echo "=== [5/6] Commit and push ==="
+echo "=== [5/7] Commit and push ==="
 MSG="${DEPLOY_MSG:-deploy: ${JS}}"
 git add index.html assets/ src/ README.md CLAUDE.md
 git commit -m "$MSG"
 git push origin main
 
-echo "=== [6/6] Restore dev-mode index.html (local only, not committed) ==="
+echo "=== [6/7] Restore dev-mode index.html (local only, not committed) ==="
 # handled by the EXIT trap
-
-VERSION=$(node -p "require('./package.json').version")
 
 echo ""
 echo "Done. GitHub Pages and Vercel will redeploy automatically."

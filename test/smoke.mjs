@@ -15,7 +15,7 @@
 // Layers:
 //   A  offline  request-body contract, all 4 providers x reasoning on/off
 //   B  live     one real round per reasoning mode against the provider
-//   C  offline  secret-leak checks (bundle, source, env hygiene)
+//   C  offline  secret-leak checks (bundle, source, env hygiene) + version strings
 //   D  offline  probability engine recency window
 //   E  offline  classifyError against fixtures from docs/error_code/*.md
 //   F  offline  Aliyun free-credit router + retry policy with a mocked fetch
@@ -23,6 +23,7 @@
 //   H  live     Aliyun free-credit route: per-model params + one routed round
 
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
@@ -1021,6 +1022,35 @@ function layerC() {
       .join(", ");
   } catch { /* ignore */ }
   check("no .env file appears in git history", inHistory === "", inHistory);
+
+  // --- version-string consistency ---
+  //
+  // The displayed version lives in 13 places across five files (App.jsx
+  // duplicates the i18n cover strings). A partial bump ships a build whose
+  // cover disagrees with package.json, which makes a player's bug report
+  // ambiguous. `npm run bump` rewrites all 13; this proves it was run.
+  //
+  // deploy.sh preflight runs this suite, so a partial bump cannot reach
+  // players. Re-running the bump script is the fix, never editing by hand.
+  const version = readCurrentVersion(ROOT);
+  check("package.json version is x.y.z", /^\d+\.\d+\.\d+$/.test(version), version);
+
+  for (const [rel, expected] of Object.entries(EXPECTED)) {
+    if (rel === "package.json") continue;
+    const text = readFileSync(join(ROOT, rel), "utf8");
+    // Count the strings that already carry the current version: bumping to a
+    // throwaway version must find exactly as many as EXPECTED declares.
+    const { count } = bumpFile(rel, text, version, "0.0.0");
+    check(`${rel} carries v${version} in ${expected} place(s)`, count === expected,
+      `found ${count}, expected ${expected} — run \`npm run bump ${version}\``);
+  }
+
+  // The README changelog must never be rewritten by a bump: the heading for
+  // the *current* release is written by hand, and older ones stay untouched.
+  const readme = readFileSync(join(ROOT, "README.md"), "utf8");
+  check(`README has a "What's New in v${version}" section`,
+    readme.includes(`What's New in v${version}`),
+    "add the section by hand as part of the release commit");
 }
 
 // ============================================================ main
