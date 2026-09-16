@@ -67,13 +67,25 @@ fi
 
 echo "    on main, tree clean, up to date with origin, tests green"
 
-echo "=== [1/7] Clean old build ==="
-rm -rf dist assets
+echo "=== [1/7] Normalise index.html to dev mode ==="
+# Vite reads index.html to find its entry, so this must be the dev-mode tag
+# before building. A previous failed run, a branch switch, or a plain
+# `git checkout -- index.html` all leave it in PRODUCTION mode, and then the
+# build either re-bundles the old output or dies resolving ./assets/<hash>.js.
+# Normalising here makes deploy safe from any starting state, and the EXIT
+# trap leaves the tree ready for `npx vite` however the script ends.
+trap 'node scripts/dev-index.mjs >/dev/null 2>&1 || true' EXIT
+node scripts/dev-index.mjs
 
 echo "=== [2/7] Build (base=${BASE}) ==="
+rm -rf dist
 BASE_URL="$BASE" npm run build
 
-echo "=== [3/7] Copy assets to root ==="
+echo "=== [3/7] Publish assets to root ==="
+# Only now that the build has succeeded. Deleting assets/ any earlier means a
+# failed build wipes the bundle currently served by GitHub Pages, leaving the
+# live site broken until someone restores it from git.
+rm -rf assets
 mkdir -p assets
 cp dist/assets/*.js  assets/
 cp dist/assets/*.css assets/
@@ -84,13 +96,8 @@ echo "    JS : $JS"
 echo "    CSS: $CSS"
 
 echo "=== [4/7] Patch index.html ==="
-# Save dev-mode index.html and restore it on ANY exit path. Without the trap a
-# failed build, commit or push leaves index.html stuck in production mode and
-# the next `npx vite` serves a stale bundle instead of src/.
-ORIG_INDEX=$(cat index.html)
-restore_index() { printf '%s' "$ORIG_INDEX" > index.html; }
-trap restore_index EXIT
-
+# The dev-mode restore is handled by the EXIT trap installed in step 1, which
+# regenerates the tag deterministically rather than replaying a saved string.
 sed -i \
   "s|<script type=\"module\" src=\"/src/main.jsx\"></script>|<script type=\"module\" crossorigin src=\"./assets/${JS}\"></script>\n  <link rel=\"stylesheet\" crossorigin href=\"./assets/${CSS}\">|" \
   index.html
