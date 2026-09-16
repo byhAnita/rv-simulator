@@ -1,15 +1,15 @@
 {
   "name": "Idol Dating Sim",
   "short_name": "IdolSim",
-  "start_url": "/rv-simulator/",
-  "scope": "/rv-simulator/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0410",
   "theme_color": "#b71c1c",
   "icons": [
     {
-      "src": "/rv-simulator/icons.svg",
+      "src": "./icons.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"

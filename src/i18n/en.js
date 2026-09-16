@@ -1,7 +1,7 @@
 const en = {
   cover: {
     subtitle: "Idol Dating Simulator",
-    desc: "LLM Text Adventure · Yuri Dating Sim · v1.3.4",
+    desc: "LLM Text Adventure · Yuri Dating Sim · v1.3.5",
     newGame: "✨ New Game",
     continue: "💾 Continue (Load Save)",
     apiKey: "🔑 API Key / Model",

@@ -1045,6 +1045,68 @@ function layerC() {
       `found ${count}, expected ${expected} — run \`npm run bump ${version}\``);
   }
 
+  // --- host-independent paths ---
+  //
+  // The app is served from three places at two different depths: GitHub Pages
+  // under /rv-simulator/, Vercel and Cloudflare at the root. Anything that
+  // hardcodes the Pages subpath 404s on the other two. That shipped: group
+  // JSON was fetched from a hostname check (`localhost ? '/' : '/rv-simulator/'`)
+  // so every non-local host fell into loadGroupIndex's catch and showed only
+  // the hardcoded Red Velvet fallback.
+  //
+  // The rule: runtime fetches derive their prefix from import.meta.env.BASE_URL,
+  // and manifest paths are relative to the manifest's own URL.
+  const srcFiles = [];
+  const walkSrc = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walkSrc(p);
+      else if (/\.(js|jsx)$/.test(e.name)) srcFiles.push(p);
+    }
+  };
+  walkSrc(join(ROOT, "src"));
+  const subpathHits = srcFiles.filter((p) => {
+    const code = readFileSync(p, "utf8")
+      .split("\n")
+      // Drop comment lines: explaining the old bug is allowed, shipping it is not.
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join("\n")
+      // github.com/byhAnita/rv-simulator is the repo link, not a served path.
+      .replace(/https:\/\/github\.com\/[^\s"')]*/g, "");
+    return code.includes("/rv-simulator/");
+  });
+  check("no src/ file hardcodes the /rv-simulator/ subpath",
+    subpathHits.length === 0,
+    subpathHits.map((p) => p.replace(ROOT, "")).join(", "));
+
+  check("groupLoader derives its prefix from BASE_URL",
+    readFileSync(join(ROOT, "src/rag/groupLoader.js"), "utf8").includes("import.meta.env.BASE_URL"),
+    "a hostname check cannot know the deploy path");
+
+  for (const rel of ["manifest.json", "public/manifest.json"]) {
+    const m = JSON.parse(readFileSync(join(ROOT, rel), "utf8"));
+    const abs = [m.start_url, m.scope, ...(m.icons || []).map((i) => i.src)]
+      .filter((v) => typeof v === "string" && v.startsWith("/"));
+    check(`${rel} uses paths relative to the manifest`, abs.length === 0, abs.join(", "));
+  }
+
+  // Both copies are served - public/ to the built hosts, root to Pages - so a
+  // change to one alone means the two sites disagree about scope and icon.
+  const rootManifest = JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8"));
+  const pubManifest = JSON.parse(readFileSync(join(ROOT, "public/manifest.json"), "utf8"));
+  check("root and public manifest.json agree",
+    JSON.stringify(rootManifest) === JSON.stringify(pubManifest),
+    "edit both, or the Pages site and the built hosts diverge");
+
+  // Referencing the manifest as "/manifest.json" makes Vite treat it as a
+  // public-dir asset and rewrite it to "./manifest.json" for the relative base.
+  // Writing "./manifest.json" in source instead makes Vite resolve the ROOT
+  // copy and emit a second, hashed manifest under assets/ - at a different
+  // depth, where the relative icon path no longer resolves.
+  check("index.html references the manifest as a public asset",
+    /<link rel="manifest" href="\/manifest\.json"/.test(readFileSync(join(ROOT, "index.html"), "utf8")),
+    "use /manifest.json, not ./manifest.json");
+
   // --- Vercel builds from source, not from the committed bundle ---
   //
   // index.html is committed in production mode for GitHub Pages, so Vite would
