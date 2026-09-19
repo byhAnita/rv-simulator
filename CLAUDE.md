@@ -35,6 +35,8 @@ DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 
 Validate every change with `npm run build` **and** `node test/smoke.mjs`. No lint config.
 
+**Both harnesses must define `import.meta.env.BASE_URL` when bundling `src/`.** Vite fills it at build time and Node has no `import.meta.env` at all, so any module reaching `groupLoader.js` throws `Cannot read properties of undefined` before the first API call. `playthrough.mjs` and smoke Layer I both pass `define: { "import.meta.env.BASE_URL": '"/"' }` to esbuild — `"/"` matching the dev-server base and the `/groups/` paths their fetch stubs serve from disk. v1.3.5 introduced the dependency and killed `playthrough.mjs` outright; it stayed dead until v1.3.7 because nothing offline exercised that bundling path. Layer I now does.
+
 `test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.
 
 **The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's age therefore defaults to the cast's median birth year, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` pins it. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
@@ -456,7 +458,27 @@ The fix is a per-member **Address** line computed from birth years plus the play
 
 Korean workplace register overrides age where it genuinely would: a **Staff** player is `매니저님` and a **Chaebol** player `회장님` regardless of who was born first, softening toward her name as they get close.
 
+### Korean address forms are transliterated, never localized
+
+The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. `buildSystemPrompt` carries a per-language token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
+
+| | 언니 | 님 | 씨 | 야/아 |
+| --- | --- | --- | --- | --- |
+| zh | `欧尼` — never `姐`/`姐姐` | **`nim`, in Latin** — never `尼姆` | **`xi`, in Latin** — never `西` | `呀`/`啊` |
+| en | `unnie` — never "big sister" | `-nim` | `-ssi` | `-ya`/`-ah` |
+| ko | `언니` | `님` | `씨` | `야`/`아` |
+
+**zh deliberately mixes scripts.** 언니 and 야 have settled Chinese transliterations that fans read fluently (`欧尼`, `呀`), but 님 and 씨 do not — a reader knows `会长nim，早上好` at sight and stumbles over `会长尼姆`. Romanization for those two, Chinese characters for the other two; the split is by what the audience actually reads, not by consistency.
+
+zh also romanizes 씨 as **`xi`**, not `ssi`, because that is the pinyin a Chinese reader maps back to 시.
+
+`playthrough.mjs` grades this from the other side: `sinicized-honorific` fires on `<Name>姐` in zh and `<Name> sister` in en, so a model that localizes anyway is caught in real prose.
+
 Comparison is by **birth year, not age gap in years** — Korean seniority is a birth-year boundary, so a 1994 and a 1995 member are not peers even though they are months apart. The old `±2 years` tolerance erased that distinction.
+
+**`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
+
+The lesson generalises past this field: **a test that reads `public/groups/*.json` directly tests the formatter, not the feature.** The v1.3.6 checks did exactly that and passed while the app was broken. Anything asserting on member data must load it through `loadGroupConfig`, which is what smoke Layer I now does. When you add a member field to a group JSON, add it to the whitelist in the same commit or it will not exist at runtime.
 
 ### LLM Output JSON Schema
 
@@ -580,6 +602,10 @@ public/groups/
 ```
 
 Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `emoji`, `color`, `accent`, `personality`, `queerTexture`, `speechStyle`).
+
+**Adding a field to a group JSON is not enough to make it reach the app.** `groupLoader.js#parseGroupConfig` rebuilds every member from an explicit whitelist, so a field that is not listed there is silently dropped between the file and the prompt — no error, no warning, just a `undefined` the consumer quietly defaults. `birthday` sat in every group JSON and never reached `buildSystemPrompt` for the whole life of the age-texture feature. Add the field to the whitelist in the same commit, and assert on it through `loadGroupConfig`, never by reading the JSON.
+
+`name` is the Latin stage name in **all three** language files; `name_kr` is the localized real name (`裴珠泫` / `Bae Ju-hyun` / `배주현`). A Hangul *stage* name (`예리`) exists in no group JSON.
 
 Group JSON size directly drives the static-prompt token count (Red Velvet ~8KB, TWICE ~14KB), so a 9-member group has a noticeably larger cached prefix than a 4-member one.
 
@@ -788,7 +814,21 @@ Then:
 
 ## Project Status (2026-09-19)
 
-**v1.3.6 is the current release.** Working branch is `dev`. Validated offline (`npm run build` + **439 checks** in `node test/smoke.mjs`).
+**v1.3.7 is the current release.** Working branch is `dev`. Validated offline (`npm run build` + **455 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+
+**Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
+
+### v1.3.7 — the v1.3.6 fix, actually reaching the model (2026-09-19)
+
+**v1.3.6 shipped inert and offline tests could not see it.** `parseGroupConfig` rebuilds members from a field whitelist that omitted `birthday`, so the whole cast arrived at the prompt as the `"2000-01-01"` fallback — one birth year for everyone. Layer I passed because it read `public/groups/*.json` directly; the live harness was the only thing that touched the real path, and it had been dead since v1.3.5 (`import.meta.env.BASE_URL` does not exist under Node).
+
+Three process lessons, all now mechanised in Layer I:
+
+1. **Assert on member data through `loadGroupConfig`, never by reading the JSON.** A fixture tests the formatter and not the feature.
+2. **A guard is worth only as much as the path it exercises.** 16 Layer I checks passed against a completely broken app.
+3. **A dead harness is invisible.** Layer I now boots the live-harness bundle offline, so `playthrough.mjs` cannot rot silently again.
+
+Also fixed in the harness itself: `real-name-vocative` used a quote *character class*, which cannot distinguish an opening quote from a closing one and so read narration following dialogue as if it were inside it — one false positive in the first clean run. It now extracts properly paired spans. Flagged rounds store the full story, not a 400-char head that can truncate away the very match being judged.
 
 ### v1.3.6 — writing quality (2026-09-19)
 
@@ -837,7 +877,7 @@ Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`*
 
 **Test layer**
 12. **`test/playthrough.mjs`** (new) — plays real multi-round games and grades JSON validity, language lock, option format, stat bounds, CoT leakage, and the ledger-prefix cache invariant; reads `usage.cached_tokens` to measure the cache directly.
-13. **Smoke suite 145 → 439 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
+13. **Smoke suite 145 → 455 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
 
 ### Live test results (2026-09-16)
 

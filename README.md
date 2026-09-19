@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.6
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.7
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.6-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.7-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.6)
+## 💰 API Cost & Performance (v1.3.7)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -153,6 +153,11 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.3.7
+
+* 🎂 **The honorific fix from v1.3.6 now actually works** — v1.3.6 rewrote how members address you, but the birthdays it needs were being dropped before they reached the model, so every member looked the same age and nothing changed in play. Members now use your real age difference. If v1.3.6 seemed to make no difference, this is why.
+* 🇰🇷 **Korean address forms stay Korean** — 欧尼 / unnie rather than 姐 or "big sister", and nim / xi kept as they sound, so a line reads like "Irene欧尼，前辈nim，这么晚还没回去？" instead of being translated into something that feels like a domestic drama. The setting is Seoul; the words should sound like it.
 
 ## 🎉 What's New in v1.3.6
 
@@ -265,7 +270,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.6              | |
+|  |              LLM Text Adventure . v1.3.7              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -368,7 +373,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.6 - Architecture                     |
+|          Idol Dating Sim  v1.3.7 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -424,7 +429,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.6 Round Flow                            |
+|                    v1.3.7 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

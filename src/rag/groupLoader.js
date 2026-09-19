@@ -75,6 +75,11 @@ function parseGroupConfig(config) {
     animal: m.animal,
     mbti: m.mbti,
     role: m.role,
+    // The address protocol in buildSystemPrompt derives Korean seniority from
+    // this. It was missing from the whitelist, so every member reached the
+    // prompt as the "2000-01-01" fallback — one birth year for the whole cast,
+    // which made the age line uniform nonsense rather than merely inverted.
+    birthday: m.birthday,
     ig: m.ig || `${m.id}_official`,
     public_image: m.public_image || "",
     private_personality: m.private_personality || "",

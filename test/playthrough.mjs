@@ -103,6 +103,12 @@ async function buildBundle() {
       resolveDir: ROOT, loader: "js",
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
+    // groupLoader reads import.meta.env.BASE_URL, which Vite fills at build
+    // time and Node does not have at all — without this the whole harness dies
+    // on "Cannot read properties of undefined" before the first API call.
+    // "/" matches the dev-server base and the /groups/ paths the fetch stub
+    // below serves from disk.
+    define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
   });
   return outfile;
 }
@@ -122,6 +128,9 @@ function languageOk(story, lang) {
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // unnie in the three scripts the game can output, with or without a separator.
+// The transliterated forms only. 姐 is deliberately absent: the setting is
+// Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
+// see sinicizedHonorifics below.
 const UNNIE = "(unnie|언니|欧姬)";
 const calledUnnie = (name) => new RegExp(`${esc(name)}\\s*[-‐-― ]?\\s*${UNNIE}`, "i");
 
@@ -149,17 +158,53 @@ function honorificErrors(story, cast) {
   return bad;
 }
 
+// Everything between paired quotes. A character class cannot do this: it has no
+// way to tell an opening quote from a closing one, so narration that follows a
+// line of dialogue reads as if it were inside it. That produced a false
+// "real-name-vocative" on a round whose dialogue was in fact correct.
+function dialogueSpans(story) {
+  const spans = [];
+  for (const re of [/"([^"]*)"/g, /“([^”]*)”/g, /「([^」]*)」/g]) {
+    for (const m of story.matchAll(re)) spans.push(m[1]);
+  }
+  return spans;
+}
+
+// The game is set in South Korea, so Korean address forms stay transliterated
+// in every output language. Rendering 언니 as the Chinese 姐, or as the English
+// "big sister", localizes the setting away — the prompt bans both by name and
+// this catches a model that does it anyway. Anchored to a member or the player,
+// so ordinary 姐姐/小姐 in narration does not match.
+function sinicizedHonorifics(story, cast, lang) {
+  const names = [...cast.members.map((m) => m.name), cast.playerName].filter(Boolean);
+  const bad = [];
+  if (lang === "zh") {
+    if (names.some((n) => new RegExp(`${esc(n)}\\s*姐`).test(story))) bad.push("sinicized-honorific");
+  } else if (lang === "en") {
+    if (names.some((n) => new RegExp(`${esc(n)}[-\\s](big sister|sis|sister)\\b`, "i").test(story))) {
+      bad.push("sinicized-honorific");
+    }
+  }
+  return bad;
+}
+
 // "Irene, thanks for the coffee" — spoken by Irene. The speaker of a line is not
 // recoverable from prose, so this targets the form that is anomalous whoever
 // says it: a member's full real name used as a vocative inside dialogue.
 // Members address each other by stage name, so a real name in the vocative is
 // almost always the model reaching for the only Korean-looking name it has.
+// Narration may use real names freely and is deliberately excluded.
 function selfNameErrors(story, cast) {
   const bad = [];
+  const spans = dialogueSpans(story);
+  if (spans.length === 0) return bad;
   for (const m of cast.members) {
     if (!m.name_kr) continue;
-    const re = new RegExp(`["“”「」][^"“”「」]{0,80}${esc(m.name_kr)}\\s*[,，!！?？]`);
-    if (re.test(story)) bad.push(`real-name-vocative:${m.id}`);
+    // A vocative opens a clause. Requiring that excludes self-introduction
+    // ("我叫孙胜完，…" / "My name is Bae Ju-hyun, …"), which is correct speech
+    // and was the third false positive this check produced.
+    const re = new RegExp(`(^|[。.!！?？…—])\\s*${esc(m.name_kr)}\\s*[,，!！?？]`);
+    if (spans.some((s) => re.test(s))) bad.push(`real-name-vocative:${m.id}`);
   }
   return bad;
 }
@@ -191,13 +236,24 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
   if (cast) {
     bad.push(...honorificErrors(story || "", cast));
     bad.push(...selfNameErrors(story || "", cast));
+    bad.push(...sinicizedHonorifics(story || "", cast, lang));
 
-    // KKT is gated on affection. If the story talks about Kakao but the round
-    // delivered no message to any member, it narrated a text the player never
-    // received — the exact symptom of the model not being told about the lock.
+    // KKT is gated on affection. A story that describes a message ARRIVING in a
+    // round that delivered none is the symptom of the lock being ignored.
+    // Merely naming the app is not: now that the prompt tells the model which
+    // channels are shut, it legitimately writes lines like "the KKT window
+    // stayed silent" — which the first version of this check flagged as a bug.
     const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);
-    if (!delivered && /KakaoTalk|카카오톡|카톡|\bKKT\b/i.test(story || "")) {
-      bad.push("kkt-narrated-but-locked");
+    if (!delivered) {
+      const s = story || "";
+      const word = /KakaoTalk|카카오톡|카톡|\bKKT\b/gi;
+      const arrival = /收到|发来|发了|弹出|震动|提示音|响起|一条|buzz|ping|received|sent you|notification|popped|lit up|왔|보냈|울렸|알림|도착/i;
+      for (const m of s.matchAll(word)) {
+        if (arrival.test(s.slice(Math.max(0, m.index - 60), m.index + 60))) {
+          bad.push("kkt-narrated-but-locked");
+          break;
+        }
+      }
     }
   }
   return bad;
@@ -390,7 +446,14 @@ async function runWorker(model) {
         ...(meta || {}),
         // Keep the evidence for anything that graded badly, so a short or
         // off-language story can be read back without re-running the model.
-        ...(bad.length ? { storyText: story.slice(0, 400), optionsText: res.options } : {}),
+        // Full text, not a 400-char head: a grader can fire past the truncation
+        // point, and then the report cannot be used to judge the flag.
+        ...(bad.length ? { storyText: story, optionsText: res.options } : {}),
+        // Graders only ever report what went wrong, which cannot show that a
+        // positive instruction was followed — "0 issues" reads the same whether
+        // the model used 欧尼 or avoided honorifics altogether. Keep one sample
+        // per model so the prose can be read back.
+        ...(round === 0 ? { sampleText: story.slice(0, 700) } : {}),
       });
 
       stats = res.newStats; memory = res.updatedMemory; kktUnlocked = res.newKktUnlocked;

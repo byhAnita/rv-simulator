@@ -100,13 +100,34 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const playerBirthYear = GAME_YEAR - playerAge;
   const playerName = form.name || "Player";
 
+  // The setting is South Korea, so Korean address forms are transliterated into
+  // whatever language the story is written in — never swapped for a native
+  // equivalent. Rendering 언니 as the Chinese 姐 reads as a Chinese family
+  // drama and throws away the register the game is built on.
+  // zh mixes scripts on purpose, following how K-pop fans actually write:
+  // 언니 and 야 have settled Chinese transliterations (欧尼 / 呀), but 님 and 씨
+  // are written in Latin as "nim" and "xi" — a reader knows "会长nim" at sight
+  // and would stumble over "会长尼姆".
+  const TOKENS = {
+    zh: { unnie: "欧尼", ya: "呀", nim: "nim", ssi: "xi", sep: "" },
+    en: { unnie: "unnie", ya: "-ya", nim: "-nim", ssi: "-ssi", sep: "-" },
+    ko: { unnie: "언니", ya: "야", nim: "님", ssi: "씨", sep: " " },
+  };
+  const tk = TOKENS[language] || TOKENS.zh;
+  const call = (name, token) => `${name}${tk.sep}${token}`;
+
   // Identities carrying a workplace register that outranks age. It softens
   // toward her given name as they get closer — REGISTER covers that.
-  const identityAddress = {
-    "Staff": `she addresses ${playerName} as "Manager-nim" (매니저님) on the job whatever their ages`,
-    "财阀": `she addresses ${playerName} as "Chairwoman-nim" (회장님) whatever their ages`,
-    "练习生": `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses "sunbae-nim" (선배님) at work`,
+  const WORK_TITLE = {
+    "Staff": { zh: "经纪人nim", en: "Manager-nim", ko: "매니저님", kr: "매니저님" },
+    "财阀": { zh: "会长nim", en: "Chairwoman-nim", ko: "회장님", kr: "회장님" },
+    "练习生": { zh: "前辈nim", en: "sunbae-nim", ko: "선배님", kr: "선배님" },
   }[form.identity] || null;
+  const workTitle = WORK_TITLE ? `"${WORK_TITLE[language] || WORK_TITLE.zh}" (${WORK_TITLE.kr})` : null;
+  const identityAddress = !workTitle ? null
+    : form.identity === "练习生"
+      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work`
+      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages`;
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
@@ -115,11 +136,11 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
 
     let ageLine, addressLine;
     if (memberIsOlderBy > 0) {
-      ageLine = `b.${memberBirthYear} — ${memberIsOlderBy} yr OLDER than ${playerName} (b.${playerBirthYear}). She is ${playerName}'s unnie.`;
-      addressLine = `${playerName} -> "${m.name}-unnie" (언니). She -> "${playerName}", or "${playerName}-ya/-ah" once close. She must NEVER call ${playerName} "unnie".`;
+      ageLine = `b.${memberBirthYear} — ${memberIsOlderBy} yr OLDER than ${playerName} (b.${playerBirthYear}). She is ${playerName}'s unnie (언니).`;
+      addressLine = `${playerName} -> "${call(m.name, tk.unnie)}". She -> "${playerName}", or "${call(playerName, tk.ya)}" once close. She must NEVER call ${playerName} "${tk.unnie}".`;
     } else if (memberIsOlderBy < 0) {
-      ageLine = `b.${memberBirthYear} — ${Math.abs(memberIsOlderBy)} yr YOUNGER than ${playerName} (b.${playerBirthYear}). ${playerName} is her unnie.`;
-      addressLine = `She -> "${playerName}-unnie" (언니). ${playerName} -> "${m.name}", or "${m.name}-ya/-ah" once close. ${playerName} must NEVER call her "unnie".`;
+      ageLine = `b.${memberBirthYear} — ${Math.abs(memberIsOlderBy)} yr YOUNGER than ${playerName} (b.${playerBirthYear}). ${playerName} is her unnie (언니).`;
+      addressLine = `She -> "${call(playerName, tk.unnie)}". ${playerName} -> "${m.name}", or "${call(m.name, tk.ya)}" once close. ${playerName} must NEVER call her "${tk.unnie}".`;
     } else {
       ageLine = `b.${memberBirthYear} — same birth year as ${playerName}. 동갑, no unnie in either direction.`;
       addressLine = `Both use the plain given name; 반말 comes easily after a few meetings.`;
@@ -218,7 +239,20 @@ How much of that formality she actually speaks is a blend of three things, none 
   2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
   3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
 A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
-Markers available: -unnie (언니), -ssi (씨), -nim (님), -ya/-ah (야/아 — close, and only toward someone younger), 반말 vs 존댓말.
+-- KOREAN ADDRESS FORMS: transliterate, never localize --
+This is South Korea. Korean address forms are kept in ${lr.lang} as transliterations, because swapping them for a native equivalent throws away the setting.
+${language === "zh" ? `Chinese K-pop readers know these forms already. Two are written in Chinese characters and two in Latin letters — follow this exactly, it is how fans actually write.
+  언니 -> "欧尼"  (NEVER "姐"/"姐姐"/"姐妹" — that reads as a Chinese family drama, not K-pop)
+  님 -> "nim" in Latin letters (e.g. "会长nim，早上好") — NEVER "尼姆"
+  씨 -> "xi" in Latin letters (e.g. "珠泫xi") — NEVER "西"
+  야/아 -> "呀"/"啊" (e.g. "艺琳呀") — warm and close, or a flash of irritation; same sound as the Korean 야
+  선배 -> "前辈" (or "前辈nim")    존댓말 vs 반말: show it in how formal the sentence endings feel` :
+  language === "en" ? `  언니 -> "unnie" (e.g. "Irene-unnie")  — NEVER "big sister", "sis" or "miss"
+  씨 -> "-ssi" (e.g. "Ju-hyun-ssi")    님 -> "-nim" (e.g. "Manager-nim")
+  야/아 -> "-ya"/"-ah" (e.g. "Yerim-ah") — warm and close, or a flash of irritation
+  선배 -> "sunbae"    존댓말 vs 반말: show it in how formal the phrasing feels` :
+  `  언니 / 씨 / 님 / 야 / 아 / 선배님 을 그대로 쓴다. 존댓말과 반말의 차이를 어미로 드러낸다.`}
+A Korean word dropped into the prose is texture, not a translation error. Keep them frequent enough to feel Korean and rare enough to stay readable.
 
 ╔══════════════════════════════════════════╗
 ║ 7. SOCIAL PLATFORM RULES                 ║

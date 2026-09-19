@@ -1154,10 +1154,37 @@ async function layerI() {
           collapseHistoryIfNeeded, updateMemory } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
 
-  // Real group data: the birthdays are the input the whole protocol is derived
-  // from, so a fixture would test the formatter and not the fix.
-  const members = JSON.parse(
+  // Real group data, loaded the way the app loads it. Reading the JSON straight
+  // off disk tests the formatter and not the feature: parseGroupConfig copies
+  // members field by field, and it was silently dropping `birthday`, so the
+  // whole address protocol ran on the "2000-01-01" fallback in the real app
+  // while a raw-JSON fixture passed every check.
+  const loaderBundle = join(OUT, "groupLoader.mjs");
+  await esbuild.build({
+    entryPoints: [join(ROOT, "src", "rag", "groupLoader.js")],
+    bundle: true, format: "esm", platform: "neutral", outfile: loaderBundle, logLevel: "silent",
+    define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
+  });
+  const loader = await import("file://" + loaderBundle.replace(/\\/g, "/") + "?t=" + Date.now());
+  const fromDisk = async (fn) => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const p = join(ROOT, "public", String(url).replace(/^\//, ""));
+      if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => JSON.parse(readFileSync(p, "utf8")) };
+    };
+    try { return await fn(); } finally { globalThis.fetch = realFetch; }
+  };
+  const members = (await fromDisk(() => loader.loadGroupConfig("red_velvet", "en"))).members;
+
+  const rawMembers = JSON.parse(
     readFileSync(join(ROOT, "public", "groups", "red_velvet", "en.json"), "utf8")).members;
+  check("the loader hands the prompt every birthday the group JSON declares",
+    members.every((m) => m.birthday === rawMembers.find((r) => r.id === m.id)?.birthday),
+    JSON.stringify(members.map((m) => `${m.name}:${m.birthday}`)));
+  check("the cast spans more than one birth year after parsing",
+    new Set(members.map((m) => m.birthday)).size > 1,
+    "one birth year for the whole cast means the seniority fallback is in play");
   const byId = (id) => members.find((m) => m.id === id);
   const GROUP = { groupLore: "lore" };
 
@@ -1172,11 +1199,12 @@ async function layerI() {
     buildSystemPrompt(f, members, "irene", ["yeri"], GROUP, "", "qwen", lang);
 
   const p = prompt();
-  const addressOf = (name) => {
-    const lines = p.split("\n");
+  const addressOfIn = (text, name) => {
+    const lines = text.split("\n");
     const i = lines.findIndex((l) => l.includes(`${name}(`));
-    return i === -1 ? "" : lines.slice(i, i + 3).join("\n");
+    return i === -1 ? "" : lines.slice(i, i + 3).join("\n").replace(/\n/g, " / ");
   };
+  const addressOf = (name) => addressOfIn(p, name);
 
   // --- age direction. The old code printed the player's relative age inside
   //     the member's profile, so every line read backwards.
@@ -1243,6 +1271,33 @@ async function layerI() {
   check("register does not name stages the dynamic tail never emits",
     !/\b(Flirting|Lovers|Stranger stage)\b/.test(p.slice(p.indexOf("REGISTER:"), p.indexOf("7. SOCIAL"))));
 
+  // --- Korean address forms stay transliterated in every output language.
+  //     Localizing 언니 to the Chinese 姐 reads as a family drama and throws
+  //     away the setting the whole game rests on.
+  const zhP = prompt(form(), "zh"), enP = prompt(form(), "en"), koP = prompt(form(), "ko");
+  check("[zh] the older member is addressed as 欧尼, not 姐",
+    /Summer -> "Irene欧尼"/.test(zhP), addressOfIn(zhP, "Irene"));
+  check("[zh] 姐 is banned by name so the model cannot default to it",
+    zhP.includes('NEVER "姐"'), "the ban has to be explicit — the model reaches for 姐 otherwise");
+  check("[zh] the junior form is 呀, matching the Korean 야",
+    /Summer -> "Yeri呀"|"Yeri呀"/.test(zhP) || zhP.includes("呀"), "");
+  // zh mixes scripts deliberately: 欧尼/呀 in Chinese characters, nim/xi in
+  // Latin, because that is what a Chinese K-pop reader recognizes at sight.
+  check("[zh] 님 and 씨 are written in Latin as nim and xi",
+    /님 -> "nim"/.test(zhP) && /씨 -> "xi"/.test(zhP));
+  check("[zh] the unreadable transliterations are banned by name",
+    /NEVER "尼姆"/.test(zhP) && /NEVER "西"/.test(zhP));
+  check("[zh] a Chaebol player's work title uses Latin nim",
+    prompt(form({ identity: "财阀" }), "zh").includes("会长nim"));
+  check("[en] the older member is addressed as unnie",
+    /Summer -> "Irene-unnie"/.test(enP), addressOfIn(enP, "Irene"));
+  check("[en] English kinship words are banned by name",
+    /NEVER "big sister"/.test(enP));
+  check("[ko] the forms are written natively",
+    /Summer -> "Irene 언니"/.test(koP), addressOfIn(koP, "Irene"));
+  check("no prompt offers 姐 as an address form in any language",
+    ![zhP, enP, koP].some((x) => /-> "[^"]*姐"/.test(x)));
+
   // --- identity override outranks age, and only for the identities that have one.
   const staff = prompt(form({ identity: "Staff" }));
   check("Staff player is addressed by work title regardless of age",
@@ -1256,12 +1311,12 @@ async function layerI() {
     /Chairwoman-nim/.test(prompt(form({ identity: "财阀" }))));
 
   // --- player identity is stated at all, in every language.
-  for (const lang of ["zh", "en", "ko"]) {
+  for (const [lang, form_] of [["zh", "Irene欧尼"], ["en", "Irene-unnie"], ["ko", "Irene 언니"]]) {
     const lp = prompt(form(), lang);
     check(`[${lang}] player's birth year is given to the model`,
       /THE PLAYER: Summer .* born 1995/.test(lp));
     check(`[${lang}] address protocol survives the language switch`,
-      /Summer -> "Irene-unnie"/.test(lp));
+      lp.includes(`Summer -> "${form_}"`), addressOfIn(lp, "Irene"));
   }
 
   // --- a member with no birthday must not crash or invent seniority.
@@ -1345,6 +1400,53 @@ async function layerI() {
   collapseHistoryIfNeeded(m3);
   check("without keepFull the edit is lost (proves the guard above is live)",
     !buildHistoryLedger(m3).includes(EDIT));
+
+  // ------------------------------------------------- live harness bootability
+  // v1.3.5 moved groupLoader onto import.meta.env.BASE_URL, which Vite fills at
+  // build time and Node does not have — playthrough.mjs died on every model
+  // before its first API call, and stayed broken because nothing offline ran
+  // its bundling path. This exercises that path: same modules, same esbuild
+  // define, group JSON served from disk exactly as the harness serves it.
+  const liveBundle = join(OUT, "harnessBoot.mjs");
+  await esbuild.build({
+    stdin: {
+      contents: [
+        'export * from "./src/agent/mainAgent.js";',
+        'export * from "./src/rag/groupLoader.js";',
+      ].join("\n"),
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile: liveBundle, logLevel: "silent",
+    define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
+  });
+  const harness = await import("file://" + liveBundle.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const p = join(ROOT, "public", String(url).replace(/^\//, ""));
+    if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => JSON.parse(readFileSync(p, "utf8")) };
+  };
+  // loadGroupIndex swallows failures and returns a hardcoded Red Velvet entry,
+  // so "it returned something" proves nothing — the count is what separates a
+  // real load from the fallback.
+  let idx = [], cfg = null, bootErr = null;
+  try {
+    idx = await harness.loadGroupIndex();
+    cfg = await harness.loadGroupConfig("red_velvet", "ko");
+  } catch (e) { bootErr = `${e.name}: ${e.message}`; }
+  globalThis.fetch = realFetch;
+
+  check("live harness bundle boots under Node (no Vite-only globals)",
+    bootErr === null, bootErr || "");
+  check("group index loads for real, not via the Red Velvet fallback",
+    idx.length > 1, `got ${idx.length} groups — 1 means loadGroupIndex fell into its catch`);
+  check("group config parses through the harness bundle",
+    (cfg?.members?.length || 0) === 5 && !!cfg?.groupLore,
+    `members=${cfg?.members?.length}`);
+  check("harness-loaded members carry the birthdays the address protocol needs",
+    (cfg?.members || []).every((m) => /^\d{4}-/.test(m.birthday || "")),
+    "parseGroupConfig drops birthday — the address protocol would fall back to b.2000 for everyone");
 
   // ------------------------------------------------------ save compatibility
   // A v1.3.5 save has no keepFull anywhere. It must collapse exactly as before.
