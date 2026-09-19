@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.5
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.6
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.5-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.6-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.5)
+## 💰 API Cost & Performance (v1.3.6)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -153,6 +153,15 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.3.6
+
+A writing-quality release. Three bugs that all looked like "the model is sloppy" turned out to be things the prompt was telling it wrong, or never telling it at all.
+
+* 🗣️ **Members stop mixing up who is who** — "I" and "you" inside dialogue now have a stated meaning, so a member no longer answers as you, and no longer thanks you by saying her *own* name.
+* 👥 **Unnie finally points the right way** — the game knew your age and every member's birthday, but the line describing the gap was written backwards in every profile, so members could call you unnie while you were calling them unnie. Seniority now follows birth year, it never points both ways at once, and how formal she actually sounds comes from the age gap, how close you are, and her own personality together — a same-age member is relaxed with you early, while a much older one stays warm but careful for a while. Staff and Chaebol players are addressed by their work title.
+* 💬 **No more phantom Kakao messages** — a member below the affection threshold could be described as texting you when no message ever arrived, because the lock was applied after the story was written. The model is now told which chats are open before it writes.
+* ✏️ **Your story edits actually reach the model** — an edited story was being replaced by its original summary on roughly every third round, so the model kept writing from the version you had rewritten. Edits now always get through.
 
 ## 🎉 What's New in v1.3.5
 
@@ -256,7 +265,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.5              | |
+|  |              LLM Text Adventure . v1.3.6              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -359,7 +368,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.5 - Architecture                     |
+|          Idol Dating Sim  v1.3.6 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -415,7 +424,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.5 Round Flow                            |
+|                    v1.3.6 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

@@ -627,8 +627,11 @@ export default function App() {
     }));
     const entry = memoryRef.current?.history?.at(-1);
     // Keep the original English summary: it is the collapse target, and a
-    // truncated slice of the edited text would be a worse one.
-    if (entry && entry.type === "full") entry.text = edited;
+    // truncated slice of the edited text would be a worse one. keepFull is what
+    // makes that safe — the next round's collapse runs before the ledger is
+    // built, so without it an edit made on every third round was replaced by
+    // the stale summary and never reached the model at all.
+    if (entry && entry.type === "full") { entry.text = edited; entry.keepFull = true; }
     showNotif(t.editSaved || "Saved");
   };
 
@@ -709,9 +712,9 @@ export default function App() {
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.5", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.5", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.5", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.6", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.6", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.6", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
     const titleGrad = theme === "dark"
