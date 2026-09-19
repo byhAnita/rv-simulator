@@ -23,7 +23,8 @@ as the record of *why* each change exists — the reasoning is not reconstructib
 | Error notices polluted saves and exports | Tagged `error: true` and filtered | `App.jsx` |
 
 Measured afterwards: `glm-5.1` went from **7/12 to 12/12 clean rounds**, and a live route-mode
-playthrough ran **8/8 clean**. Offline suite 371 checks, 381 with the live probe, 28/28 models
+playthrough ran **8/8 clean**. Offline suite 371 checks at the time of this sweep (386 after the
+deployment-path work later the same day), 381 with the live probe, 28/28 models
 accepting our parameters.
 
 **Pricing was deliberately left unchanged** — see the cache section for why.

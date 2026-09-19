@@ -87,31 +87,49 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   };
   const paceRule = paceRules[form.pace] || "";
 
-  // Age texture for each member
-  const playerBirthYear = GAME_YEAR - parseInt(form.age || 20);
+  // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
+  // 1995 idol are not peers even though they may be months apart. Direction is
+  // therefore decided on birth year alone and never flips. How much of the
+  // resulting formality is actually spoken is left to the REGISTER block, which
+  // asks the model to blend it with the current stage and her personality.
+  //
+  // The previous version computed the same number and printed it as the MEMBER's
+  // age texture ("15 years younger") when the sign actually describes the
+  // PLAYER, so every profile in every group stated the relationship backwards.
+  const playerAge = parseInt(form.age || 20) || 20;
+  const playerBirthYear = GAME_YEAR - playerAge;
+  const playerName = form.name || "Player";
+
+  // Identities carrying a workplace register that outranks age. It softens
+  // toward her given name as they get closer — REGISTER covers that.
+  const identityAddress = {
+    "Staff": `she addresses ${playerName} as "Manager-nim" (매니저님) on the job whatever their ages`,
+    "财阀": `she addresses ${playerName} as "Chairwoman-nim" (회장님) whatever their ages`,
+    "练习生": `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses "sunbae-nim" (선배님) at work`,
+  }[form.identity] || null;
+
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
-    const ageDiff = playerBirthYear - memberBirthYear;
-    let ageTexture = '';
-    if (language === "zh") {
-      if (ageDiff > 2) ageTexture = `年下${ageDiff}岁。互动中有年下感，可能被当成妹妹/后辈看待。`;
-      else if (ageDiff < -2) ageTexture = `年上${Math.abs(ageDiff)}岁。互动中有年上感，自然流露出照顾和保护欲。`;
-      else ageTexture = `同龄人。相处更加平等自然，有同代人的默契。`;
-    } else if (language === "ko") {
-      if (ageDiff > 2) ageTexture = `${ageDiff}살 연하. 언니/선배로 대하는 느낌.`;
-      else if (ageDiff < -2) ageTexture = `${Math.abs(ageDiff)}살 연상. 자연스럽게 보호하고 챙겨주는 느낌.`;
-      else ageTexture = `동갑. 더 평등하고 자연스러운 관계.`;
-    } else {
-      if (ageDiff > 2) ageTexture = `${ageDiff} years younger. Interacts with a junior/sisterly feel.`;
-      else if (ageDiff < -2) ageTexture = `${Math.abs(ageDiff)} years older. Naturally caring and protective.`;
-      else ageTexture = `Same age. Equal, natural chemistry with generational默契.`;
-    }
+    // Positive => born earlier => the member is the elder.
+    const memberIsOlderBy = playerBirthYear - memberBirthYear;
 
+    let ageLine, addressLine;
+    if (memberIsOlderBy > 0) {
+      ageLine = `b.${memberBirthYear} — ${memberIsOlderBy} yr OLDER than ${playerName} (b.${playerBirthYear}). She is ${playerName}'s unnie.`;
+      addressLine = `${playerName} -> "${m.name}-unnie" (언니). She -> "${playerName}", or "${playerName}-ya/-ah" once close. She must NEVER call ${playerName} "unnie".`;
+    } else if (memberIsOlderBy < 0) {
+      ageLine = `b.${memberBirthYear} — ${Math.abs(memberIsOlderBy)} yr YOUNGER than ${playerName} (b.${playerBirthYear}). ${playerName} is her unnie.`;
+      addressLine = `She -> "${playerName}-unnie" (언니). ${playerName} -> "${m.name}", or "${m.name}-ya/-ah" once close. ${playerName} must NEVER call her "unnie".`;
+    } else {
+      ageLine = `b.${memberBirthYear} — same birth year as ${playerName}. 동갑, no unnie in either direction.`;
+      addressLine = `Both use the plain given name; 반말 comes easily after a few meetings.`;
+    }
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
     return `${m.emoji} ${m.name}(${m.name_kr}) ${role}
-  Age Texture: ${ageTexture}
+  Age: ${ageLine}
+  Address: ${addressLine}
   Animal: ${m.animal_plastic}
   Public: ${m.public_image || ""}
   Private: ${m.private_personality || ""}
@@ -155,7 +173,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Story length: 350 - 450 words in ${lr.lang}
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
-- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), members may address the player by name, nickname, or title — that is fine.
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan. 
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
 - Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
@@ -163,6 +181,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma.
 - Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation.
 
+╔══════════════════════════════════════════╗
 ║ 4. GROUP BACKGROUND                      ║
 ╚══════════════════════════════════════════╝
 This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.
@@ -175,15 +194,31 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗
-║ 6. PLAYER SETTINGS                       ║
+║ 6. CAST IDENTITY & ADDRESS               ║
 ╚══════════════════════════════════════════╝
-Name: ${form.name} | Player: young WLW woman
+THE PLAYER: ${playerName} — a young WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
 Identity: ${form.identity}
 Progression Pace: ${form.pace}
 Main Member: ${mainMember?.name}(${mainMember?.name_kr})
 ${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
 ${npcList.length > 0 ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)` : ""}
 ${identityBg}
+
+-- SPEAKER CONTRACT (the most common failure — apply it literally) --
+- Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
+- In the player's choice text, "I" is always ${playerName} and "you" is the member being addressed. Do not swap them when you continue the scene.
+- A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
+- No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
+- In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
+
+-- REGISTER: blend these, do not look one up --
+Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}. It relaxes toward her given name as they grow close.` : ""}
+How much of that formality she actually speaks is a blend of three things, none of which decides alone:
+  1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
+  2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
+  3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
+A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
+Markers available: -unnie (언니), -ssi (씨), -nim (님), -ya/-ah (야/아 — close, and only toward someone younger), 반말 vs 존댓말.
 
 ╔══════════════════════════════════════════╗
 ║ 7. SOCIAL PLATFORM RULES                 ║
@@ -193,6 +228,7 @@ ${identityBg}
 - Instagram: Photo social. Style: aesthetic, short caption + emoji.
 - Weverse: Fan community. Style: friendly, natural.
 - KKT (KakaoTalk): Private chat, member-to-player. Style: flirty/caring/casual.
+- KKT IS A LOCKED CHANNEL. [KKT Channels] in CURRENT STATE lists every member as unlocked or LOCKED. A LOCKED member has no private line to ${playerName} yet: output [] for her id, and the story MUST NOT mention her texting, messaging, KakaoTalk, or a phone buzzing from her. Those messages do not exist — writing them produces a scene about a message the player never receives.
 - Only main and sub members generate social content. NPC members DO NOT generate social content.
 
 ╔══════════════════════════════════════════╗
@@ -238,7 +274,7 @@ RULES:
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false}], NOT a string.
 - socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
-- kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array [].
+- kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
 - summary: ALWAYS required. One short English sentence capturing who appeared and what emotionally shifted.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.

@@ -21,6 +21,7 @@
 //   F  offline  Aliyun free-credit router + retry policy with a mocked fetch
 //   G  offline  old saves / legacy settings still load after the Aliyun change
 //   H  live     Aliyun free-credit route: per-model params + one routed round
+//   I  offline  address protocol, KKT channel lock, edited-story delivery
 
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
@@ -1130,6 +1131,245 @@ function layerC() {
     "add the section by hand as part of the release commit");
 }
 
+// ==================================== LAYER I (offline, pure logic)
+// Three bugs that a player sees as "the writing is wrong", all of which are
+// really prompt or memory plumbing. Each check is written so it fails against
+// the pre-v1.3.6 implementation.
+async function layerI() {
+  section("LAYER I — address protocol, KKT lock, edited-story delivery (offline)");
+  const esbuild = await import("esbuild");
+  // Own filename: playthrough.mjs writes a different bundle to agent.mjs.
+  const outfile = join(OUT, "agentPrompt.mjs");
+  await esbuild.build({
+    stdin: {
+      contents: [
+        'export * from "./src/agent/mainAgent.js";',
+        'export * from "./src/agent/memoryPool.js";',
+      ].join("\n"),
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
+  });
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger,
+          collapseHistoryIfNeeded, updateMemory } =
+    await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  // Real group data: the birthdays are the input the whole protocol is derived
+  // from, so a fixture would test the formatter and not the fix.
+  const members = JSON.parse(
+    readFileSync(join(ROOT, "public", "groups", "red_velvet", "en.json"), "utf8")).members;
+  const byId = (id) => members.find((m) => m.id === id);
+  const GROUP = { groupLore: "lore" };
+
+  // GAME_YEAR is 2026, so age 31 => born 1995: younger than Irene (1991) and
+  // Seulgi/Wendy (1994), older than Joy (1996) and Yeri (1999). One cast, both
+  // directions — the only setup that can catch a reversed honorific.
+  const form = (over = {}) => ({
+    name: "Summer", age: "31", identity: "韩娱艺人", pace: "浪漫情感向",
+    mainMember: "irene", subMembers: ["yeri"], ...over,
+  });
+  const prompt = (f = form(), lang = "en") =>
+    buildSystemPrompt(f, members, "irene", ["yeri"], GROUP, "", "qwen", lang);
+
+  const p = prompt();
+  const addressOf = (name) => {
+    const lines = p.split("\n");
+    const i = lines.findIndex((l) => l.includes(`${name}(`));
+    return i === -1 ? "" : lines.slice(i, i + 3).join("\n");
+  };
+
+  // --- age direction. The old code printed the player's relative age inside
+  //     the member's profile, so every line read backwards.
+  const irene = addressOf("Irene"), yeri = addressOf("Yeri"), seulgi = addressOf("Seulgi");
+  check("older member is marked OLDER than the player",
+    /4 yr OLDER than Summer/.test(irene), irene);
+  check("younger member is marked YOUNGER than the player",
+    /4 yr YOUNGER than Summer/.test(yeri), yeri);
+  check("a 1-year gap still creates seniority (birth-year boundary, not a tolerance)",
+    /1 yr OLDER than Summer/.test(seulgi), seulgi);
+  check("older member is named as the player's unnie",
+    /She is Summer's unnie/.test(irene), irene);
+  check("younger member has the player as her unnie",
+    /Summer is her unnie/.test(yeri), yeri);
+
+  // --- direction is asymmetric. This is the bug the player reported: both
+  //     sides calling each other unnie.
+  check("player calls the older member unnie",
+    /Summer -> "Irene-unnie"/.test(irene), irene);
+  check("older member is forbidden from calling the player unnie",
+    /She must NEVER call Summer "unnie"/.test(irene), irene);
+  check("younger member calls the player unnie",
+    /She -> "Summer-unnie"/.test(yeri), yeri);
+  check("player is forbidden from calling the younger member unnie",
+    /Summer must NEVER call her "unnie"/.test(yeri), yeri);
+  check("no member is told both to use and to avoid unnie",
+    !/She -> "Summer-unnie"[\s\S]{0,200}She must NEVER call Summer "unnie"/.test(p));
+
+  // --- same birth year. Age 32 => born 1994, same as Seulgi and Wendy.
+  const peer = prompt(form({ age: "32" }));
+  const peerLines = peer.split("\n");
+  const peerBlock = (name) => {
+    const i = peerLines.findIndex((l) => l.includes(`${name}(`));
+    return i === -1 ? "" : peerLines.slice(i, i + 3).join("\n");
+  };
+  check("same birth year produces no unnie in either direction",
+    peerLines.filter((l) => /same birth year as Summer/.test(l)).length === 2,
+    "expected exactly Seulgi + Wendy");
+  check("same-age member's own block offers no unnie form",
+    !/-unnie"/.test(peerBlock("Seulgi")), peerBlock("Seulgi").replace(/\n/g, " / "));
+  check("same-age member is still given an address form",
+    /plain given name/.test(peerBlock("Seulgi")), peerBlock("Seulgi"));
+  check("a genuinely older member in the same cast still gets unnie",
+    peerBlock("Irene").includes('Summer -> "Irene-unnie"'), peerBlock("Irene"));
+
+  // --- the self-naming bug: a member thanking the player with her own name.
+  check("member's own name is ruled out as an address form for the player",
+    p.includes('"Irene" and "Bae Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");
+  check("speaker contract defines I/you inside quotation marks",
+    /Inside quotation marks, "I"\/"me"\/"my" = the character who is speaking/.test(p));
+  check("speaker contract binds the player's own choice text",
+    /"I" is always Summer and "you" is the member being addressed/.test(p));
+  check("dialogue is no longer exempt from the pronoun rule",
+    !/members may address the player by name, nickname, or title — that is fine/.test(p));
+
+  // --- register is soft and blended, not a per-stage lookup.
+  for (const cue of ["Age gap", "Closeness", "Private Personality"]) {
+    check(`register blends ${cue}`, p.includes(cue));
+  }
+  check("register states the direction never reverses",
+    /NEVER reverses, at any affection level/.test(p));
+  // The tail emits Chinese stage labels, so the register text must not key off
+  // English stage names it will never see.
+  check("register does not name stages the dynamic tail never emits",
+    !/\b(Flirting|Lovers|Stranger stage)\b/.test(p.slice(p.indexOf("REGISTER:"), p.indexOf("7. SOCIAL"))));
+
+  // --- identity override outranks age, and only for the identities that have one.
+  const staff = prompt(form({ identity: "Staff" }));
+  check("Staff player is addressed by work title regardless of age",
+    /Manager-nim/.test(staff) && /Work override/.test(staff));
+  check("work override appears once, not once per member",
+    (staff.match(/Work override/g) || []).length === 1,
+    `${(staff.match(/Work override/g) || []).length} occurrences`);
+  check("identity without a work title gets no override line",
+    !/Work override/.test(p));
+  check("Chaebol player is addressed as chairwoman",
+    /Chairwoman-nim/.test(prompt(form({ identity: "财阀" }))));
+
+  // --- player identity is stated at all, in every language.
+  for (const lang of ["zh", "en", "ko"]) {
+    const lp = prompt(form(), lang);
+    check(`[${lang}] player's birth year is given to the model`,
+      /THE PLAYER: Summer .* born 1995/.test(lp));
+    check(`[${lang}] address protocol survives the language switch`,
+      /Summer -> "Irene-unnie"/.test(lp));
+  }
+
+  // --- a member with no birthday must not crash or invent seniority.
+  const noBday = members.map((m) => (m.id === "joy" ? { ...m, birthday: undefined } : m));
+  let fellBack = "";
+  try { fellBack = buildSystemPrompt(form(), noBday, "irene", ["yeri"], GROUP, "", "qwen", "en"); }
+  catch (e) { fellBack = `THREW ${e.message}`; }
+  check("missing birthday falls back instead of throwing",
+    fellBack.includes("b.2000") && !fellBack.startsWith("THREW"), fellBack.slice(0, 120));
+
+  // ---------------------------------------------------------------- KKT lock
+  // The model writes the story around the KKT it sends, so filtering after the
+  // fact leaves prose about a message the player never receives.
+  const aff = { irene: 42, yeri: 18 };
+  const mem = () => ({
+    playerStats: { selfId: 40, secrecy: 90, mood: 70, week: 6, scene: "practice room" },
+    affections: { ...aff },
+    kktMessages: { irene: [{ sender: "irene", content: "you okay?" }],
+                   yeri: [{ sender: "yeri", content: "stale message" }] },
+    history: [],
+  });
+  const tail = buildDynamicTail(mem(), members, ["irene", "yeri"]);
+  check("dynamic tail declares the KKT channels", tail.includes("[KKT Channels]"), tail);
+  check("unlocked member is marked unlocked", /Irene:unlocked/.test(tail), tail);
+  check("below-threshold member is marked LOCKED", /Yeri:LOCKED/.test(tail), tail);
+  // Yeri's messages were stored while she was above 30 and her affection later
+  // fell. Replaying them keeps a closed channel open in the prompt.
+  check("sub-threshold member's stored KKT is not replayed",
+    !tail.includes("stale message"), tail);
+  check("unlocked member's KKT is still replayed", tail.includes("you okay?"), tail);
+
+  const promptKkt = prompt();
+  check("static prompt forbids narrating a locked member's KKT",
+    /LOCKED CHANNEL|KKT IS A LOCKED CHANNEL/.test(promptKkt));
+  check("static prompt points the lock at the dynamic tail",
+    promptKkt.includes("[KKT Channels]"));
+  check("schema requires [] for locked members",
+    /Members marked LOCKED in \[KKT Channels\] MUST be \[\]/.test(promptKkt));
+
+  // A round-1 memory has no affections recorded at all.
+  const empty = buildDynamicTail({ affections: {}, kktMessages: {}, history: [] }, members, ["irene"]);
+  check("empty affections default every channel to LOCKED", /Irene:LOCKED/.test(empty), empty);
+
+  // -------------------------------------------------- edited story delivery
+  // Reproduces the real sequence: three full rounds, player edits the newest
+  // story, next round collapses. Pre-v1.3.6 the edit was replaced by the stale
+  // summary before the ledger was ever built.
+  const play = (m, round, text) => updateMemory(m, {
+    historyEntry: { round, type: "full", text, choice: "A", summary: `summary of round ${round}` },
+  });
+  let m2 = { history: [], affections: {}, kktMessages: {} };
+  play(m2, 0, "story zero"); play(m2, 1, "story one"); play(m2, 2, "story two");
+  const EDIT = "SHE TURNED AND SAID SOMETHING THE PLAYER WROTE HERSELF";
+  const last = m2.history.at(-1);
+  last.text = EDIT; last.keepFull = true;          // exactly what saveStoryEdit does
+
+  collapseHistoryIfNeeded(m2);                      // start of the next round
+  const ledger = buildHistoryLedger(m2);
+  check("edited story reaches the ledger through the collapse that would have eaten it",
+    ledger.includes(EDIT), ledger.slice(0, 200));
+  check("unedited stories still collapse to their summaries",
+    !ledger.includes("story zero") && ledger.includes("summary of round 0"), ledger.slice(0, 200));
+  check("the spared entry is still a full entry",
+    m2.history.at(-1).type === "full");
+
+  // Appending the next round means the edit has been delivered; the reprieve
+  // must end there or an edited entry would never collapse.
+  play(m2, 3, "story three");
+  check("keepFull is cleared once the entry has been sent",
+    m2.history.every((h) => !h.keepFull), JSON.stringify(m2.history.map((h) => h.keepFull)));
+  play(m2, 4, "story four");
+  collapseHistoryIfNeeded(m2);
+  check("a previously spared entry collapses on the next collapse",
+    !buildHistoryLedger(m2).includes(EDIT));
+
+  // Regression guard: the same sequence without the flag must fail, or the
+  // check above could pass for the wrong reason.
+  let m3 = { history: [], affections: {}, kktMessages: {} };
+  play(m3, 0, "a"); play(m3, 1, "b"); play(m3, 2, "c");
+  m3.history.at(-1).text = EDIT;                    // edit, no keepFull
+  collapseHistoryIfNeeded(m3);
+  check("without keepFull the edit is lost (proves the guard above is live)",
+    !buildHistoryLedger(m3).includes(EDIT));
+
+  // ------------------------------------------------------ save compatibility
+  // A v1.3.5 save has no keepFull anywhere. It must collapse exactly as before.
+  const legacy = { history: [
+    { round: 0, type: "summary", text: "old summary" },
+    { round: 1, type: "full", text: "old full one", choice: "A", summary: "s1" },
+    { round: 2, type: "full", text: "old full two", choice: "B", summary: "s2" },
+    { round: 3, type: "full", text: "old full three", choice: "C", summary: "s3" },
+  ], affections: { irene: 40 }, kktMessages: {} };
+  let threw = null;
+  try { collapseHistoryIfNeeded(legacy); } catch (e) { threw = e.message; }
+  check("legacy save without keepFull collapses without throwing", threw === null, threw || "");
+  check("legacy save collapses every full entry",
+    legacy.history.every((h) => h.type === "summary"),
+    JSON.stringify(legacy.history.map((h) => h.type)));
+  let threwTail = null;
+  try { buildDynamicTail(legacy, members, ["irene"]); } catch (e) { threwTail = e.message; }
+  check("legacy save renders a dynamic tail without throwing", threwTail === null, threwTail || "");
+  // A memory wiped by isLegacyMemory has neither affections nor kktMessages.
+  let threwEmpty = null;
+  try { buildDynamicTail({ history: [] }, members, ["irene"]); } catch (e) { threwEmpty = e.message; }
+  check("wiped legacy memory renders a dynamic tail without throwing",
+    threwEmpty === null, threwEmpty || "");
+}
+
 // ============================================================ main
 (async () => {
   console.log("\x1b[1mSmoke test — LLM client, error classifier, Aliyun router\x1b[0m");
@@ -1155,6 +1395,7 @@ function layerC() {
   await layerF(mod, ALIYUN_FREE_ROUTE);
   await layerG(mod, MODEL_CONFIGS);
   await layerH(mod, ALIYUN_FREE_ROUTE, cfg.getAliyunModelFamily);
+  await layerI();
 
   console.log(`\n\x1b[1m${fail === 0 ? "\x1b[32mALL PASS" : "\x1b[31mFAILURES"}\x1b[0m  ${pass} passed, ${fail} failed`);
   if (fail) { console.log("failed:\n  - " + failures.join("\n  - ")); process.exit(1); }

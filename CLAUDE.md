@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.2** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.6** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -37,7 +37,7 @@ Validate every change with `npm run build` **and** `node test/smoke.mjs`. No lin
 
 `test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.
 
-**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
+**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's age therefore defaults to the cast's median birth year, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` pins it. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
 
 ---
 
@@ -62,9 +62,9 @@ The current round can be regenerated or edited without consuming a new round cou
 - **`regenerateRound(overrideChoice)`** in `App.jsx` — restores all snapshotted state, removes the last assistant message, calls `resetPendingSocial()` (clearing the discarded round's pending social), then re-calls `executeRound`. With no argument it reuses the snapshot's `playerChoice` (the ↺ Retry path); with one it substitutes the edited choice and updates the snapshot so a later ↺ keeps it.
 - **`resetPendingSocial()`** exported from `mainAgent.js` — clears module-level `pendingSocialFeeds` and `pendingNotifications`.
 - **Edit last choice (✎ on the newest user bubble)** — replaces the choice and re-runs the round through `regenerateRound(edited)`. Same sanitisation and 300-char cap as `sendMessage`. Round 1 has no user message (it comes from `startNewGame`), so no button appears there.
-- **Edit last story (✎ beside ⎘ and ↺)** — edits the prose only, keeping the stats box, and writes to **two** places: `messages[last].content` and `memoryRef.current.history.at(-1).text`. Both are required; without the second the player's screen and the model's context silently diverge. Capped at 4,000 chars so a paste cannot bloat every later round's prompt.
+- **Edit last story (✎ beside ⎘ and ↺)** — edits the prose only, keeping the stats box, and writes to **three** places: `messages[last].content`, `memoryRef.current.history.at(-1).text`, and `.keepFull = true` on that same entry. The first two are required or the player's screen and the model's context silently diverge; the third is required or the edit can be collapsed away before it is ever sent — see **Collapse Logic**. Capped at 4,000 chars so a paste cannot bloat every later round's prompt.
   - **This is free in cache terms.** A story generated in round N first enters the prompt at round N+1, and the button only ever appears on the newest story — so the edited text has never been sent and nothing cached is invalidated.
-  - The original English `summary` is **kept**. It is the collapse target, and blanking it would make `collapseHistoryIfNeeded` fall back to `text.substring(0,150)` — a truncated slice in the player's language, which is worse than a slightly stale gist.
+  - The original English `summary` is **kept**. It is the collapse target, and blanking it would make `collapseHistoryIfNeeded` fall back to `text.substring(0,150)` — a truncated slice in the player's language, which is worse than a slightly stale gist. `keepFull` is what makes that choice safe: without it, keeping the stale summary meant the edit was thrown away on every third round.
   - ↺ Retry after an edit discards it, by design: it regenerates from the pre-round snapshot.
 - **UI**: `⎘ Copy`, `✎ Edit` and `↺ Retry` appear bottom-right of the last assistant message only, hidden during loading and gated on `preRoundSnapshotRef.current`. Copy strips the stats box and option lines, leaving pure story text. The editor **auto-grows to its content** (min 220px, capped at 66vh): a story is 600-2,400 characters, so a fixed box means scrolling to read your own text. Opening an editor hides **both** the option bar and the custom-input row, and `sendMessage` closes it, because `editingIdx` is an index into `messages` and appending a turn would point the draft at the wrong message. Smoke Layer G guards all three.
 
@@ -291,7 +291,7 @@ A round only needs ~800 output tokens; these are ceilings, not reservations. Ali
 
 ---
 
-## Add-on Features (v1.3.2)
+## Add-on Features (v1.3.6)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -318,10 +318,12 @@ A round only needs ~800 output tokens; these are ceilings, not reservations. Ali
   playerStats:       null,   // {selfId, secrecy, mood, week, scene, chapter}
   affections:        {},     // {memberId: number}
   topMemberId:       null,
-  history:           [],     // unified ledger - [{round, type, text, choice?, summary?}]
+  history:           [],     // unified ledger - [{round, type, text, choice?, summary?, keepFull?}]
                              //   type:'summary' -> text is ~100-char English sentence
                              //   type:'full'    -> text is full story, choice is player pick,
                              //                     summary is the ~100-char collapse target
+                             //   keepFull       -> player edited this story and it has not been
+                             //                     sent yet; spare it from exactly one collapse
   kktMessages:       {},     // {memberId: [{sender, content}]} max Q per member
   stageChanges:      [],     // [{memberId, from, to}] last 10
   memberAppearances: {},     // {memberId: [roundNums]} last 10
@@ -365,12 +367,19 @@ Called at the **start** of each round, before building the prompt, **on a clone 
 
 Counts `history.filter(h => h.type === 'full').length`. If `>= HISTORY_FULL_MAX`:
 - Rebuild every `full` entry as `{round, type:'summary', text: h.summary || h.text.substring(0,150)}` — the long story text is dropped
+- **Except entries flagged `keepFull`** — see below
 - Do NOT remove or reorder entries — the prefix must stay byte-identical for entries that existed in the previous round
 - Batch prune: if total summary count exceeds `HISTORY_PRUNE_BATCH * 3` (45), drop the oldest `HISTORY_PRUNE_BATCH` (15) summary entries — one miss penalty every ~45 rounds
 
+**`keepFull` is what makes an edited story survive to the model.** The collapse runs *before* the ledger is built, so an entry the player edited can be converted to its summary in the very round it was supposed to be sent — and `saveStoryEdit` deliberately keeps the *original* summary, so the edit is discarded having never left the browser. With `HISTORY_FULL_MAX = 3` this hit **every third round**: history `[F0 F1 F2]`, player edits `F2`, next round collapses all three. Shipped broken from the day edit controls landed; fixed in v1.3.6.
+
+The flag is set by `saveStoryEdit`, honoured by `collapseHistoryIfNeeded` (which spares the entry), and cleared by `updateMemory` when the next entry is appended — that append happens at the end of the round the entry was sent in, so "cleared" and "has been delivered at least once" are the same moment. The next collapse then takes it normally.
+
+It costs one full entry (~500 tokens) for about two rounds, and only when the player actually edits. It adds **no** new cache miss: a collapse already invalidates every position from the first converted entry onward, so sparing one entry inside that window changes nothing that was still hitting. Old saves have no `keepFull` on any entry, which reads as `false` — legacy memory collapses exactly as before.
+
 ### Update Flow (`updateMemory`)
 
-Called at the **end** of each round. Appends `historyEntry: { round, type:'full', text: story, choice: playerChoice, summary: parsed.summary }` to `history[]`. KKT messages normalized to `{sender, content}` before append and capped at `KKT_MAX` per member. `stageChanges` and `memberAppearances` capped at last 10. No FIFO truncation on `history` — the ledger is append-only by design.
+Called at the **end** of each round. Appends `historyEntry: { round, type:'full', text: story, choice: playerChoice, summary: parsed.summary }` to `history[]`, and clears `keepFull` from every earlier entry (see Collapse Logic). KKT messages normalized to `{sender, content}` before append and capped at `KKT_MAX` per member. `stageChanges` and `memberAppearances` capped at last 10. No FIFO truncation on `history` — the ledger is append-only by design.
 
 ### 3-Tier Prompt Structure
 
@@ -397,13 +406,16 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [Affections] Irene:24(Acquaintance) | Seulgi:12(Stranger)
     [Stage Changes] irene: Stranger->Acquaintance
     [NPC Appearances] Joy(last: round 2)
+    [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
   + optional "[Pacing] slow|fast ..." line from Time Speed
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
 
-**KKT injection rule**: only inject KKT history for `roundMemberIds`, and only in the dynamic tail — never in the ledger.
+**KKT injection rule**: only inject KKT history for `roundMemberIds` whose **current** affection is at or above `KKT_THRESHOLD`, and only in the dynamic tail — never in the ledger. Affection can fall, and the stored messages do not disappear when it does; re-checking the threshold at build time is what stops a member who dropped back below 30 from silently keeping her channel open in the prompt.
+
+**`[KKT Channels]` is the line that stops the model narrating a text it was not allowed to send.** `filterKktByAffection` runs *after* generation, so for two releases the model was asked for `kktMessages` from every target member, wrote the story around the message it had just sent, and then watched us delete the message and keep the prose — "you get a Kakao from Yeri" with nothing in the Kakao overlay. The lock is per-round state, so it belongs in the tail, not in the static schema. Fixed in v1.3.6; the static prompt's rule points at this line.
 
 ### Save Compatibility (`isLegacyMemory`)
 
@@ -426,6 +438,25 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 5. **Phase rules** — rounds 1-6 (stranger), 7-14 (familiar), 15-24 (pressure), 25+ (consequences)
 6. **Unknown-character rule** — only members in MEMBER PROFILES may appear by name; other roles are unnamed archetypes (manager, assistant, executive, fan)
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
+8. **Speaker contract + address protocol** — who "I" and "you" are, and what each character is allowed to call the others. See below.
+
+### Who is speaking, and what she calls whom
+
+Three failures shipped together here, and they look like one bug to a player:
+
+**The age line was inverted.** `ageDiff = playerBirthYear - memberBirthYear` is positive when the **player** is younger — but the sentence it produced was printed inside the **member's** profile as `Age Texture: 15 years younger`, which reads as the member being the junior. Every member in every group carried a backwards age statement. The model was following the prompt correctly; the prompt was wrong.
+
+**The player had no Korean address form.** Members ship as `${m.name}(${m.name_kr})`, the player as a bare `Name: …`. When the model needed a Korean-sounding way to address her, the only ones in the prompt were the members' own — which is how you get Irene saying *"Bae Ju-hyun, thanks for the coffee"* to the player. It is not confusion about who is speaking; it is a vocabulary the prompt never supplied.
+
+**Dialogue was explicitly exempt from the pronoun rule** (*"members may address the player by name, nickname, or title — that is fine"*), so nothing defined `I` / `you` inside quotation marks.
+
+The fix is a per-member **Address** line computed from birth years plus the player's identity, and a `CAST IDENTITY & ADDRESS` section carrying the speaker contract. Both are derived from data fixed at game start, so they sit in the static system prompt and cost nothing per round.
+
+**Direction is hard, register is soft — this distinction is the whole design.** Which titles exist between two people, and which way they point, is decided by birth year and never flips: if the player calls her *unnie*, she never calls the player *unnie*. How much of that formality is actually spoken is a blend of three things the prompt hands over together — the age gap, the current stage from `[Affections]` in the dynamic tail, and her Private Personality. A same-age member is already informal at Stranger; a blunt member drops honorifics early where a reserved one keeps them well past Flirting; a wide age gap leaves a trace of deference even at Lovers. Prescribing a form per stage would flatten exactly the texture that makes members feel different, so the prompt states the inputs and lets the model blend them.
+
+Korean workplace register overrides age where it genuinely would: a **Staff** player is `매니저님` and a **Chaebol** player `회장님` regardless of who was born first, softening toward her name as they get close.
+
+Comparison is by **birth year, not age gap in years** — Korean seniority is a birth-year boundary, so a 1994 and a 1995 member are not peers even though they are months apart. The old `±2 years` tolerance erased that distinction.
 
 ### LLM Output JSON Schema
 
@@ -488,6 +519,8 @@ The recency window's reference round comes from the tail of `memory.history`. It
 | KakaoTalk (KKT) | Private messages | affection >= `KKT_THRESHOLD` (30) |
 
 Social content is stored in module-level `pendingSocialFeeds`. `popPendingSocial()` runs at the start of each round to display the previous round's content; `resetPendingSocial()` discards it during a Retry.
+
+**The KKT unlock is enforced in two places, and both are needed.** `filterKktByAffection` drops messages from members below the threshold *after* the response arrives — that is what keeps them out of the overlay. But the story was written in the same response, around a message the model believed it had sent, so filtering alone leaves prose describing a text that never appears. The `[KKT Channels]` line in the dynamic tail tells the model which channels are open *before* it writes, and the static prompt forbids narrating a text from a locked member. Filtering stays as the backstop for a model that ignores the instruction.
 
 ---
 
@@ -667,6 +700,12 @@ npm run bump 1.3.3 -- --dry  # show what would change, write nothing
 
 Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 13 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
 
+### Commit identity
+
+Commits must be authored as `52732052+byhAnita@users.noreply.github.com` (set globally, and locally in this repo). **Vercel refuses to deploy a commit whose author it cannot match to a GitHub account** — it rejected the old `1677037640@qq.com` outright, blocking the deployment entirely.
+
+Use the noreply alias rather than one of the account's real addresses: all of them are marked Private on GitHub, which normally also enables *Block command line pushes that expose my email*, and committing as one would start getting pushes rejected with `GH007`. Commits made before 2026-09-16 keep the old address — that is baked into their hashes and not worth rewriting history over.
+
 ### Vercel
 
 Vercel builds **from source**, unlike GitHub Pages which serves the committed root `index.html` + `assets/`. Config lives in `vercel.json`:
@@ -704,7 +743,17 @@ It has the identical entry-point trap as Vercel — without `dev-index.mjs` it r
 
 Only Pages serves committed artifacts, which is why `npm run deploy` exists at all. The other two rebuild on any push to `main`, so **deploy promptly after a release merge** or the three disagree.
 
-**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are currently byte-identical to `public/` (root `manifest.json` differs only by a trailing newline), but **nothing keeps the mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
+**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal. But **nothing keeps the `groups/` mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
+
+`dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
+
+### Never derive a path from the hostname
+
+**Every runtime URL must come from `import.meta.env.BASE_URL`**, which Vite fills from `base` in `vite.config.js` — `'./'` in a build, `'/'` under the dev server. The app is served at two different depths (`/rv-simulator/` on Pages, `/` on the other two), so a path that hardcodes either one breaks the others.
+
+This shipped and reached players. `groupLoader.js` chose its prefix with `hostname.includes('localhost') ? '/' : '/rv-simulator/'`, so both mirrors requested `/rv-simulator/groups/index.json`, got a 404, and fell into `loadGroupIndex`'s `catch` — **which returns a hardcoded Red Velvet entry**. The cover page showed one group instead of nine and logged nothing a player would see, because the fallback swallowed the failure. Fixed in v1.3.5; smoke Layer C now fails the build if any `src/` file contains the literal subpath outside a comment.
+
+The manifest has the same constraint and a subtler trap. `index.html` must reference it as **`/manifest.json`**, not `./manifest.json`: the leading slash makes Vite treat it as a public-dir asset and rewrite it to `./manifest.json` for the relative base. The relative form instead makes Vite resolve the *root* copy and emit a **second, hashed manifest** under `assets/` — one directory deeper, where the relative `./icons.svg` inside it no longer resolves. Making the manifest paths relative without this change fixes nothing.
 
 ### index.html rule
 
@@ -725,9 +774,9 @@ It also **warns, without aborting**, when `v<package.json version>` is already a
 
 Then:
 
-5. `rm -rf dist assets`
-6. `BASE_URL="./" npm run build` — relative-path Vite build
-7. Copy `dist/assets/*.js` + `*.css` into root `assets/`
+5. **`node scripts/dev-index.mjs`** — force `index.html` into dev mode, and install the `EXIT` trap that restores it. Without this the script only worked when `index.html` already happened to be in dev mode; after a `git checkout -- index.html`, a branch switch or a previous failed run it is in *production* mode, and Vite then either re-bundles the old output or dies on `Could not resolve ./assets/<hash>.js`.
+6. `rm -rf dist`, then `BASE_URL="./" npm run build` — relative-path Vite build
+7. **Only now** `rm -rf assets` and copy `dist/assets/*.js` + `*.css` into root `assets/`. Deleting `assets/` before the build meant a failed build wiped the bundle GitHub Pages was serving, leaving the live site broken until someone thought to run `git checkout -- assets/`.
 8. Patch `index.html` to reference the hashed filenames
 9. `git add index.html assets/ src/ README.md CLAUDE.md` -> commit -> `git push origin main`
 10. Restore `index.html` to dev mode (not committed), via the `EXIT` trap
@@ -737,9 +786,35 @@ Then:
 
 ---
 
-## Project Status (2026-09-16)
+## Project Status (2026-09-19)
 
-**v1.3.2 is released and live.** Working branch is now `dev`. Everything below shipped in it — validated offline (`npm run build` + **371 checks** in `node test/smoke.mjs`), exercised against the live Aliyun API (**381 checks** with `--live-free`), and hand-tested by the author on device.
+**v1.3.6 is the current release.** Working branch is `dev`. Validated offline (`npm run build` + **439 checks** in `node test/smoke.mjs`).
+
+### v1.3.6 — writing quality (2026-09-19)
+
+Three player-reported bugs, all of which read as "the model writes badly" and none of which were the model's fault. Each is now guarded by smoke **Layer I** offline, and by live graders in `playthrough.mjs` that judge the prose itself.
+
+| Symptom the player saw | What it actually was |
+| --- | --- |
+| Members swap "I" and "you"; Irene thanks the player by saying *her own* name | The pronoun rule explicitly exempted dialogue, and the player had no Korean address form in the prompt — the only ones present were the members' own |
+| Both sides call each other *unnie* | `ageDiff` describes the **player**, but was printed inside the **member's** profile, so every profile stated the age relationship backwards |
+| "You get a Kakao from Yeri" with nothing in the overlay | `filterKktByAffection` runs *after* generation; the model was never told the channel was locked |
+| Edited stories ignored by the model | The next round's collapse replaced the edit with its original summary before the ledger was built — every third round |
+
+Sections to read before touching this area: **Who is speaking, and what she calls whom**, **Collapse Logic** (`keepFull`), and the `[KKT Channels]` note under 3-Tier Prompt Structure.
+
+### Earlier (2026-09-16)
+
+That day shipped five releases. v1.3.2 was the feature release; everything after it was infrastructure, and two of them fixed bugs that only existed off GitHub Pages:
+
+| Tag | What |
+| --- | --- |
+| `v1.3.2` | The whole model-layer cycle below — free route, error layer, `bad_response`, edit controls |
+| `v1.3.3` | Vercel config so the mirrors build from source; Help Center link to the new Vercel URL |
+| `v1.3.4` | Help Center link to the new Cloudflare URL; `deploy.sh` robustness; commit identity |
+| `v1.3.5` | **Host-independent paths** — the mirrors showed only Red Velvet and 404'd the PWA icon |
+
+Also that day, not tied to a release: branch workflow (`main`/`dev`/`hotfix/*`), `npm run bump`, `deploy.sh` preflight, and `dist/` untracked.
 
 Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`**. Read it before touching the route, the retry policy or the cost strings — the *why* is not reconstructible from the diff.
 
@@ -762,7 +837,7 @@ Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`*
 
 **Test layer**
 12. **`test/playthrough.mjs`** (new) — plays real multi-round games and grades JSON validity, language lock, option format, stat bounds, CoT leakage, and the ledger-prefix cache invariant; reads `usage.cached_tokens` to measure the cache directly.
-13. **Smoke suite 145 → 371 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
+13. **Smoke suite 145 → 439 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
 
 ### Live test results (2026-09-16)
 
@@ -775,7 +850,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 * **After the fixes**: `glm-5.1` 7/12 → **12/12 clean**, live route playthrough **8/8 clean**.
 * **Measured Aliyun prompt-cache hit rate is ~83%**, flat across 0/1/2 sub-members and not converging upward over 30 rounds. Twelve of the route models (every `qwen3.5-*` and `qwen3.6-*`) report no `cached_tokens` field at all. **This does not contradict the 95.8% figure**, which comes from DeepSeek Official billing on a different platform with a finer-grained cache — see to-do 2.
 
-**Released 2026-09-16.** `4936d70` (feature commit) + `35b1e9e` (deploy build) are on `origin/main`, tagged **`v1.3.2`** on the deploy commit. `dev` was branched from that point and the old `dev-v12.0.0` frozen behind tag `archive/dev-v12.0.0`. All work from here goes to `dev` — see Branch & Deploy Workflow.
+**Released 2026-09-16.** `4936d70` (feature commit) + `35b1e9e` (deploy build), tagged **`v1.3.2`** on the deploy commit. `dev` was branched from that point and the old `dev-v12.0.0` frozen behind tag `archive/dev-v12.0.0`. Four further releases followed the same day — head is now `7415ab4`, tagged `v1.3.5`. All work from here goes to `dev` — see Branch & Deploy Workflow.
 
 **Open questions (not blocking release)**
 
@@ -784,7 +859,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed.
 4. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
 
-**Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js`, `stageConfig.js` and `groupLoader.js` still carry Chinese comments, against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
+**Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js` and `stageConfig.js` still carry Chinese comments (`groupLoader.js` was converted in v1.3.5), against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
 
 ---
 

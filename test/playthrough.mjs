@@ -8,6 +8,16 @@
 // four options, stats in range, and a history ledger whose prefix stays
 // byte-identical (the whole point of the 3-tier prompt).
 //
+// It also grades writing quality that only shows up in real prose, and that no
+// offline check can reach (smoke Layer I covers the prompt those rules are
+// written into; this covers whether the model follows them):
+//   unnie-to-junior      an honorific pointed downward in age — always wrong
+//   unnie-to-player      the player called unnie by a cast with no juniors
+//   real-name-vocative   a member's full real name used to address someone,
+//                        which is how "Irene thanks Bae Ju-hyun" happens
+//   kkt-narrated-but-locked  a Kakao message in the prose that the round never
+//                        delivered, i.e. the affection lock was ignored
+//
 // NOT part of the app bundle. Lives outside src/ so Vite never sees it, and
 // reads its key from .env.local via process.env — never import.meta.env.
 //
@@ -20,6 +30,10 @@
 //   node test/playthrough.mjs --jobs 6              # parallel playthroughs
 //   node test/playthrough.mjs --subs 0              # 1 main + N subs (default 1, the
 //                                                   # reference setting for cost strings)
+//   node test/playthrough.mjs --age 22              # pin the player's age; the default
+//                                                   # puts her on the cast's median birth
+//                                                   # year so both honorific directions
+//                                                   # are exercised (see cast grading)
 //   node test/playthrough.mjs --reasoning           # Deep Thinking on
 //   node test/playthrough.mjs --route               # no pinning: walk the real route
 //
@@ -48,6 +62,10 @@ const LANG = arg("lang", "zh");
 const GROUP = arg("group", "red_velvet");
 const JOBS = Number(arg("jobs", 4));
 const SUBS = Number(arg("subs", 1));
+const AGE = arg("age", null) != null ? Number(arg("age", null)) : null;
+// Mirrors src/config/constants.js — the worker derives the player's birth year
+// from it and the grader compares birth years, so the two must agree.
+const GAME_YEAR = 2026;
 const REASONING = has("reasoning");
 const ROUTE_MODE = has("route");
 const WORKER = arg("worker", null);
@@ -102,8 +120,52 @@ function languageOk(story, lang) {
   return ratio(story, CJK) < 0.02 && ratio(story, HANGUL) < 0.02;
 }
 
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// unnie in the three scripts the game can output, with or without a separator.
+const UNNIE = "(unnie|언니|欧姬)";
+const calledUnnie = (name) => new RegExp(`${esc(name)}\\s*[-‐-― ]?\\s*${UNNIE}`, "i");
+
+// Korean seniority runs on birth year, and unnie only ever points upward. A
+// member who is YOUNGER than the player may therefore never be called unnie by
+// anyone — the one direction that is wrong regardless of who is speaking, which
+// is what makes it gradeable without knowing the speaker.
+//
+// Members carry two names: `name` is the Latin stage name in every language,
+// `name_kr` the localized real name. Both are matched. A Hangul stage name the
+// model spells out phonetically ("예리") appears in no group JSON and is not
+// covered — an undetected case, not a passing one.
+function honorificErrors(story, cast) {
+  const bad = [];
+  for (const m of cast.members) {
+    if (m.birthYear <= cast.playerBirthYear) continue;       // she is older or a peer
+    const hit = [m.name, m.name_kr].filter(Boolean).some((n) => calledUnnie(n).test(story));
+    if (hit) bad.push(`unnie-to-junior:${m.id}`);
+  }
+  // Nobody may call the player unnie unless someone in the cast is younger.
+  if (!cast.members.some((m) => m.birthYear > cast.playerBirthYear)
+      && calledUnnie(cast.playerName).test(story)) {
+    bad.push("unnie-to-player");
+  }
+  return bad;
+}
+
+// "Irene, thanks for the coffee" — spoken by Irene. The speaker of a line is not
+// recoverable from prose, so this targets the form that is anomalous whoever
+// says it: a member's full real name used as a vocative inside dialogue.
+// Members address each other by stage name, so a real name in the vocative is
+// almost always the model reaching for the only Korean-looking name it has.
+function selfNameErrors(story, cast) {
+  const bad = [];
+  for (const m of cast.members) {
+    if (!m.name_kr) continue;
+    const re = new RegExp(`["“”「」][^"“”「」]{0,80}${esc(m.name_kr)}\\s*[,，!！?？]`);
+    if (re.test(story)) bad.push(`real-name-vocative:${m.id}`);
+  }
+  return bad;
+}
+
 // Grades one round's parsed output. Returns the list of things that went wrong.
-function gradeRound({ res, parseLevel, memberIds, lang, story, options }) {
+function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) {
   const bad = [];
   if (parseLevel !== "direct") bad.push(`parse:${parseLevel}`);
   if (!story || story.length < 80) bad.push(`story-short:${story?.length ?? 0}`);
@@ -124,6 +186,19 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options }) {
   // dropped silently by executeRound; catch it here instead.
   for (const id of Object.keys(res.socialFeedsUpdate || {})) {
     if (!memberIds.includes(id)) bad.push(`social-unknown-member:${id}`);
+  }
+
+  if (cast) {
+    bad.push(...honorificErrors(story || "", cast));
+    bad.push(...selfNameErrors(story || "", cast));
+
+    // KKT is gated on affection. If the story talks about Kakao but the round
+    // delivered no message to any member, it narrated a text the player never
+    // received — the exact symptom of the model not being told about the lock.
+    const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);
+    if (!delivered && /KakaoTalk|카카오톡|카톡|\bKKT\b/i.test(story || "")) {
+      bad.push("kkt-narrated-but-locked");
+    }
   }
   return bad;
 }
@@ -199,12 +274,32 @@ async function runWorker(model) {
     const memberIds = members.map(m => m.id);
     report.group = { id: GROUP, members: members.length, mainId, subIds };
 
+    // The player's age is what makes honorifics gradeable. A cast that is
+    // uniformly older than the player only ever exercises one direction, so by
+    // default the player is born on the cast's median birth year: some members
+    // are then her seniors and some her juniors, and a reversed unnie shows up.
+    // --age pins it when a specific setup needs reproducing.
+    const birthYears = members
+      .map((m) => parseInt((m.birthday || "2000-01-01").split("-")[0]) || 2000)
+      .sort((a, b) => a - b);
+    const playerBirthYear = birthYears[Math.floor(birthYears.length / 2)];
+    const age = AGE != null ? String(AGE) : String(GAME_YEAR - playerBirthYear);
+    const playerName = LANG === "zh" ? "\u6797\u590f" : LANG === "ko" ? "\uc774\ud558\ub9b0" : "Summer";
+
     const form = {
       mainMember: mainId, subMembers: subIds, identity: "\u7ec3\u4e60\u751f", customIdentity: "",
-      name: LANG === "zh" ? "\u6797\u590f" : LANG === "ko" ? "\uc774\ud558\ub9b0" : "Summer",
-      nationality: "KR", age: "22", nickname: "", herNickname: "",
+      name: playerName,
+      nationality: "KR", age, nickname: "", herNickname: "",
       starLevel: "", pace: "\u6d6a\u6f2b\u60c5\u611f\u5411",
     };
+    const cast = {
+      playerName, playerBirthYear: GAME_YEAR - parseInt(age),
+      members: members.map((m) => ({
+        id: m.id, name: m.name, name_kr: m.name_kr,
+        birthYear: parseInt((m.birthday || "2000-01-01").split("-")[0]) || 2000,
+      })),
+    };
+    report.cast = { playerName, age: Number(age), playerBirthYear: cast.playerBirthYear };
 
     // Pin the route at one model so this playthrough grades that model only.
     // Re-pinned before every round: the router now rests a model for an hour
@@ -286,7 +381,7 @@ async function runWorker(model) {
       prevLedger = ledgerSent;
 
       const story = res.storyContent;
-      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options });
+      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast });
       report.rounds.push({
         round, ms, parseLevel, chars: story.length,
         summary: (res.updatedMemory.history.at(-1)?.summary || "").length,
