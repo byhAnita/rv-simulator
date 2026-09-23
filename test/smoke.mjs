@@ -91,6 +91,11 @@ async function buildBundle() {
         'export * from "./src/tools/llmTool.js";',
         'export * from "./src/tools/llmErrors.js";',
         'export * from "./src/tools/aliyunRoute.js";',
+        // Same bundle instance as llmTool's, so a live round's recordUsage and
+        // the assertion's getUsageSummary read one module-level state. Two
+        // separate bundles would each get their own and the check would be
+        // meaningless.
+        'export * from "./src/tools/usageMeter.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -299,7 +304,7 @@ async function layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg) {
 }
 
 // ============================================================ LAYER B
-async function layerB(callLLM, MODEL_CONFIGS) {
+async function layerB(callLLM, MODEL_CONFIGS, meter) {
   section(`LAYER B — live provider round-trip (${MODEL_ID})`);
   if (!LIVE) { console.log("  \x1b[33mSKIP\x1b[0m (pass --live to run; spends credits)"); return; }
   if (!API_KEY) { check("API key present in .env.local", false, "YURIAGENT_API_KEY is empty"); return; }
@@ -322,6 +327,14 @@ async function layerB(callLLM, MODEL_CONFIGS) {
     { role: "user", content: "[CURRENT STATE]\n[Player Status] SelfId:38 Secrecy:97 Mood:82 Round:1 Scene:practice room\n[Affections] Irene:12(Stranger)\n\nPlayer choice: A\n\nGenerate the next round. Output ONLY valid JSON." },
   ];
 
+  // Layer K proves the meter's arithmetic against synthetic usage blocks. Only
+  // a real call proves the field path is right — that this provider returns
+  // `usage` at all, and that cached tokens really sit at
+  // prompt_tokens_details.cached_tokens rather than somewhere provider-specific.
+  // A typo there is invisible offline: the meter would simply record zeroes.
+  meter?.resetUsage();
+
+  let anyRoundSucceeded = false;
   for (const reasoning of [false, true]) {
     const label = reasoning ? "reasoning ON" : "reasoning OFF";
     console.log(`\n  ${label}`);
@@ -333,6 +346,7 @@ async function layerB(callLLM, MODEL_CONFIGS) {
       check(`${label}: request succeeded`, false, `${e.kind || ""} ${e.message}`);
       continue;
     }
+    anyRoundSucceeded = true;
     const secs = ((Date.now() - t0) / 1000).toFixed(1);
     check(`${label}: request succeeded`, true);
     check(`${label}: non-empty content`, !!content && content.length > 0, `len=${content?.length ?? 0}`);
@@ -354,6 +368,31 @@ async function layerB(callLLM, MODEL_CONFIGS) {
     check(`${label}: no chain-of-thought leaked into story`,
       !/<think>|<\/think>|reasoning_content/i.test(parsed.story || ""));
     console.log(`       latency ${secs}s · ${content.length} chars`);
+  }
+
+  // Gated on a round actually landing. Without this, an exhausted or wrong key
+  // reports four extra meter failures on top of the real one, and the next
+  // reader spends their time on the meter instead of on the key. Layer H makes
+  // the same assertions through the router, which finds a model that answers.
+  if (meter && !anyRoundSucceeded) {
+    console.log("  \x1b[33mSKIP\x1b[0m usage-meter assertions (no live round landed — see the failure above)");
+  } else if (meter) {
+    const u = meter.getUsageSummary();
+    check("usage meter recorded the live calls", u.calls >= 1, `calls=${u.calls}`);
+    check("usage meter read real prompt tokens off the response",
+      u.promptTokens > 0, "provider returned no usage.prompt_tokens, or the field path is wrong");
+    check("usage meter read real completion tokens",
+      u.completionTokens > 0, `got ${u.completionTokens}`);
+    check("usage meter measured a latency", u.p50LatencyMs > 0);
+    // Not an assertion about the value: this provider may legitimately report
+    // no cached_tokens (twelve Aliyun route models do not). Printed so a human
+    // can see which case they are looking at.
+    const costLabel = u.costUsd === null ? "no calls"
+      : (u.costUsd === 0 && !u.costComplete) ? "no published price"
+      : `≈ $${u.costUsd.toFixed(5)}`;
+    console.log(`       metered: ${u.promptTokens} in · ${u.completionTokens} out · cache ` +
+      (u.cacheHitRate === null ? "not reported by this provider" : `${Math.round(u.cacheHitRate * 100)}%`) +
+      ` · cost ${costLabel}`);
   }
 
   // The cap must be HONORED, not merely accepted. An unknown field would be
@@ -1030,6 +1069,10 @@ async function layerH(mod, ALIYUN_FREE_ROUTE, getAliyunModelFamily) {
   // One real round through the router, with the game's actual prompt shape.
   console.log("\n  one routed round (full game prompt)");
   localStorage.clear();
+  // Reset here rather than at the top: the per-model sweep above deliberately
+  // walks into exhausted and unavailable models, and counting that against the
+  // session would make the routed round's numbers meaningless.
+  mod.resetUsage?.();
   const system = [
     "You are a narrative engine for a dating simulator. Output ONLY valid JSON, no markdown fences.",
     "Schema: {\"scene\":string,\"statChanges\":{\"selfId\":number,\"secrecy\":number,\"mood\":number},",
@@ -1058,6 +1101,27 @@ async function layerH(mod, ALIYUN_FREE_ROUTE, getAliyunModelFamily) {
       check("options is a 4-item array", Array.isArray(parsed.options) && parsed.options.length === 4, `got ${parsed.options?.length}`);
       check("no chain-of-thought leaked into story", !/<think>|<\/think>|reasoning_content/i.test(parsed.story || ""));
     }
+
+    // Layer K proves the meter's arithmetic against synthetic usage blocks.
+    // Only a real response proves the field path: that Aliyun returns `usage`
+    // at all, and that cached tokens sit where the meter looks for them
+    // (prompt_tokens_details.cached_tokens). A wrong path is invisible offline
+    // because the meter would just record zeroes and every test would pass.
+    const u = mod.getUsageSummary?.();
+    if (u) {
+      check("usage meter recorded the routed round", u.calls >= 1, `calls=${u.calls}`);
+      check("usage meter read real prompt tokens off the response", u.promptTokens > 0,
+        "no usage.prompt_tokens in the response, or the field path is wrong");
+      check("usage meter read real completion tokens", u.completionTokens > 0, `got ${u.completionTokens}`);
+      check("usage meter measured a latency", u.p50LatencyMs > 0);
+      // Deliberately not asserted: whether this model reports cached_tokens.
+      // Twelve route models do not, and which one served is the router's call.
+      // Printed so a human can see which case they are looking at.
+      console.log(`    metered: ${u.promptTokens} in · ${u.completionTokens} out · cache ` +
+        (u.cacheHitRate === null ? "not reported by the served model" : `${Math.round(u.cacheHitRate * 100)}%`) +
+        ` · cost ${u.costUsd === null ? "no calls" : (u.costUsd === 0 && !u.costComplete) ? "no published price" : "≈ $" + u.costUsd.toFixed(5)}`);
+    }
+
     const status = getFreeRouteStatus(API_KEY);
     console.log(`    served in ${secs}s · route now ${status.available}/${status.total} available · next: ${status.current}`);
   }
@@ -1871,7 +1935,7 @@ async function layerK() {
   const { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_FREE_ROUTE } = cfg;
 
   await layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg);
-  await layerB(mod.callLLM, MODEL_CONFIGS);
+  await layerB(mod.callLLM, MODEL_CONFIGS, mod);
   layerC();
   await layerD();
   layerE(mod);
