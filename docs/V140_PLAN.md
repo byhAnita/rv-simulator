@@ -674,7 +674,56 @@ opening scenario; affinity matrix call + `BETA` prior in `probabilityEngine.js`.
 
 ---
 
-## 17. Open decisions
+## 17. Further out — infrastructure, and what to refuse
+
+Sketches only, no commitment. The bar for anything here is the same as everywhere else in this
+repo: **it must improve the player's experience or the product's reliability, and it must not
+break an old save.** A technique that is interesting but earns nothing for the player is a
+liability — it adds a maintenance surface and a thing to explain.
+
+| Version | Item | Player-visible benefit | Save impact |
+| --- | --- | --- | --- |
+| v1.4.x | **CI (GitHub Actions)** — `npm run build` + smoke on every push; assert root `groups/` matches `public/groups/` | Catches stale cast data on GitHub Pages, which today has no detector at all | none |
+| v1.5.x | **Eval suite** — pinned seeds, stored baselines, regression gate on `playthrough.mjs` graders | Writing-quality regressions caught before release rather than by players | none |
+| v1.5.x | **LLM-as-judge**, scoped to flagged rounds | Closes the one defect regex provably cannot catch — see below | none |
+| v1.6.0 | **Bandit router** — Thompson sampling over the free route | Fewer wasted 90s timeouts before a round starts | route state only, already migrating |
+| any | **Export/import** rosters, worlds and cards as JSON files | Players trade content without an account or a server | none |
+
+**CI is the cheapest real win.** The smoke gate currently exists only inside `deploy.sh`, so a
+broken `dev` push is invisible until someone runs it by hand. More importantly it closes a bug
+class this file already admits to: nothing keeps the root `groups/` mirror in sync with
+`public/groups/`, so Pages can serve stale cast data indefinitely. v1.4.0 adds two more mirrored
+trees (`worlds/`, `rosters/`), which makes the exposure worse, not better.
+
+**LLM-as-judge is justified by a specific blind spot, not by fashion.** CLAUDE.md records that
+the I/you pronoun swap has no mechanical detector — and it cannot have one, because no regex can
+decide whether "you" refers to the right person. That is the case for a judge model. Scope it to
+a sample or to already-flagged rounds so cost stays bounded, and keep the deterministic graders
+as the primary gate: they are free, reproducible, and have caught every defect so far.
+
+**The bandit emerges from existing state rather than being bolted on.** `ALIYUN_FREE_ROUTE` is a
+hand-ordered list of 28 models and the route state in `STORAGE_KEYS.ALIYUN_ROUTE` already tracks
+exhausted / unavailable / lastModel per key. Extending it to per-model success, latency and
+`bad_response` rate is small. Cold start is the obvious objection, and the answer is in
+`docs/TEST_FINDINGS.md`: ~600 measured rounds already exist to seed the priors from — offline
+priors, online updates. A player only plays tens of rounds, so an uninformed bandit would be
+worse than the current hand-ordering; a seeded one is better from round one.
+
+### Explicitly refused
+
+| Not doing | Why |
+| --- | --- |
+| **Docker** | No server exists. `.nvmrc` pins Node for CI at zero cost. |
+| **A backend (FastAPI or otherwise)** | Costs the app its best property — a static bundle on three free mirrors, no account, no running cost, and nowhere for player API keys to accumulate. The only feature that would justify one is community content sharing, and file export/import gets most of that with none of the hosting, moderation or abuse surface. |
+| **Multi-agent round loop** (narrator + per-character agents) | Would sharpen character voices and take generation from ~10s to 30s+. One round must feel like one beat; this fails player-first outright. |
+| **Tool-calling for structured output** | GPT-6 Luna supports function calling only at `reasoning_effort: none`, and support varies across the 28 route models. Fragmenting the provider-agnostic layer to replace a 4-level parser that already works is a bad trade. |
+| **Azure OpenAI** | ~20 lines (`api-key` header, deployment-name URL shape). Cheap, but a config entry, not a capability. Add on player demand. |
+| **OpenTelemetry** | Needs a collector, which needs a backend. The v1.4.0 usage panel already gives the useful half client-side. |
+| **Vector store / embeddings** | See §7.3 and §13. Wrong tool at 10² documents, and it adds a network dependency to the components whose job is robustness. |
+
+---
+
+## 18. Open decisions
 
 None blocking v1.4.0. Carried forward:
 
