@@ -26,7 +26,7 @@ node test/smoke.mjs --live            # + one real round on the provider in .env
 node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, then one routed round
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
-npm run bump 1.3.3                    # rewrite all 13 version strings (note the `--` for --dry)
+npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 ```
@@ -657,7 +657,7 @@ Bump the version and write the new README "What's New" section as the **last com
 
 ```bash
 git checkout dev
-npm run bump 1.4.0                                # rewrites all 13 version strings
+npm run bump 1.4.0                                # rewrites all 15 version strings
 # hand-write the "## What's New in v1.4.0" section in README.md
 npm run build && node test/smoke.mjs
 git commit -am "chore: bump to v1.4.0" && git push origin dev
@@ -708,7 +708,7 @@ Deleting the merged `hotfix/*` branch afterwards is your call — the merge comm
 
 ### Version strings
 
-Thirteen strings across five files must agree, and `npm run bump <x.y.z>` rewrites all of them:
+Fifteen strings across six files must agree, and `npm run bump <x.y.z>` rewrites all of them:
 
 ```bash
 npm run bump 1.3.3           # writes; run the validators afterwards
@@ -723,10 +723,17 @@ npm run bump 1.3.3 -- --dry  # show what would change, write nothing
 | `src/i18n/{zh,en,ko}.js` | 3 | `cover.desc` |
 | `src/App.jsx` | 3 | the fallback cover strings, zh/en/ko |
 | `README.md` | 6 | title, version badge, cost-section heading, three ASCII sketches |
+| `CLAUDE.md` | 2 | the Project Overview title, the Add-on Features heading — **matched by anchor**, see below |
+
+**CLAUDE.md is matched by anchor, not by version regex — most of its version numbers are history.** This file is largely changelog and post-mortem prose: "fixed in v1.3.7", "### v1.3.8 — GPT-6 Luna", "v1.3.5 introduced the dependency". Rewriting those would falsify the project's own record, which is worse than the drift the bump is meant to prevent. So `ANCHORS` in `scripts/bump-version.mjs` names the two lines that carry the *current* version as exact strings, and every other mention is untouched. Each anchor must match exactly once: zero means the heading was reworded, more than one means it is no longer unique, and either way the count check aborts the bump and fails smoke.
+
+Both headers were added to the bump in v1.3.8, after the v1.3.7 release shipped with them still reading v1.3.6 — they look static, so they get forgotten.
+
+**`**v1.3.8 is the current release.**` in Project Status is deliberately *not* anchored.** That whole paragraph is rewritten by hand each release anyway (it carries the check count, the live-test results and the branch state), so a stale version there is caught by the act of editing it. Anchoring it would only add a failure mode.
 
 **The README "What's New in v…" heading is deliberately not bumped.** It is a changelog entry, not a version string — a release *adds* a new section and leaves the old ones alone. `bump` skips every line containing `What's New in` for exactly this reason; rewriting it would silently relabel the previous release's notes.
 
-Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 13 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
+Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 15 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
 
 ### Commit identity
 
@@ -816,11 +823,14 @@ Then:
 
 ## Project Status (2026-09-19)
 
-**v1.3.8 is the current release.** Working branch is `dev`. Validated offline (`npm run build` + **456 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is in progress on `dev`, not yet released.** The GPT-6 Luna swap and the bump-script change are committed and waiting; further features are planned for the same release. `main` is still at v1.3.7. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 
-### v1.3.8 — GPT-6 Luna (2026-09-23)
+### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23, unreleased)
+
+`CLAUDE.md`'s title and Add-on Features headers are now rewritten by `npm run bump`, matched as exact anchors so the file's many *historical* version numbers are left alone. See **Version strings**. v1.3.7 shipped with both still reading v1.3.6, which is what prompted it.
+
 
 `gpt4omini` now serves **`gpt-6-luna`** instead of `gpt-5.6-luna`. Same endpoint, same parameter shape, no client changes: only the model string, display name and cost strings moved.
 
@@ -889,7 +899,7 @@ Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`*
 
 **Test layer**
 12. **`test/playthrough.mjs`** (new) — plays real multi-round games and grades JSON validity, language lock, option format, stat bounds, CoT leakage, and the ledger-prefix cache invariant; reads `usage.cached_tokens` to measure the cache directly.
-13. **Smoke suite 145 → 456 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
+13. **Smoke suite 145 → 457 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
 
 ### Live test results (2026-09-16)
 
@@ -917,7 +927,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 
 ## Known Inconsistencies (fix before they bite)
 
-1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 13 places instead of 10. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the thirteen. See **Version strings** under Branch & Deploy Workflow.
+1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 15 places instead of 12. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the fifteen. See **Version strings** under Branch & Deploy Workflow.
 
    **`App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx`, so a bump edited in only one place leaves the two disagreeing depending on which path renders. Worth collapsing into one source before the next release.
 
