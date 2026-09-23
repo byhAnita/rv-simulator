@@ -171,13 +171,17 @@ export const MODEL_CONFIGS = {
     gameplay: { zh: "￥1 ≈ 18小时", en: "$1 ≈ 120 hrs", ko: "₩1,000 ≈ 90시간" },
   },
   gpt4omini: {
-    id: "gpt4omini", name: "GPT-5.6 Luna", emoji: "⚡",
+    // The provider id stays "gpt4omini": it is the value stored in
+    // rv_sim_model_v11 and in every save slot, so renaming it would silently
+    // reset the model choice for existing players. Only the model string moves.
+    id: "gpt4omini", name: "GPT-6 Luna", emoji: "⚡",
     desc: { zh: "经济高效 · 适合全球用户", en: "Cost-efficient · Versatile for global users", ko: "가성비 우수 · 글로벌 사용자에게 적합" },
-    color: "#10a37f", url: "https://api.openai.com/v1/chat/completions", model: "gpt-5.6-luna",
+    color: "#10a37f", url: "https://api.openai.com/v1/chat/completions", model: "gpt-6-luna",
     keyPrefix: "sk-", keyHelp: "platform.openai.com → API Keys", format: "openai",
     // max_tokens is deprecated upstream; reasoning tokens need their own room.
+    // GPT-6 Luna allows 128000 out — these are ceilings, not reservations.
     maxOutputTokens: 8192, maxOutputTokensReasoning: 32768, capField: "max_completion_tokens",
-    gameplay: { zh: "￥1 ≈ 5.2小时", en: "$1 ≈ 37 hrs", ko: "₩1,000 ≈ 27시간" },
+    gameplay: { zh: "￥1 ≈ 23小时", en: "$1 ≈ 163 hrs", ko: "₩1,000 ≈ 118시간" },
   },
   gemini: {
     id: "gemini", name: "Gemini 3.5 Flash-Lite", emoji: "💎",
