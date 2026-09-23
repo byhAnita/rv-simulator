@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.8
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.9
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.8-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.9-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.8)
+## 💰 API Cost & Performance (v1.3.9)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -157,6 +157,17 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.3.9
+
+Four fixes you can see, and one number you could not see before.
+
+* 📊 **You can finally see what a round costs** — Settings now shows this session's token usage, cache-hit rate, median generation time and an estimated cost. Every provider has always sent these figures back and the game threw them away, so the one person paying for the rounds had no way to check. Where a provider does not report something, it says so rather than showing you a zero: "not reported" and "0%" look the same on screen and mean opposite things.
+* 💗 **Affection moves at the game's pace, not the model's** — a single round could previously jump a member's affection by 30 points and skip three relationship stages, firing their scenes in a burst. Changes are now capped at 8 per round. Since free mode rotates through 28 different models, this is also what stops the story speeding up or slowing down for no reason you could see.
+* 💾 **A save that fails now tells you** — if your browser's storage was full, the save appeared in your slot list and was never written. You found out when you came back for it. The game now checks, keeps the list honest, and tells you what to delete.
+* 💔 **Your ex stays the same person** — on the Ex-Girlfriend route, the reason you broke up and the keepsake you kept were re-rolled *every single round*, so the game quietly contradicted its own backstory. They are now fixed for the life of a save. This was also costing you money: it broke the prompt cache, and fixing it measured **60.5% → 87.2%** cache hits on the same model and settings. Existing saves settle on one version from the next time you load them.
+
+> 🔎 On the panel's cost estimate: it covers the models whose providers publish per-token prices, and plainly says so when a model has none rather than quietly leaving it out of the total. Your provider's own billing page is still the authority.
 
 ## 🎉 What's New in v1.3.8
 
@@ -278,7 +289,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.8              | |
+|  |              LLM Text Adventure . v1.3.9              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -381,7 +392,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.8 - Architecture                     |
+|          Idol Dating Sim  v1.3.9 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -437,7 +448,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.8 Round Flow                            |
+|                    v1.3.9 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

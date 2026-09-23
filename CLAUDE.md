@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.8** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.9** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -370,7 +370,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.3.8)
+## Add-on Features (v1.3.9)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -979,9 +979,23 @@ Then:
 
 ---
 
-## Project Status (2026-09-23)
+## Project Status (2026-09-24)
 
-**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **469** offline / **485** with live layers), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is the current release on `main`. v1.3.9 is bumped and validated on `dev`, not yet
+merged** — players are still on v1.3.8 until the release merge and `npm run deploy` run, both red
+lines needing explicit approval.
+
+v1.3.9 carries four player-visible changes, all old-save-safe and none touching the save schema:
+the usage panel, the ±8 affection clamp, quota-guarded `saveToStorage`, and `backstorySeed`
+(committed back in `37f8a1c` and unreleased until now). Validated offline (`npm run build` +
+**535 checks** in `node test/smoke.mjs`, up from 469) and live: an 8-round `主线成员前女友`
+playthrough on `qwen3.8-flash` came back 8/8 clean with **0 static-prompt drifts**, 2 collapses
+and **0 ledger prefix breaks** at 88.0% measured cache; a routed `--live-free` round confirmed the
+usage meter reads a real Aliyun `usage` block end-to-end (190 in / 310 out).
+
+v1.3.8 carried the GPT-6 Luna swap and the bump-script coverage for this file. It was exercised
+live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0
+sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **In progress: v1.4.0–v1.5.0 — see `docs/V140_PLAN.md`, whose Progress table and "Pick up here"
 section are the authority on where the work stands.** It splits the single `group` concept into
@@ -990,8 +1004,15 @@ Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section layout, 
 shape. Two pre-existing bugs it also closes are documented there: save slots record no group id,
 and `saveToStorage` swallows quota errors.
 
-Steps 0 (CI) and 1 (golden prompts) are **done and on `dev`, unreleased**; step 2 is the v1.3.9
-release. Nothing in that line has reached `main`, so players are still on plain v1.3.8.
+Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done on `dev`**. Step 3 —
+world extraction and the resolver — is next. Two of the plan-documented pre-existing bugs are
+closed by v1.3.9: `saveToStorage` no longer swallows quota errors, and affection pacing no
+longer depends on which model the router served. Save slots still record no group id; that is
+step 4.
+
+Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_USD_PER_1M` is partial, and
+the gaps are documented rather than filled. The usage panel is the tool for open question 2 but
+has not yet been pointed at a long DeepSeek Official session, so that question stays open.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 

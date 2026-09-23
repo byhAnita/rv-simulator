@@ -11,8 +11,8 @@ Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done and pushed to `dev
 | --- | --- |
 | **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
 | **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug, **confirmed live A/B**: 7 drifts in 8 rounds and 60.5% cache before, 0 drifts and 87.2% after. Verified failing against the unfixed code. |
-| **2 — Release v1.3.9** | ⬜ **next.** Affection clamp (task 11), usage panel (10), quota-guarded `saveToStorage` (9a). Note the release now also carries the backstory fix, which is player-visible. |
-| 3 — World extraction + resolver | ⬜ **The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
+| **2 — Release v1.3.9** | ✅ **built and validated on `dev`, not merged.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), plus the backstory fix inherited from step 1. Smoke 469 → **535**. Version bumped, README section written. The `main` merge, `npm run deploy` and the tag are red lines and have **not** been run. |
+| **3 — World extraction + resolver** | ⬜ **next. The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
 | 4 — Save migration | ⬜ |
 | 5 — Content (`habit` × 27) | ⬜ |
 | 6 — UI | ⬜ |
@@ -45,38 +45,41 @@ ledger. It now takes `--identity` and reports `system-drift`.
 ## Pick up here
 
 **State as of 2026-09-24.** `main` is at `f324a5e`, tagged v1.3.8, live on all three mirrors and
-**unchanged** — nothing in this line has reached players. `dev` is at `56acf22`, pushed, CI green
-([run 35932359099](https://github.com/byhAnita/rv-simulator/actions/runs/35932359099)), six
-commits ahead of `main`:
+**unchanged** — nothing in this line has reached players. `dev` carries v1.3.9, fully built,
+bumped and validated, **but not merged and not deployed**. `origin/dev` is at `56acf22`; the five
+commits after it are local only.
 
-| Commit | What |
-| --- | --- |
-| `56acf22` | live `system-drift` grading, `--identity`, `.cause` diagnosis fix |
-| `37f8a1c` | golden prompts, Layer J, `backstorySeed` (**the only `src/` change in the six**) |
-| `e8a7dfd` | CI + the `groups/` mirror guard |
-| `3364731` `aae0c0a` `3073cb7` | this plan, TECH_NOTES, the roadmap |
+| Commit | What | Pushed |
+| --- | --- | --- |
+| `1e66262` | live usage-meter assertions in Layers B and H | no |
+| `6d71e94` | usage meter + panel, price table, smoke **Layer K** | no |
+| `f4aaad1` | quota-guarded `saveToStorage` + save-failure notice | no |
+| `e107faf` | ±8 affection clamp | no |
+| `8adff09` | step-1 handoff docs | no |
+| `56acf22` `37f8a1c` `e8a7dfd` `3364731` `aae0c0a` `3073cb7` | step 0 and step 1 | yes, CI green |
 
-Smoke: **469** offline, **485** with live layers. Working tree carries only ` M index.html` in
-dev mode, which is normal and never committed.
+Smoke: **535** offline. Working tree carries only ` M index.html` in dev mode, which is normal
+and never committed.
 
-**Next action is step 2 — release v1.3.9.** Four player-visible changes, all old-save-safe:
+**Next action is step 3 — world extraction + resolver.** Before that, v1.3.9 still has a tail of
+red-line steps that only the user can authorise, in this order:
 
-1. **Affection clamp** (§12) — ±8/round in `mainAgent.js`, Layer D regression check.
-2. **Usage panel** (§11) — `llmTool.js` + new `platforms/UsagePanel.jsx`. Render "not reported"
-   for the twelve route models that send no `cached_tokens`, never 0%.
-3. **Quota-guarded `saveToStorage`** (§10) — return a boolean, surface a localized notice. Needs
-   `t.errors`-style strings in all three languages.
-4. **`backstorySeed`**, already committed in `37f8a1c` and currently unreleased.
+1. `git push origin dev` — five local commits.
+2. `git checkout main && git pull && git merge dev --no-ff -m "release: v1.3.9"`.
+3. `npm run deploy`, then `git tag v1.3.9 && git push origin v1.3.9` — **tag the deploy commit,
+   not the merge commit**.
+4. `git checkout -- index.html`, then merge `main` back into `dev`, then `node scripts/dev-index.mjs`.
 
-Then the documented release flow in CLAUDE.md: `npm run bump 1.3.9` (note the mandatory `--`
-before `--dry`), hand-write the README *What's New in v1.3.9* section, build + smoke, then a live
-pass before `main`.
+The merge-back in step 4 is the one that rots the branch if skipped. CLAUDE.md's **Release**
+section is the authority; this list is a reminder, not a replacement.
 
-**Three things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
+**Four things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
 free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
-`node test/smoke.mjs --live-free` rather than trusting this line. `--identity` now exists and
-should be swept, not left at its default. And `npm run deploy`, the `main` merge, the tag and any
-push are red lines needing explicit approval each time.
+`node test/smoke.mjs --live-free` rather than trusting this line. `.env.local` pins
+`MODEL_ID=aliyun`, which resolves to the exhausted `qwen3.8-max`, so **smoke Layer B cannot pass
+on this key** — that is the environment, not a regression, and `--live-free` is the live check
+that works. `--identity` should be swept, not left at its default. And `npm run deploy`, the
+`main` merge, the tag and any push are red lines needing explicit approval each time.
 
 Everything below §15.0 in this document is design, not progress.
 
@@ -713,7 +716,7 @@ sequencing rules drive everything:
 | --- | --- | --- |
 | **0** | ✅ CI — build + smoke on every push, and the mirror-sync assertion (done) | Done. The mirror guard went into **smoke Layer C, not the workflow** — see `docs/TECH_NOTES.md`: a CI-only check would not have gated `npm run deploy`, whose preflight runs smoke rather than CI. |
 | **1** | ✅ Golden prompt snapshots: 3 fixtures (RV classic, 9-member group, single member) pinned into `test/fixtures/` and asserted by smoke Layer J | Done — and it required one src fix first: the prompt was not deterministic, so there was nothing stable to pin. See Progress. |
-| **2** | **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a) | Normal release flow; players get value while the refactor runs |
+| **2** | ✅ **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a), plus `backstorySeed` inherited from step 1 | Built and validated on `dev` (smoke 469 → **535**, 8/8 clean live rounds with 0 static-prompt drifts). The merge and deploy are red lines and are **not** done — see Pick up here. |
 | **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |
 | **4** | Save migration: task 6 | A pinned v1.3.8 save migrates and resolves to the *same* member set `getNpcMembers` returns today |
 | **5** | Content: task 5 (`habit` × 27 files) + task 13 (root mirror) | Layer J asserts `habit` reaches the prompt through `loadGroupConfig` |
