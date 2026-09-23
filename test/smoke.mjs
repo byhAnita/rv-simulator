@@ -22,6 +22,7 @@
 //   G  offline  old saves / legacy settings still load after the Aliyun change
 //   H  live     Aliyun free-credit route: per-model params + one routed round
 //   I  offline  address protocol, KKT channel lock, edited-story delivery
+//   J  offline  golden system prompts + prompt determinism
 
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
@@ -1509,6 +1510,129 @@ async function layerI() {
     threwEmpty === null, threwEmpty || "");
 }
 
+// ==================================== LAYER J (offline, pure logic)
+// The system prompt is ~5,500 tokens assembled from a dozen template literals,
+// and Layer I asserts on perhaps forty substrings of it. Everything else - the
+// JSON schema block, the phase rules, section ordering, blank lines - is
+// unguarded, so a refactor could rewrite it and the suite would stay green. The
+// symptom of that is not an error; it is slightly different writing some weeks
+// later, with nothing to bisect.
+//
+// Two mechanisms here, and they catch different things:
+//   1. Golden files - the whole prompt, byte-pinned. Catches what nobody
+//      predicted. Cannot explain itself; it just shows a diff.
+//   2. A determinism sweep over every identity x language. Catches output that
+//      is not a pure function of the save, which no snapshot can detect because
+//      a snapshot of unstable output is simply wrong.
+async function layerJ() {
+  section("LAYER J — golden system prompts + prompt determinism (offline)");
+  const { FIXTURES, IDENTITIES, LANGUAGES, renderFixtures, goldenPath, loadPromptModules,
+          withDiskFetch } = await import("./fixtures/prompts.mjs");
+
+  // ------------------------------------------------------------ golden files
+  const rendered = await renderFixtures(OUT);
+  for (const { id, text } of rendered) {
+    const path = goldenPath(id);
+    if (!existsSync(path)) {
+      check(`golden prompt exists: ${id}`, false,
+        "no committed golden — run: node scripts/update-golden.mjs");
+      continue;
+    }
+    const golden = readFileSync(path, "utf8");
+    if (golden === text) { check(`golden prompt matches: ${id}`, true); continue; }
+
+    // A CRLF golden differs from LF output on every single line while looking
+    // character-identical in the report below. It happens when .gitattributes
+    // is missing and git checks out with core.autocrlf=true (the default on
+    // Windows), so it fails on a fresh clone there and passes on Linux CI.
+    // Diagnose it by name rather than making someone stare at an invisible \r.
+    if (golden.includes("\r\n") && golden.replace(/\r\n/g, "\n") === text) {
+      check(`golden prompt matches: ${id}`, false,
+        "golden has CRLF line endings, output has LF — git rewrote it on checkout. " +
+        "Check that .gitattributes pins `test/fixtures/*.txt text eol=lf`, then re-checkout " +
+        "the file. This is not a prompt change.");
+      continue;
+    }
+
+    // A byte count says nothing useful; the first differing line is where to look.
+    const a = golden.split("\n"), b = text.split("\n");
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    check(`golden prompt matches: ${id}`, false,
+      `first difference at line ${i + 1} (${a.length} -> ${b.length} lines)\n` +
+      `      golden: ${JSON.stringify((a[i] || "").slice(0, 90))}\n` +
+      `      actual: ${JSON.stringify((b[i] || "").slice(0, 90))}\n` +
+      `      If this change was intentional: node scripts/update-golden.mjs, then READ the diff.`);
+  }
+  check("every fixture has a committed golden",
+    FIXTURES.every((f) => existsSync(goldenPath(f.id))),
+    FIXTURES.filter((f) => !existsSync(goldenPath(f.id))).map((f) => f.id).join(", "));
+  // A golden truncated to nothing would match a broken builder that returns "".
+  check("golden prompts are full prompts, not stubs",
+    rendered.every(({ id }) => readFileSync(goldenPath(id), "utf8").length > 5000),
+    rendered.map(({ id }) => `${id}:${readFileSync(goldenPath(id), "utf8").length}`).join(" "));
+
+  // --------------------------------------------------------- determinism
+  // executeRound rebuilds the system prompt every round and the provider caches
+  // it by prefix, so one character of drift costs all ~5,500 tokens. It must
+  // also be stable across sessions, or a loaded save silently rewrites its own
+  // backstory.
+  //
+  // This sweep is what fails against the pre-v1.3.9 code: 主线成员前女友 built
+  // its background from two Math.random() calls, so it re-rolled every round —
+  // full-price input forever, and a different shared past each round on the one
+  // route that is entirely about a shared past.
+  const mod = await loadPromptModules(OUT);
+  const cfg = await withDiskFetch(() => mod.loadGroupConfig("red_velvet", "en"));
+  const dForm = (over = {}) => ({
+    name: "Summer", age: "28", identity: "韩娱艺人", pace: "浪漫情感向",
+    mainMember: "irene", subMembers: ["seulgi"], customIdentity: "childhood neighbour", ...over,
+  });
+  const dBuild = (form, lang) =>
+    mod.buildSystemPrompt(form, cfg.members, "irene", ["seulgi"], cfg, "", "qwen", lang);
+
+  const drifted = [];
+  for (const identity of IDENTITIES) {
+    for (const lang of LANGUAGES) {
+      const form = dForm({ identity });
+      if (dBuild(form, lang) !== dBuild(form, lang)) drifted.push(`${identity}/${lang}`);
+    }
+  }
+  check(`the same save renders a byte-identical prompt twice (${IDENTITIES.length}x${LANGUAGES.length} identities x languages)`,
+    drifted.length === 0,
+    `unstable: ${drifted.join(", ")} — something in buildSystemPrompt reads Math.random(), ` +
+    `the clock, or an unordered collection`);
+
+  // The ex-girlfriend route specifically, stated separately so a failure names
+  // the bug rather than a grid coordinate.
+  const ex = dForm({ identity: "主线成员前女友" });
+  check("ex-girlfriend backstory is stable across rounds",
+    dBuild(ex, "zh") === dBuild(ex, "zh") && dBuild(ex, "en") === dBuild(ex, "en"),
+    "the breakup reason and keepsake are re-rolling — see backstorySeed in mainAgent.js");
+
+  // Stability must not have been bought by pinning everyone to index 0: the
+  // seed is supposed to give different playthroughs different backstories.
+  const exLine = (form) => (dBuild(form, "en").split("\n")
+    .find((l) => l.includes("breaking up years ago due to")) || "");
+  const variants = new Set(["Summer", "Alex", "Hana", "Mika", "Rin", "Yuna", "Lea", "Noa"]
+    .map((name) => exLine(dForm({ identity: "主线成员前女友", name }))));
+  check("different playthroughs still get different backstories",
+    variants.size > 1,
+    `8 player names produced ${variants.size} distinct breakup reason(s) — a constant seed ` +
+    `would make every save identical`);
+  check("the backstory line is found at all (guards the check above)",
+    exLine(ex).length > 0, "no 'breaking up years ago due to' line — the probe is looking at nothing");
+
+  // Seeded from setup-time fields only, so the same save keeps its backstory
+  // for life. If a field that changes mid-game ever entered the seed, this is
+  // what would catch it.
+  const sameSave = dForm({ identity: "主线成员前女友", name: "Summer", age: "28" });
+  check("the seed depends only on fields fixed at character setup",
+    exLine(sameSave) === exLine(dForm({ identity: "主线成员前女友", name: "Summer", age: "28" })) &&
+    exLine(sameSave) !== exLine(dForm({ identity: "主线成员前女友", name: "Summer", age: "31" })),
+    "age is part of the seed by design; a save cannot change it, but this proves the seed is read");
+}
+
 // ============================================================ main
 (async () => {
   console.log("\x1b[1mSmoke test — LLM client, error classifier, Aliyun router\x1b[0m");
@@ -1535,6 +1659,7 @@ async function layerI() {
   await layerG(mod, MODEL_CONFIGS);
   await layerH(mod, ALIYUN_FREE_ROUTE, cfg.getAliyunModelFamily);
   await layerI();
+  await layerJ();
 
   console.log(`\n\x1b[1m${fail === 0 ? "\x1b[32mALL PASS" : "\x1b[31mFAILURES"}\x1b[0m  ${pass} passed, ${fail} failed`);
   if (fail) { console.log("failed:\n  - " + failures.join("\n  - ")); process.exit(1); }

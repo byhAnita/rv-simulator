@@ -75,8 +75,10 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   };
   const lr = langRules[language] || langRules.zh;
 
-  // Identity background
-  const identityBg = getIdentityBackground(form.identity, mainMember?.name, language);
+  // Identity background. The seed is what keeps this stable round to round —
+  // see backstorySeed below, and "buildSystemPrompt must be a pure function of
+  // the save" in CLAUDE.md.
+  const identityBg = getIdentityBackground(form.identity, mainMember?.name, language, backstorySeed(form, mainId));
 
   // Pace rules
   const paceRules = {
@@ -323,8 +325,34 @@ ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}
 // ============================================================
 // Identity Background (Trilingual)
 // ============================================================
-function getIdentityBackground(identity, mainMemberName, language = "zh") {
+
+// The system prompt is rebuilt from scratch every round and must come out
+// byte-identical every time, or the provider's prefix cache misses on all
+// ~5,500 tokens of it. The ex-girlfriend background used Math.random() to pick
+// its breakup reason and keepsake, so it re-rolled every round: full-price
+// input forever, and a model told a different shared past each round on the one
+// route built around a shared past.
+//
+// Seeding from the save fixes both while keeping the variety between
+// playthroughs. Every field here is chosen at character setup and never changes
+// afterwards, so the value is stable for the life of a save and survives
+// save/load with no new field to persist and nothing to migrate.
+function backstorySeed(form, mainId) {
+  let h = 0x811c9dc5;                                            // FNV-1a, as in aliyunRoute.js
+  for (const ch of `${form.name || ""}|${form.age || ""}|${form.pace || ""}|${mainId || ""}`) {
+    h ^= ch.codePointAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+function getIdentityBackground(identity, mainMemberName, language = "zh", seed = 0) {
   const name = mainMemberName || "her";
+  // Two picks from one seed. Separate bit ranges, so the keepsake is not locked
+  // to the breakup reason - the low bits alone would only ever yield 4 of the
+  // 16 combinations.
+  const pickReason = seed % 4;
+  const pickKeepsake = (seed >>> 16) % 4;
   const sepReasons = {
     zh: ["事业规划不同", "家庭压力", "年少不懂事", "聚少离多"],
     en: ["different career plans", "family pressure", "youthful immaturity", "long distance"],
@@ -347,8 +375,8 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
       "留学生": `[身份背景] 你是来韩留学生，因与${name}因有共同的舞蹈/唱歌/艺术爱好偶然在日常活动中与${name}相识。优势：有共同爱好, 在日常活动中自然接触。劣势：身份差距、年龄差异`,
       "财阀": `[身份背景] 你是${name}组合所在公司的新任年轻女会长，主导组合事业走向。\ 典型事件：与${name}所在女团开回归企划讨论会，${name}提出想法令你刮目相看；\ 借关心成员们的名义亲自去探班制造和${name}相处机会；\ 你心疼${name}辛苦于是让秘书给整个组合带薪放假、发奖金等 \ 优势：充足资金和资源。劣势：身份差距。`,
       "主线成员前女友": `[特殊身份背景-主线成员前女友]
-- 你和${name}曾是学生时代的恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
-- 你至今保留着${keeps[Math.floor(Math.random()*4)]}
+- 你和${name}曾是学生时代的恋人，几年前因${reasons[pickReason]}分手
+- 你至今保留着${keeps[pickKeepsake]}
 - 现在因工作调动重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
 - 其他成员可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行`,
     },
@@ -360,8 +388,8 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
       "留学生": `[Identity: International Student] You are an international student in Korea who met ${name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference.`,
       "财阀": `[Identity: Chaebol] You are the new young female chairwoman of ${name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with ${name}'s group, where ${name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around ${name}; Feeling for ${name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap.`,
       "主线成员前女友": `[Special Identity: Main Member's Ex-Girlfriend]
-- You and ${name} were lovers back in your school days, breaking up years ago due to ${reasons[Math.floor(Math.random()*4)]}
-- You still keep ${keeps[Math.floor(Math.random()*4)]} to this day
+- You and ${name} were lovers back in your school days, breaking up years ago due to ${reasons[pickReason]}
+- You still keep ${keeps[pickKeepsake]} to this day
 - Now reunited through a work transfer: awkwardness, complex feelings, unspoken words. Early interactions involve deliberate distance, averted eyes, polite but distant
 - Other members may or may not know about your past. As the game progresses, you may reconcile or go your separate ways`,
     },
@@ -373,8 +401,8 @@ function getIdentityBackground(identity, mainMemberName, language = "zh") {
       "留学生": `[신분: 유학생] 당신은 한국에 유학 온 학생으로, 춤/노래/예술이라는 공통된 취미를 통해 일상 속에서 우연히 ${name}와 알게 되었습니다. 장점: 공통된 취미, 일상 활동 속 자연스러운 접촉. 단점: 신분 격차, 나이 차이.`,
       "财阀": `[신분: 재벌] 당신은 ${name}의 그룹 소속사에 새로 부임한 젊은 여성 회장으로, 그룹의 활동 방향을 이끌고 있습니다. 주요 이벤트: ${name}의 그룹과 컴백 기획 회의를 하던 중 ${name}가 제안한 아이디어에 감탄함; 멤버들을 살피러 왔다는 명목으로 직접 연습실을 방문해 ${name}와 마주할 기회를 만듦; ${name}의 고생이 안쓰러워 비서를 시켜 그룹 전원에게 유급 휴가와 보너스를 지급함. 장점: 풍부한 자금과 자원. 단점: 신분 격차.`,
       "主线成员前女友": `[특별 신분: 메인 멤버의 전 여자친구]
-- 당신과 ${name}는 학창 시절 연인이었으며, 몇 년 전 ${reasons[Math.floor(Math.random()*4)]}로 인해 헤어졌습니다
-- 당신은 아직도 ${keeps[Math.floor(Math.random()*4)]}을/를 간직하고 있습니다
+- 당신과 ${name}는 학창 시절 연인이었으며, 몇 년 전 ${reasons[pickReason]}로 인해 헤어졌습니다
+- 당신은 아직도 ${keeps[pickKeepsake]}을/를 간직하고 있습니다
 - 지금은 업무 발령으로 재회: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠
 - 다른 멤버들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다`,
     },

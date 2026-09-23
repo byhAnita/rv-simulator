@@ -26,6 +26,7 @@ node test/smoke.mjs --live            # + one real round on the provider in .env
 node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, then one routed round
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
+node scripts/update-golden.mjs        # regenerate test/fixtures/*.txt after an INTENTIONAL prompt change, then read the diff
 npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
@@ -492,6 +493,38 @@ Comparison is by **birth year, not age gap in years** — Korean seniority is a 
 
 The lesson generalises past this field: **a test that reads `public/groups/*.json` directly tests the formatter, not the feature.** The v1.3.6 checks did exactly that and passed while the app was broken. Anything asserting on member data must load it through `loadGroupConfig`, which is what smoke Layer I now does. When you add a member field to a group JSON, add it to the whitelist in the same commit or it will not exist at runtime.
 
+### `buildSystemPrompt` must be a pure function of the save
+
+**The same save must produce a byte-identical system prompt on every round, forever.** This is not a style preference — it is the load-bearing assumption behind the entire 3-tier design. `executeRound` rebuilds the system prompt from scratch every round (`mainAgent.js:579`) and relies on the ~5,500 tokens coming out identical so the provider serves them from cache. One character of drift costs the whole prefix.
+
+It also has to hold *across sessions*: a player who saves at round 12 and loads a week later must get the same prompt, or their backstory changes under them.
+
+**This was broken for one identity from the start.** `主线成员前女友` (the main member's ex-girlfriend) composes its background from two `Math.random()` picks — the breakup reason and the keepsake:
+
+```js
+- 你和${name}曾是学生时代的恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
+```
+
+Because the whole prompt is rebuilt per round, those re-rolled **every round**, with two consequences. The cheap one is billing: the static prompt could never cache for these players, so they paid full input price on ~5,500 tokens every round while the architecture claimed ~95.8%. The expensive one is the writing — the model was handed a *different* breakup reason and a different keepsake each round, on a route whose entire premise is a shared past. A player would see the game contradict its own backstory with no way to describe the bug beyond "she keeps forgetting".
+
+The fix keeps the variety and removes the drift: both indices are now derived from **`backstorySeed(form, mainId)`**, an FNV-1a hash over fields fixed at character setup (`name`, `age`, `pace`, `mainId`). Different playthroughs still get different backstories; one playthrough gets one backstory. It needs no new save field and no migration, so an old save simply stops drifting on its next load — which also means the reason and keepsake it settles on may differ from the one it last happened to roll. That is the intended trade: a stable past the player can rely on beats matching a value that was never stable to begin with.
+
+**Anything else that reaches the static prompt must clear the same bar.** No `Math.random()`, no `Date.now()`, no locale-dependent formatting, no iteration over an unordered `Set` or object whose key order is not fixed by construction. Derive from the save, or compute once at setup and persist it. Smoke **Layer J** enforces this: it builds each prompt twice and asserts byte-equality across all 8 identities in all 3 languages, which is what fails against the unfixed code.
+
+### Golden prompt snapshots (`test/fixtures/`)
+
+Three full system prompts are committed as text files and asserted byte-for-byte by smoke Layer J. They exist because **a prompt regression throws no error and fails no test** — it produces slightly different writing some weeks later, with nothing to bisect. That is the exact risk profile of the v1.4.0 cast/world/roster split, which moves large blocks of `buildSystemPrompt` into `worldLoader.js` while intending to change nothing.
+
+| Fixture | Covers |
+| --- | --- |
+| `red_velvet-classic-zh.txt` | 5 members, main + 2 subs + 2 NPCs, zh token table (`欧尼`/`呀`/`nim`/`xi`), no work override |
+| `twice-nine-en.txt` | the largest cast (9), en forms, `Staff` work override, both seniority directions |
+| `red_velvet-solo-ko.txt` | one romanceable member and 4 NPCs, native ko forms, and the `主线成员前女友` backstory — so the randomness bug above cannot return silently |
+
+**A golden file is not a specification, and a diff against one is not a failure.** It records what the code does today. When you change the prompt *on purpose*, run `node scripts/update-golden.mjs`, then **read the diff** — it is the review artifact, and the only place a one-word change to a shared rule shows up as the eleven lines it actually touched. Commit the regenerated files with the change that caused them.
+
+Regenerating to make a red suite green, without reading the diff, converts the only prompt regression detector this repo has into a rubber stamp. If a diff appears that you did not intend, that is the tool working.
+
 ### LLM Output JSON Schema
 
 ```js
@@ -856,7 +889,7 @@ Then:
 
 ## Project Status (2026-09-23)
 
-**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **459**), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **469**), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **Next up: v1.4.0–v1.5.0 is planned but not started — see `docs/V140_PLAN.md`.** It splits the
 single `group` concept into **cast library / world / roster**, which is the change every feature

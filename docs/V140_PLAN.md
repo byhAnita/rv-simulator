@@ -3,27 +3,42 @@
 Planning artifact. Written before any code, per the repo convention that docs lead.
 Audience: whoever implements this, which is me in a later session and Yuhan reviewing it.
 
-Status: **agreed in discussion 2026-09-23. Step 0 done; step 1 is next.**
+Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done; step 2 is next.**
 
 ## Progress
 
 | Step | State |
 | --- | --- |
 | **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
-| **1 — Golden prompt snapshots** | ⬜ **next.** Nothing started. |
-| 2 — Release v1.3.9 | ⬜ affection clamp, usage panel, quota-guarded `saveToStorage` |
-| 3 — World extraction + resolver | ⬜ |
+| **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug — see below. Verified failing against the unfixed code. |
+| **2 — Release v1.3.9** | ⬜ **next.** Affection clamp (task 11), usage panel (10), quota-guarded `saveToStorage` (9a). Note the release now also carries the backstory fix, which is player-visible. |
+| 3 — World extraction + resolver | ⬜ **The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
 | 4 — Save migration | ⬜ |
 | 5 — Content (`habit` × 27) | ⬜ |
 | 6 — UI | ⬜ |
 | 7 — Release v1.4.0 | ⬜ |
 
-**Pick up here.** `main` is at `f324a5e`, tagged v1.3.8, live and unchanged. `dev` is ahead by
-docs plus the CI work; nothing is pushed. Next action is **step 1**: pin the output of
-`buildSystemPrompt` for three fixtures into `test/fixtures/` and assert them in smoke, *before*
-any world/roster code exists — see §15.0 for why that hour is the highest-value one in the plan.
+**Step 1 paid for itself before the first fixture existed.** Writing a snapshot forces the
+question *is this output actually stable?*, which nothing had ever asked. It is not: the
+`主线成员前女友` identity built its background from two `Math.random()` calls, and the system
+prompt is rebuilt every round — so that identity re-rolled its own breakup reason and keepsake
+every single round. Two consequences, both shipped since the identity existed:
 
-Everything below §15.0 in this document is design, not progress.
+- **The prompt cache could never hit for those players.** ~5,500 tokens at full input price every
+  round, against an architecture whose headline number is ~95.8%.
+- **The story contradicted itself.** The model was handed a different shared past each round, on
+  the one route whose entire premise is a shared past. A player could only have reported this as
+  "she keeps forgetting things".
+
+Fixed with `backstorySeed(form, mainId)` — FNV-1a over fields fixed at character setup, so
+variety between playthroughs survives and drift within one does not. No new save field, nothing
+to migrate. Full reasoning in CLAUDE.md, *"`buildSystemPrompt` must be a pure function of the
+save"*, and in `docs/TECH_NOTES.md`.
+
+**Pick up here.** `main` is at `f324a5e`, tagged v1.3.8, live and unchanged. `dev` carries the
+plan docs, the CI work and step 1; smoke is at 469. Next action is **step 2**, the v1.3.9
+release — three independent, old-save-safe items, now joined by the backstory fix. Everything
+below §15.0 in this document is design, not progress.
 
 ---
 
@@ -656,8 +671,8 @@ sequencing rules drive everything:
 
 | Step | Work | Gate before moving on |
 | --- | --- | --- |
-| **0** | ✅ CI — build + smoke on every push, and the mirror-sync assertion | Done. The mirror guard went into **smoke Layer C, not the workflow** — see `docs/TECH_NOTES.md`: a CI-only check would not have gated `npm run deploy`, whose preflight runs smoke rather than CI. |
-| **1** | Golden prompt snapshots: 3 fixtures (RV classic, 9-member group, single member) pinned into `test/fixtures/` and asserted by smoke | Fixtures committed and passing against *unmodified* code |
+| **0** | ✅ CI — build + smoke on every push, and the mirror-sync assertion (done) | Done. The mirror guard went into **smoke Layer C, not the workflow** — see `docs/TECH_NOTES.md`: a CI-only check would not have gated `npm run deploy`, whose preflight runs smoke rather than CI. |
+| **1** | ✅ Golden prompt snapshots: 3 fixtures (RV classic, 9-member group, single member) pinned into `test/fixtures/` and asserted by smoke Layer J | Done — and it required one src fix first: the prompt was not deterministic, so there was nothing stable to pin. See Progress. |
 | **2** | **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a) | Normal release flow; players get value while the refactor runs |
 | **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |
 | **4** | Save migration: task 6 | A pinned v1.3.8 save migrates and resolves to the *same* member set `getNpcMembers` returns today |

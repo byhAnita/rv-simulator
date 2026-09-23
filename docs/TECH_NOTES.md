@@ -158,6 +158,64 @@ local commits and the deploy preflight. CI should trigger checks, not contain th
 
 ---
 
+### Golden-file prompt snapshots — v1.3.9
+
+**What it is.** Three complete system prompts are generated from pinned inputs, written to text
+files, and committed. The test suite regenerates them each run and asserts the output is
+byte-identical to the committed copy. When the prompt changes on purpose, a script rewrites the
+files and the diff goes into the same commit as the change.
+
+The point is not that the current prompt is correct. It is that any change to it becomes
+**visible**. A prompt is a 5,500-token string assembled from a dozen template literals; edit a
+shared rule and you cannot tell from the diff which of the eight identities and three languages
+moved. The golden files answer that in the form of a diff you can read.
+
+**What it replaced.** Property assertions — smoke Layer I checks about forty specific substrings
+(`/4 yr OLDER than Summer/`, `NEVER "姐"`, and so on). Those are precise about the things somebody
+already thought to guard and blind to everything else. Nothing at all covered the ~95% of the
+prompt that no regex names: the JSON schema block, the phase rules, the NPC rule, the social
+platform list, section ordering, blank lines. A refactor could rewrite any of it and the suite
+would stay green.
+
+The two are complements, not substitutes. A property assertion says *this must be true*, survives
+an intentional rewording, and explains itself when it fails. A golden file says *nothing may
+change without being looked at*, catches what nobody predicted, and cannot explain anything — it
+just shows you the diff. Keep both; do not convert one into the other.
+
+**What it bought.** Immediately, before the first fixture was even written: the
+`主线成员前女友` identity built its background from two `Math.random()` calls, and the prompt is
+rebuilt every round — so that identity re-rolled its own backstory every round, defeating the
+prompt cache entirely (~5,500 tokens, full price, every round) and feeding the model a different
+breakup reason each time on a route whose whole premise is a shared past. Shipped since the
+identity existed. Found because a snapshot forces you to ask "is this output actually stable?",
+which no property assertion had ever asked.
+
+Going forward it is the gate on the v1.4.0 cast/world/roster split (plan §15.0 step 3), whose
+success criterion is *byte-identical prompts for the same roster*. Without the files that
+criterion cannot be stated, let alone checked.
+
+**What it costs.** Three committed text files (~40 KB) that must be regenerated whenever the
+prompt changes on purpose, and one real failure mode: **regenerating without reading the diff**
+turns the detector into a rubber stamp. That is why regeneration is a separate explicit script
+(`scripts/update-golden.mjs`) rather than a `--update` flag on the test suite — a flag people
+reach for while a run is red, a script is something you decide to do.
+
+They also pin only what the fixtures cover. Three casts out of nine groups, three of eight
+identities; a bug reachable only by `留学生` in Korean is still invisible. The determinism sweep
+covers the full 8x3 grid precisely because the snapshots cannot.
+
+**Where it lives.** `test/fixtures/*.txt` (the goldens), `test/fixtures/prompts.mjs` (the pinned
+inputs, shared so the test and the regenerator cannot disagree), smoke **Layer J**,
+`scripts/update-golden.mjs`. The determinism fix is `backstorySeed` in `src/agent/mainAgent.js`.
+
+**Short form.** Pin the whole generated prompt to committed files and diff against them, so a
+refactor that changes the prompt by accident shows up as a diff instead of as slightly different
+writing three weeks later. It found a shipped bug on day one: one identity re-randomised its
+backstory every round, which cost the prompt cache and quietly contradicted the story. Property
+assertions say what must be true; goldens say nothing may change unseen — you want both.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.
