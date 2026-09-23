@@ -67,7 +67,7 @@ const API_KEY = env.YURIAGENT_API_KEY || env.API_KEY || process.env.YURIAGENT_AP
 const MODEL_ALIASES = {
   "deepseek-v4-flash": "deepseek", "deepseek-flash": "deepseek", "deepseek": "deepseek",
   "gemini-3.5-flash-lite": "gemini", "gemini": "gemini",
-  "gpt-5.6-luna": "gpt4omini", "gpt4omini": "gpt4omini",
+  "gpt-6-luna": "gpt4omini", "gpt-5.6-luna": "gpt4omini", "gpt4omini": "gpt4omini",
   "qwen-3.8-max": "qwen", "qwen3.8-max": "qwen", "qwen": "qwen", "aliyun": "qwen",
 };
 const rawModel = (env.MODEL_ID || "deepseek-v4-flash").trim();
@@ -167,7 +167,10 @@ async function layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg) {
     ["qwen", "deepseek-v4-pro", { max_completion_tokens: 65535, enable_thinking: true, reasoning_effort: "high" }],
     ["deepseek", null, { model: "deepseek-flash", max_tokens: 65536, reasoning_effort: "high" }],
     ["gemini", null, { max_tokens: 65535, reasoning_effort: "high" }],
-    ["gpt4omini", null, { max_completion_tokens: 32768, reasoning_effort: "high" }],
+    // model pinned: a display-name bump that forgets the model string would
+    // otherwise ship a retired model and only fail live, on the player's key.
+    // "high" is deliberate — GPT-6 Luna also offers xhigh/max, see CLAUDE.md.
+    ["gpt4omini", null, { model: "gpt-6-luna", max_completion_tokens: 32768, reasoning_effort: "high" }],
   ];
   for (const [id, paidModel, expected] of onCases) {
     const aliyun = paidModel ? { mode: "paid", paidModel } : null;

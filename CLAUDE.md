@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.6** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.8** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -26,7 +26,7 @@ node test/smoke.mjs --live            # + one real round on the provider in .env
 node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, then one routed round
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
-npm run bump 1.3.3                    # rewrite all 13 version strings (note the `--` for --dry)
+npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 ```
@@ -174,7 +174,7 @@ NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 | --- | --- | --- | --- | --- |
 | `qwen` | Aliyun | free route / paid picker (see below) | ✅ **default** | Alibaba Cloud Bailian: Qwen, DeepSeek and GLM behind one `sk-ws-` key. The code id stays `qwen` so saves and `rv_sim_model_v11` keep working — only the UI label changed |
 | `deepseek` | DeepSeek V4.1 Flash | `deepseek-flash` | | DeepSeek's own platform. The button is named for the model, not the platform, so the player can see what they will run; the platform name lives in the card description. The legacy `deepseek-v4-flash` name is retired upstream and served by V4.1 anyway |
-| `gpt4omini` | GPT-5.6 Luna | `gpt-5.6-luna` | | key `gpt4omini` is legacy, the model string is current |
+| `gpt4omini` | GPT-6 Luna | `gpt-6-luna` | | key `gpt4omini` is legacy, the model string is current. Replaced GPT-5.6 Luna in v1.3.8 — same endpoint and parameters, 4.5x cheaper per round on published pricing |
 | `gemini` | Gemini 3.5 Flash-Lite | `gemini-3.5-flash-lite` | | OpenAI-compat endpoint |
 
 All four use `format: "openai"` and go through the same `fetch` in `llmTool.js`. `character-plus` and the three Qwen sub-models (`qwen3.7-max` has no JSON mode) were removed.
@@ -232,6 +232,8 @@ Only the live probe can find this class of bug: the reference documents what a p
 
 **Effort levels are chosen for the player.** The settings page only exposes Deep Thinking on/off; when it is on, each family uses one level below its maximum (`max` only where that is the sole legal value). Never surface `low`/`medium`/`high` to players.
 
+**The one-below-maximum rule does not survive a long ladder — `gpt4omini` is a deliberate exception.** GPT-6 Luna offers `none`/`low`/`medium`/`high`/`xhigh`/`max`, so the rule would pick `xhigh`. The rule was written for two- and three-rung ladders, where one-below-max is a moderate setting; on six rungs it is near-maximal. A round asks for ~800 tokens of prose, not deep reasoning, and the README's "Thinking ON" costs assume ~1–2K reasoning tokens — an assumption `high` satisfies and `xhigh` would quietly break, raising every player's bill for a quality gain nobody has measured. It also cuts against what the model is for ("focused, high-volume tasks"). If another provider ships a ladder this long, weigh it the same way rather than applying the rule mechanically.
+
 ### Error Layer (`src/tools/llmErrors.js`)
 
 Every failed call throws `LLMError {kind, provider, model, status, code, message}`. `parseErrorBody` accepts OpenAI-style `{error:{code,message}}` (verified live on both Aliyun endpoints), DashScope-native `{code,message}`, and Gemini's `{error:{status,details[].reason}}`, array-wrapped or not. `classifyError(provider, httpStatus, body)` then picks one kind, using `docs/error_code/*.md` as the source of truth:
@@ -269,7 +271,7 @@ Order matters inside the Aliyun rule: `free_exhausted` and `balance` are matched
 | `deepseek` | `thinking:{type:'disabled'}` (thinking is the upstream default — must disable) | `thinking:{type:'enabled'}`, `reasoning_effort:'high'`, `max_tokens: 65536` |
 | `qwen` (Aliyun) | `enable_thinking: false` **boolean** (Qwen 3.x, and DeepSeek/GLM on Aliyun, all default ON), plus `preserve_thinking: false` where supported | `enable_thinking: true` + the family's `reasoning_effort` from `getAliyunModelParams(model)`; the `qwenOpen` family stays `false` — see above |
 | `gemini` | field omitted — Gemini 3+ has no documented off switch; `thinkingLevel` bottoms out at `MINIMAL`, which is flash-lite's default | `reasoning_effort:'high'`, `max_tokens: 65535` |
-| `gpt4omini` | `reasoning_effort:'none'` (the reference lists `none` as a value, so OFF is explicit) | `reasoning_effort:'high'`, `max_completion_tokens: 32768` |
+| `gpt4omini` | `reasoning_effort:'none'` (documented on the model page, so OFF is explicit) | `reasoning_effort:'high'`, `max_completion_tokens: 32768` — **`high`, not `xhigh`**; see the note under Effort levels |
 
 `preserve_thinking` is always `false`, never `true`: the game never sends `reasoning_content` back, and Aliyun bills preserved thinking as input on the next round. The `qwen3.8-max`/`qwen3.8-flash` docs also require echoing `reasoning_content` in its own field when preserving, which this architecture deliberately does not do.
 
@@ -286,14 +288,14 @@ The response reader uses `choice.message.content` **only** — never falls back 
 | --- | --- | --- |
 | `qwen` (Aliyun) | 8192 (`glm-5.3`: 32768) | 65535 (`qwenOpen`: 8192, it never thinks) |
 | `deepseek` | 8192 (upstream non-thinking default) | 65536 (upstream thinking default is 64K) |
-| `gpt4omini` | 8192 | 32768 — at 8192 reasoning tokens could consume the whole budget and return empty content |
+| `gpt4omini` | 8192 | 32768 — at 8192 reasoning tokens could consume the whole budget and return empty content. GPT-6 Luna allows 128000; this is a ceiling, not a reservation |
 | `gemini` | 8192 | 65535 |
 
 A round only needs ~800 output tokens; these are ceilings, not reservations. Aliyun honors **both** cap names — verified live 2026-08-26: a cap of 16 truncates with `finish_reason:'length'` under either — so the per-model split is about matching the documented field, not about one being rejected. `test/smoke.mjs --live` asserts the cap is genuinely honored, not merely accepted, since an ignored unknown field would still return HTTP 200.
 
 ---
 
-## Add-on Features (v1.3.6)
+## Add-on Features (v1.3.8)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -655,7 +657,7 @@ Bump the version and write the new README "What's New" section as the **last com
 
 ```bash
 git checkout dev
-npm run bump 1.4.0                                # rewrites all 13 version strings
+npm run bump 1.4.0                                # rewrites all 15 version strings
 # hand-write the "## What's New in v1.4.0" section in README.md
 npm run build && node test/smoke.mjs
 git commit -am "chore: bump to v1.4.0" && git push origin dev
@@ -706,7 +708,7 @@ Deleting the merged `hotfix/*` branch afterwards is your call — the merge comm
 
 ### Version strings
 
-Thirteen strings across five files must agree, and `npm run bump <x.y.z>` rewrites all of them:
+Fifteen strings across six files must agree, and `npm run bump <x.y.z>` rewrites all of them:
 
 ```bash
 npm run bump 1.3.3           # writes; run the validators afterwards
@@ -721,10 +723,17 @@ npm run bump 1.3.3 -- --dry  # show what would change, write nothing
 | `src/i18n/{zh,en,ko}.js` | 3 | `cover.desc` |
 | `src/App.jsx` | 3 | the fallback cover strings, zh/en/ko |
 | `README.md` | 6 | title, version badge, cost-section heading, three ASCII sketches |
+| `CLAUDE.md` | 2 | the Project Overview title, the Add-on Features heading — **matched by anchor**, see below |
+
+**CLAUDE.md is matched by anchor, not by version regex — most of its version numbers are history.** This file is largely changelog and post-mortem prose: "fixed in v1.3.7", "### v1.3.8 — GPT-6 Luna", "v1.3.5 introduced the dependency". Rewriting those would falsify the project's own record, which is worse than the drift the bump is meant to prevent. So `ANCHORS` in `scripts/bump-version.mjs` names the two lines that carry the *current* version as exact strings, and every other mention is untouched. Each anchor must match exactly once: zero means the heading was reworded, more than one means it is no longer unique, and either way the count check aborts the bump and fails smoke.
+
+Both headers were added to the bump in v1.3.8, after the v1.3.7 release shipped with them still reading v1.3.6 — they look static, so they get forgotten.
+
+**`**v1.3.8 is the current release.**` in Project Status is deliberately *not* anchored.** That whole paragraph is rewritten by hand each release anyway (it carries the check count, the live-test results and the branch state), so a stale version there is caught by the act of editing it. Anchoring it would only add a failure mode.
 
 **The README "What's New in v…" heading is deliberately not bumped.** It is a changelog entry, not a version string — a release *adds* a new section and leaves the old ones alone. `bump` skips every line containing `What's New in` for exactly this reason; rewriting it would silently relabel the previous release's notes.
 
-Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 13 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
+Two things keep this honest: the bump script realigns the ASCII sketch lines so a width change (`1.3.9` -> `1.3.10`) cannot break the art, and **smoke Layer C asserts all 15 agree with `package.json`**, so a partial bump fails the suite — and therefore fails `deploy.sh` preflight.
 
 ### Commit identity
 
@@ -812,11 +821,24 @@ Then:
 
 ---
 
-## Project Status (2026-09-19)
+## Project Status (2026-09-23)
 
-**v1.3.7 is the current release.** Working branch is `dev`. Validated offline (`npm run build` + **455 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
+
+### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23)
+
+`CLAUDE.md`'s title and Add-on Features headers are now rewritten by `npm run bump`, matched as exact anchors so the file's many *historical* version numbers are left alone. See **Version strings**. v1.3.7 shipped with both still reading v1.3.6, which is what prompted it.
+
+
+`gpt4omini` now serves **`gpt-6-luna`** instead of `gpt-5.6-luna`. Same endpoint, same parameter shape, no client changes: only the model string, display name and cost strings moved.
+
+**The provider id stays `gpt4omini`.** It is the value in `rv_sim_model_v11` and in every save slot, so renaming it would silently reset the model choice for existing players. Legacy, load-bearing, and not worth touching.
+
+Published pricing (per 1M): **$0.01** cached input · **$0.10** input · **$0.50** output — about **4.5x cheaper per round** than the tier it replaces, and real figures rather than the "comparable tier" estimate the README used to carry. The GPT rows now say ~$0.00051/round and ~163 hrs per $1. Gemini is now the only provider still costed from an estimate.
+
+Deep Thinking stays at `high` even though the new ladder offers `xhigh` and `max` — see the exception under **Effort levels**. Smoke now pins the request body's `model` for this provider, so a display-name bump that forgets the model string fails offline instead of on a player's key.
 
 ### v1.3.7 — the v1.3.6 fix, actually reaching the model (2026-09-19)
 
@@ -877,7 +899,7 @@ Evidence and reasoning for the model-layer decisions: **`docs/TEST_FINDINGS.md`*
 
 **Test layer**
 12. **`test/playthrough.mjs`** (new) — plays real multi-round games and grades JSON validity, language lock, option format, stat bounds, CoT leakage, and the ledger-prefix cache invariant; reads `usage.cached_tokens` to measure the cache directly.
-13. **Smoke suite 145 → 455 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
+13. **Smoke suite 145 → 457 checks**, including per-model family contracts, the router's new policies, error-kind i18n parity, legacy/corrupt route state, and key-page layout guards for bugs that reached hand testing.
 
 ### Live test results (2026-09-16)
 
@@ -896,7 +918,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 
 1. **The empty-route notice has never been rendered.** It only appears at 0/28 available, which needs a genuinely exhausted key. Everything else on the key page has now been hand-checked at 390px.
 2. **Re-check the 95.8% cache figure against DeepSeek Official billing** after a long hand-played session. That figure comes from DeepSeek's platform; the ~83% measured here is Aliyun-specific and the two are not comparable, so pricing stays as published until then. `docs/TEST_FINDINGS.md` records the size of the gap if it does need revising, and the open `qwen3.6-flash` question (Aliyun reports no cached tokens for it at all).
-3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed.
+3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed. GPT-6 Luna's model page lists `none` explicitly (v1.3.8), so the value is no longer inferred from a general parameter table — but *documented* is still not *observed*, and neither provider has ever been exercised live. `test/README.md` records the same gap.
 4. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
 
 **Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js` and `stageConfig.js` still carry Chinese comments (`groupLoader.js` was converted in v1.3.5), against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
@@ -905,7 +927,7 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 
 ## Known Inconsistencies (fix before they bite)
 
-1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 13 places instead of 10. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the thirteen. See **Version strings** under Branch & Deploy Workflow.
+1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 15 places instead of 12. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the fifteen. See **Version strings** under Branch & Deploy Workflow.
 
    **`App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx`, so a bump edited in only one place leaves the two disagreeing depending on which path renders. Worth collapsing into one source before the next release.
 

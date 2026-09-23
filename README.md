@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.7
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.8
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.7-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.8-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -26,7 +26,7 @@
 - 🎭 **7+1 Player Identities** — Trainee, Staff, Artist, Fan, Student, Chaebol, Ex-Girlfriend, Custom
 - 💾 **Save / Load System** — Cover-page quick load, save, delete
 - 📲 **PWA Support** — Add to Home Screen (iOS + Android), fullscreen
-- 🔑 **Multi-Model** — Aliyun (28-model free route, or 9 paid picks across Qwen / DeepSeek / GLM) · DeepSeek V4.1 Flash · GPT-5.6 Luna · Gemini 3.5 Flash-Lite
+- 🔑 **Multi-Model** — Aliyun (28-model free route, or 9 paid picks across Qwen / DeepSeek / GLM) · DeepSeek V4.1 Flash · GPT-6 Luna · Gemini 3.5 Flash-Lite
 - 🩺 **Readable errors** — failures show one short line in your language (credits used up, server busy, key invalid…) instead of raw API text
 
 ---
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.7)
+## 💰 API Cost & Performance (v1.3.8)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -111,14 +111,18 @@ Aliyun bills in CNY; USD columns convert at ￥7.1 = $1.
 | --- | --- | --- | --- | --- |
 | **DeepSeek Official (V4.1 Flash)** 🐋 | ❌ Off *(Default)* | ~$0.00067 * | ~$0.027 * | ~120 hrs |
 | DeepSeek Official (V4.1 Flash) | ✅ High | ~$0.0013 * | ~$0.054 * | ~60 hrs |
-| **GPT-5.6 Luna** ⚡ | ❌ Off *(Default)* | ~$0.0023 | ~$0.09 | ~37 hrs |
-| GPT-5.6 Luna | ✅ High | ~$0.0046 | ~$0.19 | ~18 hrs |
+| **GPT-6 Luna** ⚡ | ❌ Off *(Default)* | ~$0.00051 | ~$0.020 | ~163 hrs |
+| GPT-6 Luna | ✅ High | ~$0.0010 | ~$0.041 | ~82 hrs |
 | **Gemini 3.5 Flash-Lite** 💎 | ❌ Off *(Default)* | ~$0.0029 | ~$0.12 | ~29 hrs |
 | Gemini 3.5 Flash-Lite | ✅ High | ~$0.0058 | ~$0.23 | ~14 hrs |
 
 > \* **DeepSeek repriced again.** The `deepseek-flash` model name now serves **DeepSeek-V4.1-Flash** at **$0.003 / 1M cache-hit input · $0.15 / 1M cache-miss input · $0.60 / 1M output** off-peak, and **2x all three** during peak hours (01:00–04:00 and 06:00–10:00 UTC, Mon–Fri). Figures are a 7-day blend (35 of 168 hours at peak). That is roughly 3.6x cheaper per round than the V4 Flash pricing it replaces. The legacy `deepseek-v4-flash` name still works but is served by V4.1 Flash.
 >
-> ⚠️ Per-token prices for GPT-5.6 Luna and Gemini 3.5 Flash-Lite are estimates based on comparable tiers — verify on your provider's pricing page. DeepSeek and Aliyun figures use published pricing.
+> ⚡ **GPT-6 Luna replaced GPT-5.6 Luna** (per 1M tokens: **$0.01** cache-hit input · **$0.10** cache-miss input · **$0.50** output). That is roughly **4.5x cheaper per round** than the tier it replaces, and the figures above are now published pricing rather than an estimate.
+>
+> ⚠️ Per-token prices for Gemini 3.5 Flash-Lite are still estimates based on comparable tiers — verify on your provider's pricing page. GPT, DeepSeek and Aliyun figures use published pricing.
+>
+> 📐 Cache *writes* bill at 1.25x the input rate on OpenAI, which this table's token profile does not model separately — treat the GPT rows as roughly 5–10% optimistic. Every other provider's rows have always carried the same simplification.
 >
 > 💡 "Thinking ON" rows assume ~1,000–2,000 reasoning tokens billed at the output rate, which roughly doubles per-round cost. That is why reasoning ships **off by default**.
 
@@ -153,6 +157,10 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.3.8
+
+* ⚡ **GPT-6 Luna replaces GPT-5.6 Luna** — same button, newer model, and **about 4.5x cheaper per round**: a full 40-round playthrough now costs roughly **$0.02** instead of **$0.09**, or about **163 hours of play per $1**. Nothing to change in your settings; if you had GPT selected, you are already on it.
 
 ## 🎉 What's New in v1.3.7
 
@@ -229,7 +237,7 @@ A maintenance release — no gameplay changes.
 ## 🎯 Tech Stack
 
 - **Frontend** — React 18 + Vite, all inline styles (no CSS framework), mobile-first 390×844
-- **LLM** — Aliyun (Qwen / DeepSeek / GLM, free-credit auto-route or paid) · DeepSeek Official V4.1 Flash · GPT-5.6 Luna · Gemini 3.5 Flash-Lite, through one unified OpenAI-compatible client with a shared error classifier
+- **LLM** — Aliyun (Qwen / DeepSeek / GLM, free-credit auto-route or paid) · DeepSeek Official V4.1 Flash · GPT-6 Luna · Gemini 3.5 Flash-Lite, through one unified OpenAI-compatible client with a shared error classifier
 - **State** — React hooks only (no Redux/Zustand), `useRef` for non-rendering mutable data
 - **i18n** — Custom translation engine (zh/en/ko) with `${var}` interpolation
 - **PWA** — Web App Manifest + iOS/Android fullscreen
@@ -270,7 +278,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.7              | |
+|  |              LLM Text Adventure . v1.3.8              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -373,7 +381,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.7 - Architecture                     |
+|          Idol Dating Sim  v1.3.8 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -429,7 +437,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.7 Round Flow                            |
+|                    v1.3.8 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

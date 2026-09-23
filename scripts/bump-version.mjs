@@ -4,7 +4,7 @@
 //   npm run bump 1.3.3
 //   npm run bump 1.3.3 -- --dry     (show the diff, write nothing)
 //
-// The version lives in 13 places across five files because App.jsx duplicates
+// The version lives in 15 places across six files because App.jsx duplicates
 // the i18n cover strings. Bumping them by hand is how a release ends up with a
 // cover that disagrees with package.json, so this is the only supported way.
 //
@@ -13,7 +13,10 @@
 // leaves the old ones alone. Relabelling the previous release's notes would be
 // silent and wrong, so every line containing "What's New in" is skipped.
 //
-// Smoke Layer A asserts the same 13 strings agree with package.json, so a
+// CLAUDE.md is handled differently again - see ANCHORS below. Most of its
+// version numbers are history, not state.
+//
+// Smoke Layer C asserts the same 15 strings agree with package.json, so a
 // partial bump fails the test suite and therefore fails deploy.sh preflight.
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -33,10 +36,28 @@ export const EXPECTED = {
   "src/i18n/ko.js": 1,
   "src/App.jsx": 3,
   "README.md": 6,
+  "CLAUDE.md": 2,
 };
 export const TOTAL_STRINGS = Object.values(EXPECTED).reduce((a, b) => a + b, 0);
 
 const SKIP_LINE = "What's New in";
+
+// CLAUDE.md is mostly changelog and post-mortem prose, where a version number
+// is a historical fact: "fixed in v1.3.7", "### v1.3.8 - GPT-6 Luna", "v1.3.5
+// introduced the dependency". A bare version regex would rewrite the project's
+// own history, which is worse than the drift it is meant to prevent. Only these
+// two lines name the CURRENT version, so they are matched as exact anchors and
+// every other mention in the file is left alone.
+//
+// Each anchor must match exactly once. Zero means the heading was reworded and
+// this script no longer knows where the string is; more than one means the
+// anchor is no longer unique. Either way the count check aborts the bump.
+const ANCHORS = {
+  "CLAUDE.md": [
+    (v) => `**Idol Dating Sim v${v}**`,
+    (v) => `## Add-on Features (v${v})`,
+  ],
+};
 
 export function readCurrentVersion(root = ROOT) {
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -85,6 +106,23 @@ export function bumpFile(relPath, text, oldV, newV) {
     const needle = `"version": "${oldV}"`;
     if (!text.includes(needle)) return { text, count: 0, warnings };
     return { text: text.replace(needle, `"version": "${newV}"`), count: 1, warnings };
+  }
+
+  const anchors = ANCHORS[relPath];
+  if (anchors) {
+    let out = text;
+    for (const make of anchors) {
+      const from = make(oldV);
+      const hits = out.split(from).length - 1;
+      if (hits !== 1) {
+        warnings.push(`${relPath}: anchor ${JSON.stringify(from)} matched ${hits} time(s), expected 1`);
+      }
+      if (hits > 0) {
+        out = out.split(from).join(make(newV));
+        count += hits;
+      }
+    }
+    return { text: out, count, warnings };
   }
 
   const lines = text.split("\n");

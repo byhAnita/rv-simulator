@@ -333,6 +333,46 @@ curl https://api.openai.com/v1/chat/completions \
 
 ---
 
+## Model in use: `gpt-6-luna`
+
+> Source: OpenAI model page, captured 2026-09-23. This is the model the game's
+> `gpt4omini` provider serves — the provider id is legacy, the model string is current.
+
+Positioned as the most efficient model for focused, high-volume tasks. Knowledge cutoff 2026-05-18.
+
+| | |
+| --- | --- |
+| Model string | `gpt-6-luna` |
+| Context window | 1,050,000 tokens |
+| Max output | 128,000 tokens |
+| `reasoning_effort` | `none`, `low`, `medium` (default), `high`, `xhigh`, `max` |
+| Modalities | text + image in, text out |
+| Endpoints | `v1/responses`, `v1/chat/completions`, `v1/batch` |
+
+### Pricing (per 1M text tokens)
+
+| | |
+| --- | --- |
+| Input | $0.10 |
+| Cached input | $0.01 — 10% of the uncached rate |
+| Cache writes | $0.125 — 1.25x the uncached rate |
+| Output | $0.50 |
+
+Batch and Flex bill at 50% of standard; Fast mode at 2x. Regional processing adds 10%.
+
+**Prompts over 272K input tokens** bill at 2x input and cache rates and 1.5x output **for the whole request**. The game's prompt is ~8K, so this is far out of reach — but it is a cliff rather than a slope, so anything that grows the static prompt by two orders of magnitude would cross it silently.
+
+### Two constraints that do not bite us, recorded so nobody re-derives them
+
+1. **Chat Completions supports function calling only with `reasoning_effort: "none"`.** The game calls `v1/chat/completions` and uses no function calling, so there is no conflict — but this is why a future tool-calling feature could not simply be switched on alongside Deep Thinking.
+2. **EU data residency is Standard-processing only.** Not applicable while the key is the player's own.
+
+### Effort level: the game sends `high`, not `xhigh`
+
+`CLAUDE.md`'s rule is "one level below the family's maximum", which on this six-rung ladder would mean `xhigh`. That rule was written for two- and three-rung ladders where one-below-max was a moderate setting; here it is near-maximal. The game asks for ~800 tokens of prose, not deep reasoning, and the published cost table assumes ~1–2K reasoning tokens — which `high` matches and `xhigh` would not. Raising it would invalidate every "Thinking ON" figure in the README and raise players' bills for a quality gain nobody has measured. Deliberate exception, decided 2026-09-23.
+
+---
+
 ## Key Notes
 
 1. **`max_tokens` is deprecated** — use `max_completion_tokens` instead, especially for reasoning models.

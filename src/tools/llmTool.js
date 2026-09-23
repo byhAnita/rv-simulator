@@ -74,6 +74,9 @@ function buildRequestBody(modelId, model, messages, reasoningEnabled) {
     if (reasoningEnabled) body.reasoning_effort = "high";   // none | low | high | max
   } else if (modelId === "gpt4omini") {
     // OpenAI documents "none" as an effort value, so OFF is explicit here too.
+    // ON stays "high" even though GPT-6 Luna's ladder runs none|low|medium|
+    // high|xhigh|max: one-below-max is near-maximal on a ladder this long, and
+    // the README's ON costs assume ~1-2K reasoning tokens. See CLAUDE.md.
     body.reasoning_effort = reasoningEnabled ? "high" : "none";
   } else if (modelId === "gemini") {
     // Gemini 3+ has no documented "off": thinkingLevel bottoms out at MINIMAL,

@@ -19,7 +19,7 @@ MODEL_ID="deepseek-v4-flash"
 ```
 
 `MODEL_ID` accepts either the provider id (`deepseek`, `qwen`, `gemini`,
-`gpt4omini`) or the model string (`deepseek-v4-flash`, `qwen-3.8-max`, …).
+`gpt4omini`) or the model string (`deepseek-v4-flash`, `gpt-6-luna`, `qwen-3.8-max`, …).
 
 **Why this can never reach players:**
 
