@@ -821,13 +821,13 @@ Then:
 
 ---
 
-## Project Status (2026-09-19)
+## Project Status (2026-09-23)
 
-**v1.3.8 is in progress on `dev`, not yet released.** The GPT-6 Luna swap and the bump-script change are committed and waiting; further features are planned for the same release. `main` is still at v1.3.7. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 
-### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23, unreleased)
+### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23)
 
 `CLAUDE.md`'s title and Add-on Features headers are now rewritten by `npm run bump`, matched as exact anchors so the file's many *historical* version numbers are left alone. See **Version strings**. v1.3.7 shipped with both still reading v1.3.6, which is what prompted it.
 
