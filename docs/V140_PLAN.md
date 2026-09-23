@@ -3,7 +3,7 @@
 Planning artifact. Written before any code, per the repo convention that docs lead.
 Audience: whoever implements this, which is me in a later session and Yuhan reviewing it.
 
-Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done; step 2 is next.**
+Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done and pushed to `dev`; step 2 next.**
 
 ## Progress
 
@@ -42,10 +42,43 @@ so long: `playthrough.mjs` hardcoded `identity: "练习生"` (so 7 of 8 identiti
 played live) and had no invariant on the static prompt at all, only on the smaller history
 ledger. It now takes `--identity` and reports `system-drift`.
 
-**Pick up here.** `main` is at `f324a5e`, tagged v1.3.8, live and unchanged. `dev` carries the
-plan docs, the CI work and step 1; smoke is at 469. Next action is **step 2**, the v1.3.9
-release — three independent, old-save-safe items, now joined by the backstory fix. Everything
-below §15.0 in this document is design, not progress.
+## Pick up here
+
+**State as of 2026-09-24.** `main` is at `f324a5e`, tagged v1.3.8, live on all three mirrors and
+**unchanged** — nothing in this line has reached players. `dev` is at `56acf22`, pushed, CI green
+([run 35932359099](https://github.com/byhAnita/rv-simulator/actions/runs/35932359099)), six
+commits ahead of `main`:
+
+| Commit | What |
+| --- | --- |
+| `56acf22` | live `system-drift` grading, `--identity`, `.cause` diagnosis fix |
+| `37f8a1c` | golden prompts, Layer J, `backstorySeed` (**the only `src/` change in the six**) |
+| `e8a7dfd` | CI + the `groups/` mirror guard |
+| `3364731` `aae0c0a` `3073cb7` | this plan, TECH_NOTES, the roadmap |
+
+Smoke: **469** offline, **485** with live layers. Working tree carries only ` M index.html` in
+dev mode, which is normal and never committed.
+
+**Next action is step 2 — release v1.3.9.** Four player-visible changes, all old-save-safe:
+
+1. **Affection clamp** (§12) — ±8/round in `mainAgent.js`, Layer D regression check.
+2. **Usage panel** (§11) — `llmTool.js` + new `platforms/UsagePanel.jsx`. Render "not reported"
+   for the twelve route models that send no `cached_tokens`, never 0%.
+3. **Quota-guarded `saveToStorage`** (§10) — return a boolean, surface a localized notice. Needs
+   `t.errors`-style strings in all three languages.
+4. **`backstorySeed`**, already committed in `37f8a1c` and currently unreleased.
+
+Then the documented release flow in CLAUDE.md: `npm run bump 1.3.9` (note the mandatory `--`
+before `--dry`), hand-write the README *What's New in v1.3.9* section, build + smoke, then a live
+pass before `main`.
+
+**Three things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
+free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
+`node test/smoke.mjs --live-free` rather than trusting this line. `--identity` now exists and
+should be swept, not left at its default. And `npm run deploy`, the `main` merge, the tag and any
+push are red lines needing explicit approval each time.
+
+Everything below §15.0 in this document is design, not progress.
 
 ---
 

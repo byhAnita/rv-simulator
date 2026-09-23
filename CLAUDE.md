@@ -897,11 +897,15 @@ Then:
 
 **v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **469** offline / **485** with live layers), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
-**Next up: v1.4.0–v1.5.0 is planned but not started — see `docs/V140_PLAN.md`.** It splits the
-single `group` concept into **cast library / world / roster**, which is the change every feature
-in that line depends on. Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section
-layout, or the save shape. Two pre-existing bugs it also closes are documented there: save slots
-record no group id, and `saveToStorage` swallows quota errors.
+**In progress: v1.4.0–v1.5.0 — see `docs/V140_PLAN.md`, whose Progress table and "Pick up here"
+section are the authority on where the work stands.** It splits the single `group` concept into
+**cast library / world / roster**, which is the change every feature in that line depends on.
+Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section layout, or the save
+shape. Two pre-existing bugs it also closes are documented there: save slots record no group id,
+and `saveToStorage` swallows quota errors.
+
+Steps 0 (CI) and 1 (golden prompts) are **done and on `dev`, unreleased**; step 2 is the v1.3.9
+release. Nothing in that line has reached `main`, so players are still on plain v1.3.8.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 
