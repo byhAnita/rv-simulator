@@ -35,6 +35,16 @@ DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 
 Validate every change with `npm run build` **and** `node test/smoke.mjs`. No lint config.
 
+**A change that introduces a *technique* also gets an entry in `docs/TECH_NOTES.md`, in the same
+commit.** A technique is anything where a reader could reasonably ask "why not just do the simple
+thing" — a caching strategy, a retrieval method, a statistical model, a routing or build
+mechanism. The entry says what it is in plain language, what it replaced and how that fell short,
+what it measurably bought, and what it costs. Features do not need one; if the honest answer to
+"why this way" is "it's the obvious way", there is nothing to write. This file exists because
+CLAUDE.md records how the system *behaves* and a diff records what changed, but neither recovers
+why an approach was chosen over the obvious alternative — which is the thing that is unexplainable
+six months later.
+
 **Both harnesses must define `import.meta.env.BASE_URL` when bundling `src/`.** Vite fills it at build time and Node has no `import.meta.env` at all, so any module reaching `groupLoader.js` throws `Cannot read properties of undefined` before the first API call. `playthrough.mjs` and smoke Layer I both pass `define: { "import.meta.env.BASE_URL": '"/"' }` to esbuild — `"/"` matching the dev-server base and the `/groups/` paths their fetch stubs serve from disk. v1.3.5 introduced the dependency and killed `playthrough.mjs` outright; it stayed dead until v1.3.7 because nothing offline exercised that bundling path. Layer I now does.
 
 `test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.

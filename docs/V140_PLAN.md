@@ -620,6 +620,46 @@ player API keys to leak. IndexedDB is the database here.
 
 ## 15. Work breakdown
 
+### 15.0 Order
+
+The v1.4.0 tasks are listed by area below, but they should not be done in that order. Three
+sequencing rules drive everything:
+
+1. **Prove the refactor is behaviour-preserving before starting it.** Pin the current
+   `buildSystemPrompt` output to golden files *first*, while the old code is still the only code.
+   The extraction in task 1 then has an exact success criterion — byte-identical output for the
+   same roster — rather than "looks right".
+2. **Ship the independent work separately.** Tasks 9–11 touch nothing structural. Holding them
+   behind a long refactor means players wait for value they could have now, and a large
+   unreleased delta accumulates on `dev`.
+3. **Edit the 27 group JSONs once.** Task 5 is mechanical and large; doing it before the member
+   shape is settled means doing it twice.
+
+| Step | Work | Gate before moving on |
+| --- | --- | --- |
+| **0** | CI — build + smoke on every push, and the mirror-sync assertion | ⚠️ `.github/workflows/*` is CI config, a red line. Needs explicit approval before the file is created. |
+| **1** | Golden prompt snapshots: 3 fixtures (RV classic, 9-member group, single member) pinned into `test/fixtures/` and asserted by smoke | Fixtures committed and passing against *unmodified* code |
+| **2** | **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a) | Normal release flow; players get value while the refactor runs |
+| **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |
+| **4** | Save migration: task 6 | A pinned v1.3.8 save migrates and resolves to the *same* member set `getNpcMembers` returns today |
+| **5** | Content: task 5 (`habit` × 27 files) + task 13 (root mirror) | Layer J asserts `habit` reaches the prompt through `loadGroupConfig` |
+| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px; live `playthrough.mjs` on a cross-group roster |
+| **7** | **Release v1.4.0** | Build + smoke + live playthrough, then the normal release flow |
+
+**Step 1 is the highest-value hour in this plan.** A world/roster extraction that changes the
+prompt by accident produces no error and no test failure — it produces slightly different writing
+three weeks later, with no way to bisect it. Golden files turn an invisible regression into a
+diff. They are also what makes step 3 safe to do in several sittings.
+
+**Step 4 comes before step 6 deliberately.** Migration must be proven against the old save shape
+while no new-shape data exists yet. Once the builder can emit rosters, a migration bug can hide
+behind hand-built test data.
+
+**Step 2's release is optional but recommended.** All three items are old-save-safe and
+independently useful; the usage panel in particular starts collecting the cache-rate evidence
+that CLAUDE.md open question 2 has been waiting on, so by the time v1.4.0 lands there is real
+data instead of an inherited figure.
+
 ### v1.4.0
 
 | # | Task | Files |
