@@ -3,6 +3,7 @@
 // Aliyun (provider id "qwen") adds a free-credit auto-router and a paid model picker.
 import { MODEL_CONFIGS, ALIYUN_FREE_ROUTE, getAliyunModelParams } from "../config/modelConfigs";
 import { LLMError, classifyError } from "./llmErrors";
+import { recordUsage } from "./usageMeter";
 import {
   getFreeCandidates, markModel, recordServedModel, resolvePaidModel,
   shouldProbeForRecovery, clearExhausted,
@@ -90,6 +91,7 @@ function buildRequestBody(modelId, model, messages, reasoningEnabled) {
 
 async function callLLMOnce({ modelId, model, messages, apiKey, reasoningEnabled, signal }) {
   const cfg = MODEL_CONFIGS[modelId];
+  const startedAt = Date.now();
   let resp;
   try {
     resp = await fetch(cfg.url, {
@@ -113,6 +115,10 @@ async function callLLMOnce({ modelId, model, messages, apiKey, reasoningEnabled,
   }
 
   const data = await resp.json();
+  // Metered here rather than at the caller, so the total covers every billed
+  // request: same-model retries, and the attempts on models the free route
+  // walked past. Those cost real tokens even though their content is discarded.
+  recordUsage({ model, usage: data.usage, latencyMs: Date.now() - startedAt });
   const choice = data.choices?.[0];
   // Always use content only — never fall back to reasoning_content (chain-of-thought)
   const content = choice?.message?.content || "";

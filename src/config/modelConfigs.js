@@ -147,6 +147,63 @@ export function getAliyunModelParams(modelId) {
   };
 }
 
+// Published per-1M-token prices, USD, for the usage panel's cost estimate.
+//   [cacheHitInput, cacheMissInput, output]
+//
+// Deliberately incomplete, and the gaps are the point. A model appears here only
+// when its provider publishes all three per-1M figures; everything else renders
+// "-" in the panel rather than a number the player would reasonably read as
+// authoritative. That rules out Gemini 3.5 Flash-Lite (README costs it from a
+// comparable tier, not a price sheet), qwen3.6-flash (Aliyun lists no cache-hit
+// price at all, so the README row assumes the usual 20% of input), and the
+// Aliyun models whose README rows are per-round figures with no per-1M source.
+//
+// CNY converts at the README's ￥7.1 = $1. Peak windows are applied at the
+// moment of the call, not at render time, so a session spanning the boundary is
+// still costed correctly.
+//
+// Same obligation as the `gameplay` strings above: when provider pricing moves,
+// this table and the README cost table move together.
+const PEAK_DEEPSEEK_OFFICIAL = { multiplier: 2, utcRanges: [[1, 4], [6, 10]], weekdaysOnly: true };
+// Aliyun DeepSeek doubles 08:00-22:00 Beijing, which is 00:00-14:00 UTC, daily.
+const PEAK_ALIYUN_DEEPSEEK = { multiplier: 2, utcRanges: [[0, 14]], weekdaysOnly: false };
+const CNY = 1 / 7.1;
+
+export const MODEL_PRICES_USD_PER_1M = {
+  "gpt-6-luna":             { price: [0.01, 0.10, 0.50] },
+  "deepseek-flash":         { price: [0.003, 0.15, 0.60], peak: PEAK_DEEPSEEK_OFFICIAL },
+  "qwen3.8-flash":          { price: [0.1 * CNY, 0.8 * CNY, 2.7 * CNY] },
+  "glm-5.2":                { price: [2 * CNY, 8 * CNY, 28 * CNY] },
+  "deepseek-v4-pro":        { price: [1 * CNY, 12 * CNY, 24 * CNY] },
+  "deepseek-v4.1-flash":    { price: [0.1 * CNY, 1 * CNY, 4 * CNY],      peak: PEAK_ALIYUN_DEEPSEEK },
+  "deepseek-v4-flash-0731": { price: [0.15 * CNY, 1.5 * CNY, 4.5 * CNY], peak: PEAK_ALIYUN_DEEPSEEK },
+  "deepseek-v4-pro-0813":   { price: [0.45 * CNY, 4.5 * CNY, 13.5 * CNY], peak: PEAK_ALIYUN_DEEPSEEK },
+};
+
+// USD for one call, or null when this model has no published price. `now` is
+// injectable so the peak-window branch is testable without waiting for a clock.
+export function estimateCallCostUsd(model, { cachedTokens = 0, promptTokens = 0, completionTokens = 0 }, now = new Date()) {
+  const entry = MODEL_PRICES_USD_PER_1M[String(model || "")];
+  if (!entry) return null;
+  let [hit, miss, out] = entry.price;
+  const p = entry.peak;
+  if (p) {
+    const h = now.getUTCHours();
+    const day = now.getUTCDay();
+    const isWeekday = day >= 1 && day <= 5;
+    const inWindow = p.utcRanges.some(([a, b]) => h >= a && h < b);
+    if (inWindow && (!p.weekdaysOnly || isWeekday)) {
+      hit *= p.multiplier; miss *= p.multiplier; out *= p.multiplier;
+    }
+  }
+  // prompt_tokens includes the cached ones, so the miss count is the remainder.
+  // A provider that reports no cached_tokens lands here with cachedTokens 0 and
+  // is therefore costed as a full miss - an over-estimate, which is the safe
+  // direction for a number a player uses to decide whether to keep playing.
+  const missTokens = Math.max(0, promptTokens - cachedTokens);
+  return (cachedTokens * hit + missTokens * miss + completionTokens * out) / 1e6;
+}
+
 export const MODEL_CONFIGS = {
   qwen: {
     id: "qwen", name: "Aliyun", emoji: "🐉",

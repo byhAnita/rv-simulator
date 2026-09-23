@@ -41,6 +41,7 @@ the literal key. Revoke the key at the provider when you are done with it.
 | **C** | none | Secret hygiene (see above). |
 | **D** | none | Probability-engine recency window with `Math.random` pinned to 0.5, so the arithmetic is exact: a long-absent member must score 0.60 and a saturated one 0.40. Also guards that the dead NPC constants stay removed and that no active `console.log` returns to `llmTool.js`. |
 | **J** | none | Golden system prompts + prompt determinism. See below. |
+| **K** | none | Usage meter and cost estimate: token accounting, the reported-vs-absent `cached_tokens` distinction, peak-price windows, and the rule that an unknown number never renders as 0. |
 
 Layers **E**–**I** are listed in the header comment of `smoke.mjs`; this table
 predates them.

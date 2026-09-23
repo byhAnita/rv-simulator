@@ -17,6 +17,7 @@ import WeverseOverlay from "./platforms/WeverseOverlay";
 import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
 import HelpOverlay from "./platforms/HelpOverlay";
+import UsagePanel from "./platforms/UsagePanel";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
 // brackets confuse the JSON schema, control characters break it outright.
@@ -1360,6 +1361,11 @@ export default function App() {
                   </div>
                 );
               })()}
+
+              {/* Session usage. Reads the meter at render time, which is enough:
+                  the overlay is mounted fresh on every open and the numbers only
+                  change while a round is generating, which is when it is shut. */}
+              <UsagePanel language={language} th={th} />
 
               <div style={{ height: 1, background: th.settingsDivider, marginBottom: 20 }} />
 

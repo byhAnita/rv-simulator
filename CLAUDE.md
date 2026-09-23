@@ -116,16 +116,17 @@ Player choice
 | `src/agent/probabilityEngine.js` | `calculateProbability`, `pickPrimaryMember` — picks which target member drives this round |
 | `src/tools/llmTool.js` | Unified OpenAI-compatible client + per-provider reasoning flags, 90s timeout, per-kind retry, Aliyun free-credit router |
 | `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
+| `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` |
 | `src/config/constants.js` | Numeric game constants (see below) |
-| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams` |
+| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_USD_PER_1M`, `estimateCallCostUsd` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
 | `src/i18n/` | `useTranslation(lang)` hook + `${var}` interpolation; zh/en/ko |
-| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, MemberSelector |
-| `src/utils.js` | `STORAGE_KEYS`, `loadFromStorage`, `saveToStorage` |
+| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, MemberSelector, UsagePanel |
+| `src/utils.js` | `STORAGE_KEYS`, `loadFromStorage`, `saveToStorage` (returns a boolean — see below) |
 
 ### State Management
 
@@ -329,6 +330,43 @@ The response reader uses `choice.message.content` **only** — never falls back 
 | `gemini` | 8192 | 65535 |
 
 A round only needs ~800 output tokens; these are ceilings, not reservations. Aliyun honors **both** cap names — verified live 2026-08-26: a cap of 16 truncates with `finish_reason:'length'` under either — so the per-model split is about matching the documented field, not about one being rejected. `test/smoke.mjs --live` asserts the cap is genuinely honored, not merely accepted, since an ignored unknown field would still return HTTP 200.
+
+### Usage metering (`usageMeter.js` + `UsagePanel.jsx`)
+
+Every provider returns a `usage` block and until v1.3.9 **nothing in `src/` read it**. Players run
+their own key, so the cost of a round was invisible to the only person paying it — and this
+project's central engineering claim, the ~95.8% cache hit, was something the README asserted
+rather than something the app could show. The panel lives in the settings overlay.
+
+**It is a module-level sink, not a value returned from `callLLM`.** `callModelWithRetry` and
+`callAliyunFreeRoute` both return a plain string, and widening that to carry usage would touch
+every branch of the route walk for a number none of them use. The sink also records the right
+thing: `callLLMOnce` reports on **every** HTTP 200, so same-model retries and the attempts on
+models the router walked past are all counted. Those are billed. A per-round return value would
+report only the call that happened to succeed, and would understate a bad route walk by 4x.
+
+Session-scoped and never persisted — no new storage key, nothing to migrate, and nothing leaves
+the device. It does not reset on a new game: "what has this key cost me today" is the question a
+BYO-key player actually has.
+
+**A number that is not known is rendered as `—` or "not reported", never as `0`.** This is the
+whole design constraint, and two separate cases force it:
+
+- **Cache.** Twelve Aliyun route models send no `cached_tokens` field at all. Folding their prompt
+  tokens into the denominator would drag a perfectly healthy cache toward 0% and tell the player
+  the architecture is broken. Their calls are excluded from the rate and counted in
+  `unmeasuredCalls`, which the panel names. Note the distinction the meter keeps: a **reported**
+  `cached_tokens: 0` is a real 0% and is included; an **absent** field is not a measurement.
+- **Cost.** Several served models have no published per-1M price — see `MODEL_PRICES_USD_PER_1M`
+  under Cost strings. One of them in a session sets `costComplete: false` and the panel says the
+  real figure is higher, rather than showing a partial total that looks whole.
+
+Where a price does exist, the peak multiplier is applied **at the moment of the call**, not at
+render time, so a session spanning 22:00 Beijing is still costed correctly. Cached tokens are
+subtracted from `prompt_tokens` before the miss rate is applied, since every provider counts them
+inside it.
+
+Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
@@ -1072,3 +1110,17 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 `MODEL_CONFIGS[*].gameplay` (rendered through `t.guide.billing`) and each `ALIYUN_PAID_MODELS[*].gameplay` (rendered in the paid-mode cost box) are hand-derived from the README cost table — **when provider pricing changes, update both**. zh quotes hours per ￥1, en per \$1, ko per ₩1,000.
 
 Derivation: README token profile (7,664 cache-hit + 336 cache-miss input, 800 output per round, 12 rounds/hour). CNY-priced Aliyun models convert at ￥7.1 = \$1; ₩1,000 = \$0.72. Peak-priced models are blended: Aliyun DeepSeek is 2x for 14 of 24 hours daily (08:00–22:00 Beijing), DeepSeek Official is 2x for 35 of 168 weekly hours.
+
+**`MODEL_PRICES_USD_PER_1M` is the third copy and carries the same obligation.** Added in v1.3.9
+for the usage panel, it holds `[cacheHit, cacheMiss, output]` USD per 1M for the models whose
+providers publish all three, plus the peak window where one applies. Unlike `gameplay`, it is not
+a rounded per-hour string but the arithmetic itself, so a stale entry produces a wrong number
+with two decimal places of false precision. Change it in the same commit as the README table.
+
+It is **deliberately incomplete**, and that is a feature rather than a backlog item. A model is
+absent when its price is not published: Gemini 3.5 Flash-Lite (the README costs it from a
+comparable tier), `qwen3.6-flash` (Aliyun lists no cache-hit price, so the README row *assumes*
+the usual 20% of input), and the Aliyun models the README gives only per-round figures for —
+including the `qwen3.8-max` default. Those render `—` in the panel. Do not fill a gap by
+back-deriving a per-1M price from a per-round estimate: that turns an estimate into something
+that looks like a measurement.

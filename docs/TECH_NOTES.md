@@ -229,6 +229,67 @@ assertions say what must be true; goldens say nothing may change unseen — you 
 
 ---
 
+### Usage metering as a module-level sink — v1.3.9
+
+**What it is.** Every LLM response carries a `usage` block: how many input tokens the request
+used, how many of those the provider served from its cache, and how many tokens it wrote back.
+`usageMeter.js` is a small module that adds these up for the current browser session, and
+`UsagePanel.jsx` shows the totals — tokens, cache-hit rate, median generation time, estimated
+cost — in the settings overlay.
+
+**What it replaced.** Nothing read `usage` at all. The field was in every response since the
+project began and was discarded on arrival. Two things followed. Players bring their own API key,
+so the person paying for each round had no way to see what it cost short of opening the
+provider's billing console. And the cache-hit figure this whole architecture is built around —
+the ~95.8% in the README — came from reading DeepSeek's billing page by hand, on one provider,
+once. It was an assertion the app itself could not check.
+
+The obvious alternative was to return usage from `callLLM` alongside the content. That is worse
+here for a specific reason: `callModelWithRetry` and `callAliyunFreeRoute` both return a plain
+string, and the free router may make **several** billed calls before one answers — same-model
+retries after a truncated response, then the next model, then the next. A return value carries
+only the call that succeeded. On a bad route walk that understates the round by up to 4x, and it
+understates exactly the rounds a player would most want explained. Recording at `callLLMOnce`,
+where the HTTP 200 actually lands, counts every request that was billed. The cost is that the
+meter is module-level state rather than a value — the same trade `mainAgent.js` already makes for
+`pendingSocialFeeds`.
+
+**What it bought.** Not yet measured in play — it ships with v1.3.9 and its first job is to
+supply the measurement, not to be one. What it makes possible is concrete: CLAUDE.md open
+question 2 ("re-check the 95.8% figure against DeepSeek Official billing") has been open since
+v1.3.2 because checking it meant a long hand-played session plus a billing console. The panel
+answers it from the player's own provider, which is also the only place the answer is really
+true — the ~83% this project measures on Aliyun and the ~95.8% from DeepSeek are different
+caches, and neither number transfers.
+
+**What it costs.** About 130 lines of accumulator and 150 of panel, one new module-level global,
+and a price table that is now the third place provider pricing is written down — after the README
+cost table and the `gameplay` strings. That third copy is the real ongoing cost: unlike the other
+two it is arithmetic rather than a rounded string, so a stale entry produces a wrong number
+carrying four decimal places of false precision.
+
+The sharper cost is epistemic, and it drove most of the design. A usage panel is a machine for
+converting "we were not told" into "zero", and both of its numbers have that failure mode.
+Twelve Aliyun route models report no `cached_tokens` field; averaging them in as misses would
+show a healthy cache as broken. Several models have no published price; dropping them from the
+total would show a partial figure that looks complete. So the meter carries `null` where a value
+is unknown and separates *reported zero* from *not reported*, and the panel renders `—` and "not
+reported" rather than `0`. That is more state and more branches than a naive version, and it is
+the entire reason the component is trustworthy.
+
+**Where it lives.** `src/tools/usageMeter.js` (`recordUsage`, `getUsageSummary`, `resetUsage`),
+one call at the top of the response path in `src/tools/llmTool.js#callLLMOnce`,
+`src/platforms/UsagePanel.jsx`, `MODEL_PRICES_USD_PER_1M` and `estimateCallCostUsd` in
+`src/config/modelConfigs.js`, smoke **Layer K**.
+
+**Short form.** The `usage` block was in every response and nobody read it, so the cost of a
+round was invisible to the player paying for it and the project's own cache claim could not be
+checked by the project. Meter it at the HTTP boundary rather than returning it, because the free
+router makes several billed calls per round and only one of them is the one that answered. The
+hard part is not counting — it is refusing to print `0` for a number nobody reported.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

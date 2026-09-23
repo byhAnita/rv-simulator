@@ -23,6 +23,7 @@
 //   H  live     Aliyun free-credit route: per-model params + one routed round
 //   I  offline  address protocol, KKT channel lock, edited-story delivery
 //   J  offline  golden system prompts + prompt determinism
+//   K  offline  usage meter + cost estimate
 
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
@@ -472,7 +473,7 @@ async function layerD() {
   check("NPC_COOLDOWN_ROUNDS removed", !/^export const NPC_COOLDOWN_ROUNDS/m.test(consts));
 
   // Debug logging must not ship to players.
-  for (const f of ["llmTool.js", "llmErrors.js", "aliyunRoute.js"]) {
+  for (const f of ["llmTool.js", "llmErrors.js", "aliyunRoute.js", "usageMeter.js"]) {
     const src = readFileSync(join(ROOT, "src", "tools", f), "utf8");
     const activeLogs = src.split("\n").filter(l => /^\s*console\.log\(/.test(l));
     check(`no active console.log in ${f}`, activeLogs.length === 0, activeLogs.join(" | "));
@@ -1723,6 +1724,136 @@ async function layerJ() {
     "age is part of the seed by design; a save cannot change it, but this proves the seed is read");
 }
 
+// ============================================================ LAYER K
+// The usage meter and the cost estimate. Both exist to put a real number in
+// front of a player running their own key, so the failure that matters is not a
+// crash - it is a number that looks authoritative and is wrong.
+async function layerK() {
+  section("LAYER K — usage meter + cost estimate (offline)");
+  const esb = await import("esbuild");
+  const outfile = join(OUT, "usageMeter.mjs");
+  await esb.build({
+    stdin: {
+      contents: [
+        'export * from "./src/tools/usageMeter.js";',
+        'export { estimateCallCostUsd, MODEL_PRICES_USD_PER_1M } from "./src/config/modelConfigs.js";',
+      ].join("\n"),
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
+  });
+  const m = await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
+  const { recordUsage, getUsageSummary, resetUsage, estimateCallCostUsd, MODEL_PRICES_USD_PER_1M } = m;
+
+  const withCache = (p, c, o) => ({
+    prompt_tokens: p, completion_tokens: o, prompt_tokens_details: { cached_tokens: c },
+  });
+  const noCache = (p, o) => ({ prompt_tokens: p, completion_tokens: o });
+
+  resetUsage();
+  let u = getUsageSummary();
+  check("a fresh session reports no calls", u.calls === 0);
+  check("cache rate is null before anything is measured, not 0",
+    u.cacheHitRate === null, "0% and 'not measured' look identical on screen and mean opposite things");
+
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(8000, 7600, 800), latencyMs: 9000 });
+  recordUsage({ model: "gpt-6-luna", usage: withCache(8000, 7600, 800), latencyMs: 11000 });
+  u = getUsageSummary();
+  eq("prompt tokens accumulate", u.promptTokens, 16000);
+  eq("completion tokens accumulate", u.completionTokens, 1600);
+  eq("total is input plus output", u.totalTokens, 17600);
+  check("cache hit rate is cached over measured prompt tokens",
+    Math.abs(u.cacheHitRate - 0.95) < 1e-9, `got ${u.cacheHitRate}`);
+  eq("p50 latency over an even sample is the midpoint", u.p50LatencyMs, 10000);
+
+  // The heart of it: twelve Aliyun route models send no cached_tokens field.
+  // Folding their prompt tokens into the denominator would drag a working
+  // cache toward 0% and make the panel lie about the architecture's main claim.
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(1000, 900, 100), latencyMs: 5000 });
+  recordUsage({ model: "qwen3.6-flash", usage: noCache(1000, 100), latencyMs: 5000 });
+  u = getUsageSummary();
+  check("a model reporting no cache data is excluded from the hit rate",
+    Math.abs(u.cacheHitRate - 0.9) < 1e-9, `got ${u.cacheHitRate} — 0.45 means unreported was counted as a miss`);
+  eq("...and is counted so the panel can say so", u.unmeasuredCalls, 1);
+  eq("...while its tokens still count toward the total", u.promptTokens, 2000);
+
+  // A reported zero is a measurement; an absent field is not. Averaging them
+  // together would be inventing data.
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(1000, 0, 100), latencyMs: 1 });
+  check("a reported cached_tokens of 0 is a real 0%, not 'not reported'",
+    getUsageSummary().cacheHitRate === 0);
+
+  // Every call billed, including the ones the route walked past. That is the
+  // reason the meter is a sink rather than a per-round return value.
+  resetUsage();
+  for (let i = 0; i < 4; i++) recordUsage({ model: "gpt-6-luna", usage: withCache(100, 0, 10), latencyMs: 1 });
+  eq("retries and discarded attempts are all counted", getUsageSummary().calls, 4);
+
+  // --- Cost -------------------------------------------------------------
+  // gpt-6-luna is flat-priced: $0.01 / $0.10 / $0.50 per 1M.
+  const c = estimateCallCostUsd("gpt-6-luna", { cachedTokens: 1e6, promptTokens: 1e6, completionTokens: 0 });
+  check("a fully cached 1M-token prompt costs the cache-hit rate", Math.abs(c - 0.01) < 1e-12, `got ${c}`);
+  const c2 = estimateCallCostUsd("gpt-6-luna", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 1e6 });
+  check("an uncached 1M in + 1M out costs input plus output",
+    Math.abs(c2 - 0.60) < 1e-12, `got ${c2}`);
+  check("prompt_tokens includes the cached ones and is not double-charged",
+    estimateCallCostUsd("gpt-6-luna", { cachedTokens: 1e6, promptTokens: 1e6, completionTokens: 0 }) <
+    estimateCallCostUsd("gpt-6-luna", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 }));
+
+  check("a model with no published price returns null, not 0",
+    estimateCallCostUsd("qwen3.8-max", { promptTokens: 1e6 }) === null,
+    "0 would render as free; null is what makes the panel say it does not know");
+  check("an unknown model id returns null",
+    estimateCallCostUsd("something-invented", { promptTokens: 1e6 }) === null);
+
+  // Peak windows are applied at the moment of the call. DeepSeek Official
+  // doubles 01:00-04:00 and 06:00-10:00 UTC on weekdays only.
+  const args = { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 };
+  const offPeak = estimateCallCostUsd("deepseek-flash", args, new Date(Date.UTC(2026, 8, 23, 20)));  // Wed 20:00
+  const onPeak = estimateCallCostUsd("deepseek-flash", args, new Date(Date.UTC(2026, 8, 23, 7)));    // Wed 07:00
+  const weekend = estimateCallCostUsd("deepseek-flash", args, new Date(Date.UTC(2026, 8, 26, 7)));   // Sat 07:00
+  check("DeepSeek Official peak hours double the rate", Math.abs(onPeak - 2 * offPeak) < 1e-12);
+  check("...and the weekend is never peak", Math.abs(weekend - offPeak) < 1e-12,
+    "the published window is Mon-Fri");
+  // Aliyun DeepSeek doubles 08:00-22:00 Beijing = 00:00-14:00 UTC, every day.
+  const aOff = estimateCallCostUsd("deepseek-v4.1-flash", args, new Date(Date.UTC(2026, 8, 26, 18)));
+  const aOn = estimateCallCostUsd("deepseek-v4.1-flash", args, new Date(Date.UTC(2026, 8, 26, 9)));
+  check("Aliyun DeepSeek peak applies at the weekend too", Math.abs(aOn - 2 * aOff) < 1e-12);
+
+  // A partial total that looks complete is worse than no total.
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(1000, 0, 100), latencyMs: 1 });
+  check("cost is marked complete while every model is priced", getUsageSummary().costComplete === true);
+  recordUsage({ model: "qwen3.8-max", usage: withCache(1000, 0, 100), latencyMs: 1 });
+  check("one unpriced model marks the whole session's cost incomplete",
+    getUsageSummary().costComplete === false);
+  check("...and the priced part is still counted", getUsageSummary().costUsd > 0);
+  resetUsage();
+
+  // Every price must be a real triple, or the arithmetic silently yields NaN.
+  for (const [model, entry] of Object.entries(MODEL_PRICES_USD_PER_1M)) {
+    check(`${model}: price is [hit, miss, out], all finite and non-negative`,
+      Array.isArray(entry.price) && entry.price.length === 3 &&
+      entry.price.every(v => Number.isFinite(v) && v >= 0));
+    check(`${model}: a cache hit is cheaper than a miss`,
+      entry.price[0] < entry.price[1], "otherwise the cache is costing the player money");
+  }
+
+  // The panel is the only consumer, and it must not render a missing number as 0.
+  const panel = readFileSync(join(ROOT, "src", "platforms", "UsagePanel.jsx"), "utf8");
+  check("UsagePanel distinguishes an unreported cache rate from 0%",
+    /cacheHitRate === null/.test(panel));
+  for (const lang of ["zh", "en", "ko"]) {
+    check(`UsagePanel has ${lang} strings`, new RegExp(`\\n  ${lang}: \\{`).test(panel));
+  }
+  // The meter is read at render time, so a stale import would show zeroes forever.
+  const app = readFileSync(join(ROOT, "src", "App.jsx"), "utf8");
+  check("the settings overlay mounts UsagePanel", /<UsagePanel\b/.test(app));
+}
+
 // ============================================================ main
 (async () => {
   console.log("\x1b[1mSmoke test — LLM client, error classifier, Aliyun router\x1b[0m");
@@ -1750,6 +1881,7 @@ async function layerJ() {
   await layerH(mod, ALIYUN_FREE_ROUTE, cfg.getAliyunModelFamily);
   await layerI();
   await layerJ();
+  await layerK();
 
   console.log(`\n\x1b[1m${fail === 0 ? "\x1b[32mALL PASS" : "\x1b[31mFAILURES"}\x1b[0m  ${pass} passed, ${fail} failed`);
   if (fail) { console.log("failed:\n  - " + failures.join("\n  - ")); process.exit(1); }
