@@ -1102,6 +1102,40 @@ function layerC() {
     JSON.stringify(rootManifest) === JSON.stringify(pubManifest),
     "edit both, or the Pages site and the built hosts diverge");
 
+  // --- The root groups/ mirror has no other guard ---
+  //
+  // groupLoader fetches `${base}groups/index.json` at runtime and GitHub Pages
+  // serves the repo root, so root groups/ is load-bearing, not a duplicate of
+  // public/. Nothing keeps the two in sync: deploy.sh copies only assets/*.js
+  // and *.css, so editing a group JSON under public/ leaves Pages serving the
+  // old cast data indefinitely - no error, no warning, just stale members for
+  // everyone on that host. Content is compared with trailing whitespace
+  // stripped, because the two trees differ by a trailing newline by history.
+  const walkTree = (dir, prefix = "") => {
+    const out = [];
+    for (const name of readdirSync(join(ROOT, dir, prefix), { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${name.name}` : name.name;
+      if (name.isDirectory()) out.push(...walkTree(dir, rel));
+      else out.push(rel);
+    }
+    return out.sort();
+  };
+  const rootTree = walkTree("groups");
+  const pubTree = walkTree("public/groups");
+  const missing = pubTree.filter((f) => !rootTree.includes(f));
+  const extra = rootTree.filter((f) => !pubTree.includes(f));
+  check("root groups/ mirrors public/groups/ file-for-file",
+    missing.length === 0 && extra.length === 0,
+    `missing from root: ${missing.join(", ") || "none"}; only in root: ${extra.join(", ") || "none"}`);
+
+  const drifted = pubTree
+    .filter((f) => rootTree.includes(f))
+    .filter((f) => readFileSync(join(ROOT, "groups", f), "utf8").trimEnd()
+      !== readFileSync(join(ROOT, "public/groups", f), "utf8").trimEnd());
+  check("root groups/ content matches public/groups/",
+    drifted.length === 0,
+    `drifted: ${drifted.join(", ")} - copy public/groups/ over root groups/`);
+
   // Referencing the manifest as "/manifest.json" makes Vite treat it as a
   // public-dir asset and rewrite it to "./manifest.json" for the relative base.
   // Writing "./manifest.json" in source instead makes Vite resolve the ROOT

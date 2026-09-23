@@ -118,6 +118,46 @@ things on different providers.
 
 ---
 
+### CI, and putting the mirror check in smoke rather than in CI — v1.3.9
+
+**What it is.** A GitHub Actions workflow that runs `npm ci` -> `dev-index.mjs` -> `npm run
+build` -> `node test/smoke.mjs` on every push to a working branch and every PR. No secrets: the
+offline suite mocks `fetch` and skips live layers when `API_KEY` is absent.
+
+The non-obvious half is **where the new guard went.** The whole reason for adding CI was that
+nothing detects drift between root `groups/` and `public/groups/` — GitHub Pages serves the repo
+root, so a group JSON edited only under `public/` leaves Pages serving stale cast data forever,
+silently. The obvious implementation is a `diff -r` step in the workflow. It was instead written
+as two assertions inside smoke Layer C.
+
+**What it replaced.** Smoke ran in exactly two places: by hand, and inside `deploy.sh` preflight.
+A broken commit on `dev` stayed invisible until someone ran it, and Vercel branch previews built
+and deployed with nothing having checked them. For the mirror specifically there was no detector
+at all — CLAUDE.md simply documented the hazard and asked people to remember.
+
+**What it bought.** Putting the check in smoke rather than in the workflow means it runs in
+*three* places instead of one: locally before a commit, in CI on push, and in `deploy.sh`
+preflight — which is the only one that can actually stop a release. A CI-only check would have
+left `npm run deploy` able to ship stale cast data, since preflight runs smoke, not CI. The
+general rule: **put an assertion in the test suite and let CI run the suite; do not put
+assertions in CI.** CI is a trigger, not a place to keep logic.
+
+**What it costs.** Two checks (459 total, from 457) and a full directory walk of nine group
+trees per run — milliseconds. Plus a real obligation: `worlds/` and `rosters/` in v1.4.x will
+need the same mirroring and the same guard, or the check gives false confidence by covering only
+one of three trees.
+
+**Where it lives.** `.github/workflows/ci.yml`; the assertions in `test/smoke.mjs` Layer C,
+beside the existing `manifest.json` parity check. Both verified failing against injected drift
+(a changed file and a stray file) before being committed.
+
+**Short form.** CI runs build and the offline smoke suite on every push, with no secrets. The
+guard it was built for — root `groups/` drifting from `public/groups/`, which silently serves
+stale data on GitHub Pages — lives in the test suite rather than the workflow, so it also gates
+local commits and the deploy preflight. CI should trigger checks, not contain them.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

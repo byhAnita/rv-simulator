@@ -751,6 +751,27 @@ Commits must be authored as `52732052+byhAnita@users.noreply.github.com` (set gl
 
 Use the noreply alias rather than one of the account's real addresses: all of them are marked Private on GitHub, which normally also enables *Block command line pushes that expose my email*, and committing as one would start getting pushes rejected with `GH007`. Commits made before 2026-09-16 keep the old address — that is baked into their hashes and not worth rewriting history over.
 
+### CI (`.github/workflows/ci.yml`)
+
+Every push to `main`, `dev`, `hotfix/**` or `feat/**`, and every PR into `main` or `dev`, runs:
+`npm ci` -> `node scripts/dev-index.mjs` -> `npm run build` -> `node test/smoke.mjs`.
+
+**No secrets, and none should ever be added.** Offline smoke reads fixtures from `docs/`, mocks
+`fetch` for the router layers, and skips every live layer when `API_KEY` is absent. The live
+layers spend credits and are deliberately a local, deliberate action — putting a key in Actions
+would make every push bill someone.
+
+`dev-index.mjs` runs before the build for the same reason Vercel and Cloudflare need it: a clean
+checkout of `main` has `index.html` in production mode, and Vite would re-bundle the committed
+output instead of compiling `src/`. Without that step CI would pass while testing nothing.
+
+**CI does not assert `index.html`'s mode.** It is committed in production mode on `main` and dev
+mode on `dev`, so there is no single correct state across branches — such a check would fail every
+push to `main`. `deploy.sh`'s `EXIT` trap is what restores the working tree.
+
+This does not replace `deploy.sh` preflight, which still runs smoke itself. CI catches a broken
+commit at push time; preflight is what makes it impossible to ship one.
+
 ### Vercel
 
 Vercel builds **from source**, unlike GitHub Pages which serves the committed root `index.html` + `assets/`. Config lives in `vercel.json`:
@@ -788,7 +809,9 @@ It has the identical entry-point trap as Vercel — without `dev-index.mjs` it r
 
 Only Pages serves committed artifacts, which is why `npm run deploy` exists at all. The other two rebuild on any push to `main`, so **deploy promptly after a release merge** or the three disagree.
 
-**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal. But **nothing keeps the `groups/` mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
+**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal.
+
+**Nothing *automates* the `groups/` mirror — `deploy.sh` copies only `assets/*.js` and `*.css` — smoke Layer C now fails when it drifts** (on `dev`, ships with v1.3.9). Two checks: the file trees must match name-for-name, and every file must match in content with trailing whitespace stripped. Before that guard existed, editing a group JSON under `public/` left the Pages site serving the old cast data indefinitely, with no error and nothing a player could report. Copy `public/groups/` over root `groups/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push. The same obligation will apply to `worlds/` and `rosters/` when v1.4.x adds them.
 
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
@@ -833,7 +856,7 @@ Then:
 
 ## Project Status (2026-09-23)
 
-**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **459**), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **Next up: v1.4.0–v1.5.0 is planned but not started — see `docs/V140_PLAN.md`.** It splits the
 single `group` concept into **cast library / world / roster**, which is the change every feature

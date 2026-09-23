@@ -3,8 +3,27 @@
 Planning artifact. Written before any code, per the repo convention that docs lead.
 Audience: whoever implements this, which is me in a later session and Yuhan reviewing it.
 
-Status: **agreed in discussion 2026-09-23, not yet started.** `main` and `dev` are both at
-v1.3.8 (`f324a5e`). Nothing in this document is implemented.
+Status: **agreed in discussion 2026-09-23. Step 0 done; step 1 is next.**
+
+## Progress
+
+| Step | State |
+| --- | --- |
+| **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
+| **1 — Golden prompt snapshots** | ⬜ **next.** Nothing started. |
+| 2 — Release v1.3.9 | ⬜ affection clamp, usage panel, quota-guarded `saveToStorage` |
+| 3 — World extraction + resolver | ⬜ |
+| 4 — Save migration | ⬜ |
+| 5 — Content (`habit` × 27) | ⬜ |
+| 6 — UI | ⬜ |
+| 7 — Release v1.4.0 | ⬜ |
+
+**Pick up here.** `main` is at `f324a5e`, tagged v1.3.8, live and unchanged. `dev` is ahead by
+docs plus the CI work; nothing is pushed. Next action is **step 1**: pin the output of
+`buildSystemPrompt` for three fixtures into `test/fixtures/` and assert them in smoke, *before*
+any world/roster code exists — see §15.0 for why that hour is the highest-value one in the plan.
+
+Everything below §15.0 in this document is design, not progress.
 
 ---
 
@@ -637,7 +656,7 @@ sequencing rules drive everything:
 
 | Step | Work | Gate before moving on |
 | --- | --- | --- |
-| **0** | CI — build + smoke on every push, and the mirror-sync assertion | ⚠️ `.github/workflows/*` is CI config, a red line. Needs explicit approval before the file is created. |
+| **0** | ✅ CI — build + smoke on every push, and the mirror-sync assertion | Done. The mirror guard went into **smoke Layer C, not the workflow** — see `docs/TECH_NOTES.md`: a CI-only check would not have gated `npm run deploy`, whose preflight runs smoke rather than CI. |
 | **1** | Golden prompt snapshots: 3 fixtures (RV classic, 9-member group, single member) pinned into `test/fixtures/` and asserted by smoke | Fixtures committed and passing against *unmodified* code |
 | **2** | **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a) | Normal release flow; players get value while the refactor runs |
 | **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |

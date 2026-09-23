@@ -1,0 +1,64 @@
+name: CI
+
+# Build + offline smoke on every push and PR.
+#
+# Until now the smoke suite ran in exactly two places: by hand, and inside
+# deploy.sh's preflight. That means a broken commit on dev is invisible until
+# someone thinks to run it, and a branch preview on Vercel builds and deploys
+# without anything having checked it.
+#
+# NO SECRETS ARE USED OR NEEDED. `node test/smoke.mjs` without --live is fully
+# offline: it reads fixtures from docs/, mocks fetch for the router layers, and
+# skips every live layer when API_KEY is absent. Do not add a key here - the
+# live layers spend credits and are deliberately a local, deliberate action.
+
+on:
+  push:
+    branches: [main, dev, "hotfix/**", "feat/**"]
+  pull_request:
+    branches: [main, dev]
+
+# A new push to the same branch makes the in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # index.html is committed in PRODUCTION mode, because GitHub Pages serves
+      # the repo root. Vite reads index.html to find its entry, so building a
+      # clean checkout as-is takes the committed ./assets/index-<hash>.js as the
+      # entry and re-bundles the PREVIOUS build instead of compiling src/ - 4
+      # modules instead of 55. It succeeds, it is just frozen. dev-index.mjs
+      # rewrites the entry to /src/main.jsx first; it is idempotent.
+      # This mirrors vercel.json's buildCommand, which smoke Layer C asserts.
+      - name: Normalise index.html
+        run: node scripts/dev-index.mjs
+
+      - name: Build
+        run: npm run build
+
+      # Layer C includes the root groups/ mirror check, which has no other
+      # guard: deploy.sh copies only assets/*.js and *.css, so a group JSON
+      # edited under public/ alone leaves GitHub Pages serving stale cast data
+      # indefinitely.
+      - name: Smoke (offline)
+        run: node test/smoke.mjs
+
+# Deliberately NOT checked here: that index.html is in dev mode. It is committed
+# in PRODUCTION mode on main (Pages serves the repo root) and in dev mode on dev,
+# so there is no single correct state to assert across branches - such a check
+# would fail every push to main. The EXIT trap in deploy.sh is what guarantees
+# the working tree gets dev mode back.
