@@ -21,6 +21,20 @@ export const loadFromStorage = (key) => {
   try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : null; } catch { return null; }
 };
 
+// Returns true when the value is actually on disk, false when the browser
+// refused it. The refusal that matters is QuotaExceededError: localStorage is
+// ~5MB and a save slot carries the full message history, so ten slots of a long
+// run can genuinely fill it. This used to `catch {}`, which meant a save the
+// player watched appear in the list had never been written - and they found out
+// only when they came back for it. Callers that hold player data must check the
+// result; callers writing a preference (theme, font scale, language) ignore it
+// on purpose, because a lost preference is visible and re-settable in one tap.
 export const saveToStorage = (key, value) => {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.error("[storage] write failed:", key, e?.name || e);
+    return false;
+  }
 };

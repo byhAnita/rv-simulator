@@ -61,6 +61,8 @@ const en = {
     delete: "Del",
     loaded: "✅ Save loaded",
     saved: "💾 Saved!",
+    quotaFull: "⚠️ Not saved — browser storage is full. Delete an old save below, then try again.",
+    quotaRetry: "⚠️ Not saved — browser storage is full and there are no saves to remove. Free up this site's data in your browser, or export your story from Settings instead.",
   },
   notif: {
     updated: "updated",

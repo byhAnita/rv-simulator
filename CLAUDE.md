@@ -156,6 +156,31 @@ Player choice
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
 
+### `saveToStorage` returns a boolean, and save slots must check it
+
+It used to be `try { … } catch {}`. A `QuotaExceededError` was therefore
+indistinguishable from success, and `SaveOverlay` proved how bad that is: it called
+`setSaves(updated)` *before* writing, so a refused save still appeared in the slot list. The
+player saw their save, closed the overlay, and discovered weeks later that it had never existed.
+Silence is the wrong default for the one operation whose entire purpose is durability.
+
+localStorage is ~5MB and a slot carries the full `messages` array, so ten slots of a long run
+genuinely reach it — this is not a theoretical limit. It gets tighter in v1.4.0, which adds
+custom members, worlds, rosters and photos (see `docs/V140_PLAN.md` §10).
+
+The split is deliberate and not laziness:
+
+- **Player data checks the result.** `SaveOverlay` writes first, renders second, and on failure
+  leaves the list showing exactly what is on disk plus a **persistent** in-panel notice — not a
+  toast, which would be gone in three seconds. `t.save.quotaFull` when there are slots to delete,
+  `t.save.quotaRetry` when there are none and the advice has to be different.
+- **Preferences ignore it.** Theme, font scale, language, time speed. A lost preference is
+  visible immediately and re-settable in one tap, so a modal about it would cost more than the
+  failure.
+
+`aliyunRoute.js` also ignores the result, for a third reason: its state is a cache of what the
+router learned, and the worst case of losing it is re-walking the route once.
+
 ---
 
 ## Key Constants (`src/config/constants.js`)

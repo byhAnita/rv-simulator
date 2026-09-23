@@ -3,6 +3,10 @@ import { STORAGE_KEYS, loadFromStorage, saveToStorage } from "../utils";
 
 export default function SaveOverlay({ stats, member, form, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
   const [saves, setSaves] = useState(() => loadFromStorage(STORAGE_KEYS.SAVES) || []);
+  // Set when localStorage refuses the write. The list must keep showing what is
+  // actually stored, so this is the only signal the player gets that the slot
+  // they just asked for does not exist.
+  const [quotaFailed, setQuotaFailed] = useState(false);
   const isLight = theme === "light";
 
   const handleSave = () => {
@@ -14,14 +18,25 @@ export default function SaveOverlay({ stats, member, form, messages, currentOpti
       triggeredAchievements: triggeredAchievements ? [...triggeredAchievements] : [],
     };
     const updated = [newSave, ...saves.filter(s => s.id !== newSave.id)].slice(0, 10);
+    // Write first, render second. Updating state before checking the result is
+    // what made a failed save invisible: the slot appeared in the list, the
+    // player closed the overlay believing they were safe, and the save was never
+    // on disk. On failure the list is left showing exactly what is stored.
+    if (!saveToStorage(STORAGE_KEYS.SAVES, updated)) {
+      setQuotaFailed(true);
+      return;
+    }
     setSaves(updated);
-    saveToStorage(STORAGE_KEYS.SAVES, updated);
+    setQuotaFailed(false);
   };
 
   const handleDelete = (id) => {
     const updated = saves.filter(s => s.id !== id);
+    // A delete shrinks the payload, so it should not hit quota - but if the
+    // write fails the slot is still on disk, and showing it as gone would be the
+    // same lie in the other direction.
+    if (!saveToStorage(STORAGE_KEYS.SAVES, updated)) return;
     setSaves(updated);
-    saveToStorage(STORAGE_KEYS.SAVES, updated);
   };
 
   return (
@@ -33,6 +48,15 @@ export default function SaveOverlay({ stats, member, form, messages, currentOpti
         </div>
         <div style={{ padding: 14, overflowY: "auto", flex: 1 }}>
           <button onClick={handleSave} style={{ width: "100%", padding: 10, borderRadius: 10, background: isLight ? "linear-gradient(135deg,#c8a84b,#a0522d)" : "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 600, marginBottom: 12 }}>{t.save.saveBtn}</button>
+          {quotaFailed && (
+            // Deliberately not a toast: a toast is gone in three seconds and this
+            // is the player being told their progress was not written. It stays
+            // until the next save attempt succeeds. Which advice applies depends
+            // on whether there is anything left to delete.
+            <div style={{ padding: "9px 11px", marginBottom: 12, borderRadius: 8, background: "rgba(180,60,20,.10)", border: "1px solid rgba(180,60,20,.35)", color: isLight ? "#a03010" : "#f09090", fontSize: 11, lineHeight: 1.5 }}>
+              {saves.length > 0 ? t.save.quotaFull : t.save.quotaRetry}
+            </div>
+          )}
           {saves.length === 0 ? (
             <div style={{ textAlign: "center", color: isLight ? "#a8845a" : "#604060", padding: 20, fontSize: 12 }}>{t.save.noSaves}</div>
           ) : (

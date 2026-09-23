@@ -903,6 +903,60 @@ async function layerG(mod, MODEL_CONFIGS) {
     globalThis.fetch = realFetch;
     localStorage.clear(); resetSessionSkips();
   }
+
+  // --- Storage quota ---------------------------------------------------
+  // saveToStorage used to swallow QuotaExceededError, so a refused save was
+  // indistinguishable from a written one. localStorage is ~5MB and a slot
+  // carries the whole messages array, so ten slots of a long run reach it.
+  const esb = await import("esbuild");
+  const utilsOut = join(OUT, "utils.mjs");
+  await esb.build({
+    entryPoints: [join(ROOT, "src", "utils.js")],
+    bundle: true, format: "esm", platform: "neutral", outfile: utilsOut, logLevel: "silent",
+  });
+  const { saveToStorage } = await import("file://" + utilsOut.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  localStorage.clear();
+  check("saveToStorage returns true when the write lands", saveToStorage("probe", { a: 1 }) === true);
+  eq("...and the value is really there", localStorage.getItem("probe"), '{"a":1}');
+
+  const realSet = localStorage.setItem.bind(localStorage);
+  const realErr = console.error;
+  localStorage.setItem = () => { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; };
+  console.error = () => {};
+  try {
+    check("saveToStorage returns false when the browser refuses the write",
+      saveToStorage("probe2", { a: 1 }) === false);
+    check("...and still does not throw at the call site",
+      (() => { try { saveToStorage("probe3", {}); return true; } catch { return false; } })());
+  } finally {
+    localStorage.setItem = realSet;
+    console.error = realErr;
+    localStorage.clear();
+  }
+
+  // The return value is worthless if the one caller holding player data ignores
+  // it. SaveOverlay rendered the new slot before writing, so a refused save
+  // appeared in the list and the player believed it existed.
+  const overlay = readFileSync(join(ROOT, "src", "platforms", "SaveOverlay.jsx"), "utf8");
+  const saveBody = overlay.slice(overlay.indexOf("const handleSave"), overlay.indexOf("const handleDelete"));
+  // Scoped to handleSave on purpose: handleDelete checks the result too, so an
+  // unscoped search would pass while the save path ignored it entirely.
+  check("handleSave checks the saveToStorage result",
+    /if \(!saveToStorage\(/.test(saveBody),
+    "a save slot must not be rendered before the write is known to have landed");
+  check("SaveOverlay writes before it renders the new slot",
+    saveBody.indexOf("saveToStorage(") < saveBody.indexOf("setSaves(updated)"),
+    "setSaves ran first, which is what made a failed save invisible");
+  check("SaveOverlay surfaces a quota notice", /t\.save\.quota/.test(overlay));
+
+  // Both notices, in all three languages, or a player hits a blank panel.
+  for (const lang of ["zh", "en", "ko"]) {
+    const i18n = (await import("file://" + join(ROOT, `src/i18n/${lang}.js`).replace(/\\/g, "/"))).default;
+    for (const k of ["quotaFull", "quotaRetry"]) {
+      check(`${lang}: t.save.${k} exists`, typeof i18n?.save?.[k] === "string" && i18n.save[k].length > 10);
+    }
+  }
 }
 
 // ============================================================ LAYER H
