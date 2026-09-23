@@ -507,9 +507,15 @@ It also has to hold *across sessions*: a player who saves at round 12 and loads 
 
 Because the whole prompt is rebuilt per round, those re-rolled **every round**, with two consequences. The cheap one is billing: the static prompt could never cache for these players, so they paid full input price on ~5,500 tokens every round while the architecture claimed ~95.8%. The expensive one is the writing — the model was handed a *different* breakup reason and a different keepsake each round, on a route whose entire premise is a shared past. A player would see the game contradict its own backstory with no way to describe the bug beyond "she keeps forgetting".
 
+**Measured live, A/B, same model and settings in both arms** (Aliyun, `qwen3.8-flash` pinned, 8 rounds each, identity `主线成员前女友`, zh): the unfixed code drifted the static prompt in **7 of 8 rounds** and measured a **60.5%** cache hit; the fixed code drifted **0 of 8** and measured **87.2%** — **+26.7 points**. 87.2% matches the ~83% this project sees on Aliyun generally, which is the point: the fix restores normal behaviour rather than inventing any. Aliyun figures only; not comparable with the ~95.8% DeepSeek Official number (open question 2).
+
 The fix keeps the variety and removes the drift: both indices are now derived from **`backstorySeed(form, mainId)`**, an FNV-1a hash over fields fixed at character setup (`name`, `age`, `pace`, `mainId`). Different playthroughs still get different backstories; one playthrough gets one backstory. It needs no new save field and no migration, so an old save simply stops drifting on its next load — which also means the reason and keepsake it settles on may differ from the one it last happened to roll. That is the intended trade: a stable past the player can rely on beats matching a value that was never stable to begin with.
 
 **Anything else that reaches the static prompt must clear the same bar.** No `Math.random()`, no `Date.now()`, no locale-dependent formatting, no iteration over an unordered `Set` or object whose key order is not fixed by construction. Derive from the save, or compute once at setup and persist it. Smoke **Layer J** enforces this: it builds each prompt twice and asserts byte-equality across all 8 identities in all 3 languages, which is what fails against the unfixed code.
+
+**`playthrough.mjs` now checks the same thing live**, rebuilding the system prompt each round and reporting `system-drift@<rounds>` plus a `static system prompt: N drifts across M rounds` summary line. It is the larger of the two cacheable blocks and had no invariant at all, while the smaller one (the history ledger) has had `prefixBreaks` since v1.3.2.
+
+**Why this survived every live run ever made:** `playthrough.mjs` hardcoded `identity: "练习生"`, so 7 of the 8 identities — including the only one containing randomness — had never been played by any automated test. It now takes `--identity`.
 
 ### Golden prompt snapshots (`test/fixtures/`)
 
@@ -889,7 +895,7 @@ Then:
 
 ## Project Status (2026-09-23)
 
-**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **469**), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`; `dev` is now at **469** offline / **485** with live layers), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
 
 **Next up: v1.4.0–v1.5.0 is planned but not started — see `docs/V140_PLAN.md`.** It splits the
 single `group` concept into **cast library / world / roster**, which is the change every feature
@@ -898,6 +904,12 @@ layout, or the save shape. Two pre-existing bugs it also closes are documented t
 record no group id, and `saveToStorage` swallows quota errors.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
+
+**Open, and deliberately not acted on: `real-name-vocative` on a member scolding another member.** One round in a `留学生` run flagged `real-name-vocative:seulgi` on `"姜涩琪，闭嘴。"` — Irene snapping Seulgi's full legal name at her, blushing, after Seulgi let slip that Irene had wanted to come. Full-name address as a rebuke is a real Korean register, and the rest of the round is exactly right (`林夏xi`, `欧尼` both correct). The grader's premise — *members address each other by stage name* — is right in general and has this exception.
+
+It is **not** changed, for two reasons. It occurred once in 35 rounds, and narrowing the check to member-to-member address would blind the detector for the player-reported bug it was built for (a member addressing the *player*, or herself, by a real name). Tuning a grader on n=1 is how it stops working. Left as a judgement call, since it turns on Korean register rather than on code: the stored prose is in `test/.out/`.
+
+**Dev key free-tier status (probed 2026-09-23):** 2 of 28 route models are genuinely out of free credits — `qwen3.8-max` and `glm-5.2`, both returning `AllocationQuota.FreeTierOnly`. The other 26 answer normally and the router skips the two correctly, so this affects only *pinned* harness runs: pinning an exhausted model leaves the walk with no fallback and ends the playthrough. Use `--models qwen3.7-plus` (or any healthy model) when a run must not be interrupted, and re-probe with `node test/smoke.mjs --live-free` rather than assuming.
 
 ### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23)
 

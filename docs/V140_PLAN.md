@@ -10,7 +10,7 @@ Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done; step 2 is next.**
 | Step | State |
 | --- | --- |
 | **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
-| **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug — see below. Verified failing against the unfixed code. |
+| **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug, **confirmed live A/B**: 7 drifts in 8 rounds and 60.5% cache before, 0 drifts and 87.2% after. Verified failing against the unfixed code. |
 | **2 — Release v1.3.9** | ⬜ **next.** Affection clamp (task 11), usage panel (10), quota-guarded `saveToStorage` (9a). Note the release now also carries the backstory fix, which is player-visible. |
 | 3 — World extraction + resolver | ⬜ **The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
 | 4 — Save migration | ⬜ |
@@ -34,6 +34,13 @@ Fixed with `backstorySeed(form, mainId)` — FNV-1a over fields fixed at charact
 variety between playthroughs survives and drift within one does not. No new save field, nothing
 to migrate. Full reasoning in CLAUDE.md, *"`buildSystemPrompt` must be a pure function of the
 save"*, and in `docs/TECH_NOTES.md`.
+
+**Verified live, A/B on Aliyun** (`qwen3.8-flash` pinned, 8 rounds per arm, everything else
+identical): 7 static-prompt drifts and **60.5%** cache hit before, 0 drifts and **87.2%** after.
+Two harness gaps were closed to make that measurable, and both were part of why the bug lasted
+so long: `playthrough.mjs` hardcoded `identity: "练习生"` (so 7 of 8 identities had never been
+played live) and had no invariant on the static prompt at all, only on the smaller history
+ledger. It now takes `--identity` and reports `system-drift`.
 
 **Pick up here.** `main` is at `f324a5e`, tagged v1.3.8, live and unchanged. `dev` carries the
 plan docs, the CI work and step 1; smoke is at 469. Next action is **step 2**, the v1.3.9

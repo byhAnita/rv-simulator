@@ -185,10 +185,23 @@ just shows you the diff. Keep both; do not convert one into the other.
 **What it bought.** Immediately, before the first fixture was even written: the
 `主线成员前女友` identity built its background from two `Math.random()` calls, and the prompt is
 rebuilt every round — so that identity re-rolled its own backstory every round, defeating the
-prompt cache entirely (~5,500 tokens, full price, every round) and feeding the model a different
-breakup reason each time on a route whose whole premise is a shared past. Shipped since the
-identity existed. Found because a snapshot forces you to ask "is this output actually stable?",
-which no property assertion had ever asked.
+prompt cache and feeding the model a different breakup reason each time on a route whose whole
+premise is a shared past. Shipped since the identity existed. Found because a snapshot forces you
+to ask "is this output actually stable?", which no property assertion had ever asked.
+
+**Measured, not argued.** The cache claim above was originally derived by reading code, which is
+not evidence. A/B on Aliyun, `qwen3.8-flash` pinned, 8 rounds per arm, same identity, language,
+group and sub-count — the only difference is the fix:
+
+| Arm | Static-prompt drifts | Measured cache hit |
+| --- | --- | --- |
+| `Math.random()` | 7 of 8 rounds | **60.5%** |
+| `backstorySeed` | 0 of 8 | **87.2%** |
+
+**+26.7 points for one identity.** 87.2% is in line with the ~83% this project measures on Aliyun
+generally, which is the real check: the fix returns this identity to normal rather than doing
+anything clever. These are Aliyun figures and are *not* comparable with the ~95.8% from DeepSeek
+Official billing — Aliyun's cache is coarser and reports less (see CLAUDE.md open question 2).
 
 Going forward it is the gate on the v1.4.0 cast/world/roster split (plan §15.0 step 3), whose
 success criterion is *byte-identical prompts for the same roster*. Without the files that

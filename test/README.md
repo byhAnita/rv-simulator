@@ -104,6 +104,17 @@ Layer D's `storyRounds` guard was checked by reverting the fix and confirming it
 fails (delta 0.020 vs the required 0.05), then restoring. A guard that has never
 been seen to fail is not a guard — do the same for any new one.
 
+`playthrough.mjs` grades the same invariant live, as `system-drift`. It found
+the identity bug in production conditions before the fix landed (7 drifts in 8
+rounds, 60.5% cache → 0 drifts, 87.2% after), and it covers something Layer J
+cannot: that the prompt stays stable *through real rounds of `executeRound`*,
+not merely across two calls in a test.
+
+Note `--identity`. It was added because the harness had `练习生` hardcoded, so
+7 of the 8 identities had never been played live by anything — which is how a
+`Math.random()` in one identity's background block survived every live run ever
+made. When testing prompt-level behaviour, sweep identities.
+
 Layer J's determinism sweep was checked the same way: restoring the two
 `Math.random()` calls in `getIdentityBackground` failed three checks — the
 `red_velvet-solo-ko` golden (reporting the differing line), the 8×3 sweep
