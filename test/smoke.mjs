@@ -430,6 +430,42 @@ async function layerD() {
     Math.abs(pStale - pSat) > 0.05, `delta=${Math.abs(pStale - pSat).toFixed(3)}`);
   Math.random = realRandom;
 
+  // --- Affection clamp -------------------------------------------------
+  // Guards the delta bound, not the 0-100 result bound. Those are different
+  // things and only the result one existed: a model could answer +30 and move
+  // the player through three relationship stages in a single round, so pacing
+  // was a property of whichever of 28 route models the router happened to serve.
+  const { validateAndFixOutput } = await import("./fixtures/prompts.mjs")
+    .then(m => m.loadPromptModules(OUT));
+  const clamped = (changes) =>
+    validateAndFixOutput({ story: "x".repeat(60), affectionChanges: changes }).affectionChanges;
+
+  check("a runaway positive delta is clamped to +8",
+    clamped({ irene: 30 }).irene === 8, `got ${clamped({ irene: 30 }).irene}`);
+  check("a runaway negative delta is clamped to -8",
+    clamped({ irene: -45 }).irene === -8, `got ${clamped({ irene: -45 }).irene}`);
+  // The prompt asks for +/-1..10, so an in-range value must pass through
+  // untouched or the clamp is changing writing the model got right.
+  check("an in-range delta passes through unchanged",
+    clamped({ irene: 5, seulgi: -3 }).irene === 5 && clamped({ irene: 5, seulgi: -3 }).seulgi === -3);
+  check("the boundary value +8 is not clamped away",
+    clamped({ irene: 8 }).irene === 8);
+  // NaN here used to survive into stats and poison that member's affection for
+  // the rest of the run - every later comparison against it is false.
+  check("a non-numeric delta becomes 0, never NaN",
+    clamped({ irene: "lots" }).irene === 0, `got ${JSON.stringify(clamped({ irene: "lots" }).irene)}`);
+  check("a fractional delta is truncated to an integer",
+    clamped({ irene: 2.7 }).irene === 2);
+  // Strict mode makes writing to Object.entries of a string a TypeError, so a
+  // malformed field would kill the round rather than be discarded.
+  check("a non-object affectionChanges is discarded, not thrown on",
+    JSON.stringify(clamped("nonsense")) === "{}");
+
+  // Regression guard: the pre-fix code only bounded the 0-100 result, so the
+  // delta reached the caller exactly as the model sent it.
+  check("the clamp is actually applied (unfixed code returns the raw +30)",
+    clamped({ irene: 30 }).irene !== 30);
+
   // Dead NPC constants must stay gone.
   const consts = readFileSync(join(ROOT, "src", "config", "constants.js"), "utf8");
   check("NPC_APPEARANCE_CHANCE removed", !/^export const NPC_APPEARANCE_CHANCE/m.test(consts));

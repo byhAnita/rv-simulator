@@ -4,7 +4,7 @@ import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 import { pickPrimaryMember } from "./probabilityEngine";
 import { getStageIdx, getStageName } from "../config/stageConfig";
-import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "../config/constants";
+import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 
@@ -510,7 +510,7 @@ function parseLLMOutput(text) {
   };
 }
 
-function validateAndFixOutput(result) {
+export function validateAndFixOutput(result) {
   // Fix multiple story keys
   if (typeof result.story === 'object' && result.story !== null && !Array.isArray(result.story)) {
     const allStories = [];
@@ -521,7 +521,25 @@ function validateAndFixOutput(result) {
   }
 
   if (!result.statChanges) result.statChanges = { selfId: 1, secrecy: 0, mood: 1 };
-  if (!result.affectionChanges) result.affectionChanges = {};
+  // A non-object here is not merely useless, it throws: module code is strict, so
+  // writing to Object.entries of a string below would be a TypeError and the
+  // round would die on a malformed field we can simply discard.
+  if (!result.affectionChanges || typeof result.affectionChanges !== "object" || Array.isArray(result.affectionChanges)) {
+    result.affectionChanges = {};
+  }
+  // Clamp the delta, not the result. Bounding only the 0-100 result (which the
+  // caller already does) limits where the player can end up but not how fast she
+  // gets there, so a model answering +30 skipped three relationship stages in one
+  // round. Non-numeric values become 0 rather than NaN, which would otherwise
+  // poison that member's affection for the rest of the run; fractional values are
+  // truncated because affection is an integer score and stage thresholds are
+  // integer boundaries.
+  for (const [id, delta] of Object.entries(result.affectionChanges)) {
+    const n = Number(delta);
+    result.affectionChanges[id] = Number.isFinite(n)
+      ? Math.max(-AFFECTION_MAX_DELTA, Math.min(AFFECTION_MAX_DELTA, Math.trunc(n)))
+      : 0;
+  }
   if (!result.socialContent) result.socialContent = {};
   if (!result.kktMessages) result.kktMessages = {};
   if (!result.story || result.story.length < 20) result.story = "The story continues...";

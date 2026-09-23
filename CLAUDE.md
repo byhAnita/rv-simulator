@@ -169,6 +169,7 @@ KKT_THRESHOLD       = 30   // affection score required to unlock KKT per member
 MAIN_INITIAL_AFFECTION       = 12
 SUB_INITIAL_AFFECTION_MIN    = 5
 SUB_INITIAL_AFFECTION_MAX    = 10
+AFFECTION_MAX_DELTA          = 8    // per member per round, both directions
 NPC_APPEARANCE_CHANCE        = 0.3  // DEAD - not imported anywhere
 NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 ```
@@ -559,7 +560,29 @@ Regenerating to make a red suite green, without reading the diff, converts the o
 3. Regex field extraction (the story regex handles `summary` sitting between `story` and `options`)
 4. Return safe defaults — never crash the round
 
-`validateAndFixOutput()` post-parse repairs: unescape `\n`, `\"`, `\/`, `\\` in the story field; fill a missing `summary` with `""`.
+`validateAndFixOutput()` post-parse repairs: unescape `\n`, `\"`, `\/`, `\\` in the story field; fill a missing `summary` with `""`; and clamp every `affectionChanges` delta to ±`AFFECTION_MAX_DELTA` — see below.
+
+### Affection pacing is the game's, not the model's
+
+`affectionChanges` arrives unbounded. The prompt asks for ±1 to ±10, but a prompt is a request,
+and the only enforcement that existed bounded the **result** to 0–100 — which says nothing about
+how fast you get there. A model returning `+30` in one round moved the player through three
+relationship stages at once, firing their stage-transition events in a burst and skipping the
+writing those stages exist to produce.
+
+That is not a hypothetical spread across 28 free-route models of very different sizes. The whole
+point of the router is that the player does not know or care which model served the round, so
+**pacing cannot be a property of the model** — a run that switches models mid-game would visibly
+change speed for no reason the player can see.
+
+`validateAndFixOutput` clamps each delta to ±8 — deliberately *below* the ±10 the prompt asks for,
+not equal to it. The prompt keeps its wider range because asking for the range you want produces
+better-distributed values than asking for the range you will merely tolerate; the clamp is the
+backstop for models that ignore the request entirely. At ±8 a compliant model is almost never
+touched, while a model returning +30 needs ~11 rounds to cross the board instead of 4.
+
+It clamps the **delta**, not the result, and runs before the 0–100 bound at the application site —
+so the two are independent and a clamped delta still cannot push a member out of range.
 
 ---
 
