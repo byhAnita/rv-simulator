@@ -1395,6 +1395,35 @@ async function layerI() {
   check("the cast spans more than one birth year after parsing",
     new Set(members.map((m) => m.birthday)).size > 1,
     "one birth year for the whole cast means the seniority fallback is in play");
+
+  // `habit` (step 5) and `tags` (v1.4.2) are on the whitelist before any group
+  // JSON declares them, so the content arrives working instead of arriving
+  // silently dropped — which is precisely what happened to `birthday`.
+  check("the whitelist carries habit and tags through parseGroupConfig",
+    members.every((m) => typeof m.habit === "string" && Array.isArray(m.tags)),
+    JSON.stringify(members.map((m) => `${m.name}:${typeof m.habit}/${Array.isArray(m.tags)}`)));
+  // No group JSON declares a habit yet, so serve one that does. This is the
+  // check that would have caught the birthday bug: it asserts the field
+  // survives parseGroupConfig, not that it exists in the file.
+  const withHabit = await (async () => {
+    const real = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const p = join(ROOT, "public", String(url).replace(/^\//, ""));
+      if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
+      const doc = JSON.parse(readFileSync(p, "utf8"));
+      if (doc.members?.[0]) {
+        doc.members[0].habit = "hums when concentrating";
+        doc.members[0].tags = ["dancer", "leader"];
+      }
+      return { ok: true, status: 200, json: async () => doc };
+    };
+    try { return await loader.loadGroupConfig("red_velvet", "en"); }
+    finally { globalThis.fetch = real; }
+  })();
+  check("a habit declared in group JSON reaches the parsed member",
+    withHabit.members[0].habit === "hums when concentrating"
+      && JSON.stringify(withHabit.members[0].tags) === JSON.stringify(["dancer", "leader"]),
+    `habit=${withHabit.members[0].habit} tags=${JSON.stringify(withHabit.members[0].tags)}`);
   const byId = (id) => members.find((m) => m.id === id);
   const GROUP = { groupLore: "lore" };
 

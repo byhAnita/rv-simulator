@@ -80,6 +80,15 @@ function parseGroupConfig(config) {
     // prompt as the "2000-01-01" fallback — one birth year for the whole cast,
     // which made the age line uniform nonsense rather than merely inverted.
     birthday: m.birthday,
+    // On the whitelist before any group JSON declares them, and that order is
+    // deliberate. `habit` is authored across 27 files in step 5 and `tags` is
+    // v1.4.2; adding the field here first means the content arrives working
+    // rather than arriving silently dropped, which is exactly how `birthday`
+    // was lost. Neither reaches the prompt yet — a `Habit:` line rendered from
+    // `undefined` would move the goldens, so the prompt change ships with the
+    // content that fills it.
+    habit: m.habit || "",
+    tags: m.tags || [],
     ig: m.ig || `${m.id}_official`,
     public_image: m.public_image || "",
     private_personality: m.private_personality || "",
