@@ -1467,9 +1467,11 @@ async function layerI() {
   check("the whitelist carries habit and tags through parseGroupConfig",
     members.every((m) => typeof m.habit === "string" && Array.isArray(m.tags)),
     JSON.stringify(members.map((m) => `${m.name}:${typeof m.habit}/${Array.isArray(m.tags)}`)));
-  // No group JSON declares a habit yet, so serve one that does. This is the
-  // check that would have caught the birthday bug: it asserts the field
-  // survives parseGroupConfig, not that it exists in the file.
+  // Served through a stub rather than read from a file ON PURPOSE, even now
+  // that every group JSON declares a habit. This asserts the field survives
+  // parseGroupConfig for an ARBITRARY value, independently of what the library
+  // happens to contain — which is the check that would have caught the
+  // birthday bug. The content sweep below is the separate question.
   const withHabit = await (async () => {
     const real = globalThis.fetch;
     globalThis.fetch = async (url) => {
@@ -1489,6 +1491,76 @@ async function layerI() {
     withHabit.members[0].habit === "hums when concentrating"
       && JSON.stringify(withHabit.members[0].tags) === JSON.stringify(["dancer", "leader"]),
     `habit=${withHabit.members[0].habit} tags=${JSON.stringify(withHabit.members[0].tags)}`);
+
+  // --- step 5 content: habit across the whole library -----------------------
+  // Swept through loadGroupConfig in all three languages, never by reading the
+  // JSON. A fixture read off disk tests the formatter, not the feature.
+  // These are aggregate checks that NAME their offenders, rather than one
+  // check per member: 57 members x 3 languages would bury the suite.
+  const LIB_LANGS = ["zh", "en", "ko"];
+  const index = await fromDisk(() => loader.loadGroupIndex());
+  check("the group index lists the whole library, not the Red Velvet fallback",
+    index.length >= 9, `${index.length} groups — a short index means the fetch stub missed`);
+
+  const library = {};
+  for (const g of index) {
+    library[g.id] = {};
+    for (const lang of LIB_LANGS) {
+      library[g.id][lang] = (await fromDisk(() => loader.loadGroupConfig(g.id, lang))).members;
+    }
+  }
+  const everyMember = [];
+  for (const [gid, langs] of Object.entries(library))
+    for (const [lang, ms] of Object.entries(langs))
+      for (const m of ms) everyMember.push({ gid, lang, ...m });
+
+  const noHabit = everyMember.filter((m) => !m.habit || !m.habit.trim());
+  check("every member in every group reaches the prompt with a habit",
+    noHabit.length === 0,
+    noHabit.map((m) => `${m.gid}/${m.lang}:${m.id}`).join(", ") || `${everyMember.length} checked`);
+
+  // A habit renders as ONE line in the member profile block. A newline would
+  // split it in two and silently reshape the section for that cast only.
+  const multiline = everyMember.filter((m) => /[\r\n]/.test(m.habit || ""));
+  check("no habit carries a line break",
+    multiline.length === 0, multiline.map((m) => `${m.gid}/${m.lang}:${m.id}`).join(", "));
+
+  // The three language files are authored together; a member present in one
+  // and absent from another means a file was edited alone.
+  const idSetMismatch = Object.entries(library).filter(([, langs]) => {
+    const [a, b, c] = LIB_LANGS.map((l) => langs[l].map((m) => m.id).join(","));
+    return !(a === b && b === c);
+  });
+  check("the three language files of a group agree on its member ids",
+    idSetMismatch.length === 0, idSetMismatch.map(([g]) => g).join(", "));
+
+  // Member ids are NOT unique across the library — `x` is a crossover roster
+  // sharing seven of them (the finding that reshaped step 4's group scan). A
+  // habit is a physical tic and belongs to the PERSON, so the shared ids must
+  // agree; disagreement means one file was edited and its twin forgotten.
+  const crossover = [];
+  for (const lang of LIB_LANGS) {
+    const seen = {};
+    for (const m of everyMember.filter((e) => e.lang === lang)) (seen[m.id] ||= []).push(m);
+    for (const [id, ms] of Object.entries(seen)) {
+      if (ms.length < 2) continue;
+      if (new Set(ms.map((m) => m.habit)).size !== 1)
+        crossover.push(`${lang}:${id} (${ms.map((m) => m.gid).join("+")})`);
+    }
+  }
+  check("a member in two groups carries the same habit in both",
+    crossover.length === 0, crossover.join(", "));
+
+  // Within one cast the habits are what make members distinguishable in a
+  // scene. Two identical ones is a copy-paste that reads as a real profile.
+  const dupes = [];
+  for (const [gid, langs] of Object.entries(library))
+    for (const lang of LIB_LANGS) {
+      const hs = langs[lang].map((m) => m.habit);
+      if (new Set(hs).size !== hs.length) dupes.push(`${gid}/${lang}`);
+    }
+  check("no two members of one cast share a habit",
+    dupes.length === 0, dupes.join(", "));
   const byId = (id) => members.find((m) => m.id === id);
   const GROUP = { groupLore: "lore" };
 

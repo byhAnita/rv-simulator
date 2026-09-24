@@ -878,7 +878,15 @@ Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `em
 
 **Adding a field to a group JSON is not enough to make it reach the app.** `groupLoader.js#parseGroupConfig` rebuilds every member from an explicit whitelist, so a field that is not listed there is silently dropped between the file and the prompt — no error, no warning, just a `undefined` the consumer quietly defaults. `birthday` sat in every group JSON and never reached `buildSystemPrompt` for the whole life of the age-texture feature. Add the field to the whitelist in the same commit, and assert on it through `loadGroupConfig`, never by reading the JSON.
 
-**`habit` and `tags` are on the whitelist already, ahead of any file that declares them** — `habit` is authored across the 27 group files in v1.4.0 step 5, `tags` in v1.4.2. Putting the field first means the content arrives working instead of arriving silently dropped. Neither reaches the prompt yet: a `Habit:` line rendered from `undefined` would move the goldens, so the prompt change ships with the content that fills it. Smoke serves a stubbed `habit` through the fetch layer to assert the whitelist carries it, rather than asserting on a file.
+**`habit` went on the whitelist ahead of any file that declared it, and `tags` still is** — `habit` is authored in v1.4.0 step 5, `tags` in v1.4.2. Putting the field first means the content arrives working instead of arriving silently dropped, which is exactly how `birthday` was lost.
+
+**`habit` is a concrete, observable, repeatable physical behaviour — something the model can stage in a scene.** `private_personality` says *expresses affection through caretaking*, which cannot be blocked into a shot; *straightens your collar mid-sentence without asking* can. It is the staging handle for the three prose fields, not a fourth description of them, which is why it sits outside the `CRITICAL: ★` line naming Public / Private / Queer Texture as the primary differentiators.
+
+**Content is sourced, not invented, and that is a different rule from the fields around it.** `queer_texture` is fiction because it has to be; a habit is the one field fans actually know, and a fabricated concrete detail is both less useful to the model and more misleading than a real one. So: **publicly known, persona level, and never a claim about a real person's health, body, relationships or private life.** Where that knowledge is not reliable — parts of `gnz`, `nmixx` and `x` — the habit is instead *derived* from that file's own `private_personality` and is plainly fiction. The two tiers are tracked per member in `docs/V140_PLAN.md`; do not silently promote a derived habit to a sourced one.
+
+**Member ids are not unique across the library, so a shared id carries the same habit in every group.** A physical tic belongs to the person, not the roster: `x` is a crossover roster sharing seven ids, and smoke fails when one copy is edited and its twin forgotten.
+
+57 members × 3 languages, plus `_template`. All 30 files are **CRLF** — `cat -A` piped through GNU sed shows clean `$` and is lying, because sed strips the CR in text mode.
 
 `name` is the Latin stage name in **all three** language files; `name_kr` is the localized real name (`裴珠泫` / `Bae Ju-hyun` / `배주현`). A Hangul *stage* name (`예리`) exists in no group JSON.
 

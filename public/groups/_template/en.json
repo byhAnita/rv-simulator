@@ -27,6 +27,7 @@
       "public_image": "Public image description (1-2 sentences)",
       "private_personality": "Private personality description (1-2 sentences)",
       "queer_texture": "Queer texture description (1-2 sentences)",
+      "habit": "A concrete, repeatable physical habit (one sentence)",
       "animal_plastic": "Animal plastic — one sentence summary"
     }
   ],

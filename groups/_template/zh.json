@@ -27,6 +27,7 @@
       "public_image": "公开形象描述 (1-2句话)",
       "private_personality": "私下性格描述(1-2句话)",
       "queer_texture": "女同恋爱中的特有质感描述(1-2句话)",
+      "habit": "习惯性小动作 (1句话，具体可演)",
       "animal_plastic": "动物塑 — 一句话概括"
     },
     {
@@ -45,6 +46,7 @@
       "public_image": "公开形象描述",
       "private_personality": "私下性格描述",
       "queer_texture": "女同恋爱中的特有质感描述",
+      "habit": "习惯性小动作 (1句话，具体可演)",
       "animal_plastic": "动物塑 — 一句话概括"
     }
   ],

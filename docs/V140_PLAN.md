@@ -197,6 +197,34 @@ the only prompt-regression detector in the repo into a rubber stamp.
 asserted through a stubbed fetch. What does not exist yet is the content, the prompt line that
 renders it, and the root `groups/` mirror update — Layer C fails when that drifts.
 
+### Habit provenance: what is sourced and what is derived
+
+The rule is **publicly known, persona level, never a claim about a real person's health, body,
+relationships or private life** — borrowed from `byhAnita/yuriagent`'s `src/data/facts.js`, which
+states it better than this plan originally did. That rule is only honest where the knowledge is
+actually reliable, so the content ships in two tiers, tracked rather than blurred. Promoting a
+derived habit to a sourced one is a content decision and needs the same care as writing it.
+
+**Sourced (20)** — `red_velvet/` irene, seulgi, wendy, yeri · `twice/` nayeon, jeongyeon, momo,
+sana, mina, dahyun, chaeyoung, tzuyu · `blackpink/` jisoo, jennie, rose, lisa · `aespa/giselle` ·
+`ive/wonyoung` · `nmixx/lily` · `x/hyewon`.
+
+**Derived (30)** — built from that file's own `private_personality`, plainly fiction:
+`red_velvet/joy` · `twice/jihyo` · `aespa/` karina, winter, ningning · all of `itzy/` and `ive/`
+bar wonyoung · `nmixx/` bar lily · all eight of `gnz/` · `x/` eunbi, miyeon.
+
+`gnz` is entirely derived on purpose: it is the group this author has the least reliable public
+knowledge of, and inventing a detail that *reads* as sourced fact is the specific failure the rule
+exists to prevent. Those eight are the first place to spend a correction pass.
+
+Four habits come directly from yuriagent's `FACTS` table (irene, yeri, `blackpink/jisoo`,
+`x/hyewon`) — two of which carry the Red Velvet goldens.
+
+**The seven crossover ids are authored once, at their home group**, and repeated verbatim in `x`:
+irene and wendy from `red_velvet`, sana and mina from `twice`, sullyoon from `nmixx`, wonyoung
+from `ive`, jisoo from `blackpink`. A physical tic belongs to the person, not the roster. Smoke
+fails when one copy is edited and its twin forgotten.
+
 **Four things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
 free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
 `node test/smoke.mjs --live-free` rather than trusting this line. `.env.local` pins
