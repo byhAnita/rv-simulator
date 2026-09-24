@@ -783,6 +783,12 @@ Social content is stored in module-level `pendingSocialFeeds`. `popPendingSocial
 
 **The KKT unlock is enforced in two places, and both are needed.** `filterKktByAffection` drops messages from members below the threshold *after* the response arrives — that is what keeps them out of the overlay. But the story was written in the same response, around a message the model believed it had sent, so filtering alone leaves prose describing a text that never appears. The `[KKT Channels]` line in the dynamic tail tells the model which channels are open *before* it writes, and the static prompt forbids narrating a text from a locked member. Filtering stays as the backstop for a model that ignores the instruction.
 
+**A Kakao is delivered by the app and never by the story — for every member, not only locked ones.** The prohibition used to live *inside* the LOCKED-channel bullet, which reads as permission for an unlocked one: a long, specific, emphatic rule conditioned on "LOCKED" invites the inference that an unlocked member may be narrated. That is specification by contrast, and it dates the symptom — the locked bullet landed in v1.3.6, which is when a rare bug became a regular one. Reported from hand play on DeepSeek Official in zh: a round delivered Irene's Kakao *and* transcribed it into the prose, complete with a phone-screen header, so the player read the same three lines twice — once in the narrator's voice, before she had looked at her phone. Fixed in v1.4.0 by stating the rule unconditionally and *first*, with the locked case as an additional constraint rather than the only home for it.
+
+**The live grader had the identical blind spot**, which is the more useful half of the lesson. `kkt-narrated-but-locked` runs only `if (!delivered)`, so a round that delivered a Kakao and duplicated it was invisible to it by construction. `kktTranscribed` covers the delivered case by matching a delivered message **verbatim** in the prose — language-independent, and prose does not coincidentally contain a whole chat line. When a rule is scoped to one branch, check whether its detector is scoped to the same branch.
+
+**Not fixed, and not a regression: a Kakao the scene makes impossible** — she texts "good night" from inside the room, or while asleep. Affection is the only gate; nothing models presence or physical state, so the prompt lacks the information such a rule would need. See `docs/V140_PLAN.md` §18b, which schedules it with v1.4.1's place canon.
+
 ---
 
 ## Relationship Stages (7)

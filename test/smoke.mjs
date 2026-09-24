@@ -1712,6 +1712,24 @@ async function layerI() {
       && profilesOf(oneMissing).includes(`\n  Habit: ${ireneHabit}`),
     profilesOf(oneMissing).split("\n").filter((l) => /[ \t]$/.test(l)).join("|"));
 
+  // --- a Kakao written into the story as well as delivered ------------------
+  // The prohibition used to live ONLY inside the LOCKED-channel bullet, which
+  // reads as permission for an unlocked member — specification by contrast.
+  // That bullet landed in v1.3.6, which is when a rare bug became a regular
+  // one. The rule is now unconditional and stated before the locked case.
+  check("the story is forbidden a Kakao transcript for EVERY member, not just locked ones",
+    /KKT IS DELIVERED BY THE APP, NEVER BY THE STORY/.test(p)
+      && /for EVERY member, the unlocked ones included/.test(p),
+    "the rule must not be reachable only through the LOCKED branch");
+  check("the locked-channel bullet no longer carries the story prohibition alone",
+    !/A LOCKED member[^\n]*the story MUST NOT mention/.test(p),
+    "scoping it to LOCKED is what implied unlocked members may be narrated");
+  const kktRuleAt = p.indexOf("KKT IS DELIVERED BY THE APP");
+  check("the universal rule is stated before the locked exception",
+    kktRuleAt !== -1 && kktRuleAt < p.indexOf("KKT IS A LOCKED CHANNEL"));
+  check("the story-generation rules name the Kakao transcript too",
+    /NO SOCIAL MEDIA IN STORY[^\n]*Kakao transcript/.test(p));
+
   // --- the self-naming bug: a member thanking the player with her own name.
   check("member's own name is ruled out as an address form for the player",
     p.includes('"Irene" and "Bae Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");
@@ -2689,9 +2707,44 @@ async function layerL() {
     none(g.selfNameErrors("裴珠泃转过头来。", cast)),
     "narration may use real names freely");
 
+  // kkt-transcribed-in-story. The prose below is the real round a player
+  // reported on DeepSeek Official in zh: the model delivered the Kakao AND
+  // wrote it into the story, so she read it twice. The existing grader runs
+  // only when NOTHING was delivered and could never have seen this.
+  const kktRound = { irene: ["到家了吗", "粥的事……我不是随便说的", "下次见面，别道歉。"] };
+  const transcribed = "她伸手替你把被子拉高。\n\n---\n\n【手机屏幕亮起】\n\n"
+    + "**📱 KKT · 裴珠泃**\n到家了吗\n粥的事……我不是随便说的\n下次见面，别道歉。";
+  check("kkt-transcribed-in-story flags a delivered Kakao written into the prose",
+    g.kktTranscribed(transcribed, kktRound).length > 0, JSON.stringify(g.kktTranscribed(transcribed, kktRound)));
+  check("...and names the member whose messages were duplicated",
+    g.kktTranscribed(transcribed, kktRound)[0] === "kkt-transcribed-in-story:irene");
+  // The delivered line ends in 。 and the prose re-punctuates it as it reflows
+  // the sentence, so an exact match would miss. Isolated to ONE message, or it
+  // passes on a different one and proves nothing — which is what it did first.
+  check("...and still flags when the model reflows the trailing punctuation",
+    g.kktTranscribed("“下次见面，别道歉”，她在心里默念。",
+      { irene: ["下次见面，别道歉。"] }).length > 0,
+    "trailing punctuation must be stripped before matching");
+  // kktUpdate carries plain strings today and {sender, content} after
+  // memoryPool normalizes; the grader is fed both shapes across the codebase.
+  check("...and reads the {sender, content} shape as well as a plain string",
+    g.kktTranscribed("她低头看屏幕：到家了吗，粥我煮好了。",
+      { irene: [{ sender: "irene", content: "到家了吗，粥我煮好了" }] }).length > 0,
+    "normalized KKT entries are objects, not strings");
+  check("...and does not flag a round whose prose merely mentions the app",
+    none(g.kktTranscribed("KKT的窗口一直没有亮。", kktRound)),
+    "naming the app is legitimate — the locked-channel rule tells it to");
+  check("...and does not flag a short message that is ordinary dialogue",
+    none(g.kktTranscribed("“好。”她说。", { irene: ["好。"] })),
+    "under the verbatim floor, or every 응/ok in dialogue would fire");
+  check("...and does not flag when nothing was delivered",
+    none(g.kktTranscribed(transcribed, {})),
+    "that is the sibling check's job, and it must not double-report");
+
   // The harness must actually call them, or the layer tests dead code.
   const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");
-  for (const fn of ["narratedHonorifics", "nameYaVocative", "sinicizedHonorifics", "selfNameErrors"]) {
+  for (const fn of ["narratedHonorifics", "nameYaVocative", "sinicizedHonorifics", "selfNameErrors",
+                    "kktTranscribed"]) {
     check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
   }
 }

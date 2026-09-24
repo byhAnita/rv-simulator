@@ -111,3 +111,35 @@ export function nameYaVocative(story, cast, lang) {
   }
   return [];
 }
+
+// A Kakao the round DID deliver, transcribed into the prose as well.
+//
+// The sibling check in playthrough.mjs only runs when a round delivered NO
+// KKT, so this case was invisible to it by construction: the model generates
+// kktMessages correctly AND writes them into the story, and the player reads
+// the same message twice — once in prose, in the narrator's voice, before she
+// has looked at her phone, and once in the Kakao overlay.
+//
+// Reported from hand play on DeepSeek Official in zh, v1.3.9.
+//
+// Matching is on the delivered text appearing VERBATIM in the story, which is
+// language-independent and has almost no room for a false positive: prose does
+// not coincidentally contain a whole chat line. Short messages are skipped
+// because "ok" or "응" legitimately appear in dialogue.
+const KKT_MIN_VERBATIM = 6;
+
+export function kktTranscribed(story, kktUpdate) {
+  if (!story) return [];
+  for (const [id, msgs] of Object.entries(kktUpdate || {})) {
+    if (!Array.isArray(msgs)) continue;
+    for (const raw of msgs) {
+      const text = String(typeof raw === "string" ? raw : raw?.content ?? "").trim();
+      // Trailing punctuation is dropped: the model reflows it when it reformats
+      // the line as prose, and that must not be enough to slip past the check.
+      const needle = text.replace(/[.。!！?？~～\s]+$/u, "");
+      if (needle.length < KKT_MIN_VERBATIM) continue;
+      if (story.includes(needle)) return [`kkt-transcribed-in-story:${id}`];
+    }
+  }
+  return [];
+}

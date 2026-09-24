@@ -1048,6 +1048,56 @@ None blocking v1.4.0. Carried forward:
 
 ---
 
+## 18b. A Kakao that the scene makes impossible
+
+**Reported from hand play, v1.3.9, and deliberately not fixed there.** It long predates v1.4.0
+and is not a regression; it is a missing mechanism.
+
+A member texts the player something the scene they are both standing in contradicts:
+
+- She is **in the room**, face to face, and texts *"see you tomorrow, good night"* — and the next
+  round is still the same scene, in the same place, so the goodbye never becomes true.
+- She is **asleep or drunk**, the player has just walked her back to the dorm, and a message
+  arrives from someone who cannot be holding a phone.
+
+The player's own verdict is the one to design against: *this ruins the immersion quite a lot.*
+It is worse than a flat line of prose, because the game contradicts a fact the player watched
+happen.
+
+**Why it happens.** KKT generation is asked for every round and gated on exactly one thing —
+affection, via `[KKT Channels]` in the dynamic tail. There is no notion of whether she is
+*able* or *has reason* to send one. The prompt knows the scene as a free-text label
+(`Scene:practice room`) and knows nothing at all about who is present in it, or her physical
+state, or whether the round ends with the two of them parting.
+
+**Why it is not a prompt tweak.** *"Do not text when you are in the same room"* is a rule the
+model cannot reliably apply, because the information it needs is not in the prompt. The scene
+label is prose, presence is not modelled, and "asleep" exists only inside the story the model
+just wrote. Adding the sentence without adding the state is how a rule becomes noise — and the
+step 5 finding applies here too: a rule the data cannot support is not a fix.
+
+**The shape a real fix takes**, roughly in cost order:
+
+1. **Presence** as structured state: does this round end with the member present or parted? The
+   model already decides it; it would have to *report* it, as a field beside `scene`, and the
+   tail would carry it into the next round.
+2. **A send condition per member** derived from presence + physical state, rendered into
+   `[KKT Channels]` the way the affection lock already is. The lock proved the pattern works:
+   state in the tail, rule in the static prompt, filter as the backstop.
+3. **Post-filter** as the backstop — drop a delivered message whose precondition the round
+   contradicts, exactly as `filterKktByAffection` drops one the lock forbids.
+
+`byhAnita/yuriagent` has already solved the data half of this: its `locations.js` gives every
+place an `exposureBase` **and** a `presence` count, decorrelated on purpose. Presence is the
+field this bug wants, and v1.4.1's place canon (§8) is where it would naturally land.
+
+**Recommendation: schedule with v1.4.1's places, not before.** Doing it earlier means inventing
+a presence model that the place work would then replace. It needs a live playthrough to confirm
+the fix, since the symptom is a contradiction between prose and state that no offline assertion
+can see.
+
+---
+
 ## 19. Plot mode — v1.4.2
 
 Authored story beats, opt-in, injected into the dynamic tail. Agreed in discussion 2026-09-24.

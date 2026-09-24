@@ -17,6 +17,8 @@
 //                        which is how "Irene thanks Bae Ju-hyun" happens
 //   kkt-narrated-but-locked  a Kakao message in the prose that the round never
 //                        delivered, i.e. the affection lock was ignored
+//   kkt-transcribed-in-story  a Kakao the round DID deliver, written into the
+//                        prose as well, so the player reads it twice
 //
 // NOT part of the app bundle. Lives outside src/ so Vite never sees it, and
 // reads its key from .env.local via process.env — never import.meta.env.
@@ -140,7 +142,8 @@ function languageOk(story, lang) {
 
 // Prose graders live in graders.mjs so smoke can unit-test them; see the
 // header there. esc moved with them.
-import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative } from "./graders.mjs";
+import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative,
+         kktTranscribed } from "./graders.mjs";
 // unnie in the three scripts the game can output, with or without a separator.
 // The transliterated forms only. 姐 is deliberately absent: the setting is
 // Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
@@ -208,6 +211,11 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
     // Merely naming the app is not: now that the prompt tells the model which
     // channels are shut, it legitimately writes lines like "the KKT window
     // stayed silent" — which the first version of this check flagged as a bug.
+    // The delivered case is the twin bug and needs its own check: this one
+    // fires only when NOTHING was delivered, so a round that delivered a Kakao
+    // AND transcribed it into the prose was invisible here by construction.
+    bad.push(...kktTranscribed(story || "", res.kktUpdate));
+
     const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);
     if (!delivered) {
       const s = story || "";
