@@ -137,7 +137,9 @@ function languageOk(story, lang) {
   return ratio(story, CJK) < 0.02 && ratio(story, HANGUL) < 0.02;
 }
 
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Prose graders live in graders.mjs so smoke can unit-test them; see the
+// header there. esc moved with them.
+import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative } from "./graders.mjs";
 // unnie in the three scripts the game can output, with or without a separator.
 // The transliterated forms only. 姐 is deliberately absent: the setting is
 // Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
@@ -165,57 +167,6 @@ function honorificErrors(story, cast) {
   if (!cast.members.some((m) => m.birthYear > cast.playerBirthYear)
       && calledUnnie(cast.playerName).test(story)) {
     bad.push("unnie-to-player");
-  }
-  return bad;
-}
-
-// Everything between paired quotes. A character class cannot do this: it has no
-// way to tell an opening quote from a closing one, so narration that follows a
-// line of dialogue reads as if it were inside it. That produced a false
-// "real-name-vocative" on a round whose dialogue was in fact correct.
-function dialogueSpans(story) {
-  const spans = [];
-  for (const re of [/"([^"]*)"/g, /“([^”]*)”/g, /「([^」]*)」/g]) {
-    for (const m of story.matchAll(re)) spans.push(m[1]);
-  }
-  return spans;
-}
-
-// The game is set in South Korea, so Korean address forms stay transliterated
-// in every output language. Rendering 언니 as the Chinese 姐, or as the English
-// "big sister", localizes the setting away — the prompt bans both by name and
-// this catches a model that does it anyway. Anchored to a member or the player,
-// so ordinary 姐姐/小姐 in narration does not match.
-function sinicizedHonorifics(story, cast, lang) {
-  const names = [...cast.members.map((m) => m.name), cast.playerName].filter(Boolean);
-  const bad = [];
-  if (lang === "zh") {
-    if (names.some((n) => new RegExp(`${esc(n)}\\s*姐`).test(story))) bad.push("sinicized-honorific");
-  } else if (lang === "en") {
-    if (names.some((n) => new RegExp(`${esc(n)}[-\\s](big sister|sis|sister)\\b`, "i").test(story))) {
-      bad.push("sinicized-honorific");
-    }
-  }
-  return bad;
-}
-
-// "Irene, thanks for the coffee" — spoken by Irene. The speaker of a line is not
-// recoverable from prose, so this targets the form that is anomalous whoever
-// says it: a member's full real name used as a vocative inside dialogue.
-// Members address each other by stage name, so a real name in the vocative is
-// almost always the model reaching for the only Korean-looking name it has.
-// Narration may use real names freely and is deliberately excluded.
-function selfNameErrors(story, cast) {
-  const bad = [];
-  const spans = dialogueSpans(story);
-  if (spans.length === 0) return bad;
-  for (const m of cast.members) {
-    if (!m.name_kr) continue;
-    // A vocative opens a clause. Requiring that excludes self-introduction
-    // ("我叫孙胜完，…" / "My name is Bae Ju-hyun, …"), which is correct speech
-    // and was the third false positive this check produced.
-    const re = new RegExp(`(^|[。.!！?？…—])\\s*${esc(m.name_kr)}\\s*[,，!！?？]`);
-    if (spans.some((s) => re.test(s))) bad.push(`real-name-vocative:${m.id}`);
   }
   return bad;
 }
@@ -248,6 +199,8 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
     bad.push(...honorificErrors(story || "", cast));
     bad.push(...selfNameErrors(story || "", cast));
     bad.push(...sinicizedHonorifics(story || "", cast, lang));
+    bad.push(...narratedHonorifics(story || "", cast, lang));
+    bad.push(...nameYaVocative(story || "", cast, lang));
 
     // KKT is gated on affection. A story that describes a message ARRIVING in a
     // round that delivered none is the symptom of the lock being ignored.

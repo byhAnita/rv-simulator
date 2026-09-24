@@ -148,6 +148,7 @@ NPC Members: Irene, Seulgi, Wendy, Yeri (non-romanceable, must appear in backgro
 - A character's own name is never a way to address someone else. When Joy speaks, "Joy" and "박수영" refer to herself — she cannot use either to address Hana. Thanking Hana by speaking her own name is always wrong.
 - No member ever addresses Hana by another member's name. Hana is the only character who may be addressed as "Hana".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
+- Address forms are SPOKEN, not narrated. "언니", "님", "씨" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "Joy는 창가에 서 있다", NEVER "Joy 언니는 창가에 서 있다".
 
 -- REGISTER: blend these, do not look one up --
 Each member's Address line fixes WHICH titles exist between her and Hana and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.

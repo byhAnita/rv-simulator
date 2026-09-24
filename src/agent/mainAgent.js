@@ -107,16 +107,32 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // equivalent. Rendering 언니 as the Chinese 姐 reads as a Chinese family
   // drama and throws away the register the game is built on.
   // zh mixes scripts on purpose, following how K-pop fans actually write:
-  // 언니 and 야 have settled Chinese transliterations (欧尼 / 呀), but 님 and 씨
-  // are written in Latin as "nim" and "xi" — a reader knows "会长nim" at sight
-  // and would stumble over "会长尼姆".
+  // 언니 has a settled Chinese transliteration (欧尼), but 님 and 씨 are written
+  // in Latin as "nim" and "xi" — a reader knows "会长nim" at sight and would
+  // stumble over "会长尼姆".
   const TOKENS = {
-    zh: { unnie: "欧尼", ya: "呀", nim: "nim", ssi: "xi", sep: "" },
-    en: { unnie: "unnie", ya: "-ya", nim: "-nim", ssi: "-ssi", sep: "-" },
+    // zh has no `ya`, and that is the one place transliteration stops working.
+    // 欧尼 and nim arrive in Chinese carrying only their Korean sense, because
+    // neither is a Chinese word. 呀 IS one - a sentence-final particle, where
+    // Korean 야 is a vocative suffix on a name - so "小饼呀，你来了" parses as
+    // Chinese and reads as slightly wrong to a native speaker. Chinese shows
+    // closeness with the bare given name instead. 呀 survives only in the use
+    // the two languages share, as a standalone exclamation; see the zh token
+    // block below. Reported from hand play in v1.3.9.
+    zh: { unnie: "欧尼", ya: null, nim: "nim", ssi: "xi", sep: "" },
+    // `sep` supplies the hyphen, so the tokens must not carry their own. `ya`
+    // did, and every English prompt has been emitting "Alex--ya" since the
+    // address protocol shipped in v1.3.6 - visible in the committed golden,
+    // which is exactly the kind of thing a golden is for.
+    en: { unnie: "unnie", ya: "ya", nim: "nim", ssi: "ssi", sep: "-" },
     ko: { unnie: "언니", ya: "야", nim: "님", ssi: "씨", sep: " " },
   };
   const tk = TOKENS[language] || TOKENS.zh;
   const call = (name, token) => `${name}${tk.sep}${token}`;
+  // The casual form only exists where the language has a vocative particle that
+  // survives transliteration. zh does not (see TOKENS), so the clause is dropped
+  // rather than rendered as a duplicate of the plain name.
+  const casually = (name) => tk.ya ? `, or "${call(name, tk.ya)}" once close` : "";
 
   // Identities carrying a workplace register that outranks age. It softens
   // toward her given name as they get closer — REGISTER covers that.
@@ -139,10 +155,10 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     let ageLine, addressLine;
     if (memberIsOlderBy > 0) {
       ageLine = `b.${memberBirthYear} — ${memberIsOlderBy} yr OLDER than ${playerName} (b.${playerBirthYear}). She is ${playerName}'s unnie (언니).`;
-      addressLine = `${playerName} -> "${call(m.name, tk.unnie)}". She -> "${playerName}", or "${call(playerName, tk.ya)}" once close. She must NEVER call ${playerName} "${tk.unnie}".`;
+      addressLine = `${playerName} -> "${call(m.name, tk.unnie)}". She -> "${playerName}"${casually(playerName)}. She must NEVER call ${playerName} "${tk.unnie}".`;
     } else if (memberIsOlderBy < 0) {
       ageLine = `b.${memberBirthYear} — ${Math.abs(memberIsOlderBy)} yr YOUNGER than ${playerName} (b.${playerBirthYear}). ${playerName} is her unnie (언니).`;
-      addressLine = `She -> "${call(playerName, tk.unnie)}". ${playerName} -> "${m.name}", or "${call(m.name, tk.ya)}" once close. ${playerName} must NEVER call her "${tk.unnie}".`;
+      addressLine = `She -> "${call(playerName, tk.unnie)}". ${playerName} -> "${m.name}"${casually(m.name)}. ${playerName} must NEVER call her "${tk.unnie}".`;
     } else {
       ageLine = `b.${memberBirthYear} — same birth year as ${playerName}. 동갑, no unnie in either direction.`;
       addressLine = `Both use the plain given name; 반말 comes easily after a few meetings.`;
@@ -233,6 +249,7 @@ ${identityBg}
 - A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}".
 
 -- REGISTER: blend these, do not look one up --
 Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}. It relaxes toward her given name as they grow close.` : ""}
@@ -243,11 +260,11 @@ How much of that formality she actually speaks is a blend of three things, none 
 A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in ${lr.lang} as transliterations, because swapping them for a native equivalent throws away the setting.
-${language === "zh" ? `Chinese K-pop readers know these forms already. Two are written in Chinese characters and two in Latin letters — follow this exactly, it is how fans actually write.
+${language === "zh" ? `Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.
   언니 -> "欧尼"  (NEVER "姐"/"姐姐"/"姐妹" — that reads as a Chinese family drama, not K-pop)
   님 -> "nim" in Latin letters (e.g. "会长nim，早上好") — NEVER "尼姆"
   씨 -> "xi" in Latin letters (e.g. "珠泫xi") — NEVER "西"
-  야/아 -> "呀"/"啊" (e.g. "艺琳呀") — warm and close, or a flash of irritation; same sound as the Korean 야
+  야 -> "呀" ONLY as a standalone exclamation opening a line ("呀！你胆子真大了") — surprise, embarrassment, mock indignation. NEVER as a suffix on a name: "小饼呀" reads as Chinese grammar, not Korean warmth, and a plain "小饼，你来了" is what a native speaker writes. Closeness in Chinese is the bare given name or a nickname, never an added particle
   선배 -> "前辈" (or "前辈nim")    존댓말 vs 반말: show it in how formal the sentence endings feel` :
   language === "en" ? `  언니 -> "unnie" (e.g. "Irene-unnie")  — NEVER "big sister", "sis" or "miss"
   씨 -> "-ssi" (e.g. "Ju-hyun-ssi")    님 -> "-nim" (e.g. "Manager-nim")

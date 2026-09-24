@@ -12,7 +12,7 @@ Active branches:
 
 See **Branch & Deploy Workflow** for the release, hotfix and merge-back rules.
 
-Measured production numbers (real player sessions, reasoning off): **~95.8% prompt-cache hit rate**, **~10s generation time per round**.
+Measured production numbers (real player sessions, reasoning off): prompt-cache hit rate **~87% in clean sequential play, ~95.8% in long sessions with retries** (see open question 2), and a median round of **6.3s on DeepSeek Official V4.1 Flash** / **~16-17s on Aliyun flash models**.
 
 ---
 
@@ -541,17 +541,60 @@ The setting is South Korea and the audience is K-pop fans, so Korean address for
 
 | | 언니 | 님 | 씨 | 야/아 |
 | --- | --- | --- | --- | --- |
-| zh | `欧尼` — never `姐`/`姐姐` | **`nim`, in Latin** — never `尼姆` | **`xi`, in Latin** — never `西` | `呀`/`啊` |
+| zh | `欧尼` — never `姐`/`姐姐` | **`nim`, in Latin** — never `尼姆` | **`xi`, in Latin** — never `西` | **standalone `呀！` only** — never `小饼呀` |
 | en | `unnie` — never "big sister" | `-nim` | `-ssi` | `-ya`/`-ah` |
 | ko | `언니` | `님` | `씨` | `야`/`아` |
 
-**zh deliberately mixes scripts.** 언니 and 야 have settled Chinese transliterations that fans read fluently (`欧尼`, `呀`), but 님 and 씨 do not — a reader knows `会长nim，早上好` at sight and stumbles over `会长尼姆`. Romanization for those two, Chinese characters for the other two; the split is by what the audience actually reads, not by consistency.
+**zh deliberately mixes scripts.** 언니 has a settled Chinese transliteration that fans read fluently (`欧尼`), but 님 and 씨 do not — a reader knows `会长nim，早上好` at sight and stumbles over `会长尼姆`. Romanization for those two, Chinese characters for the other; the split is by what the audience actually reads, not by consistency.
+
+**야 is the exception that shows where transliteration stops working — fixed in v1.3.9.** The rule
+above says keep the Korean form and trust the reader. That holds for 欧尼 and `nim` because
+neither is a Chinese word: the syllable arrives carrying only its Korean meaning. It **fails** for
+야, because the obvious transliteration `呀` *is* an existing Chinese particle with a different
+job. Korean 야 is a vocative suffix attached to a name (`민지야`); Chinese 呀 is sentence-final.
+Transliterating the sound therefore imports the wrong grammar, and `小饼呀，你来了，吃饭了吗`
+parses as Chinese and reads as slightly off — the plain `小饼，你来了` is what a native speaker
+writes, because the sentence is ordinary small talk that wants no particle at all.
+
+So zh keeps 呀 **only in the use where the two languages agree**: standing alone at the head of a
+line as an exclamation — `呀！你胆子真大了` — for surprise, embarrassment or mock indignation.
+Warmth in Chinese is carried by the bare given name or a nickname, not by a suffix. `en` is
+unaffected (`Yerim-ah` collides with nothing in English) and `ko` is native.
+
+Generalise it when adding a form: **transliterate only where the target language has no competing
+function for that syllable.** Where it does, keep the Korean form for the sense the two share and
+express the rest the way the target language actually does it. Reported from hand play in
+v1.3.9 by a native speaker, which is the only way this class of bug is ever found — it breaks no
+test and throws no error.
+
+**Address forms are spoken, not narrated.** `欧尼` / `nim` / `xi` and every per-member Address
+line belong **inside quotation marks**. In narration a member is her stage name alone:
+`Irene正站在窗边`, never `Irene欧尼正站在窗边`. The SPEAKER CONTRACT scoped *pronouns* to narration
+from v1.3.6 but said nothing about address forms, and the token examples carried no scope marker,
+so the model reasonably applied them everywhere. Also reported from hand play in v1.3.9.
 
 zh also romanizes 씨 as **`xi`**, not `ssi`, because that is the pinyin a Chinese reader maps back to 시.
 
 `playthrough.mjs` grades this from the other side: `sinicized-honorific` fires on `<Name>姐` in zh and `<Name> sister` in en, so a model that localizes anyway is caught in real prose.
 
 Comparison is by **birth year, not age gap in years** — Korean seniority is a birth-year boundary, so a 1994 and a 1995 member are not peers even though they are months apart. The old `±2 years` tolerance erased that distinction.
+
+**Known defect: the player's birth year is derived from her age and is wrong for half of all
+players.** `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes her birthday has
+already passed this year. For anyone whose has not, the real birth year is one earlier. Reported
+from hand play in v1.3.9: a player born 1999-11-19 entering age 26 derives **2000**, so Yeri
+(born 1999) becomes her senior when the two are actually peers — the player is told to call a
+same-year member `欧尼`.
+
+This is not fixable from age. Age alone cannot determine birth year, ever, and the error is
+~50/50 by construction. Since seniority is a hard year boundary with no tolerance, a one-year
+error flips the relationship whenever it lands on a member's birth year — which for a cast
+spanning three or four years is a large fraction of the cast.
+
+The fix is to collect **birth year** at setup instead of age: age is derivable from birth year
+exactly, and the reverse is not. That needs a `form` field and legacy handling for saves that
+carry only `age`, so it belongs with the save migration in `docs/V140_PLAN.md` step 4. Until then
+the derived value stands and this paragraph is the record that it is approximate.
 
 **`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
 
@@ -668,7 +711,7 @@ The recency window's reference round comes from the tail of `memory.history`. It
 
 ## Social Media System
 
-4 platforms generated by the LLM per round, displayed in the **next** round (delayed display hides LLM latency — the player checks social while waiting ~10s):
+4 platforms generated by the LLM per round, displayed in the **next** round (delayed display hides LLM latency — the player checks social while the next round generates):
 
 | Platform | Content | Unlock |
 | --- | --- | --- |
@@ -1112,7 +1155,28 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 **Open questions (not blocking release)**
 
 1. **The empty-route notice has never been rendered.** It only appears at 0/28 available, which needs a genuinely exhausted key. Everything else on the key page has now been hand-checked at 390px.
-2. **Re-check the 95.8% cache figure against DeepSeek Official billing** after a long hand-played session. That figure comes from DeepSeek's platform; the ~83% measured here is Aliyun-specific and the two are not comparable, so pricing stays as published until then. `docs/TEST_FINDINGS.md` records the size of the gap if it does need revising, and the open `qwen3.6-flash` question (Aliyun reports no cached tokens for it at all).
+2. **Partly answered in v1.3.9 — the 95.8% figure is play-style dependent, and the README now says
+   so.** A clean 40-round hand-played session on DeepSeek Official V4.1 Flash (2026-09-24, zh, Red
+   Velvet, 1 main + 1 sub, no retries) billed **86.7%**: 240,000 of 276,862 input tokens served
+   from cache. The usage panel agreed with the billing page to the token on every field, which is
+   what validates the panel itself.
+
+   That average was **still climbing at round 40** — the player watched it go from ~50% to 87%,
+   which is the signature of a cumulative mean converging, since round 1 is structurally 0% and
+   early rounds never fully wash out. A rough estimate from the token profile puts pure sequential
+   play's asymptote near **92%** (?), i.e. *below* 95.8%.
+
+   What can exceed it is **regenerates**: ↺ Retry re-sends a byte-identical system prompt and
+   ledger that were cached moments earlier, so it is a ~98% cache-hit call by construction. The
+   likeliest reading is that the original 95.8% came from a long session with many retries, and
+   that clean play and retry-heavy play are simply two different measurements. Both are now quoted
+   in the README rather than one being presented as the steady state.
+
+   **Still open:** this is n=1 for the clean-play figure, and the ~92% asymptote is calculated, not
+   measured. A second long session — ideally one that also records how many rounds were
+   regenerated — would settle it. The usage panel makes that cheap now. Aliyun's ~83% remains
+   separate and non-comparable, as does the open `qwen3.6-flash` question (Aliyun reports no cached
+   tokens for it at all); `docs/TEST_FINDINGS.md` has the detail.
 3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed. GPT-6 Luna's model page lists `none` explicitly (v1.3.8), so the value is no longer inferred from a general parameter table — but *documented* is still not *observed*, and neither provider has ever been exercised live. `test/README.md` records the same gap.
 4. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
 
@@ -1132,11 +1196,27 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 
 Derivation: README token profile (7,664 cache-hit + 336 cache-miss input, 800 output per round, 12 rounds/hour). CNY-priced Aliyun models convert at ￥7.1 = \$1; ₩1,000 = \$0.72. Peak-priced models are blended: Aliyun DeepSeek is 2x for 14 of 24 hours daily (08:00–22:00 Beijing), DeepSeek Official is 2x for 35 of 168 weekly hours.
 
-**`MODEL_PRICES_USD_PER_1M` is the third copy and carries the same obligation.** Added in v1.3.9
-for the usage panel, it holds `[cacheHit, cacheMiss, output]` USD per 1M for the models whose
+**`MODEL_PRICES_PER_1M` is the third copy and carries the same obligation.** Added in v1.3.9
+for the usage panel, it holds `[cacheHit, cacheMiss, output]` per 1M for the models whose
 providers publish all three, plus the peak window where one applies. Unlike `gameplay`, it is not
 a rounded per-hour string but the arithmetic itself, so a stale entry produces a wrong number
-with two decimal places of false precision. Change it in the same commit as the README table.
+with four decimal places of false precision. Change it in the same commit as the README table.
+
+**Each entry is priced in the currency the provider actually bills, and converted once for
+display.** This is not tidiness — pricing DeepSeek Official from the README's USD sheet made the
+panel read **6.7% high** against a real bill, and that was caught only by comparing the panel to
+the billing page. `deepseek-flash` bills CNY; the README quotes DeepSeek's USD sheet; and those
+two sheets do not convert at the ￥7.1 this repo uses everywhere else. All three rates give
+exactly **￥6.67 = \$1** — DeepSeek's own internal rate — so converting its USD figures at 7.1
+over-charged every line by the ratio between the two. Store the billed currency, convert at the
+boundary, and the arithmetic stops depending on whose FX assumption you inherited.
+
+Verified against a real bill (DeepSeek Official, `deepseek-v4.1-flash`, 40 rounds, off-peak,
+2026-09-24): 240,000 cache-hit + 36,862 cache-miss input + 39,696 output priced at ￥0.02 / ￥1 /
+￥4 per 1M gives **￥0.2004**, and the platform billed **￥0.20**. Those CNY rates are back-derived
+from that bill rather than read off a price page — the ￥6.67 agreement across all three is what
+makes them trustworthy, and they should be replaced with published figures if DeepSeek ever
+publishes a CNY sheet.
 
 It is **deliberately incomplete**, and that is a feature rather than a backlog item. A model is
 absent when its price is not published: Gemini 3.5 Flash-Lite (the README costs it from a

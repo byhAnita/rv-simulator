@@ -24,6 +24,7 @@
 //   I  offline  address protocol, KKT channel lock, edited-story delivery
 //   J  offline  golden system prompts + prompt determinism
 //   K  offline  usage meter + cost estimate
+//   L  offline  live-harness prose graders
 
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
@@ -1472,9 +1473,42 @@ async function layerI() {
     /Summer -> "Irene欧尼"/.test(zhP), addressOfIn(zhP, "Irene"));
   check("[zh] 姐 is banned by name so the model cannot default to it",
     zhP.includes('NEVER "姐"'), "the ban has to be explicit — the model reaches for 姐 otherwise");
-  check("[zh] the junior form is 呀, matching the Korean 야",
-    /Summer -> "Yeri呀"|"Yeri呀"/.test(zhP) || zhP.includes("呀"), "");
-  // zh mixes scripts deliberately: 欧尼/呀 in Chinese characters, nim/xi in
+  // --- 야 is the one form transliteration cannot carry into Chinese.
+  // 欧尼 and nim arrive carrying only their Korean sense because neither is a
+  // Chinese word. 呀 IS one — sentence-final, where Korean 야 is a vocative
+  // suffix on a name — so "小饼呀，你来了" parses as Chinese and reads wrong to a
+  // native speaker. Reported from hand play in v1.3.9. It survives only in the
+  // use both languages share: a standalone exclamation.
+  // Scoped to the Address lines: the prompt deliberately QUOTES the wrong
+  // pattern as a counter-example, so a whole-prompt search would match the very
+  // text doing the forbidding.
+  const addressLinesOf = (src) => src.split("\n").filter(l => l.trim().startsWith("Address:")).join("\n");
+  check("[zh] no member is offered a name+呀 vocative",
+    !/呀/.test(addressLinesOf(zhP)), addressLinesOf(zhP));
+  check("[zh] 呀 is still taught as a standalone exclamation",
+    /"呀" ONLY as a standalone exclamation/.test(zhP),
+    "dropping it entirely loses a register the two languages genuinely share");
+  check("[zh] the wrong pattern is banned by example, not just omitted",
+    /NEVER as a suffix on a name/.test(zhP));
+  // en and ko are unaffected: English has no competing 呀, Korean is native.
+  check("[en] the -ya vocative survives, since English has no competing form",
+    /"Summer-ya" once close/.test(enP), addressOfIn(enP, "Irene"));
+  check("[ko] the 야 vocative survives in its native language",
+    /"Summer 야" once close/.test(koP), addressOfIn(koP, "Irene"));
+
+  // --- address forms are spoken, never narrated.
+  // "Irene欧尼正站在窗边" — the SPEAKER CONTRACT scoped pronouns to narration
+  // from v1.3.6 but said nothing about address forms, and the token examples
+  // carried no scope marker. Reported from hand play in v1.3.9.
+  for (const [tag, src] of [["zh", zhP], ["en", enP], ["ko", koP]]) {
+    check(`[${tag}] address forms are scoped to dialogue`,
+      /Address forms are SPOKEN, not narrated/.test(src));
+    check(`[${tag}] the narration rule shows the wrong form, not just the right one`,
+      /In narration a member is her stage name alone[\s\S]{0,200}NEVER/.test(src),
+      "a rule with no counter-example is the one the model ignores");
+  }
+
+  // zh mixes scripts deliberately: 欧尼 in Chinese characters, nim/xi in
   // Latin, because that is what a Chinese K-pop reader recognizes at sight.
   check("[zh] 님 and 씨 are written in Latin as nim and xi",
     /님 -> "nim"/.test(zhP) && /씨 -> "xi"/.test(zhP));
@@ -1800,14 +1834,14 @@ async function layerK() {
     stdin: {
       contents: [
         'export * from "./src/tools/usageMeter.js";',
-        'export { estimateCallCostUsd, MODEL_PRICES_USD_PER_1M } from "./src/config/modelConfigs.js";',
+        'export { estimateCallCostUsd, MODEL_PRICES_PER_1M, CNY_PER_USD } from "./src/config/modelConfigs.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const m = await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
-  const { recordUsage, getUsageSummary, resetUsage, estimateCallCostUsd, MODEL_PRICES_USD_PER_1M } = m;
+  const { recordUsage, getUsageSummary, resetUsage, estimateCallCostUsd, MODEL_PRICES_PER_1M, CNY_PER_USD } = m;
 
   const withCache = (p, c, o) => ({
     prompt_tokens: p, completion_tokens: o, prompt_tokens_details: { cached_tokens: c },
@@ -1897,8 +1931,36 @@ async function layerK() {
   check("...and the priced part is still counted", getUsageSummary().costUsd > 0);
   resetUsage();
 
+  // --- Priced in the billed currency -----------------------------------
+  // The one measurement this whole table is anchored to. A real DeepSeek
+  // Official session (40 rounds, off-peak, 2026-09-24) billed CNY 0.20 for
+  // exactly these tokens. Pricing it from the README's USD sheet instead read
+  // 6.7% high, because DeepSeek's own USD sheet converts at CNY 6.67 = $1 and
+  // this repo converts at 7.1 everywhere else. Without this check the bias is
+  // invisible: every other assertion passes on internally consistent arithmetic.
+  const BILL = { cachedTokens: 240000, promptTokens: 276862, completionTokens: 39696 };
+  const offPeakUtc = new Date(Date.UTC(2026, 8, 24, 0));   // 01:00-03:00 Stockholm
+  const measured = estimateCallCostUsd("deepseek-flash", BILL, offPeakUtc);
+  const billedUsd = 0.20 / CNY_PER_USD;
+  check("the measured DeepSeek bill reprices to within 2% of CNY 0.20",
+    Math.abs(measured - billedUsd) / billedUsd < 0.02,
+    `estimate $${measured.toFixed(4)} vs billed $${billedUsd.toFixed(4)} ` +
+    `(${((measured / billedUsd - 1) * 100).toFixed(1)}% off) — the USD-sheet bug was +6.7%`);
+  check("that session was genuinely off-peak (guards the check above)",
+    measured < estimateCallCostUsd("deepseek-flash", BILL, new Date(Date.UTC(2026, 8, 24, 7))),
+    "if the window moved, the assertion above is comparing the wrong rate");
+
+  // CNY entries must actually be divided by the FX rate, not treated as USD.
+  const cnyModel = estimateCallCostUsd("qwen3.8-flash", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 });
+  check("a CNY-priced model is converted, not read as USD",
+    Math.abs(cnyModel - 0.8 / CNY_PER_USD) < 1e-12, `got ${cnyModel}, expected ${0.8 / CNY_PER_USD}`);
+  check("...and a USD-priced model is not divided again",
+    Math.abs(estimateCallCostUsd("gpt-6-luna", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 }) - 0.10) < 1e-12);
+
   // Every price must be a real triple, or the arithmetic silently yields NaN.
-  for (const [model, entry] of Object.entries(MODEL_PRICES_USD_PER_1M)) {
+  for (const [model, entry] of Object.entries(MODEL_PRICES_PER_1M)) {
+    check(`${model}: declares the currency it is billed in`,
+      entry.cur === "USD" || entry.cur === "CNY", `got ${JSON.stringify(entry.cur)}`);
     check(`${model}: price is [hit, miss, out], all finite and non-negative`,
       Array.isArray(entry.price) && entry.price.length === 3 &&
       entry.price.every(v => Number.isFinite(v) && v >= 0));
@@ -1916,6 +1978,86 @@ async function layerK() {
   // The meter is read at render time, so a stale import would show zeroes forever.
   const app = readFileSync(join(ROOT, "src", "App.jsx"), "utf8");
   check("the settings overlay mounts UsagePanel", /<UsagePanel\b/.test(app));
+}
+
+// ============================================================ LAYER L
+// The live harness's prose graders, unit-tested offline.
+//
+// These had never been tested at all — only run live, where a grader that can
+// never fire is indistinguishable from a clean run. Every case below is either
+// prose a player actually reported or the correct form it must NOT flag, since
+// 3 of the 4 live flags this project has ever seen were grader bugs.
+async function layerL() {
+  section("LAYER L — live-harness prose graders (offline)");
+  const g = await import("./graders.mjs");
+
+  const cast = {
+    members: [
+      { id: "irene", name: "Irene", name_kr: "裴珠泃" },
+      { id: "seulgi", name: "Seulgi", name_kr: "姜涩琪" },
+      { id: "yeri", name: "Yeri", name_kr: "金倭宏" },
+    ],
+    playerName: "林夏",
+  };
+  const none = (arr) => arr.length === 0;
+
+  // --- narrated-honorific. Reported from hand play, v1.3.9.
+  check("flags an honorific in narration",
+    g.narratedHonorifics("你走进练习室，Irene欧尼正站在窗边。", cast, "zh")
+      .includes("narrated-honorific:欧尼"),
+    "this is the exact line that was reported");
+  check("does NOT flag the same honorific inside dialogue",
+    none(g.narratedHonorifics("“Irene欧尼，今天练到这么晚吗？”", cast, "zh")),
+    "dialogue is where address forms belong — flagging it would invert the rule");
+  check("does NOT flag a plain name in narration",
+    none(g.narratedHonorifics("你走进练习室，Irene正站在窗边。", cast, "zh")),
+    "this is the corrected form");
+  check("flags narrated honorifics in en too",
+    g.narratedHonorifics("Irene-unnie was standing by the window.", cast, "en").length > 0);
+  check("does NOT flag en dialogue",
+    none(g.narratedHonorifics('"Irene-unnie, still here?" you asked.', cast, "en")));
+  // Mixed narration + dialogue in one round is the normal case, and the one
+  // that produced a false positive on real-name-vocative in v1.3.7.
+  check("narration after a closing quote is still read as narration",
+    g.narratedHonorifics("“晚安。”你说。Irene欧尼点了点头。", cast, "zh").length > 0);
+  check("dialogue before narration does not leak into it",
+    none(g.narratedHonorifics("“Irene欧尼，晚安。”你说。她点了点头。", cast, "zh")));
+
+  // --- name-ya-vocative. zh only; en/ko keep the form.
+  check("flags a name+呀 vocative",
+    g.nameYaVocative("“Irene呀，你来了，吃饭了吗？”", cast, "zh").length > 0,
+    "the reported pattern: Korean ԏ is a vocative suffix, Chinese 呀 is sentence-final");
+  check("does NOT flag standalone 呀 as an exclamation",
+    none(g.nameYaVocative("“呀！Irene你真是胆子大了。”", cast, "zh")),
+    "this is the correct Korean-flavoured use and must survive");
+  check("does NOT flag 哎呀, an ordinary Chinese interjection",
+    none(g.nameYaVocative("“哎呀，新人妹妹也在努力呢。”", cast, "zh")),
+    "appeared in a real live round and is correct Chinese");
+  check("does not apply to en, which has no competing 呀",
+    none(g.nameYaVocative("Irene呀", cast, "en")));
+
+  // --- the two pre-existing graders, never unit-tested until now.
+  check("sinicized-honorific flags <name>姐 in zh",
+    g.sinicizedHonorifics("Irene姐轻轻笑了。", cast, "zh").length > 0);
+  check("...and does not flag the correct 欧尼",
+    none(g.sinicizedHonorifics("Irene欧尼轻轻笑了。", cast, "zh")));
+  check("...and does not flag an unrelated 姐姐 in narration",
+    none(g.sinicizedHonorifics("走廊尽头有个陌生姐姐。", cast, "zh")),
+    "anchored to a cast name, so ordinary prose is safe");
+  check("real-name-vocative flags a legal name used to address someone",
+    g.selfNameErrors("“裴珠泃，谢谢你的咖啡。”", cast).length > 0);
+  check("...and does not flag a self-introduction",
+    none(g.selfNameErrors("“我叫姜涩琪，请多指教。”", cast)),
+    "the v1.3.7 false positive");
+  check("...and does not flag a real name in narration",
+    none(g.selfNameErrors("裴珠泃转过头来。", cast)),
+    "narration may use real names freely");
+
+  // The harness must actually call them, or the layer tests dead code.
+  const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");
+  for (const fn of ["narratedHonorifics", "nameYaVocative", "sinicizedHonorifics", "selfNameErrors"]) {
+    check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
+  }
 }
 
 // ============================================================ main
@@ -1946,6 +2088,7 @@ async function layerK() {
   await layerI();
   await layerJ();
   await layerK();
+  await layerL();
 
   console.log(`\n\x1b[1m${fail === 0 ? "\x1b[32mALL PASS" : "\x1b[31mFAILURES"}\x1b[0m  ${pass} passed, ${fail} failed`);
   if (fail) { console.log("failed:\n  - " + failures.join("\n  - ")); process.exit(1); }

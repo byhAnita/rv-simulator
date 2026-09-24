@@ -147,8 +147,8 @@ export function getAliyunModelParams(modelId) {
   };
 }
 
-// Published per-1M-token prices, USD, for the usage panel's cost estimate.
-//   [cacheHitInput, cacheMissInput, output]
+// Published per-1M-token prices for the usage panel's cost estimate.
+//   [cacheHitInput, cacheMissInput, output], in the currency the provider bills
 //
 // Deliberately incomplete, and the gaps are the point. A model appears here only
 // when its provider publishes all three per-1M figures; everything else renders
@@ -158,34 +158,45 @@ export function getAliyunModelParams(modelId) {
 // price at all, so the README row assumes the usual 20% of input), and the
 // Aliyun models whose README rows are per-round figures with no per-1M source.
 //
-// CNY converts at the README's ￥7.1 = $1. Peak windows are applied at the
-// moment of the call, not at render time, so a session spanning the boundary is
-// still costed correctly.
+// Each entry is priced in the currency the provider actually BILLS, and
+// converted once here. That is not tidiness. Pricing deepseek-flash from the
+// README's USD sheet made the panel read 6.7% high against a real bill: DeepSeek
+// bills CNY, and its own USD sheet converts at ￥6.67 = $1, not the ￥7.1 this
+// repo uses. All three of its rates agree on 6.67 exactly, which is what
+// identified the cause. Store the billed currency, convert at the boundary, and
+// the arithmetic stops inheriting somebody else's FX assumption.
+//
+// Peak windows are applied at the moment of the call, not at render time, so a
+// session spanning the boundary is still costed correctly.
 //
 // Same obligation as the `gameplay` strings above: when provider pricing moves,
 // this table and the README cost table move together.
 const PEAK_DEEPSEEK_OFFICIAL = { multiplier: 2, utcRanges: [[1, 4], [6, 10]], weekdaysOnly: true };
 // Aliyun DeepSeek doubles 08:00-22:00 Beijing, which is 00:00-14:00 UTC, daily.
 const PEAK_ALIYUN_DEEPSEEK = { multiplier: 2, utcRanges: [[0, 14]], weekdaysOnly: false };
-const CNY = 1 / 7.1;
+export const CNY_PER_USD = 7.1;   // the README's rate, used for display only
 
-export const MODEL_PRICES_USD_PER_1M = {
-  "gpt-6-luna":             { price: [0.01, 0.10, 0.50] },
-  "deepseek-flash":         { price: [0.003, 0.15, 0.60], peak: PEAK_DEEPSEEK_OFFICIAL },
-  "qwen3.8-flash":          { price: [0.1 * CNY, 0.8 * CNY, 2.7 * CNY] },
-  "glm-5.2":                { price: [2 * CNY, 8 * CNY, 28 * CNY] },
-  "deepseek-v4-pro":        { price: [1 * CNY, 12 * CNY, 24 * CNY] },
-  "deepseek-v4.1-flash":    { price: [0.1 * CNY, 1 * CNY, 4 * CNY],      peak: PEAK_ALIYUN_DEEPSEEK },
-  "deepseek-v4-flash-0731": { price: [0.15 * CNY, 1.5 * CNY, 4.5 * CNY], peak: PEAK_ALIYUN_DEEPSEEK },
-  "deepseek-v4-pro-0813":   { price: [0.45 * CNY, 4.5 * CNY, 13.5 * CNY], peak: PEAK_ALIYUN_DEEPSEEK },
+export const MODEL_PRICES_PER_1M = {
+  "gpt-6-luna":             { cur: "USD", price: [0.01, 0.10, 0.50] },
+  // CNY rates back-derived from a measured bill (40 rounds, off-peak,
+  // 2026-09-24: 240,000 hit + 36,862 miss + 39,696 out -> ￥0.2004, platform
+  // billed ￥0.20). Replace with a published CNY sheet if DeepSeek ever ships one.
+  "deepseek-flash":         { cur: "CNY", price: [0.02, 1, 4], peak: PEAK_DEEPSEEK_OFFICIAL },
+  "qwen3.8-flash":          { cur: "CNY", price: [0.1, 0.8, 2.7] },
+  "glm-5.2":                { cur: "CNY", price: [2, 8, 28] },
+  "deepseek-v4-pro":        { cur: "CNY", price: [1, 12, 24] },
+  "deepseek-v4.1-flash":    { cur: "CNY", price: [0.1, 1, 4],      peak: PEAK_ALIYUN_DEEPSEEK },
+  "deepseek-v4-flash-0731": { cur: "CNY", price: [0.15, 1.5, 4.5], peak: PEAK_ALIYUN_DEEPSEEK },
+  "deepseek-v4-pro-0813":   { cur: "CNY", price: [0.45, 4.5, 13.5], peak: PEAK_ALIYUN_DEEPSEEK },
 };
 
 // USD for one call, or null when this model has no published price. `now` is
 // injectable so the peak-window branch is testable without waiting for a clock.
 export function estimateCallCostUsd(model, { cachedTokens = 0, promptTokens = 0, completionTokens = 0 }, now = new Date()) {
-  const entry = MODEL_PRICES_USD_PER_1M[String(model || "")];
+  const entry = MODEL_PRICES_PER_1M[String(model || "")];
   if (!entry) return null;
-  let [hit, miss, out] = entry.price;
+  const fx = entry.cur === "CNY" ? CNY_PER_USD : 1;
+  let [hit, miss, out] = entry.price.map(v => v / fx);
   const p = entry.peak;
   if (p) {
     const h = now.getUTCHours();
