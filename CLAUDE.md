@@ -1035,17 +1035,26 @@ Then:
 
 ## Project Status (2026-09-24)
 
-**v1.3.8 is the current release on `main`. v1.3.9 is bumped and validated on `dev`, not yet
-merged** — players are still on v1.3.8 until the release merge and `npm run deploy` run, both red
-lines needing explicit approval.
+**v1.3.9 is the current release.** Seven player-visible changes, all old-save-safe and none
+touching the save schema.
 
-v1.3.9 carries four player-visible changes, all old-save-safe and none touching the save schema:
-the usage panel, the ±8 affection clamp, quota-guarded `saveToStorage`, and `backstorySeed`
-(committed back in `37f8a1c` and unreleased until now). Validated offline (`npm run build` +
-**535 checks** in `node test/smoke.mjs`, up from 469) and live: an 8-round `主线成员前女友`
-playthrough on `qwen3.8-flash` came back 8/8 clean with **0 static-prompt drifts**, 2 collapses
-and **0 ledger prefix breaks** at 88.0% measured cache; a routed `--live-free` round confirmed the
-usage meter reads a real Aliyun `usage` block end-to-end (190 in / 310 out).
+Four were planned: the **usage panel** (the `usage` block every provider returns had never been
+read by anything in `src/`), the **±8 affection clamp**, **quota-guarded `saveToStorage`**, and
+**`backstorySeed`** — committed back in `37f8a1c` and unreleased until now.
+
+Three came from a 40-round hand playthrough run *after* the branch was already green, and are the
+more instructive half: **honorifics leaking into narration**, **`呀` transliterated into Chinese
+where the syllable already has a different job**, and a **`Alex--ya` double hyphen** that had been
+in every English prompt since v1.3.6. A fourth defect from the same session — the usage panel
+reading **6.7% high** — was caught only by comparing it against the provider's billing page. See
+`docs/V140_PLAN.md`, *"What a hand playthrough found that a green branch did not"*: most of these
+are register judgements a native speaker makes, which no assertion written in advance could reach.
+
+Validated offline (`npm run build` + **578 checks** in `node test/smoke.mjs`, up from 469) and
+live across ~90 real rounds: 8/8 clean on `主线成员前女友`, 32 clean across two identities and two
+models in zh, 6 in en, **0 static-prompt drifts** and **0 ledger prefix breaks** throughout. The
+usage meter was confirmed against a real Aliyun response end-to-end, and separately reconciled to
+the token against a real DeepSeek Official bill.
 
 v1.3.8 carried the GPT-6 Luna swap and the bump-script coverage for this file. It was exercised
 live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0
@@ -1058,15 +1067,16 @@ Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section layout, 
 shape. Two pre-existing bugs it also closes are documented there: save slots record no group id,
 and `saveToStorage` swallows quota errors.
 
-Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done on `dev`**. Step 3 —
+Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**. Step 3 —
 world extraction and the resolver — is next. Two of the plan-documented pre-existing bugs are
 closed by v1.3.9: `saveToStorage` no longer swallows quota errors, and affection pacing no
 longer depends on which model the router served. Save slots still record no group id; that is
-step 4.
+step 4, which now also carries the **player birth-year field** (see below).
 
-Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_USD_PER_1M` is partial, and
-the gaps are documented rather than filled. The usage panel is the tool for open question 2 but
-has not yet been pointed at a long DeepSeek Official session, so that question stays open.
+Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_PER_1M` is partial, and the
+gaps are documented rather than filled — never back-derive a per-1M price from a per-round
+estimate. The player's birth year is still derived from age and is wrong for ~half of players;
+the fix needs a save field, so it waits for step 4.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 

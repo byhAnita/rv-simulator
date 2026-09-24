@@ -11,9 +11,9 @@ Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done and pushed to `dev
 | --- | --- |
 | **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
 | **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug, **confirmed live A/B**: 7 drifts in 8 rounds and 60.5% cache before, 0 drifts and 87.2% after. Verified failing against the unfixed code. |
-| **2 — Release v1.3.9** | ✅ **built and validated on `dev`, not merged.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), plus the backstory fix inherited from step 1. Smoke 469 → **535**. Version bumped, README section written. The `main` merge, `npm run deploy` and the tag are red lines and have **not** been run. |
+| **2 — Release v1.3.9** | ✅ **released.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), the backstory fix inherited from step 1, and four writing/pricing fixes found by hand play after the branch was already green (below). Smoke 469 → **578**. |
 | **3 — World extraction + resolver** | ⬜ **next. The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
-| 4 — Save migration | ⬜ |
+| 4 — Save migration | ⬜ Now also carries the **player birth-year field** — see below. |
 | 5 — Content (`habit` × 27) | ⬜ |
 | 6 — UI | ⬜ |
 | 7 — Release v1.4.0 | ⬜ |
@@ -41,6 +41,47 @@ Two harness gaps were closed to make that measurable, and both were part of why 
 so long: `playthrough.mjs` hardcoded `identity: "练习生"` (so 7 of 8 identities had never been
 played live) and had no invariant on the static prompt at all, only on the smaller history
 ledger. It now takes `--identity` and reports `system-drift`.
+
+### What a hand playthrough found that a green branch did not
+
+v1.3.9 was built, bumped, CI-green and ready to merge. A single 40-round hand playthrough on
+DeepSeek Official then produced **five** more defects, none of which any automated check could
+have raised:
+
+1. **Honorifics in narration** (`Irene欧尼正站在窗边`). The prompt scoped *pronouns* to narration
+   from v1.3.6 and never scoped address forms at all.
+2. **`呀` transliterated where it should not be.** The "keep the Korean form" rule works for 欧尼
+   and `nim` because neither is a Chinese word; 呀 *is* one, with a different grammatical job, so
+   the transliteration imported the wrong grammar. Generalised in CLAUDE.md.
+3. **`Alex--ya`** — a double hyphen in every English prompt since v1.3.6, sitting in the committed
+   golden. Found while writing the guard for (2).
+4. **The usage panel read 6.7% high**, caught only by comparing it to the provider's billing page.
+   Right arithmetic, wrong currency: DeepSeek bills CNY and its own USD sheet converts at ￥6.67,
+   not the ￥7.1 used everywhere else here.
+5. **The player's birth year is wrong for ~half of players** — deferred to step 4, see below.
+
+The lesson is not "test more". Four of the five are **judgements a native speaker makes about
+register**, or a number that only exists on an external billing page. They are invisible to any
+assertion that could have been written in advance. The goldens and Layer I were working exactly
+as designed and still could not see them, because they pin *what the code emits*, not whether a
+human finds it natural.
+
+What did change is that each is now mechanised going forward: smoke **Layer L** unit-tests the
+live prose graders (which had never been tested at all — only run live, where a grader that can
+never fire looks identical to a clean run), and Layer K pins the cost arithmetic to a real bill.
+
+### Carried into step 4: the player's birth year
+
+`playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes the player's birthday has
+already passed this year, so it is **wrong for roughly half of all players**. Reported live: a
+player born 1999-11-19 entering age 26 derives 2000, so Yeri (1999) becomes her senior when the
+two are peers, and the game tells her to say `欧尼` to a same-year member.
+
+This is not fixable from age — age alone cannot determine birth year, and since seniority is a
+hard year boundary with no tolerance, a one-year error flips the relationship whenever it lands on
+a member's birth year. The fix is to collect **birth year** at setup (age derives from it exactly;
+the reverse does not), which needs a `form` field and legacy handling for saves carrying only
+`age`. Step 4 already migrates saves, so it belongs there.
 
 ## Pick up here
 
