@@ -514,6 +514,30 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
 
 `rv_sim_saves_v13` is the current standard. On `loadSave`, if `memory.history === undefined`, memory is reset to `createEmptyMemory()` (pool wiped) while stats, form, and affections are still restored. Prevents the old `summaries`/`fullStories` (v12) and `storyRounds` (v11) shapes from crashing the engine.
 
+**Since v1.4.0 `loadSave` also migrates the slot** through `saveMigrator.js#migrateSave`, which
+fills `schema: 14`, `worldId`, `groupId`, `roster` and `form.birthYear` for any save written
+before the split. The key stays `rv_sim_saves_v13` — bumping it would orphan every existing save,
+which is the opposite of the requirement — so `schema` is how a reader tells the shapes apart.
+Migration runs at read time, in place, and **reproduces rather than fixes**: every value written
+is one the save already implied, so a game in flight builds a byte-identical prompt before and
+after. Read `docs/TECH_NOTES.md`, *"Migration that reproduces rather than fixes"*, before changing
+any of it; the birth year in particular is preserved *wrong* on purpose.
+
+**The load is all-or-nothing, and the order in `loadSave` is load-bearing.** Identifying a
+pre-v1.4.0 save's cast means fetching the library, so the load can fail; every fallible step
+therefore completes before the first setter runs, or a failure leaves the player in a game
+assembled out of two different saves. `phaseRef.current` is pinned to `"game"` *before*
+`setSelectedGroup`, because the group effect reads it to decide whether to clear the chosen
+members and the effect that mirrors `phase` into it has not run yet — loading from the cover page
+would otherwise wipe the cast that was just resolved. A roster that cannot be resolved aborts with
+a notice rather than falling into `loadGroupIndex`'s hardcoded Red Velvet entry, which is the
+swallow that made the v1.3.5 path bug invisible for a release. Smoke Layer G guards each of these.
+
+**This closes a bug that predates v1.4.0: save slots recorded no group.** `loadSave` never set
+`selectedGroup`, so loading a TWICE save while Red Velvet was selected yielded Red Velvet's
+`groupConfig` under TWICE member ids — no crash, thanks to optional chaining all the way down,
+just a prompt whose main member was `undefined`.
+
 **`preRoundSnapshotRef` must be cleared on every game boundary.** It holds the pre-round state that ↺ Retry and the ✎ edit controls restore, and it is set only by `startNewGame` and `sendMessage`. `loadSave` must null it: otherwise a player who plays game A and then loads save B sees ↺ on B's last message, and tapping it restores **game A's** stats and memory into B. This also gives the intended gating for free — after loading a save there is no ↺ and no ✎ until one round has been played in this session, so the edit features can never touch a history entry they did not create.
 
 **Model settings are not part of a save.** Save slots hold no provider or model field, so model-layer changes cannot break them — keep it that way. Legacy *settings* are handled at read time instead: `rv_sim_model_v11 = "qwen"` still resolves (the id never changed), `rv_sim_qwen_submodel` seeds the paid pick through `resolvePaidModel` (unknown or removed ids -> `qwen3.8-max`), `rv_sim_aliyun_mode` accepts only `"paid"` and otherwise means `"free"`, and `aliyunRoute.js` treats any malformed `rv_sim_aliyun_route` as empty. `test/smoke.mjs` Layer G guards all four.
@@ -813,7 +837,7 @@ every v1.4.x feature depends on:
 | --- | --- | --- |
 | **Cast** | `public/groups/<id>/<lang>.json` | who these people are |
 | **World** | `public/worlds/<id>/<lang>.json` | what setting they live in |
-| **Roster** | the save (v1.4.0 step 4) | which of them are in *this* run, and in what slot |
+| **Roster** | the save, as `roster` | which of them are in *this* run, and in what slot |
 
 `resolveRoster(roster, language)` is the single funnel: it fetches the groups an entry names,
 applies `override`, splices in inline custom profiles, and returns the same `members[]` shape

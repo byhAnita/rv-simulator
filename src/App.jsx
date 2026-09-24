@@ -2,8 +2,10 @@ import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial 
 import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
-import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
+import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
 import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
+import { resolveRoster, buildClassicRoster } from "./rag/rosterResolver";
+import { migrateSave } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
@@ -305,9 +307,15 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [groupConfig, setGroupConfig] = useState(null);
   // The setting the cast lives in: identities, paces, phase beats, address
-  // forms. One world ships today, so it is not yet a player choice and not yet
-  // part of a save — that arrives with the roster in v1.4.0 step 4.
+  // forms. One world ships today, so it is not yet a player choice; the save
+  // records its id on the roster, so it can become one without a migration.
   const [world, setWorld] = useState(null);
+  // Who is in THIS run, and in what slot. Set when a game starts and when one
+  // is loaded; it is the thing a save records, and from v1.4.1 the thing the
+  // roster builder produces directly. Null outside a game: at Setup there is no
+  // main member yet, so `members` there is the palette to choose from rather
+  // than a cast that has been chosen.
+  const [roster, setRoster] = useState(null);
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
@@ -341,7 +349,12 @@ export default function App() {
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
   const allTargetMembers = [mainMember, ...subMembersList].filter(Boolean);
-  const npcMembers = groupConfig ? getNpcMembers(members, form.mainMember, form.subMembers || []) : [];
+  // `npcMembers` stood here, deriving "everyone not chosen" into a local that
+  // nothing read — dead since before the roster existed. NPC identity now comes
+  // from the roster: buildSystemPrompt takes `members` minus main minus subs,
+  // and under a roster `members` IS the roster's cast, in its order, so the
+  // slots it names are the slots the prompt renders. getNpcMembers survives in
+  // groupLoader as the equivalence anchor smoke measures migration against.
 
   // `age` is written here and never again. It is not a second source of truth —
   // the prompt renders the age from the birth year — but backstorySeed hashes
@@ -368,7 +381,24 @@ export default function App() {
     loadWorld(DEFAULT_WORLD_ID, language).then(setWorld).catch(console.error);
   }, [language]);
 
+  // Two doors, one engine. At Setup this loads a group as a PALETTE to choose
+  // from; in game the roster is authoritative and says who was actually chosen,
+  // which from v1.4.1 can span groups in a way a single group load cannot
+  // express. Language is what changes underneath either, so both paths re-fetch
+  // rather than leaving the cast in the previous language.
+  //
+  // `roster` is deliberately not a dependency. It is set in the same batch as
+  // `selectedGroup` when a save is loaded, so this already sees it; adding it
+  // would additionally re-resolve on every new game, for a cast startNewGame
+  // has in hand.
   useEffect(() => {
+    if (phaseRef.current === "game" && roster) {
+      resolveRoster(roster, language).then(r => {
+        setGroupConfig(r.groupConfig);
+        setMembers(r.members);
+      }).catch(console.error);
+      return;
+    }
     if (!selectedGroup) return;
     loadGroupConfig(selectedGroup, language).then(config => {
       setGroupConfig(config);
@@ -490,6 +520,14 @@ export default function App() {
     if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
     const mainId = form.mainMember;
     const subIds = form.subMembers || [];
+    // The classic door, expressed as a roster. Member order comes from the
+    // loaded group because that is the order profiles appear in the prompt —
+    // the same cast in a different order is the same game and a total cache
+    // miss. Built here rather than resolved: `members` is already the answer
+    // resolveRoster would fetch, and smoke asserts the two doors agree byte for
+    // byte.
+    setRoster(buildClassicRoster(
+      selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
     setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
     setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
     setTriggeredAchievements(new Set());
@@ -541,15 +579,50 @@ export default function App() {
     setLoading(false);
   };
 
-  const loadSave = (save) => {
+  const loadSave = async (save) => {
     if (!save) return;
+
+    // Everything that can fail happens BEFORE any state is set. A save slot
+    // carries no group id before v1.4.0, so identifying its cast means fetching
+    // the library — and a half-applied load would leave the player in a game
+    // assembled from two different saves.
+    let migrated, resolved;
+    try {
+      migrated = await migrateSave(save, language, { preferGroupId: selectedGroup });
+      resolved = await resolveRoster(migrated.roster, language);
+      if (!resolved.members.length) throw new Error("roster resolved to an empty cast");
+    } catch (e) {
+      // Loudly, and without touching the current game. A roster that cannot be
+      // resolved must say so: loadGroupIndex's catch returns a hardcoded Red
+      // Velvet entry, and falling into it here would silently recast somebody's
+      // save. See docs/V140_PLAN.md §9.3.
+      console.error("[loadSave] could not resolve this save's cast:", e);
+      showNotif("This save's cast could not be loaded", "error");
+      return;
+    }
+
     // Drop the previous game's pre-round snapshot. Without this, ↺ Retry and the
     // ✎ edit controls would appear straight away on the loaded save's last
     // message and restore the *other* game's stats and memory into it. It also
     // gives the intended gating: no retry or edit until a round is played here.
     preRoundSnapshotRef.current = null;
     resetPendingSocial();
-    setForm(save.form);
+
+    // Set before setSelectedGroup, and deliberately not through setPhase: the
+    // effect that mirrors phase into phaseRef has not run yet, and the group
+    // effect reads phaseRef to decide whether to clear the chosen members. From
+    // the cover page it would still read "cover" and wipe the cast we just
+    // resolved.
+    phaseRef.current = "game";
+    // The pre-existing bug this closes: loadSave never set the group, so
+    // loading a TWICE save while Red Velvet was selected produced Red Velvet's
+    // config with TWICE member ids in `form` — no crash, just a prompt whose
+    // main member was undefined.
+    setSelectedGroup(migrated.groupId);
+    setRoster(migrated.roster);
+    setGroupConfig(resolved.groupConfig);
+    setMembers(resolved.members);
+    setForm(migrated.form);
     setMessages(save.messages);
     statsRef.current = save.stats;
     setStats({ ...save.stats });
@@ -816,7 +889,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -1330,7 +1403,7 @@ export default function App() {
         )}
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
 
         {/* Settings Overlay */}

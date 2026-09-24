@@ -866,6 +866,48 @@ async function layerG(mod, MODEL_CONFIGS) {
     /preRoundSnapshotRef\.current = null/.test(loadSaveBody));
   check("loadSave clears the previous game's pending social", /resetPendingSocial\(\)/.test(loadSaveBody));
 
+  // --- the save now records where its cast came from (v1.4.0 step 4) ---
+  //
+  // A slot carried the chosen member ids and nothing else, so loading a TWICE
+  // save while Red Velvet was selected produced Red Velvet's config under
+  // TWICE ids. Optional chaining all the way down meant no crash — just a
+  // prompt whose main member was undefined.
+  check("loadSave migrates the save before reading anything out of it",
+    /migrateSave\(save, language/.test(loadSaveBody));
+  check("loadSave sets the group the save was actually played with",
+    /setSelectedGroup\(migrated\.groupId\)/.test(loadSaveBody),
+    "without this a save loads under whichever group happened to be selected");
+  check("loadSave resolves its cast through the roster, not a bare group load",
+    /resolveRoster\(migrated\.roster/.test(loadSaveBody) && !/loadGroupConfig/.test(loadSaveBody));
+  // The group effect reads phaseRef to decide whether to clear the chosen
+  // members, and the effect mirroring phase into it has not run yet. Loading
+  // from the cover page would still read "cover" and wipe the resolved cast.
+  check("loadSave pins phaseRef before switching group, or the group effect clears the cast",
+    loadSaveBody.indexOf('phaseRef.current = "game"') !== -1
+      && loadSaveBody.indexOf('phaseRef.current = "game"') < loadSaveBody.indexOf("setSelectedGroup("),
+    "phaseRef must be pinned first");
+  // Identifying a pre-v1.4.0 save's cast means fetching the library, so the
+  // load can fail. It must fail whole: a half-applied load leaves the player in
+  // a game assembled out of two different saves.
+  check("loadSave finishes every fallible step before it touches state",
+    loadSaveBody.indexOf("await resolveRoster") < loadSaveBody.indexOf("setForm("));
+  check("a save whose cast cannot be resolved aborts rather than half-loading",
+    loadSaveBody.indexOf("showNotif(\"This save's cast could not be loaded\"")
+      < loadSaveBody.indexOf("preRoundSnapshotRef.current = null"),
+    "the failure path must return before the first setter");
+
+  check("startNewGame records the roster it is starting",
+    /setRoster\(buildClassicRoster\(/.test(app));
+  // NPC identity comes from the roster now. getNpcMembers stays in groupLoader
+  // as the anchor smoke measures migration against, but App derives nothing.
+  // A call or an import, not any mention: the comment explaining why the
+  // derivation is gone names the function, and a check that cannot tell those
+  // apart fails on its own documentation.
+  check("App derives no NPC list of its own",
+    !/getNpcMembers\s*\(/.test(app) && !/import \{[^}]*getNpcMembers/.test(app),
+    "the roster names NPCs; deriving them again is a second source of truth");
+
+
   // Error notices are UI feedback; they must not become story or save content.
   check("every llmErrorNotice message is tagged error:true",
     !/content: llmErrorNotice\(e\) \}/.test(app) && /llmErrorNotice\(e\), error: true/.test(app));
@@ -1004,6 +1046,14 @@ async function layerG(mod, MODEL_CONFIGS) {
     saveBody.indexOf("saveToStorage(") < saveBody.indexOf("setSaves(updated)"),
     "setSaves ran first, which is what made a failed save invisible");
   check("SaveOverlay surfaces a quota notice", /t\.save\.quota/.test(overlay));
+
+  // What a new slot records. saveMigrator backfills these for older saves, but
+  // a slot written today must not need migrating at all.
+  for (const field of ["schema", "groupId", "worldId", "roster"]) {
+    check(`a new save slot records ${field}`,
+      new RegExp(`(^|[\\s,{])${field}[,:]`, "m").test(saveBody),
+      "a save that does not say which cast it used has to guess on load");
+  }
 
   // Both notices, in all three languages, or a player hits a blank panel.
   for (const lang of ["zh", "en", "ko"]) {
