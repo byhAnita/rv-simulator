@@ -43,8 +43,18 @@ the literal key. Revoke the key at the provider when you are done with it.
 | **J** | none | Golden system prompts + prompt determinism. See below. |
 | **K** | none | Usage meter and cost estimate: token accounting, the reported-vs-absent `cached_tokens` distinction, peak-price windows, and the rule that an unknown number never renders as 0. |
 
+| **L** | none | Unit tests for the live-harness prose graders in `graders.mjs`, against the real prose that triggered each one. |
+
 Layers **E**–**I** are listed in the header comment of `smoke.mjs`; this table
 predates them.
+
+**Layer I also covers world and roster loading** (v1.4.0 step 3): that the world
+JSON loads through `loadWorld` in all three languages, that it still declares
+every identity and pace id that can sit in a save, that `parseWorld` throws on a
+missing key rather than dropping it, that the three language files agree on the
+blocks that are English rule text, and that a classic roster resolves to a
+**byte-identical prompt**. That last one is what makes "one engine, two doors"
+a fact rather than a claim.
 
 ### Layer J and the golden prompts
 
@@ -117,8 +127,13 @@ Note `--identity`. It was added because the harness had `练习生` hardcoded, s
 made. When testing prompt-level behaviour, sweep identities.
 
 Layer J's determinism sweep was checked the same way: restoring the two
-`Math.random()` calls in `getIdentityBackground` failed three checks — the
+`Math.random()` calls in the identity background builder failed three checks — the
 `red_velvet-solo-ko` golden (reporting the differing line), the 8×3 sweep
 (naming all three `主线成员前女友` coordinates), and the named ex-girlfriend
 check. The other two goldens stayed green, which is correct: they pin identities
 that were never affected.
+
+That builder is no longer a function in `mainAgent.js`. The identity backgrounds
+moved into `public/worlds/kpop_idol/<lang>.json` in v1.4.0 and are rendered by
+`renderIdentityBackground` in `worldLoader.js`; `backstorySeed` still supplies
+the index, so the seeding logic and the bug this check guards are unchanged.

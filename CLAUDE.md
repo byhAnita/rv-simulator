@@ -129,9 +129,11 @@ Player choice
 | `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
 | `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
-| `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` |
+| `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
+| `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground` — the **setting**: identities, paces, phase beats, address forms |
+| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()` — turns "who is in this run" into the `members[]` the prompt consumes |
 | `src/config/constants.js` | Numeric game constants (see below) |
-| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_USD_PER_1M`, `estimateCallCostUsd` |
+| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_PER_1M`, `estimateCallCostUsd` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
@@ -368,7 +370,7 @@ whole design constraint, and two separate cases force it:
   the architecture is broken. Their calls are excluded from the rate and counted in
   `unmeasuredCalls`, which the panel names. Note the distinction the meter keeps: a **reported**
   `cached_tokens: 0` is a real 0% and is included; an **absent** field is not a measurement.
-- **Cost.** Several served models have no published per-1M price — see `MODEL_PRICES_USD_PER_1M`
+- **Cost.** Several served models have no published per-1M price — see `MODEL_PRICES_PER_1M`
   under Cost strings. One of them in a session sets `costComplete: false` and the panel says the
   real figure is higher, rather than showing a partial total that looks whole.
 
@@ -548,7 +550,18 @@ Korean workplace register overrides age where it genuinely would: a **Staff** pl
 
 ### Korean address forms are transliterated, never localized
 
-The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. `buildSystemPrompt` carries a per-language token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
+The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. The prompt carries a token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
+
+**Since v1.4.0 that table lives in the world file, not in `buildSystemPrompt`** —
+`public/worlds/kpop_idol/<lang>.json`, under `addressForms`. It reads like a per-*language* table
+and it is not: it is keyed on **(world, language)**. These forms encode Korean seniority, which is
+a birth-year boundary; a Japanese setting needs 先輩/さん/ちゃん and seniority by *school year*,
+and a Chinese one has almost no formal peer register to carry at all. Keeping `unnie`/`xi` while
+changing the country would put Korean grammar in a Tokyo scene.
+
+**So a background country ships *as a world*, never as a second axis crossed with one.** Only the
+tokens are data; the *logic* — direction fixed by birth year, register blended from stage and
+Private Personality — stays in code, because it is behaviour rather than content.
 
 | | 언니 | 님 | 씨 | 야/아 |
 | --- | --- | --- | --- | --- |
@@ -637,7 +650,9 @@ The fix keeps the variety and removes the drift: both indices are now derived fr
 
 ### Golden prompt snapshots (`test/fixtures/`)
 
-Three full system prompts are committed as text files and asserted byte-for-byte by smoke Layer J. They exist because **a prompt regression throws no error and fails no test** — it produces slightly different writing some weeks later, with nothing to bisect. That is the exact risk profile of the v1.4.0 cast/world/roster split, which moves large blocks of `buildSystemPrompt` into `worldLoader.js` while intending to change nothing.
+Three full system prompts are committed as text files and asserted byte-for-byte by smoke Layer J. They exist because **a prompt regression throws no error and fails no test** — it produces slightly different writing some weeks later, with nothing to bisect. That was the exact risk profile of the v1.4.0 cast/world/roster split, which moved large blocks of `buildSystemPrompt` into `worldLoader.js` while intending to change nothing.
+
+**They earned their keep on that split.** The extraction was generated from the live literals and verified against the old code across 1,368 renders — every identity × language × name × seed, 0 mismatches — and the goldens still caught something that could not: a **trailing space** after the NPC-archetype list. No reviewer sees a trailing space; one character of drift costs the whole ~5,500-token prefix. They also now cover the world data itself, so editing `public/worlds/**` produces a located diff rather than silence.
 
 | Fixture | Covers |
 | --- | --- |
@@ -780,6 +795,40 @@ Game Page (loop)
 
 ---
 
+## Cast, world, roster (v1.4.0)
+
+A "group" used to bundle three independent things. They are now separate, and the split is what
+every v1.4.x feature depends on:
+
+| Concept | Lives in | Answers |
+| --- | --- | --- |
+| **Cast** | `public/groups/<id>/<lang>.json` | who these people are |
+| **World** | `public/worlds/<id>/<lang>.json` | what setting they live in |
+| **Roster** | the save (v1.4.0 step 4) | which of them are in *this* run, and in what slot |
+
+`resolveRoster(roster, language)` is the single funnel: it fetches the groups an entry names,
+applies `override`, splices in inline custom profiles, and returns the same `members[]` shape
+`buildSystemPrompt` has always consumed. **Nothing downstream of it changes.** The classic
+"pick a group" path is not a separate code path — `buildClassicRoster` expresses it as a roster.
+One engine, two doors.
+
+Library members stay **by reference** so a fixed profile reaches games in progress; custom
+members are **snapshotted inline** so deleting one from the palette cannot break a running save.
+
+`buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel,
+language, world)` — **`world` is required and has no default.** A default would be a second copy
+of every string in `public/worlds/`, and the two would drift silently; it would also let a
+missing-wiring bug render as plausible output instead of failing. Callers load it once per game
+with `loadWorld()`, exactly as they already load the group config.
+
+**`parseWorld` validates and throws; it does not whitelist-copy.** See the `birthday` note below
+for why that distinction is not pedantic.
+
+Read `docs/TECH_NOTES.md`, *"World data as a fetched document"*, before changing the world shape,
+and `docs/V140_PLAN.md` §2 and §4 for the full design.
+
+---
+
 ## Group JSON Structure
 
 `public/groups/{id}/{lang}.json` — no code changes needed to add a group.
@@ -795,6 +844,8 @@ public/groups/
 Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `emoji`, `color`, `accent`, `personality`, `queerTexture`, `speechStyle`).
 
 **Adding a field to a group JSON is not enough to make it reach the app.** `groupLoader.js#parseGroupConfig` rebuilds every member from an explicit whitelist, so a field that is not listed there is silently dropped between the file and the prompt — no error, no warning, just a `undefined` the consumer quietly defaults. `birthday` sat in every group JSON and never reached `buildSystemPrompt` for the whole life of the age-texture feature. Add the field to the whitelist in the same commit, and assert on it through `loadGroupConfig`, never by reading the JSON.
+
+**`habit` and `tags` are on the whitelist already, ahead of any file that declares them** — `habit` is authored across the 27 group files in v1.4.0 step 5, `tags` in v1.4.2. Putting the field first means the content arrives working instead of arriving silently dropped. Neither reaches the prompt yet: a `Habit:` line rendered from `undefined` would move the goldens, so the prompt change ships with the content that fills it. Smoke serves a stubbed `habit` through the fetch layer to assert the whitelist carries it, rather than asserting on a file.
 
 `name` is the Latin stage name in **all three** language files; `name_kr` is the localized real name (`裴珠泫` / `Bae Ju-hyun` / `배주현`). A Hangul *stage* name (`예리`) exists in no group JSON.
 
@@ -990,7 +1041,9 @@ Only Pages serves committed artifacts, which is why `npm run deploy` exists at a
 
 **The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal.
 
-**Nothing *automates* the `groups/` mirror — `deploy.sh` copies only `assets/*.js` and `*.css` — smoke Layer C now fails when it drifts** (on `dev`, ships with v1.3.9). Two checks: the file trees must match name-for-name, and every file must match in content with trailing whitespace stripped. Before that guard existed, editing a group JSON under `public/` left the Pages site serving the old cast data indefinitely, with no error and nothing a player could report. Copy `public/groups/` over root `groups/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push. The same obligation will apply to `worlds/` and `rosters/` when v1.4.x adds them.
+**Nothing *automates* these mirrors — `deploy.sh` copies only `assets/*.js` and `*.css` — smoke Layer C fails when one drifts.** Two checks per tree: the file trees must match name-for-name, and every file must match in content with trailing whitespace stripped. Before that guard existed, editing a group JSON under `public/` left the Pages site serving the old cast data indefinitely, with no error and nothing a player could report.
+
+**Root `worlds/` is the second such tree, added in v1.4.0.** The Layer C check loops over `["groups", "worlds"]` rather than naming one, because every mirrored tree added is another chance to forget — `rosters/` will be one more string in that array, not a third copy of the check. Copy `public/<tree>/` over root `<tree>/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push.
 
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
@@ -1067,11 +1120,37 @@ Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section layout, 
 shape. Two pre-existing bugs it also closes are documented there: save slots record no group id,
 and `saveToStorage` swallows quota errors.
 
-Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**. Step 3 —
-world extraction and the resolver — is next. Two of the plan-documented pre-existing bugs are
-closed by v1.3.9: `saveToStorage` no longer swallows quota errors, and affection pacing no
-longer depends on which model the router served. Save slots still record no group id; that is
-step 4, which now also carries the **player birth-year field** (see below).
+Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**.
+
+**Step 3 — world extraction + resolver — is done on `dev` and unreleased** (`3bbc033`..`45dcdbe`,
+CI green). It ships no player-visible change by design, so it rides with v1.4.0 rather than
+justifying a release: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
+`buildSystemPrompt` rendering from it, `rosterResolver.js`, and `habit`/`tags` on the
+`parseGroupConfig` whitelist. **The gate held — goldens byte-identical throughout and
+`update-golden.mjs` never run.** Smoke **578 → 630**; the JS bundle shrank 324.73 → 317.51 KB
+(gzip 116.59 → 109.97) because the identity prose is now fetched per language instead of shipped
+to every player in all three.
+
+**Step 3 uncovered two blocks of dead code, and one is a real feature gap.** `paceRules` was
+built into a local and never referenced, so the player's pace reaches the model **only as a bare
+id** on the `Progression Pace:` line — `浪漫情感向` and nothing else. The authored text it was
+supposed to send says things like *"secrecy changes doubled"* and *"love triangle probability
+doubled"* that the model currently has no way to know. The strings are preserved in the world
+file; wiring them in is a **deliberate prompt change that moves the goldens**, so it was kept out
+of a step whose whole gate is that they do not move, and it likely lands with plot mode
+(`docs/V140_PLAN.md` §19), whose design assumed `pace` did more than it does. The second, a
+leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
+upstream — and is deleted.
+
+**Step 4 — save migration — is next, and now carries four things:** the save shape
+(`groupId`/`worldId`/`roster`), the **player birth-year field** (see below), the `App.jsx`
+rewiring through `resolveRoster` deferred from step 3, and `getNpcMembers` ceasing to derive. The
+last two were deferred because members are needed at the setup screen *before* a main member
+exists, so a roster cannot replace that load until saves carry one.
+
+Two of the plan-documented pre-existing bugs are closed by v1.3.9: `saveToStorage` no longer
+swallows quota errors, and affection pacing no longer depends on which model the router served.
+Save slots still record no group id; that is step 4.
 
 Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_PER_1M` is partial, and the
 gaps are documented rather than filled — never back-derive a per-1M price from a per-round

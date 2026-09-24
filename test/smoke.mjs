@@ -21,7 +21,7 @@
 //   F  offline  Aliyun free-credit router + retry policy with a mocked fetch
 //   G  offline  old saves / legacy settings still load after the Aliyun change
 //   H  live     Aliyun free-credit route: per-model params + one routed round
-//   I  offline  address protocol, KKT channel lock, edited-story delivery
+//   I  offline  address protocol, KKT lock, edited stories, world + roster load
 //   J  offline  golden system prompts + prompt determinism
 //   K  offline  usage meter + cost estimate
 //   L  offline  live-harness prose graders
@@ -1339,7 +1339,7 @@ function layerC() {
 // really prompt or memory plumbing. Each check is written so it fails against
 // the pre-v1.3.6 implementation.
 async function layerI() {
-  section("LAYER I — address protocol, KKT lock, edited-story delivery (offline)");
+  section("LAYER I — address protocol, KKT lock, edited stories, world + roster (offline)");
   const esbuild = await import("esbuild");
   // Own filename: playthrough.mjs writes a different bundle to agent.mjs.
   const outfile = join(OUT, "agentPrompt.mjs");
