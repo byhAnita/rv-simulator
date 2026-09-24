@@ -1175,7 +1175,8 @@ of a step whose whole gate is that they do not move, and it likely lands with pl
 leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
 upstream — and is deleted.
 
-**Step 4 — save migration — is done on `dev` and unreleased** (`9d1c6cd`..`73b0995`). Three
+**Step 4 — save migration — is done, pushed and unreleased** (`9d1c6cd`..`73b0995`; `dev` is at
+`83ea5bb`, CI green, 11 commits ahead of `main` and 0 behind). Three
 commits: the **player birth-year field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/
 `roster`), and the `App.jsx` rewiring through `resolveRoster` with `getNpcMembers` ceasing to
 derive. Smoke **630 → 671**, goldens untouched.

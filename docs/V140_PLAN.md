@@ -161,10 +161,15 @@ step 6"* above.
 `origin/main` are at `758faa3`, the deploy commit, tagged `v1.3.9`. All three mirrors serve
 `index-DAtY_Xfc.js`.
 
-**Steps 3 and 4 are done on `dev` and unreleased** — seven commits, `3bbc033`..`73b0995`, plus
-docs. Neither ships a player-visible change on its own, so both ride with v1.4.0 rather than
-justifying a release. Smoke **578 → 671**. Goldens byte-identical throughout and
-`update-golden.mjs` never run.
+**Steps 3 and 4 are done, pushed, and unreleased.** `dev` and `origin/dev` are both at `83ea5bb`
+— eleven commits ahead of `main`, zero behind — and **CI is green** (run `36027650098`). Nothing
+is pending on anyone's machine. Neither step ships a player-visible change on its own, so both
+ride with v1.4.0 rather than justifying a release. Smoke **578 → 671**. Goldens byte-identical
+throughout and `update-golden.mjs` never run.
+
+CI matters more than usual for these two: it builds from a clean checkout with `npm ci` on Linux,
+while `src/` on the development machine is CRLF and the goldens are LF. Green there is what says
+the line-ending split is not load-bearing.
 
 | Step 4 commit | What |
 | --- | --- |
@@ -881,21 +886,21 @@ data instead of an inherited figure.
 
 ### v1.4.0
 
-| # | Task | Files |
-| --- | --- | --- |
-| 1 | `worldLoader.js`, `public/worlds/kpop_idol/*` — extract today's hardcoded blocks verbatim, `TOKENS` included | new + `mainAgent.js` |
-| 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` | new |
-| 3 | `buildSystemPrompt` reads world + roster | `mainAgent.js` |
-| 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` |
-| 5 | `habit` in all 9 group JSONs × 3 languages | `public/groups/**` |
-| 6 | Save migration + `groupId`/`worldId`/`roster` in the slot | `App.jsx`, `SaveOverlay.jsx` |
-| 7 | Roster builder + member editor UI | new `platforms/*` |
-| 8 | `cardGenerator.js` | new |
-| 9 | `imageStore.js` + quota-guarded `saveToStorage` | new + `utils.js` |
-| 10 | Usage panel | `llmTool.js`, new `platforms/UsagePanel.jsx` |
-| 11 | Affection clamp | `mainAgent.js` |
-| 12 | Smoke **Layer J** (migration, resolver, static-prompt stability) | `test/smoke.mjs` |
-| 13 | Root `groups/` mirror re-synced by hand after (5) | — |
+| # | Task | Files | State |
+| --- | --- | --- | --- |
+| 1 | `worldLoader.js`, `public/worlds/kpop_idol/*` — extract today's hardcoded blocks verbatim, `TOKENS` included | new + `mainAgent.js` | ✅ |
+| 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` | new | ✅ |
+| 3 | `buildSystemPrompt` reads world + roster | `mainAgent.js` | ✅ |
+| 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` | ✅ |
+| 5 | `habit` in all 9 group JSONs × 3 languages, **plus the prompt line that renders it** | `public/groups/**`, `mainAgent.js` | ⬜ **next** |
+| 6 | Save migration + `groupId`/`worldId`/`roster` in the slot | `App.jsx`, `SaveOverlay.jsx` | ✅ |
+| 7 | Roster builder + member editor UI | new `platforms/*` | ⬜ |
+| 8 | `cardGenerator.js` | new | ⬜ |
+| 9 | `imageStore.js` + quota-guarded `saveToStorage` | new + `utils.js` | `saveToStorage` ✅ (v1.3.9) |
+| 10 | Usage panel | `llmTool.js`, new `platforms/UsagePanel.jsx` | ✅ (v1.3.9) |
+| 11 | Affection clamp | `mainAgent.js` | ✅ (v1.3.9) |
+| 12 | Smoke migration / resolver / static-prompt stability checks | `test/smoke.mjs` | ✅ — Layers **I** and **J**, not J alone |
+| 13 | Root `groups/` mirror re-synced by hand after (5) | — | ⬜ |
 
 > ⚠️ Task 13 is not optional. `deploy.sh` copies only `assets/*.js` and `*.css`; nothing keeps
 > the root `groups/` mirror in sync with `public/groups/`. Adding `habit` to the public copies
