@@ -185,13 +185,21 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
+    // `Habit:` is conditional, exactly like Hidden Conflict beside it. A member
+    // without one must render NOTHING rather than `  Habit: ` with a trailing
+    // space: custom members (step 6) can have no habit, and a trailing space is
+    // invisible to a reviewer while costing the whole ~5,500-token cached
+    // prefix. That is not hypothetical — it is the single byte the goldens
+    // caught in the step 3 extraction, after 1,368 clean renders had not.
+    // It sits below Queer Texture because it is the staging handle for the
+    // three prose fields above, not a fourth differentiator alongside them.
     return `${m.emoji} ${m.name}(${m.name_kr}) ${role}
   Age: ${ageLine}
   Address: ${addressLine}
   Animal: ${m.animal_plastic}
   Public: ${m.public_image || ""}
   Private: ${m.private_personality || ""}
-  Queer Texture: ${m.queer_texture || ""}${m.hidden_conflict ? `\n  Hidden Conflict: ${m.hidden_conflict}` : ""}`;
+  Queer Texture: ${m.queer_texture || ""}${m.habit ? `\n  Habit: ${m.habit}` : ""}${m.hidden_conflict ? `\n  Hidden Conflict: ${m.hidden_conflict}` : ""}`;
   }).join("\n\n");
 
   // JSON schema

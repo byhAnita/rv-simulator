@@ -1672,6 +1672,46 @@ async function layerI() {
     === stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "2000" }))),
     "the backstory seed moved with the birth year");
 
+  // --- step 5: the habit renders, and its ABSENCE renders nothing ----------
+  // The member profile section only, so an unrelated block cannot mask or
+  // trip these.
+  // Cut back to the start of the NEXT banner box, not to its title: slicing at
+  // "6. CAST IDENTITY" ends mid-border and leaves a dangling "║ " that the
+  // trailing-whitespace guard below correctly reads as a violation.
+  const profilesOf = (text) => text.slice(
+    text.indexOf("5. MEMBER PROFILES"),
+    text.lastIndexOf("╔", text.indexOf("6. CAST IDENTITY")));
+  const ireneHabit = members.find((m) => m.id === "irene").habit;
+  check("a member's habit reaches the member profile block",
+    profilesOf(p).includes(`\n  Habit: ${ireneHabit}`), addressOfIn(p, "Irene"));
+  check("every member of the cast carries exactly one Habit line",
+    (profilesOf(p).match(/^ {2}Habit: /gm) || []).length === members.length,
+    `${(profilesOf(p).match(/^ {2}Habit: /gm) || []).length} lines / ${members.length} members`);
+  // Placement is meaning here: Habit is the staging handle for the three prose
+  // fields, not a fourth differentiator sitting among them.
+  check("Habit renders below Queer Texture",
+    /\n {2}Queer Texture: [^\n]*\n {2}Habit: /.test(profilesOf(p)));
+
+  // A member with no habit must render NOTHING — not `  Habit: ` with a
+  // trailing space, which no reviewer sees and which costs the whole cached
+  // prefix. Custom members (step 6) are exactly this case.
+  const strippedMembers = members.map(({ habit, ...rest }) => rest);
+  const noHabitPrompt = buildSystemPrompt(
+    form(), strippedMembers, "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
+  check("a member with no habit renders no Habit line at all",
+    !/Habit:/.test(noHabitPrompt), profilesOf(noHabitPrompt).slice(0, 300));
+  const trailing = profilesOf(noHabitPrompt).split("\n").filter((l) => /[ \t]$/.test(l));
+  check("...and leaves no trailing whitespace where the line would have been",
+    trailing.length === 0, JSON.stringify(trailing.slice(0, 3)));
+  // One habit missing from a cast must not disturb the members around it.
+  const oneMissing = buildSystemPrompt(
+    form(), members.map((m) => (m.id === "yeri" ? { ...m, habit: "" } : m)),
+    "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
+  check("one habit-less member does not disturb the rest of the cast",
+    (profilesOf(oneMissing).match(/^ {2}Habit: /gm) || []).length === members.length - 1
+      && profilesOf(oneMissing).includes(`\n  Habit: ${ireneHabit}`),
+    profilesOf(oneMissing).split("\n").filter((l) => /[ \t]$/.test(l)).join("|"));
+
   // --- the self-naming bug: a member thanking the player with her own name.
   check("member's own name is ruled out as an address form for the player",
     p.includes('"Irene" and "Bae Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");

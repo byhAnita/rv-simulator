@@ -886,6 +886,8 @@ Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `em
 
 **Member ids are not unique across the library, so a shared id carries the same habit in every group.** A physical tic belongs to the person, not the roster: `x` is a crossover roster sharing seven ids, and smoke fails when one copy is edited and its twin forgotten.
 
+**It renders as a `Habit:` line below `Queer Texture:`, and the line is conditional.** A member without one renders *nothing* — never `  Habit: ` with a trailing space. Custom members (step 6) are exactly that case, and a trailing space is invisible to a reviewer while costing the whole ~5,500-token cached prefix; it is the single byte the goldens caught during the step 3 extraction. Note that the goldens **cannot** catch this particular regression, because every library member has a habit, so the empty case never appears in a snapshot — making the line unconditional leaves all three goldens green. The dedicated guard in Layer I is what fails, and it was verified to.
+
 57 members × 3 languages, plus `_template`. All 30 files are **CRLF** — `cat -A` piped through GNU sed shows clean `$` and is lying, because sed strips the CR in text mode.
 
 `name` is the Latin stage name in **all three** language files; `name_kr` is the localized real name (`裴珠泫` / `Bae Ju-hyun` / `배주현`). A Hangul *stage* name (`예리`) exists in no group JSON.
