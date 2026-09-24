@@ -1368,6 +1368,7 @@ async function layerI() {
       contents: [
         'export * from "./src/rag/groupLoader.js";',
         'export * from "./src/rag/worldLoader.js";',
+        'export * from "./src/rag/rosterResolver.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -1836,6 +1837,109 @@ async function layerI() {
   try { loader.parseWorld(good); } catch (e) { nullYa = e.message; }
   check("parseWorld accepts a null ya, which is a real value and not an absence",
     nullYa === null, nullYa || "");
+
+  // --- roster resolver (v1.4.0 step 3) ------------------------------------
+  //
+  // The classic path is not a separate code path from the roster builder; it
+  // builds a roster implicitly. That claim is only worth anything if resolving
+  // one reproduces today's cast exactly, so this proves it against the real
+  // group config rather than against a fixture.
+  const rvCfg = await fromDisk(() => loader.loadGroupConfig("red_velvet", "en"));
+  const allIds = rvCfg.members.map((m) => m.id);
+  const classic = loader.buildClassicRoster("red_velvet", "irene", ["yeri"], allIds);
+  const resolved = await fromDisk(() => loader.resolveRoster(classic, "en"));
+
+  check("a classic roster resolves to the same cast, in the same order",
+    JSON.stringify(resolved.members.map((m) => m.id)) === JSON.stringify(allIds),
+    `${JSON.stringify(resolved.members.map((m) => m.id))} vs ${JSON.stringify(allIds)}`);
+  check("a classic roster resolves to members field-for-field identical",
+    JSON.stringify(resolved.members) === JSON.stringify(rvCfg.members),
+    "resolveRoster changed a member the prompt reads");
+  check("the resolver reports the same slots the classic path implies",
+    resolved.mainId === "irene"
+      && JSON.stringify(resolved.subIds) === JSON.stringify(["yeri"])
+      && JSON.stringify(resolved.npcIds.sort())
+        === JSON.stringify(allIds.filter((i) => i !== "irene" && i !== "yeri").sort()),
+    `main=${resolved.mainId} subs=${resolved.subIds} npcs=${resolved.npcIds}`);
+  check("the resolver returns the group config the lore comes from",
+    resolved.groupConfig?.group?.name === rvCfg.group.name,
+    String(resolved.groupConfig?.group?.name));
+
+  // The one that matters: same prompt, byte for byte, whichever door was used.
+  check("a prompt built from a resolved roster is byte-identical to today's",
+    buildSystemPrompt(form(), resolved.members, resolved.mainId, resolved.subIds,
+      resolved.groupConfig, "", "qwen", "en", worldFor.en)
+    === buildSystemPrompt(form(), rvCfg.members, "irene", ["yeri"],
+      rvCfg, "", "qwen", "en", worldFor.en),
+    "the roster path and the classic path disagree");
+
+  // getNpcMembers derives NPCs as "everyone not chosen"; a roster names them.
+  // Both must agree for the classic case, or step 4's migration has no anchor.
+  check("explicit NPCs match what getNpcMembers derives today",
+    JSON.stringify(resolved.npcIds.sort())
+      === JSON.stringify(loader.getNpcMembers(rvCfg.members, "irene", ["yeri"])
+        .map((m) => m.id).sort()),
+    "the roster and the derived NPC list disagree");
+
+  // Cross-group rosters are the reason the resolver exists; it must fetch each
+  // group once and keep roster order rather than group order.
+  const cross = {
+    worldId: "kpop_idol",
+    entries: [
+      { src: "library", groupId: "twice", memberId: "nayeon", slot: "main" },
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "sub" },
+      { src: "custom", memberId: "c_1", slot: "npc",
+        profile: { name: "Mina K", emoji: "🎧", birthday: "1997-03-02" } },
+    ],
+  };
+  const xr = await fromDisk(() => loader.resolveRoster(cross, "en"));
+  check("a cross-group roster resolves in roster order",
+    JSON.stringify(xr.members.map((m) => m.id)) === JSON.stringify(["nayeon", "irene", "c_1"]),
+    JSON.stringify(xr.members.map((m) => m.id)));
+  check("a custom member is snapshotted inline, not looked up",
+    xr.members[2].name === "Mina K" && xr.members[2].id === "c_1", "");
+  check("lore follows the main member's group, not the first group listed",
+    xr.groupConfig?.group?.name?.toLowerCase().includes("twice"),
+    String(xr.groupConfig?.group?.name));
+
+  // An override edits the copy, never the library.
+  const overridden = await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol",
+    entries: [{ src: "library", groupId: "red_velvet", memberId: "irene",
+      slot: "main", override: { public_image: "REWRITTEN" } }],
+  }, "en"));
+  check("an override applies to the resolved member",
+    overridden.members[0].public_image === "REWRITTEN", "");
+
+  // Reloading through loadGroupConfig would re-fetch and could never catch a
+  // write-through, so this asks the question inside ONE resolve: name the same
+  // library member twice, override only the first. An implementation that
+  // Object.assign'd onto the shared config object would change both.
+  const aliasing = await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol",
+    entries: [
+      { src: "library", groupId: "red_velvet", memberId: "irene",
+        slot: "main", override: { public_image: "REWRITTEN" } },
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "npc" },
+    ],
+  }, "en"));
+  check("an override copies rather than writing through to the library",
+    aliasing.members[0].public_image === "REWRITTEN"
+      && aliasing.members[1].public_image !== "REWRITTEN",
+    `second copy reads: ${aliasing.members[1]?.public_image}`);
+
+  // A roster naming a member the group no longer has must shrink the cast, not
+  // insert a nameless one — a blank profile reaches the prompt as a real member.
+  const ghost = await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol",
+    entries: [
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
+      { src: "library", groupId: "red_velvet", memberId: "no_such_member", slot: "sub" },
+    ],
+  }, "en"));
+  check("a roster entry the library no longer has is dropped, not faked",
+    ghost.members.length === 1 && ghost.members[0].id === "irene",
+    JSON.stringify(ghost.members.map((m) => m.id)));
 }
 
 // ==================================== LAYER J (offline, pure logic)
