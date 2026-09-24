@@ -40,6 +40,39 @@ the literal key. Revoke the key at the provider when you are done with it.
 | **B** | live | One real round per reasoning mode: HTTP success, non-empty content, valid JSON, schema fields present (`story`, `summary`, 4 `options`, numeric `statChanges`), and no chain-of-thought leakage into the story. Prints latency. Then probes with a cap of 16 to prove the output cap is **honored**, not merely accepted — an ignored unknown field would still return HTTP 200. |
 | **C** | none | Secret hygiene (see above). |
 | **D** | none | Probability-engine recency window with `Math.random` pinned to 0.5, so the arithmetic is exact: a long-absent member must score 0.60 and a saturated one 0.40. Also guards that the dead NPC constants stay removed and that no active `console.log` returns to `llmTool.js`. |
+| **J** | none | Golden system prompts + prompt determinism. See below. |
+| **K** | none | Usage meter and cost estimate: token accounting, the reported-vs-absent `cached_tokens` distinction, peak-price windows, and the rule that an unknown number never renders as 0. |
+
+Layers **E**–**I** are listed in the header comment of `smoke.mjs`; this table
+predates them.
+
+### Layer J and the golden prompts
+
+Three complete system prompts are committed under `test/fixtures/` and compared
+byte-for-byte. They cover what no assertion names — the JSON schema block, the
+phase rules, section ordering, blank lines — because a prompt regression throws
+no error and fails no test. It just writes differently, weeks later, with
+nothing to bisect.
+
+When you change `buildSystemPrompt` **on purpose**:
+
+```bash
+node scripts/update-golden.mjs --dry   # what would change, writes nothing
+node scripts/update-golden.mjs         # write
+git diff test/fixtures/                # READ THIS
+```
+
+The diff is the point. It is the only place a one-word edit to a shared rule
+appears as the eleven lines it actually touched, across three languages and
+three casts. Regenerating to clear a red run, without reading it, turns the only
+prompt-regression detector in the repo into a rubber stamp — which is why
+regeneration is a separate script and not a `--update` flag on the suite.
+
+The layer also sweeps all 8 identities × 3 languages, building each prompt twice
+and requiring byte-equality. Snapshots cannot detect unstable output (a snapshot
+of unstable output is simply wrong), and the fixtures cover only 3 of 24
+combinations. That sweep is what caught `主线成员前女友` re-rolling its backstory
+every round — see `docs/TECH_NOTES.md`.
 
 Layer A stubs `globalThis.fetch` and inspects the body `callLLM` builds, so it
 verifies the fix without spending anything. Because `src/` uses extensionless
@@ -71,3 +104,21 @@ accordingly, and re-run with `--live`.
 Layer D's `storyRounds` guard was checked by reverting the fix and confirming it
 fails (delta 0.020 vs the required 0.05), then restoring. A guard that has never
 been seen to fail is not a guard — do the same for any new one.
+
+`playthrough.mjs` grades the same invariant live, as `system-drift`. It found
+the identity bug in production conditions before the fix landed (7 drifts in 8
+rounds, 60.5% cache → 0 drifts, 87.2% after), and it covers something Layer J
+cannot: that the prompt stays stable *through real rounds of `executeRound`*,
+not merely across two calls in a test.
+
+Note `--identity`. It was added because the harness had `练习生` hardcoded, so
+7 of the 8 identities had never been played live by anything — which is how a
+`Math.random()` in one identity's background block survived every live run ever
+made. When testing prompt-level behaviour, sweep identities.
+
+Layer J's determinism sweep was checked the same way: restoring the two
+`Math.random()` calls in `getIdentityBackground` failed three checks — the
+`red_velvet-solo-ko` golden (reporting the differing line), the 8×3 sweep
+(naming all three `主线成员前女友` coordinates), and the named ex-girlfriend
+check. The other two goldens stayed green, which is correct: they pin identities
+that were never affected.

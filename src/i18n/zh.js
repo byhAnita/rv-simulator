@@ -1,7 +1,7 @@
 const zh = {
   cover: {
     subtitle: "嫂嫂模拟器",
-    desc: "LLM文游·女女恋爱养成·v1.3.8",
+    desc: "LLM文游·女女恋爱养成·v1.3.9",
     newGame: "✨ 开始新游戏",
     continue: "💾 继续游戏 (读档)",
     apiKey: "🔑 修改API Key/切换模型",
@@ -61,6 +61,8 @@ const zh = {
     delete: "删",
     loaded: "✅ 读档成功",
     saved: "💾 存档成功！",
+    quotaFull: "⚠️ 未保存 — 浏览器存储空间已满。请先删除下方的旧存档，然后重试。",
+    quotaRetry: "⚠️ 未保存 — 浏览器存储空间已满，且没有可删除的存档。请在浏览器中清理本站点数据，或改从设置中导出故事。",
   },
   notif: {
     updated: "更新了",

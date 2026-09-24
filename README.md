@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.8
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.9
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.8-e887b0)
+![Version](https://img.shields.io/badge/version-1.3.9-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -11,7 +11,7 @@
 ## ✨ Features
 
 - 🐉 **Free to start** — Aliyun (Alibaba Cloud) is the default provider. New accounts get ~1M free tokens on **each** of 28 JSON-capable models (Qwen, DeepSeek, GLM), and the game's **free-credit mode switches models for you** when one runs dry.
-- ⚡ **~10s per round** — Steady-state generation lands around 10 seconds with Deep Thinking off (the default), backed by a **~95.8% measured prompt-cache hit rate**.
+- ⚡ **~6-17s per round** — Median generation time with Deep Thinking off (the default) is **6.3s on DeepSeek Official V4.1 Flash** and **~16-17s on Aliyun's flash models** — it depends on the provider, not on the game. Backed by a prompt-cache hit rate of **~87% measured in clean sequential play, up to ~95.8% in long sessions with retries**, against a calculated steady-state ceiling of ~92%. See the note under the token table.
 - 🔄 **Regenerate, Edit & Copy** — Not happy with a round? ↺ Retry rewrites it on the same choice, rewinding stats, memory, KKT and achievements cleanly. ✎ Edit lets you reword the generated story, or change your last choice and replay the round — the model reads your edit from then on. ⎘ Copy grabs the pure story text.
 - 🧠 **Deep Thinking toggle** — Reasoning is OFF by default (fast, cheap, and it reads well). Flip it on in Settings when you want the model to deliberate.
 - ⏳ **Time Speed control** — 🐌 Slow (linger in the moment) / 🕛 Normal / ⚡ Fast (skip ahead to the next date). Steers narrative pacing per round.
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.8)
+## 💰 API Cost & Performance (v1.3.9)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -76,10 +76,27 @@
 | Static system prompt (rules, lore, member profiles, schema) | ~5,500 | **100% hit** after R1 |
 | History ledger (collapsed summaries + recent full stories) | ~2,300 | Append-only — hits except the newest entry |
 | Dynamic tail (stats, affections, stage changes, KKT, pacing) | ~150 | Always miss, by design — kept tiny |
-| **Total input** | **~8,000** | **~95.8% hit** (measured, steady state) |
+| **Total input** | **~8,000** | **~92% hit** (calculated steady state — see below) |
 | Output (story + social + options) | ~800 | — |
 
-> 📊 The **~95.8% cache hit rate** and **~10s/round** generation time are measured from real player sessions on the v1.3.0+ stepped-window ledger, with reasoning off.
+> 📊 **Four cache numbers appear in this project, and they are not interchangeable.** All are for the v1.3.0+ stepped-window ledger with reasoning off.
+>
+> | Figure | Source | What it is |
+> | --- | --- | --- |
+> | **~92%** | calculated from the token profile above | The **estimated ceiling** for clean sequential play. Not a measurement. |
+> | **86.7%** | DeepSeek Official billing — 40 rounds, hand-played, no retries (2026-09-24) | A real clean run, and still climbing at round 40. |
+> | **~95.8%** | DeepSeek Official billing — hours of real play | Long sessions **with regenerates**, which is what lifts it past the ceiling above. |
+> | **~83%** | Aliyun, across free-route models | A different provider with a coarser cache. Not comparable to the DeepSeek rows. |
+>
+> The ~92% falls straight out of the table: the ~5,500-token static prompt hits every round, while the newest ledger entry (~500) and the dynamic tail (~150) always miss — so roughly 7,300 of ~7,950 input tokens *can* hit, before the extra misses each collapse adds. **That is arithmetic, not a measurement.** The honest reading is that clean play converges toward it, not toward 95.8%.
+>
+> **86.7% sits below it** because a session average includes the beginning: round 1 is structurally 0%, and early rounds never fully wash out of a cumulative figure. Watched live, it climbed from ~50% to 87% across the 40 rounds.
+>
+> **~95.8% sits above it** because ↺ Retry re-sends a prompt that was cached moments earlier — a near-100% cache-hit call by construction. A session with many retries reads higher than one without. Both are real; they measure different play.
+>
+> Expect the low end if you never tap ↺, and expect any single figure to track your provider's cache rather than this game.
+>
+> ⏱️ **Generation time is the provider's, not the game's.** The same 40-round session measured a **6.3s median** round on DeepSeek Official V4.1 Flash, read straight from the in-game usage panel. Aliyun's flash models measured **~16–17s median** in the test harness on the same day. Deep Thinking roughly doubles either. Social media is displayed one round late precisely so there is something to read while the next round generates.
 
 ### Cost per model
 
@@ -117,6 +134,8 @@ Aliyun bills in CNY; USD columns convert at ￥7.1 = $1.
 | Gemini 3.5 Flash-Lite | ✅ High | ~$0.0058 | ~$0.23 | ~14 hrs |
 
 > \* **DeepSeek repriced again.** The `deepseek-flash` model name now serves **DeepSeek-V4.1-Flash** at **$0.003 / 1M cache-hit input · $0.15 / 1M cache-miss input · $0.60 / 1M output** off-peak, and **2x all three** during peak hours (01:00–04:00 and 06:00–10:00 UTC, Mon–Fri). Figures are a 7-day blend (35 of 168 hours at peak). That is roughly 3.6x cheaper per round than the V4 Flash pricing it replaces. The legacy `deepseek-v4-flash` name still works but is served by V4.1 Flash.
+>
+> 💱 **DeepSeek bills in CNY, and its USD sheet does not convert at ￥7.1.** A measured 40-round off-peak session (2026-09-24) billed **￥0.20** for 240,000 cache-hit + 36,862 cache-miss input and 39,696 output — which reprices exactly at **￥0.02 / ￥1 / ￥4 per 1M**. Against the USD figures above, all three rates agree on **￥6.67 = \$1**, DeepSeek's own internal rate. Converting its USD sheet at this table's ￥7.1 therefore over-states the cost by ~6.7%, so the in-game usage panel prices this provider in CNY directly.
 >
 > ⚡ **GPT-6 Luna replaced GPT-5.6 Luna** (per 1M tokens: **$0.01** cache-hit input · **$0.10** cache-miss input · **$0.50** output). That is roughly **4.5x cheaper per round** than the tier it replaces, and the figures above are now published pricing rather than an estimate.
 >
@@ -157,6 +176,21 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.3.9
+
+Four fixes you can see, and one number you could not see before.
+
+* 📊 **You can finally see what a round costs** — Settings now shows this session's token usage, cache-hit rate, median generation time and an estimated cost. Every provider has always sent these figures back and the game threw them away, so the one person paying for the rounds had no way to check. Where a provider does not report something, it says so rather than showing you a zero: "not reported" and "0%" look the same on screen and mean opposite things.
+* 💗 **Affection moves at the game's pace, not the model's** — a single round could previously jump a member's affection by 30 points and skip three relationship stages, firing their scenes in a burst. Changes are now capped at 8 per round. Since free mode rotates through 28 different models, this is also what stops the story speeding up or slowing down for no reason you could see.
+* 💾 **A save that fails now tells you** — if your browser's storage was full, the save appeared in your slot list and was never written. You found out when you came back for it. The game now checks, keeps the list honest, and tells you what to delete.
+* 💔 **Your ex stays the same person** — on the Ex-Girlfriend route, the reason you broke up and the keepsake you kept were re-rolled *every single round*, so the game quietly contradicted its own backstory. They are now fixed for the life of a save. This was also costing you money: it broke the prompt cache, and fixing it measured **60.5% → 87.2%** cache hits on the same model and settings. Existing saves settle on one version from the next time you load them.
+
+* 🗣️ **Korean address forms stay in dialogue, where they belong** — narration was writing `Irene欧尼正站在窗边`. Honorifics are something characters *say to each other*; in narration a member is just her name. `"Irene欧尼，今天练到这么晚吗？"` is still exactly right.
+* 🇨🇳 **`呀` used the way Korean actually uses it** — Chinese output was producing `小饼呀，你来了，吃饭了吗`, which is grammatical but reads oddly, because Korean 야 is a vocative suffix on a name while Chinese 呀 is a sentence-final particle. Transliterating the sound imported the wrong grammar. It is now kept for the use both languages share — `呀！你胆子真大了` — and closeness is carried by the plain name. English and Korean are unchanged.
+* ✏️ **English stopped writing `Alex--ya`** — a stray double hyphen that had been in every English prompt since the address protocol shipped in v1.3.6.
+
+> 🔎 On the panel's cost estimate: it covers the models whose providers publish per-token prices, and plainly says so when a model has none rather than quietly leaving it out of the total. Your provider's own billing page is still the authority — the panel was checked against a real DeepSeek bill and matched it to the token.
 
 ## 🎉 What's New in v1.3.8
 
@@ -212,12 +246,12 @@ A maintenance release — no gameplay changes.
 ## 🎉 What's New in v1.3.1
 
 * 🐉 **Qwen is the new default** — three selectable versions (3.8 Max / 3.7 Max / 3.7 Plus), each with its own free-credit allowance for new users. `character-plus` was removed.
-* 🧠 **Deep Thinking toggle, off by default** — cuts per-round cost roughly in half and generation time to ~10s with no meaningful drop in story quality. Every provider gets an explicit off-switch (DeepSeek `thinking:{type:'disabled'}`, Qwen `enable_thinking:'false'`), because some default to reasoning ON.
+* 🧠 **Deep Thinking toggle, off by default** — roughly halves both per-round cost and generation time with no meaningful drop in story quality. Every provider gets an explicit off-switch (DeepSeek `thinking:{type:'disabled'}`, Qwen `enable_thinking:'false'`), because some default to reasoning ON.
 * ⏳ **Time Speed** — slow / normal / fast narrative pacing, injected into the dynamic tail so it never invalidates the cached prefix.
 * 🌗 **Day / Night mode** and 🔠 **text-size toggle** across every screen.
 * 📖 **Full-story export** — clipboard, `.txt`, or themed print-to-PDF.
 * 📚 **Help Center overlay** — Guide / Issues / Error Codes / Contact, in zh · en · ko.
-* 📈 **Measured results** — ~95.8% prompt-cache hit rate and ~10s/round in real player sessions.
+* 📈 **Measured results** — ~87% prompt-cache hit rate in clean sequential play (~95.8% in long sessions with retries), and a 6.3s median round on DeepSeek Official, in real player sessions.
 * 💸 **DeepSeek V4 Flash repricing** documented (see cost table above).
 
 ## 🎉 What's New in v1.3.0
@@ -261,12 +295,12 @@ LLM Agent (single API call, unified OpenAI-compat format, reasoning off by defau
 JSON Output -> 4-level parse fallback -> Update UI
        |
        v
-Social Media delayed display (check while the next round generates, ~10s)
+Social Media delayed display (check while the next round generates)
 ```
 
 ### Why the cache hit rate matters
 
-A naive sliding-window memory rewrites the prompt prefix every round, so **every** round is a full cache miss. The stepped-window ledger only ever *appends*, and when it collapses old stories it does so *in place* — the already-summarised prefix stays byte-identical. Result: ~95.8% of input tokens bill at the cache-hit rate (5–30x cheaper depending on provider) and time-to-first-token drops sharply.
+A naive sliding-window memory rewrites the prompt prefix every round, so **every** round is a full cache miss. The stepped-window ledger only ever *appends*, and when it collapses old stories it does so *in place* — the already-summarised prefix stays byte-identical. Result: most input tokens bill at the cache-hit rate — 5–30x cheaper depending on provider — and time-to-first-token drops sharply. Measured at ~87% in clean play and ~95.8% in long sessions with retries; see the performance section for why those differ.
 
 ---
 
@@ -278,7 +312,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.8              | |
+|  |              LLM Text Adventure . v1.3.9              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -381,7 +415,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.8 - Architecture                     |
+|          Idol Dating Sim  v1.3.9 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -410,7 +444,7 @@ npm run deploy                  # build + patch index.html + push main
 |  | |-- KKT messages (unlocked members)                            |  |
 |  | +-- [Pacing] hint from the Time Speed setting                  |  |
 |  +---------------------------------------------------------------+  |
-|                  |  ~95.8% of input tokens bill at cache-hit rate   |
+|                  |  ~87% of input tokens bill at cache-hit rate     |
 |                  v                                                  |
 |  Member Probability Engine                                          |
 |  Primary-member pick = Affection(40%) + Balance(30%)                |
@@ -423,7 +457,7 @@ npm run deploy                  # build + patch index.html + push main
 |  Social Media Delayed Display (Optimized Waiting)                   |
 |  +--------------------------------------------------------------+   |
 |  | This round shows last round's social -> Player checks while   |   |
-|  | waiting (~10s) -> New story generates in background           |   |
+|  | waiting (~6-17s) -> New story generates in background        |   |
 |  +--------------------------------------------------------------+   |
 |                                                                     |
 |  Settings: Reasoning . Time Speed . Theme . Font . Export           |
@@ -437,7 +471,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.8 Round Flow                            |
+|                    v1.3.9 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |
@@ -451,7 +485,7 @@ npm run deploy                  # build + patch index.html + push main
 |    |-- Notification bar + red dots -> Instant                   |
 |    +-- Social UI -> View previous round content                 |
 |        |                                                        |
-|  Step 2: LLM Generation (single API call, ~10s reasoning off)   |
+|  Step 2: LLM Generation (single API call, 6-17s reasoning off) |
 |    3 messages: [system][HISTORY][CURRENT STATE + choice]        |
 |    Output JSON: {scene, statChanges, affectionChanges,          |
 |      socialContent, kktMessages, story, summary, options}       |

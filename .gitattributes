@@ -1,0 +1,9 @@
+# Golden system prompts are compared byte-for-byte by smoke Layer J.
+#
+# This machine has core.autocrlf=true, so without this rule git would hand back
+# CRLF on checkout while buildSystemPrompt emits LF - and every golden check
+# would fail on a fresh clone here while staying green on Linux CI, which
+# defaults to autocrlf=false. A platform-dependent failure in the one test whose
+# whole job is detecting unexplained differences is the worst possible place for
+# one, so the line endings are pinned rather than left to local config.
+test/fixtures/*.txt text eol=lf

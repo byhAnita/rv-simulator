@@ -147,6 +147,74 @@ export function getAliyunModelParams(modelId) {
   };
 }
 
+// Published per-1M-token prices for the usage panel's cost estimate.
+//   [cacheHitInput, cacheMissInput, output], in the currency the provider bills
+//
+// Deliberately incomplete, and the gaps are the point. A model appears here only
+// when its provider publishes all three per-1M figures; everything else renders
+// "-" in the panel rather than a number the player would reasonably read as
+// authoritative. That rules out Gemini 3.5 Flash-Lite (README costs it from a
+// comparable tier, not a price sheet), qwen3.6-flash (Aliyun lists no cache-hit
+// price at all, so the README row assumes the usual 20% of input), and the
+// Aliyun models whose README rows are per-round figures with no per-1M source.
+//
+// Each entry is priced in the currency the provider actually BILLS, and
+// converted once here. That is not tidiness. Pricing deepseek-flash from the
+// README's USD sheet made the panel read 6.7% high against a real bill: DeepSeek
+// bills CNY, and its own USD sheet converts at ￥6.67 = $1, not the ￥7.1 this
+// repo uses. All three of its rates agree on 6.67 exactly, which is what
+// identified the cause. Store the billed currency, convert at the boundary, and
+// the arithmetic stops inheriting somebody else's FX assumption.
+//
+// Peak windows are applied at the moment of the call, not at render time, so a
+// session spanning the boundary is still costed correctly.
+//
+// Same obligation as the `gameplay` strings above: when provider pricing moves,
+// this table and the README cost table move together.
+const PEAK_DEEPSEEK_OFFICIAL = { multiplier: 2, utcRanges: [[1, 4], [6, 10]], weekdaysOnly: true };
+// Aliyun DeepSeek doubles 08:00-22:00 Beijing, which is 00:00-14:00 UTC, daily.
+const PEAK_ALIYUN_DEEPSEEK = { multiplier: 2, utcRanges: [[0, 14]], weekdaysOnly: false };
+export const CNY_PER_USD = 7.1;   // the README's rate, used for display only
+
+export const MODEL_PRICES_PER_1M = {
+  "gpt-6-luna":             { cur: "USD", price: [0.01, 0.10, 0.50] },
+  // CNY rates back-derived from a measured bill (40 rounds, off-peak,
+  // 2026-09-24: 240,000 hit + 36,862 miss + 39,696 out -> ￥0.2004, platform
+  // billed ￥0.20). Replace with a published CNY sheet if DeepSeek ever ships one.
+  "deepseek-flash":         { cur: "CNY", price: [0.02, 1, 4], peak: PEAK_DEEPSEEK_OFFICIAL },
+  "qwen3.8-flash":          { cur: "CNY", price: [0.1, 0.8, 2.7] },
+  "glm-5.2":                { cur: "CNY", price: [2, 8, 28] },
+  "deepseek-v4-pro":        { cur: "CNY", price: [1, 12, 24] },
+  "deepseek-v4.1-flash":    { cur: "CNY", price: [0.1, 1, 4],      peak: PEAK_ALIYUN_DEEPSEEK },
+  "deepseek-v4-flash-0731": { cur: "CNY", price: [0.15, 1.5, 4.5], peak: PEAK_ALIYUN_DEEPSEEK },
+  "deepseek-v4-pro-0813":   { cur: "CNY", price: [0.45, 4.5, 13.5], peak: PEAK_ALIYUN_DEEPSEEK },
+};
+
+// USD for one call, or null when this model has no published price. `now` is
+// injectable so the peak-window branch is testable without waiting for a clock.
+export function estimateCallCostUsd(model, { cachedTokens = 0, promptTokens = 0, completionTokens = 0 }, now = new Date()) {
+  const entry = MODEL_PRICES_PER_1M[String(model || "")];
+  if (!entry) return null;
+  const fx = entry.cur === "CNY" ? CNY_PER_USD : 1;
+  let [hit, miss, out] = entry.price.map(v => v / fx);
+  const p = entry.peak;
+  if (p) {
+    const h = now.getUTCHours();
+    const day = now.getUTCDay();
+    const isWeekday = day >= 1 && day <= 5;
+    const inWindow = p.utcRanges.some(([a, b]) => h >= a && h < b);
+    if (inWindow && (!p.weekdaysOnly || isWeekday)) {
+      hit *= p.multiplier; miss *= p.multiplier; out *= p.multiplier;
+    }
+  }
+  // prompt_tokens includes the cached ones, so the miss count is the remainder.
+  // A provider that reports no cached_tokens lands here with cachedTokens 0 and
+  // is therefore costed as a full miss - an over-estimate, which is the safe
+  // direction for a number a player uses to decide whether to keep playing.
+  const missTokens = Math.max(0, promptTokens - cachedTokens);
+  return (cachedTokens * hit + missTokens * miss + completionTokens * out) / 1e6;
+}
+
 export const MODEL_CONFIGS = {
   qwen: {
     id: "qwen", name: "Aliyun", emoji: "🐉",

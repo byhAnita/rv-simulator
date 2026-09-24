@@ -36,6 +36,12 @@
 //                                                   # are exercised (see cast grading)
 //   node test/playthrough.mjs --reasoning           # Deep Thinking on
 //   node test/playthrough.mjs --route               # no pinning: walk the real route
+//   node test/playthrough.mjs --identity 主线成员前女友
+//                                                   # one of App.jsx's 8 IDENTITIES; the
+//                                                   # default 练习生 was hardcoded for a
+//                                                   # long time, which is how a bug in
+//                                                   # 主线成员前女友's background block
+//                                                   # survived every live run ever made
 //
 // Each model runs in its own child process, so the router's localStorage state
 // and mainAgent's module-level social buffer cannot interleave between them.
@@ -68,6 +74,11 @@ const AGE = arg("age", null) != null ? Number(arg("age", null)) : null;
 const GAME_YEAR = 2026;
 const REASONING = has("reasoning");
 const ROUTE_MODE = has("route");
+// Identity ids are the Chinese literals from App.jsx's IDENTITIES, which is what
+// sits in form.identity in every save. They select a whole background block in
+// buildSystemPrompt, so pinning one to 练习生 meant 7 of the 8 were never played
+// live by anything.
+const IDENTITY = arg("identity", "练习生");
 const WORKER = arg("worker", null);
 
 // ---------------------------------------------------------------- env
@@ -126,7 +137,9 @@ function languageOk(story, lang) {
   return ratio(story, CJK) < 0.02 && ratio(story, HANGUL) < 0.02;
 }
 
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Prose graders live in graders.mjs so smoke can unit-test them; see the
+// header there. esc moved with them.
+import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative } from "./graders.mjs";
 // unnie in the three scripts the game can output, with or without a separator.
 // The transliterated forms only. 姐 is deliberately absent: the setting is
 // Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
@@ -154,57 +167,6 @@ function honorificErrors(story, cast) {
   if (!cast.members.some((m) => m.birthYear > cast.playerBirthYear)
       && calledUnnie(cast.playerName).test(story)) {
     bad.push("unnie-to-player");
-  }
-  return bad;
-}
-
-// Everything between paired quotes. A character class cannot do this: it has no
-// way to tell an opening quote from a closing one, so narration that follows a
-// line of dialogue reads as if it were inside it. That produced a false
-// "real-name-vocative" on a round whose dialogue was in fact correct.
-function dialogueSpans(story) {
-  const spans = [];
-  for (const re of [/"([^"]*)"/g, /“([^”]*)”/g, /「([^」]*)」/g]) {
-    for (const m of story.matchAll(re)) spans.push(m[1]);
-  }
-  return spans;
-}
-
-// The game is set in South Korea, so Korean address forms stay transliterated
-// in every output language. Rendering 언니 as the Chinese 姐, or as the English
-// "big sister", localizes the setting away — the prompt bans both by name and
-// this catches a model that does it anyway. Anchored to a member or the player,
-// so ordinary 姐姐/小姐 in narration does not match.
-function sinicizedHonorifics(story, cast, lang) {
-  const names = [...cast.members.map((m) => m.name), cast.playerName].filter(Boolean);
-  const bad = [];
-  if (lang === "zh") {
-    if (names.some((n) => new RegExp(`${esc(n)}\\s*姐`).test(story))) bad.push("sinicized-honorific");
-  } else if (lang === "en") {
-    if (names.some((n) => new RegExp(`${esc(n)}[-\\s](big sister|sis|sister)\\b`, "i").test(story))) {
-      bad.push("sinicized-honorific");
-    }
-  }
-  return bad;
-}
-
-// "Irene, thanks for the coffee" — spoken by Irene. The speaker of a line is not
-// recoverable from prose, so this targets the form that is anomalous whoever
-// says it: a member's full real name used as a vocative inside dialogue.
-// Members address each other by stage name, so a real name in the vocative is
-// almost always the model reaching for the only Korean-looking name it has.
-// Narration may use real names freely and is deliberately excluded.
-function selfNameErrors(story, cast) {
-  const bad = [];
-  const spans = dialogueSpans(story);
-  if (spans.length === 0) return bad;
-  for (const m of cast.members) {
-    if (!m.name_kr) continue;
-    // A vocative opens a clause. Requiring that excludes self-introduction
-    // ("我叫孙胜完，…" / "My name is Bae Ju-hyun, …"), which is correct speech
-    // and was the third false positive this check produced.
-    const re = new RegExp(`(^|[。.!！?？…—])\\s*${esc(m.name_kr)}\\s*[,，!！?？]`);
-    if (spans.some((s) => re.test(s))) bad.push(`real-name-vocative:${m.id}`);
   }
   return bad;
 }
@@ -237,6 +199,8 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
     bad.push(...honorificErrors(story || "", cast));
     bad.push(...selfNameErrors(story || "", cast));
     bad.push(...sinicizedHonorifics(story || "", cast, lang));
+    bad.push(...narratedHonorifics(story || "", cast, lang));
+    bad.push(...nameYaVocative(story || "", cast, lang));
 
     // KKT is gated on affection. A story that describes a message ARRIVING in a
     // round that delivered none is the symptom of the lock being ignored.
@@ -266,7 +230,7 @@ async function runWorker(model) {
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { executeRound, createInitialStats, createEmptyMemory, buildHistoryLedger,
           collapseHistoryIfNeeded, loadGroupConfig, getNpcMembers, markModel, resetSessionSkips,
-          resetFreeRoute } = mod;
+          resetFreeRoute, buildSystemPrompt } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
 
   // --- browser globals the app modules expect
@@ -318,7 +282,7 @@ async function runWorker(model) {
   console.error = (...a) => captured.push("error: " + a.map(String).join(" ").slice(0, 200));
   const restore = () => { console.log = realLog; console.warn = realWarn; console.error = realErr; };
 
-  const report = { model, rounds: [], notes: [], collapses: 0, prefixBreaks: [] };
+  const report = { model, identity: IDENTITY, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
     const groupConfig = await loadGroupConfig(GROUP, LANG);
     const members = groupConfig.members;
@@ -343,7 +307,7 @@ async function runWorker(model) {
     const playerName = LANG === "zh" ? "\u6797\u590f" : LANG === "ko" ? "\uc774\ud558\ub9b0" : "Summer";
 
     const form = {
-      mainMember: mainId, subMembers: subIds, identity: "\u7ec3\u4e60\u751f", customIdentity: "",
+      mainMember: mainId, subMembers: subIds, identity: IDENTITY, customIdentity: "",
       name: playerName,
       nationality: "KR", age, nickname: "", herNickname: "",
       starLevel: "", pace: "\u6d6a\u6f2b\u60c5\u611f\u5411",
@@ -376,6 +340,7 @@ async function runWorker(model) {
     let memory = createEmptyMemory();
     let kktUnlocked = {};
     let prevLedger = null;
+    let prevSystem = null;
 
     for (let round = 0; round < ROUNDS; round++) {
       // Reproduce exactly what this round will send. executeRound collapses
@@ -384,6 +349,23 @@ async function runWorker(model) {
       // never sent, and reports a false prefix break on every post-collapse round.
       // Calling it here is safe: executeRound's own call then finds < N fulls
       // and does nothing.
+      // The static system prompt is rebuilt from scratch every round and is
+      // supposed to be byte-identical every time — that is what makes it 100%
+      // cache hit after round 1, and it is the single largest block in the
+      // request. Nothing checked it. 主线成员前女友 built its background from
+      // Math.random(), so for that identity the whole ~5,500-token prefix
+      // changed every round, and no test anywhere could see it: the offline
+      // suite never called it twice and this harness only ever played 练习生.
+      const systemSent = buildSystemPrompt(
+        form, members, mainId, subIds, groupConfig, "", "qwen", LANG);
+      if (prevSystem !== null && systemSent !== prevSystem) {
+        let i = 0;
+        const a = prevSystem.split("\n"), b = systemSent.split("\n");
+        while (i < a.length && i < b.length && a[i] === b[i]) i++;
+        report.systemDrift.push({ round, line: i + 1, was: (a[i] || "").slice(0, 80), now: (b[i] || "").slice(0, 80) });
+      }
+      prevSystem = systemSent;
+
       const fullsBefore = memory.history.filter(h => h.type === "full").length;
       collapseHistoryIfNeeded(memory);
       const collapsedNow = memory.history.filter(h => h.type === "full").length < fullsBefore;
@@ -391,7 +373,7 @@ async function runWorker(model) {
       const choice = "ABCD"[round % 4];
       aimAtModel();   // the router may have rested this model after a bad round
       const t0 = Date.now();
-      let res, lastErr = null;
+      let res, lastErr = null, bestErr = null;
       // A real player retries a transient failure; only a kind that means "this
       // model cannot serve this key" ends the playthrough. Without this split,
       // throttling caused by THIS harness's own parallelism reads as a defect
@@ -409,6 +391,16 @@ async function runWorker(model) {
           break;
         } catch (e) {
           lastErr = e;
+          // Keep the most informative error across attempts, not the last one.
+          // With a model pinned, attempt 0 walks the route, marks the pinned
+          // model and throws free_all_exhausted carrying .cause = why it was
+          // skipped. Every retry then finds zero candidates, so the walk body
+          // never runs, lastSkip stays null, and the throw is a bare "all models
+          // are exhausted or unavailable" — the retry destroys the diagnosis.
+          // That reads identically whether the model is out of free credits or
+          // rejecting our parameters, which is the exact confusion .cause exists
+          // to prevent.
+          if (!bestErr || (!bestErr.cause && e.cause)) bestErr = e;
           const transient = ["rate_limit", "server_busy", "network", "timeout", "free_all_exhausted"].includes(e.kind);
           // free_all_exhausted here means the pinned model was rate-limited and
           // the route had no one else to fall back to — still transient.
@@ -420,7 +412,8 @@ async function runWorker(model) {
       if (lastErr) {
         // With one model pinned, free_all_exhausted just means that model was
         // skipped; .cause carries the kind that actually caused the skip.
-        const real = lastErr.kind === "free_all_exhausted" && lastErr.cause ? lastErr.cause : lastErr;
+        const carrier = bestErr || lastErr;
+        const real = carrier.kind === "free_all_exhausted" && carrier.cause ? carrier.cause : carrier;
         const rec = { round, ms: Date.now() - t0, error: real.kind || "unknown", detail: `${real.code || ""} ${real.message || ""}`.trim().slice(0, 120) };
         report.rounds.push(rec);
         if (process.send) process.send({ tick: { model, round, ms: rec.ms, bad: 0, error: rec.error } });
@@ -562,10 +555,12 @@ async function runParent() {
     for (const x of done) for (const b of x.bad) issueTally[b.split(":")[0]] = (issueTally[b.split(":")[0]] || 0) + 1;
     for (const x of errored) issueTally[`API:${x.error}`] = (issueTally[`API:${x.error}`] || 0) + 1;
 
-    const allClean = clean.length === done.length && done.length === ROUNDS && !r.prefixBreaks.length && !r.notes.length;
+    const allClean = clean.length === done.length && done.length === ROUNDS && !r.prefixBreaks.length
+      && !(r.systemDrift?.length) && !r.notes.length;
     const colour = allClean ? C.g : clean.length === 0 ? C.r : C.y;
     const issues = [
       ...(r.prefixBreaks.length ? [`${C.r}prefix-break@${r.prefixBreaks.join(",")}${C.x}`] : []),
+      ...(r.systemDrift?.length ? [`${C.r}system-drift@${r.systemDrift.map(d => d.round).join(",")}${C.x}`] : []),
       ...r.notes,
       ...errored.map(x => `${C.r}${x.error}${C.x}`),
       ...[...new Set(done.flatMap(x => x.bad))].slice(0, 4),
@@ -589,9 +584,22 @@ async function runParent() {
   console.log(`\ncache invariant: ${collapses} collapses, ${breaks} prefix breaks ` +
     `${breaks === 0 ? C.g + "(ledger prefix stable outside collapses)" + C.x : C.r + "(BROKEN \u2014 cache hit rate would drop)" + C.x}`);
 
+  // The ledger is only the second-largest cacheable block. The static system
+  // prompt is bigger and is supposed to never change at all, so it gets its own
+  // line rather than being folded into the ledger's.
+  const drifts = results.reduce((s, r) => s + (r.systemDrift?.length || 0), 0);
+  console.log(`static system prompt: ${drifts} drifts across ${totalRounds} rounds ` +
+    `${drifts === 0 ? C.g + "(byte-identical every round \u2014 100% cacheable)" + C.x
+      : C.r + "(BROKEN \u2014 the whole ~5,500-token prefix misses every round)" + C.x}`);
+  if (drifts) {
+    for (const r of results) for (const d of (r.systemDrift || []).slice(0, 3)) {
+      console.log(`  ${C.d}${r.model} r${d.round} line ${d.line}: ${JSON.stringify(d.was)} -> ${JSON.stringify(d.now)}${C.x}`);
+    }
+  }
+
   mkdirSync(OUT, { recursive: true });
   const path = join(OUT, `playthrough-${Date.now()}.json`);
-  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, REASONING, ROUTE_MODE }, results }, null, 2));
+  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, SUBS, REASONING, ROUTE_MODE }, results }, null, 2));
   console.log(`${C.d}full report: ${path.replace(ROOT, ".")}${C.x}`);
 
   process.exit(hardFails || breaks ? 1 : 0);

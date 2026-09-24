@@ -22,6 +22,9 @@
 //   G  offline  old saves / legacy settings still load after the Aliyun change
 //   H  live     Aliyun free-credit route: per-model params + one routed round
 //   I  offline  address protocol, KKT channel lock, edited-story delivery
+//   J  offline  golden system prompts + prompt determinism
+//   K  offline  usage meter + cost estimate
+//   L  offline  live-harness prose graders
 
 import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
@@ -89,6 +92,11 @@ async function buildBundle() {
         'export * from "./src/tools/llmTool.js";',
         'export * from "./src/tools/llmErrors.js";',
         'export * from "./src/tools/aliyunRoute.js";',
+        // Same bundle instance as llmTool's, so a live round's recordUsage and
+        // the assertion's getUsageSummary read one module-level state. Two
+        // separate bundles would each get their own and the check would be
+        // meaningless.
+        'export * from "./src/tools/usageMeter.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -297,7 +305,7 @@ async function layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg) {
 }
 
 // ============================================================ LAYER B
-async function layerB(callLLM, MODEL_CONFIGS) {
+async function layerB(callLLM, MODEL_CONFIGS, meter) {
   section(`LAYER B — live provider round-trip (${MODEL_ID})`);
   if (!LIVE) { console.log("  \x1b[33mSKIP\x1b[0m (pass --live to run; spends credits)"); return; }
   if (!API_KEY) { check("API key present in .env.local", false, "YURIAGENT_API_KEY is empty"); return; }
@@ -320,6 +328,14 @@ async function layerB(callLLM, MODEL_CONFIGS) {
     { role: "user", content: "[CURRENT STATE]\n[Player Status] SelfId:38 Secrecy:97 Mood:82 Round:1 Scene:practice room\n[Affections] Irene:12(Stranger)\n\nPlayer choice: A\n\nGenerate the next round. Output ONLY valid JSON." },
   ];
 
+  // Layer K proves the meter's arithmetic against synthetic usage blocks. Only
+  // a real call proves the field path is right — that this provider returns
+  // `usage` at all, and that cached tokens really sit at
+  // prompt_tokens_details.cached_tokens rather than somewhere provider-specific.
+  // A typo there is invisible offline: the meter would simply record zeroes.
+  meter?.resetUsage();
+
+  let anyRoundSucceeded = false;
   for (const reasoning of [false, true]) {
     const label = reasoning ? "reasoning ON" : "reasoning OFF";
     console.log(`\n  ${label}`);
@@ -331,6 +347,7 @@ async function layerB(callLLM, MODEL_CONFIGS) {
       check(`${label}: request succeeded`, false, `${e.kind || ""} ${e.message}`);
       continue;
     }
+    anyRoundSucceeded = true;
     const secs = ((Date.now() - t0) / 1000).toFixed(1);
     check(`${label}: request succeeded`, true);
     check(`${label}: non-empty content`, !!content && content.length > 0, `len=${content?.length ?? 0}`);
@@ -352,6 +369,31 @@ async function layerB(callLLM, MODEL_CONFIGS) {
     check(`${label}: no chain-of-thought leaked into story`,
       !/<think>|<\/think>|reasoning_content/i.test(parsed.story || ""));
     console.log(`       latency ${secs}s · ${content.length} chars`);
+  }
+
+  // Gated on a round actually landing. Without this, an exhausted or wrong key
+  // reports four extra meter failures on top of the real one, and the next
+  // reader spends their time on the meter instead of on the key. Layer H makes
+  // the same assertions through the router, which finds a model that answers.
+  if (meter && !anyRoundSucceeded) {
+    console.log("  \x1b[33mSKIP\x1b[0m usage-meter assertions (no live round landed — see the failure above)");
+  } else if (meter) {
+    const u = meter.getUsageSummary();
+    check("usage meter recorded the live calls", u.calls >= 1, `calls=${u.calls}`);
+    check("usage meter read real prompt tokens off the response",
+      u.promptTokens > 0, "provider returned no usage.prompt_tokens, or the field path is wrong");
+    check("usage meter read real completion tokens",
+      u.completionTokens > 0, `got ${u.completionTokens}`);
+    check("usage meter measured a latency", u.p50LatencyMs > 0);
+    // Not an assertion about the value: this provider may legitimately report
+    // no cached_tokens (twelve Aliyun route models do not). Printed so a human
+    // can see which case they are looking at.
+    const costLabel = u.costUsd === null ? "no calls"
+      : (u.costUsd === 0 && !u.costComplete) ? "no published price"
+      : `≈ $${u.costUsd.toFixed(5)}`;
+    console.log(`       metered: ${u.promptTokens} in · ${u.completionTokens} out · cache ` +
+      (u.cacheHitRate === null ? "not reported by this provider" : `${Math.round(u.cacheHitRate * 100)}%`) +
+      ` · cost ${costLabel}`);
   }
 
   // The cap must be HONORED, not merely accepted. An unknown field would be
@@ -429,13 +471,49 @@ async function layerD() {
     Math.abs(pStale - pSat) > 0.05, `delta=${Math.abs(pStale - pSat).toFixed(3)}`);
   Math.random = realRandom;
 
+  // --- Affection clamp -------------------------------------------------
+  // Guards the delta bound, not the 0-100 result bound. Those are different
+  // things and only the result one existed: a model could answer +30 and move
+  // the player through three relationship stages in a single round, so pacing
+  // was a property of whichever of 28 route models the router happened to serve.
+  const { validateAndFixOutput } = await import("./fixtures/prompts.mjs")
+    .then(m => m.loadPromptModules(OUT));
+  const clamped = (changes) =>
+    validateAndFixOutput({ story: "x".repeat(60), affectionChanges: changes }).affectionChanges;
+
+  check("a runaway positive delta is clamped to +8",
+    clamped({ irene: 30 }).irene === 8, `got ${clamped({ irene: 30 }).irene}`);
+  check("a runaway negative delta is clamped to -8",
+    clamped({ irene: -45 }).irene === -8, `got ${clamped({ irene: -45 }).irene}`);
+  // The prompt asks for +/-1..10, so an in-range value must pass through
+  // untouched or the clamp is changing writing the model got right.
+  check("an in-range delta passes through unchanged",
+    clamped({ irene: 5, seulgi: -3 }).irene === 5 && clamped({ irene: 5, seulgi: -3 }).seulgi === -3);
+  check("the boundary value +8 is not clamped away",
+    clamped({ irene: 8 }).irene === 8);
+  // NaN here used to survive into stats and poison that member's affection for
+  // the rest of the run - every later comparison against it is false.
+  check("a non-numeric delta becomes 0, never NaN",
+    clamped({ irene: "lots" }).irene === 0, `got ${JSON.stringify(clamped({ irene: "lots" }).irene)}`);
+  check("a fractional delta is truncated to an integer",
+    clamped({ irene: 2.7 }).irene === 2);
+  // Strict mode makes writing to Object.entries of a string a TypeError, so a
+  // malformed field would kill the round rather than be discarded.
+  check("a non-object affectionChanges is discarded, not thrown on",
+    JSON.stringify(clamped("nonsense")) === "{}");
+
+  // Regression guard: the pre-fix code only bounded the 0-100 result, so the
+  // delta reached the caller exactly as the model sent it.
+  check("the clamp is actually applied (unfixed code returns the raw +30)",
+    clamped({ irene: 30 }).irene !== 30);
+
   // Dead NPC constants must stay gone.
   const consts = readFileSync(join(ROOT, "src", "config", "constants.js"), "utf8");
   check("NPC_APPEARANCE_CHANCE removed", !/^export const NPC_APPEARANCE_CHANCE/m.test(consts));
   check("NPC_COOLDOWN_ROUNDS removed", !/^export const NPC_COOLDOWN_ROUNDS/m.test(consts));
 
   // Debug logging must not ship to players.
-  for (const f of ["llmTool.js", "llmErrors.js", "aliyunRoute.js"]) {
+  for (const f of ["llmTool.js", "llmErrors.js", "aliyunRoute.js", "usageMeter.js"]) {
     const src = readFileSync(join(ROOT, "src", "tools", f), "utf8");
     const activeLogs = src.split("\n").filter(l => /^\s*console\.log\(/.test(l));
     check(`no active console.log in ${f}`, activeLogs.length === 0, activeLogs.join(" | "));
@@ -866,6 +944,60 @@ async function layerG(mod, MODEL_CONFIGS) {
     globalThis.fetch = realFetch;
     localStorage.clear(); resetSessionSkips();
   }
+
+  // --- Storage quota ---------------------------------------------------
+  // saveToStorage used to swallow QuotaExceededError, so a refused save was
+  // indistinguishable from a written one. localStorage is ~5MB and a slot
+  // carries the whole messages array, so ten slots of a long run reach it.
+  const esb = await import("esbuild");
+  const utilsOut = join(OUT, "utils.mjs");
+  await esb.build({
+    entryPoints: [join(ROOT, "src", "utils.js")],
+    bundle: true, format: "esm", platform: "neutral", outfile: utilsOut, logLevel: "silent",
+  });
+  const { saveToStorage } = await import("file://" + utilsOut.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  localStorage.clear();
+  check("saveToStorage returns true when the write lands", saveToStorage("probe", { a: 1 }) === true);
+  eq("...and the value is really there", localStorage.getItem("probe"), '{"a":1}');
+
+  const realSet = localStorage.setItem.bind(localStorage);
+  const realErr = console.error;
+  localStorage.setItem = () => { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; };
+  console.error = () => {};
+  try {
+    check("saveToStorage returns false when the browser refuses the write",
+      saveToStorage("probe2", { a: 1 }) === false);
+    check("...and still does not throw at the call site",
+      (() => { try { saveToStorage("probe3", {}); return true; } catch { return false; } })());
+  } finally {
+    localStorage.setItem = realSet;
+    console.error = realErr;
+    localStorage.clear();
+  }
+
+  // The return value is worthless if the one caller holding player data ignores
+  // it. SaveOverlay rendered the new slot before writing, so a refused save
+  // appeared in the list and the player believed it existed.
+  const overlay = readFileSync(join(ROOT, "src", "platforms", "SaveOverlay.jsx"), "utf8");
+  const saveBody = overlay.slice(overlay.indexOf("const handleSave"), overlay.indexOf("const handleDelete"));
+  // Scoped to handleSave on purpose: handleDelete checks the result too, so an
+  // unscoped search would pass while the save path ignored it entirely.
+  check("handleSave checks the saveToStorage result",
+    /if \(!saveToStorage\(/.test(saveBody),
+    "a save slot must not be rendered before the write is known to have landed");
+  check("SaveOverlay writes before it renders the new slot",
+    saveBody.indexOf("saveToStorage(") < saveBody.indexOf("setSaves(updated)"),
+    "setSaves ran first, which is what made a failed save invisible");
+  check("SaveOverlay surfaces a quota notice", /t\.save\.quota/.test(overlay));
+
+  // Both notices, in all three languages, or a player hits a blank panel.
+  for (const lang of ["zh", "en", "ko"]) {
+    const i18n = (await import("file://" + join(ROOT, `src/i18n/${lang}.js`).replace(/\\/g, "/"))).default;
+    for (const k of ["quotaFull", "quotaRetry"]) {
+      check(`${lang}: t.save.${k} exists`, typeof i18n?.save?.[k] === "string" && i18n.save[k].length > 10);
+    }
+  }
 }
 
 // ============================================================ LAYER H
@@ -938,6 +1070,10 @@ async function layerH(mod, ALIYUN_FREE_ROUTE, getAliyunModelFamily) {
   // One real round through the router, with the game's actual prompt shape.
   console.log("\n  one routed round (full game prompt)");
   localStorage.clear();
+  // Reset here rather than at the top: the per-model sweep above deliberately
+  // walks into exhausted and unavailable models, and counting that against the
+  // session would make the routed round's numbers meaningless.
+  mod.resetUsage?.();
   const system = [
     "You are a narrative engine for a dating simulator. Output ONLY valid JSON, no markdown fences.",
     "Schema: {\"scene\":string,\"statChanges\":{\"selfId\":number,\"secrecy\":number,\"mood\":number},",
@@ -966,6 +1102,27 @@ async function layerH(mod, ALIYUN_FREE_ROUTE, getAliyunModelFamily) {
       check("options is a 4-item array", Array.isArray(parsed.options) && parsed.options.length === 4, `got ${parsed.options?.length}`);
       check("no chain-of-thought leaked into story", !/<think>|<\/think>|reasoning_content/i.test(parsed.story || ""));
     }
+
+    // Layer K proves the meter's arithmetic against synthetic usage blocks.
+    // Only a real response proves the field path: that Aliyun returns `usage`
+    // at all, and that cached tokens sit where the meter looks for them
+    // (prompt_tokens_details.cached_tokens). A wrong path is invisible offline
+    // because the meter would just record zeroes and every test would pass.
+    const u = mod.getUsageSummary?.();
+    if (u) {
+      check("usage meter recorded the routed round", u.calls >= 1, `calls=${u.calls}`);
+      check("usage meter read real prompt tokens off the response", u.promptTokens > 0,
+        "no usage.prompt_tokens in the response, or the field path is wrong");
+      check("usage meter read real completion tokens", u.completionTokens > 0, `got ${u.completionTokens}`);
+      check("usage meter measured a latency", u.p50LatencyMs > 0);
+      // Deliberately not asserted: whether this model reports cached_tokens.
+      // Twelve route models do not, and which one served is the router's call.
+      // Printed so a human can see which case they are looking at.
+      console.log(`    metered: ${u.promptTokens} in · ${u.completionTokens} out · cache ` +
+        (u.cacheHitRate === null ? "not reported by the served model" : `${Math.round(u.cacheHitRate * 100)}%`) +
+        ` · cost ${u.costUsd === null ? "no calls" : (u.costUsd === 0 && !u.costComplete) ? "no published price" : "≈ $" + u.costUsd.toFixed(5)}`);
+    }
+
     const status = getFreeRouteStatus(API_KEY);
     console.log(`    served in ${secs}s · route now ${status.available}/${status.total} available · next: ${status.current}`);
   }
@@ -1101,6 +1258,40 @@ function layerC() {
   check("root and public manifest.json agree",
     JSON.stringify(rootManifest) === JSON.stringify(pubManifest),
     "edit both, or the Pages site and the built hosts diverge");
+
+  // --- The root groups/ mirror has no other guard ---
+  //
+  // groupLoader fetches `${base}groups/index.json` at runtime and GitHub Pages
+  // serves the repo root, so root groups/ is load-bearing, not a duplicate of
+  // public/. Nothing keeps the two in sync: deploy.sh copies only assets/*.js
+  // and *.css, so editing a group JSON under public/ leaves Pages serving the
+  // old cast data indefinitely - no error, no warning, just stale members for
+  // everyone on that host. Content is compared with trailing whitespace
+  // stripped, because the two trees differ by a trailing newline by history.
+  const walkTree = (dir, prefix = "") => {
+    const out = [];
+    for (const name of readdirSync(join(ROOT, dir, prefix), { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${name.name}` : name.name;
+      if (name.isDirectory()) out.push(...walkTree(dir, rel));
+      else out.push(rel);
+    }
+    return out.sort();
+  };
+  const rootTree = walkTree("groups");
+  const pubTree = walkTree("public/groups");
+  const missing = pubTree.filter((f) => !rootTree.includes(f));
+  const extra = rootTree.filter((f) => !pubTree.includes(f));
+  check("root groups/ mirrors public/groups/ file-for-file",
+    missing.length === 0 && extra.length === 0,
+    `missing from root: ${missing.join(", ") || "none"}; only in root: ${extra.join(", ") || "none"}`);
+
+  const drifted = pubTree
+    .filter((f) => rootTree.includes(f))
+    .filter((f) => readFileSync(join(ROOT, "groups", f), "utf8").trimEnd()
+      !== readFileSync(join(ROOT, "public/groups", f), "utf8").trimEnd());
+  check("root groups/ content matches public/groups/",
+    drifted.length === 0,
+    `drifted: ${drifted.join(", ")} - copy public/groups/ over root groups/`);
 
   // Referencing the manifest as "/manifest.json" makes Vite treat it as a
   // public-dir asset and rewrite it to "./manifest.json" for the relative base.
@@ -1282,9 +1473,42 @@ async function layerI() {
     /Summer -> "Irene欧尼"/.test(zhP), addressOfIn(zhP, "Irene"));
   check("[zh] 姐 is banned by name so the model cannot default to it",
     zhP.includes('NEVER "姐"'), "the ban has to be explicit — the model reaches for 姐 otherwise");
-  check("[zh] the junior form is 呀, matching the Korean 야",
-    /Summer -> "Yeri呀"|"Yeri呀"/.test(zhP) || zhP.includes("呀"), "");
-  // zh mixes scripts deliberately: 欧尼/呀 in Chinese characters, nim/xi in
+  // --- 야 is the one form transliteration cannot carry into Chinese.
+  // 欧尼 and nim arrive carrying only their Korean sense because neither is a
+  // Chinese word. 呀 IS one — sentence-final, where Korean 야 is a vocative
+  // suffix on a name — so "小饼呀，你来了" parses as Chinese and reads wrong to a
+  // native speaker. Reported from hand play in v1.3.9. It survives only in the
+  // use both languages share: a standalone exclamation.
+  // Scoped to the Address lines: the prompt deliberately QUOTES the wrong
+  // pattern as a counter-example, so a whole-prompt search would match the very
+  // text doing the forbidding.
+  const addressLinesOf = (src) => src.split("\n").filter(l => l.trim().startsWith("Address:")).join("\n");
+  check("[zh] no member is offered a name+呀 vocative",
+    !/呀/.test(addressLinesOf(zhP)), addressLinesOf(zhP));
+  check("[zh] 呀 is still taught as a standalone exclamation",
+    /"呀" ONLY as a standalone exclamation/.test(zhP),
+    "dropping it entirely loses a register the two languages genuinely share");
+  check("[zh] the wrong pattern is banned by example, not just omitted",
+    /NEVER as a suffix on a name/.test(zhP));
+  // en and ko are unaffected: English has no competing 呀, Korean is native.
+  check("[en] the -ya vocative survives, since English has no competing form",
+    /"Summer-ya" once close/.test(enP), addressOfIn(enP, "Irene"));
+  check("[ko] the 야 vocative survives in its native language",
+    /"Summer 야" once close/.test(koP), addressOfIn(koP, "Irene"));
+
+  // --- address forms are spoken, never narrated.
+  // "Irene欧尼正站在窗边" — the SPEAKER CONTRACT scoped pronouns to narration
+  // from v1.3.6 but said nothing about address forms, and the token examples
+  // carried no scope marker. Reported from hand play in v1.3.9.
+  for (const [tag, src] of [["zh", zhP], ["en", enP], ["ko", koP]]) {
+    check(`[${tag}] address forms are scoped to dialogue`,
+      /Address forms are SPOKEN, not narrated/.test(src));
+    check(`[${tag}] the narration rule shows the wrong form, not just the right one`,
+      /In narration a member is her stage name alone[\s\S]{0,200}NEVER/.test(src),
+      "a rule with no counter-example is the one the model ignores");
+  }
+
+  // zh mixes scripts deliberately: 欧尼 in Chinese characters, nim/xi in
   // Latin, because that is what a Chinese K-pop reader recognizes at sight.
   check("[zh] 님 and 씨 are written in Latin as nim and xi",
     /님 -> "nim"/.test(zhP) && /씨 -> "xi"/.test(zhP));
@@ -1475,6 +1699,367 @@ async function layerI() {
     threwEmpty === null, threwEmpty || "");
 }
 
+// ==================================== LAYER J (offline, pure logic)
+// The system prompt is ~5,500 tokens assembled from a dozen template literals,
+// and Layer I asserts on perhaps forty substrings of it. Everything else - the
+// JSON schema block, the phase rules, section ordering, blank lines - is
+// unguarded, so a refactor could rewrite it and the suite would stay green. The
+// symptom of that is not an error; it is slightly different writing some weeks
+// later, with nothing to bisect.
+//
+// Two mechanisms here, and they catch different things:
+//   1. Golden files - the whole prompt, byte-pinned. Catches what nobody
+//      predicted. Cannot explain itself; it just shows a diff.
+//   2. A determinism sweep over every identity x language. Catches output that
+//      is not a pure function of the save, which no snapshot can detect because
+//      a snapshot of unstable output is simply wrong.
+async function layerJ() {
+  section("LAYER J — golden system prompts + prompt determinism (offline)");
+  const { FIXTURES, IDENTITIES, LANGUAGES, renderFixtures, goldenPath, loadPromptModules,
+          withDiskFetch } = await import("./fixtures/prompts.mjs");
+
+  // ------------------------------------------------------------ golden files
+  const rendered = await renderFixtures(OUT);
+  for (const { id, text } of rendered) {
+    const path = goldenPath(id);
+    if (!existsSync(path)) {
+      check(`golden prompt exists: ${id}`, false,
+        "no committed golden — run: node scripts/update-golden.mjs");
+      continue;
+    }
+    const golden = readFileSync(path, "utf8");
+    if (golden === text) { check(`golden prompt matches: ${id}`, true); continue; }
+
+    // A CRLF golden differs from LF output on every single line while looking
+    // character-identical in the report below. It happens when .gitattributes
+    // is missing and git checks out with core.autocrlf=true (the default on
+    // Windows), so it fails on a fresh clone there and passes on Linux CI.
+    // Diagnose it by name rather than making someone stare at an invisible \r.
+    if (golden.includes("\r\n") && golden.replace(/\r\n/g, "\n") === text) {
+      check(`golden prompt matches: ${id}`, false,
+        "golden has CRLF line endings, output has LF — git rewrote it on checkout. " +
+        "Check that .gitattributes pins `test/fixtures/*.txt text eol=lf`, then re-checkout " +
+        "the file. This is not a prompt change.");
+      continue;
+    }
+
+    // A byte count says nothing useful; the first differing line is where to look.
+    const a = golden.split("\n"), b = text.split("\n");
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    check(`golden prompt matches: ${id}`, false,
+      `first difference at line ${i + 1} (${a.length} -> ${b.length} lines)\n` +
+      `      golden: ${JSON.stringify((a[i] || "").slice(0, 90))}\n` +
+      `      actual: ${JSON.stringify((b[i] || "").slice(0, 90))}\n` +
+      `      If this change was intentional: node scripts/update-golden.mjs, then READ the diff.`);
+  }
+  check("every fixture has a committed golden",
+    FIXTURES.every((f) => existsSync(goldenPath(f.id))),
+    FIXTURES.filter((f) => !existsSync(goldenPath(f.id))).map((f) => f.id).join(", "));
+  // A golden truncated to nothing would match a broken builder that returns "".
+  check("golden prompts are full prompts, not stubs",
+    rendered.every(({ id }) => readFileSync(goldenPath(id), "utf8").length > 5000),
+    rendered.map(({ id }) => `${id}:${readFileSync(goldenPath(id), "utf8").length}`).join(" "));
+
+  // --------------------------------------------------------- determinism
+  // executeRound rebuilds the system prompt every round and the provider caches
+  // it by prefix, so one character of drift costs all ~5,500 tokens. It must
+  // also be stable across sessions, or a loaded save silently rewrites its own
+  // backstory.
+  //
+  // This sweep is what fails against the pre-v1.3.9 code: 主线成员前女友 built
+  // its background from two Math.random() calls, so it re-rolled every round —
+  // full-price input forever, and a different shared past each round on the one
+  // route that is entirely about a shared past.
+  const mod = await loadPromptModules(OUT);
+  const cfg = await withDiskFetch(() => mod.loadGroupConfig("red_velvet", "en"));
+  const dForm = (over = {}) => ({
+    name: "Summer", age: "28", identity: "韩娱艺人", pace: "浪漫情感向",
+    mainMember: "irene", subMembers: ["seulgi"], customIdentity: "childhood neighbour", ...over,
+  });
+  const dBuild = (form, lang) =>
+    mod.buildSystemPrompt(form, cfg.members, "irene", ["seulgi"], cfg, "", "qwen", lang);
+
+  const drifted = [];
+  for (const identity of IDENTITIES) {
+    for (const lang of LANGUAGES) {
+      const form = dForm({ identity });
+      if (dBuild(form, lang) !== dBuild(form, lang)) drifted.push(`${identity}/${lang}`);
+    }
+  }
+  check(`the same save renders a byte-identical prompt twice (${IDENTITIES.length}x${LANGUAGES.length} identities x languages)`,
+    drifted.length === 0,
+    `unstable: ${drifted.join(", ")} — something in buildSystemPrompt reads Math.random(), ` +
+    `the clock, or an unordered collection`);
+
+  // The ex-girlfriend route specifically, stated separately so a failure names
+  // the bug rather than a grid coordinate.
+  const ex = dForm({ identity: "主线成员前女友" });
+  check("ex-girlfriend backstory is stable across rounds",
+    dBuild(ex, "zh") === dBuild(ex, "zh") && dBuild(ex, "en") === dBuild(ex, "en"),
+    "the breakup reason and keepsake are re-rolling — see backstorySeed in mainAgent.js");
+
+  // Stability must not have been bought by pinning everyone to index 0: the
+  // seed is supposed to give different playthroughs different backstories.
+  const exLine = (form) => (dBuild(form, "en").split("\n")
+    .find((l) => l.includes("breaking up years ago due to")) || "");
+  const variants = new Set(["Summer", "Alex", "Hana", "Mika", "Rin", "Yuna", "Lea", "Noa"]
+    .map((name) => exLine(dForm({ identity: "主线成员前女友", name }))));
+  check("different playthroughs still get different backstories",
+    variants.size > 1,
+    `8 player names produced ${variants.size} distinct breakup reason(s) — a constant seed ` +
+    `would make every save identical`);
+  check("the backstory line is found at all (guards the check above)",
+    exLine(ex).length > 0, "no 'breaking up years ago due to' line — the probe is looking at nothing");
+
+  // Seeded from setup-time fields only, so the same save keeps its backstory
+  // for life. If a field that changes mid-game ever entered the seed, this is
+  // what would catch it.
+  const sameSave = dForm({ identity: "主线成员前女友", name: "Summer", age: "28" });
+  check("the seed depends only on fields fixed at character setup",
+    exLine(sameSave) === exLine(dForm({ identity: "主线成员前女友", name: "Summer", age: "28" })) &&
+    exLine(sameSave) !== exLine(dForm({ identity: "主线成员前女友", name: "Summer", age: "31" })),
+    "age is part of the seed by design; a save cannot change it, but this proves the seed is read");
+}
+
+// ============================================================ LAYER K
+// The usage meter and the cost estimate. Both exist to put a real number in
+// front of a player running their own key, so the failure that matters is not a
+// crash - it is a number that looks authoritative and is wrong.
+async function layerK() {
+  section("LAYER K — usage meter + cost estimate (offline)");
+  const esb = await import("esbuild");
+  const outfile = join(OUT, "usageMeter.mjs");
+  await esb.build({
+    stdin: {
+      contents: [
+        'export * from "./src/tools/usageMeter.js";',
+        'export { estimateCallCostUsd, MODEL_PRICES_PER_1M, CNY_PER_USD } from "./src/config/modelConfigs.js";',
+      ].join("\n"),
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
+  });
+  const m = await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
+  const { recordUsage, getUsageSummary, resetUsage, estimateCallCostUsd, MODEL_PRICES_PER_1M, CNY_PER_USD } = m;
+
+  const withCache = (p, c, o) => ({
+    prompt_tokens: p, completion_tokens: o, prompt_tokens_details: { cached_tokens: c },
+  });
+  const noCache = (p, o) => ({ prompt_tokens: p, completion_tokens: o });
+
+  resetUsage();
+  let u = getUsageSummary();
+  check("a fresh session reports no calls", u.calls === 0);
+  check("cache rate is null before anything is measured, not 0",
+    u.cacheHitRate === null, "0% and 'not measured' look identical on screen and mean opposite things");
+
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(8000, 7600, 800), latencyMs: 9000 });
+  recordUsage({ model: "gpt-6-luna", usage: withCache(8000, 7600, 800), latencyMs: 11000 });
+  u = getUsageSummary();
+  eq("prompt tokens accumulate", u.promptTokens, 16000);
+  eq("completion tokens accumulate", u.completionTokens, 1600);
+  eq("total is input plus output", u.totalTokens, 17600);
+  check("cache hit rate is cached over measured prompt tokens",
+    Math.abs(u.cacheHitRate - 0.95) < 1e-9, `got ${u.cacheHitRate}`);
+  eq("p50 latency over an even sample is the midpoint", u.p50LatencyMs, 10000);
+
+  // The heart of it: twelve Aliyun route models send no cached_tokens field.
+  // Folding their prompt tokens into the denominator would drag a working
+  // cache toward 0% and make the panel lie about the architecture's main claim.
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(1000, 900, 100), latencyMs: 5000 });
+  recordUsage({ model: "qwen3.6-flash", usage: noCache(1000, 100), latencyMs: 5000 });
+  u = getUsageSummary();
+  check("a model reporting no cache data is excluded from the hit rate",
+    Math.abs(u.cacheHitRate - 0.9) < 1e-9, `got ${u.cacheHitRate} — 0.45 means unreported was counted as a miss`);
+  eq("...and is counted so the panel can say so", u.unmeasuredCalls, 1);
+  eq("...while its tokens still count toward the total", u.promptTokens, 2000);
+
+  // A reported zero is a measurement; an absent field is not. Averaging them
+  // together would be inventing data.
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(1000, 0, 100), latencyMs: 1 });
+  check("a reported cached_tokens of 0 is a real 0%, not 'not reported'",
+    getUsageSummary().cacheHitRate === 0);
+
+  // Every call billed, including the ones the route walked past. That is the
+  // reason the meter is a sink rather than a per-round return value.
+  resetUsage();
+  for (let i = 0; i < 4; i++) recordUsage({ model: "gpt-6-luna", usage: withCache(100, 0, 10), latencyMs: 1 });
+  eq("retries and discarded attempts are all counted", getUsageSummary().calls, 4);
+
+  // --- Cost -------------------------------------------------------------
+  // gpt-6-luna is flat-priced: $0.01 / $0.10 / $0.50 per 1M.
+  const c = estimateCallCostUsd("gpt-6-luna", { cachedTokens: 1e6, promptTokens: 1e6, completionTokens: 0 });
+  check("a fully cached 1M-token prompt costs the cache-hit rate", Math.abs(c - 0.01) < 1e-12, `got ${c}`);
+  const c2 = estimateCallCostUsd("gpt-6-luna", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 1e6 });
+  check("an uncached 1M in + 1M out costs input plus output",
+    Math.abs(c2 - 0.60) < 1e-12, `got ${c2}`);
+  check("prompt_tokens includes the cached ones and is not double-charged",
+    estimateCallCostUsd("gpt-6-luna", { cachedTokens: 1e6, promptTokens: 1e6, completionTokens: 0 }) <
+    estimateCallCostUsd("gpt-6-luna", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 }));
+
+  check("a model with no published price returns null, not 0",
+    estimateCallCostUsd("qwen3.8-max", { promptTokens: 1e6 }) === null,
+    "0 would render as free; null is what makes the panel say it does not know");
+  check("an unknown model id returns null",
+    estimateCallCostUsd("something-invented", { promptTokens: 1e6 }) === null);
+
+  // Peak windows are applied at the moment of the call. DeepSeek Official
+  // doubles 01:00-04:00 and 06:00-10:00 UTC on weekdays only.
+  const args = { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 };
+  const offPeak = estimateCallCostUsd("deepseek-flash", args, new Date(Date.UTC(2026, 8, 23, 20)));  // Wed 20:00
+  const onPeak = estimateCallCostUsd("deepseek-flash", args, new Date(Date.UTC(2026, 8, 23, 7)));    // Wed 07:00
+  const weekend = estimateCallCostUsd("deepseek-flash", args, new Date(Date.UTC(2026, 8, 26, 7)));   // Sat 07:00
+  check("DeepSeek Official peak hours double the rate", Math.abs(onPeak - 2 * offPeak) < 1e-12);
+  check("...and the weekend is never peak", Math.abs(weekend - offPeak) < 1e-12,
+    "the published window is Mon-Fri");
+  // Aliyun DeepSeek doubles 08:00-22:00 Beijing = 00:00-14:00 UTC, every day.
+  const aOff = estimateCallCostUsd("deepseek-v4.1-flash", args, new Date(Date.UTC(2026, 8, 26, 18)));
+  const aOn = estimateCallCostUsd("deepseek-v4.1-flash", args, new Date(Date.UTC(2026, 8, 26, 9)));
+  check("Aliyun DeepSeek peak applies at the weekend too", Math.abs(aOn - 2 * aOff) < 1e-12);
+
+  // A partial total that looks complete is worse than no total.
+  resetUsage();
+  recordUsage({ model: "gpt-6-luna", usage: withCache(1000, 0, 100), latencyMs: 1 });
+  check("cost is marked complete while every model is priced", getUsageSummary().costComplete === true);
+  recordUsage({ model: "qwen3.8-max", usage: withCache(1000, 0, 100), latencyMs: 1 });
+  check("one unpriced model marks the whole session's cost incomplete",
+    getUsageSummary().costComplete === false);
+  check("...and the priced part is still counted", getUsageSummary().costUsd > 0);
+  resetUsage();
+
+  // --- Priced in the billed currency -----------------------------------
+  // The one measurement this whole table is anchored to. A real DeepSeek
+  // Official session (40 rounds, off-peak, 2026-09-24) billed CNY 0.20 for
+  // exactly these tokens. Pricing it from the README's USD sheet instead read
+  // 6.7% high, because DeepSeek's own USD sheet converts at CNY 6.67 = $1 and
+  // this repo converts at 7.1 everywhere else. Without this check the bias is
+  // invisible: every other assertion passes on internally consistent arithmetic.
+  const BILL = { cachedTokens: 240000, promptTokens: 276862, completionTokens: 39696 };
+  const offPeakUtc = new Date(Date.UTC(2026, 8, 24, 0));   // 01:00-03:00 Stockholm
+  const measured = estimateCallCostUsd("deepseek-flash", BILL, offPeakUtc);
+  const billedUsd = 0.20 / CNY_PER_USD;
+  check("the measured DeepSeek bill reprices to within 2% of CNY 0.20",
+    Math.abs(measured - billedUsd) / billedUsd < 0.02,
+    `estimate $${measured.toFixed(4)} vs billed $${billedUsd.toFixed(4)} ` +
+    `(${((measured / billedUsd - 1) * 100).toFixed(1)}% off) — the USD-sheet bug was +6.7%`);
+  check("that session was genuinely off-peak (guards the check above)",
+    measured < estimateCallCostUsd("deepseek-flash", BILL, new Date(Date.UTC(2026, 8, 24, 7))),
+    "if the window moved, the assertion above is comparing the wrong rate");
+
+  // CNY entries must actually be divided by the FX rate, not treated as USD.
+  const cnyModel = estimateCallCostUsd("qwen3.8-flash", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 });
+  check("a CNY-priced model is converted, not read as USD",
+    Math.abs(cnyModel - 0.8 / CNY_PER_USD) < 1e-12, `got ${cnyModel}, expected ${0.8 / CNY_PER_USD}`);
+  check("...and a USD-priced model is not divided again",
+    Math.abs(estimateCallCostUsd("gpt-6-luna", { cachedTokens: 0, promptTokens: 1e6, completionTokens: 0 }) - 0.10) < 1e-12);
+
+  // Every price must be a real triple, or the arithmetic silently yields NaN.
+  for (const [model, entry] of Object.entries(MODEL_PRICES_PER_1M)) {
+    check(`${model}: declares the currency it is billed in`,
+      entry.cur === "USD" || entry.cur === "CNY", `got ${JSON.stringify(entry.cur)}`);
+    check(`${model}: price is [hit, miss, out], all finite and non-negative`,
+      Array.isArray(entry.price) && entry.price.length === 3 &&
+      entry.price.every(v => Number.isFinite(v) && v >= 0));
+    check(`${model}: a cache hit is cheaper than a miss`,
+      entry.price[0] < entry.price[1], "otherwise the cache is costing the player money");
+  }
+
+  // The panel is the only consumer, and it must not render a missing number as 0.
+  const panel = readFileSync(join(ROOT, "src", "platforms", "UsagePanel.jsx"), "utf8");
+  check("UsagePanel distinguishes an unreported cache rate from 0%",
+    /cacheHitRate === null/.test(panel));
+  for (const lang of ["zh", "en", "ko"]) {
+    check(`UsagePanel has ${lang} strings`, new RegExp(`\\n  ${lang}: \\{`).test(panel));
+  }
+  // The meter is read at render time, so a stale import would show zeroes forever.
+  const app = readFileSync(join(ROOT, "src", "App.jsx"), "utf8");
+  check("the settings overlay mounts UsagePanel", /<UsagePanel\b/.test(app));
+}
+
+// ============================================================ LAYER L
+// The live harness's prose graders, unit-tested offline.
+//
+// These had never been tested at all — only run live, where a grader that can
+// never fire is indistinguishable from a clean run. Every case below is either
+// prose a player actually reported or the correct form it must NOT flag, since
+// 3 of the 4 live flags this project has ever seen were grader bugs.
+async function layerL() {
+  section("LAYER L — live-harness prose graders (offline)");
+  const g = await import("./graders.mjs");
+
+  const cast = {
+    members: [
+      { id: "irene", name: "Irene", name_kr: "裴珠泃" },
+      { id: "seulgi", name: "Seulgi", name_kr: "姜涩琪" },
+      { id: "yeri", name: "Yeri", name_kr: "金倭宏" },
+    ],
+    playerName: "林夏",
+  };
+  const none = (arr) => arr.length === 0;
+
+  // --- narrated-honorific. Reported from hand play, v1.3.9.
+  check("flags an honorific in narration",
+    g.narratedHonorifics("你走进练习室，Irene欧尼正站在窗边。", cast, "zh")
+      .includes("narrated-honorific:欧尼"),
+    "this is the exact line that was reported");
+  check("does NOT flag the same honorific inside dialogue",
+    none(g.narratedHonorifics("“Irene欧尼，今天练到这么晚吗？”", cast, "zh")),
+    "dialogue is where address forms belong — flagging it would invert the rule");
+  check("does NOT flag a plain name in narration",
+    none(g.narratedHonorifics("你走进练习室，Irene正站在窗边。", cast, "zh")),
+    "this is the corrected form");
+  check("flags narrated honorifics in en too",
+    g.narratedHonorifics("Irene-unnie was standing by the window.", cast, "en").length > 0);
+  check("does NOT flag en dialogue",
+    none(g.narratedHonorifics('"Irene-unnie, still here?" you asked.', cast, "en")));
+  // Mixed narration + dialogue in one round is the normal case, and the one
+  // that produced a false positive on real-name-vocative in v1.3.7.
+  check("narration after a closing quote is still read as narration",
+    g.narratedHonorifics("“晚安。”你说。Irene欧尼点了点头。", cast, "zh").length > 0);
+  check("dialogue before narration does not leak into it",
+    none(g.narratedHonorifics("“Irene欧尼，晚安。”你说。她点了点头。", cast, "zh")));
+
+  // --- name-ya-vocative. zh only; en/ko keep the form.
+  check("flags a name+呀 vocative",
+    g.nameYaVocative("“Irene呀，你来了，吃饭了吗？”", cast, "zh").length > 0,
+    "the reported pattern: Korean ԏ is a vocative suffix, Chinese 呀 is sentence-final");
+  check("does NOT flag standalone 呀 as an exclamation",
+    none(g.nameYaVocative("“呀！Irene你真是胆子大了。”", cast, "zh")),
+    "this is the correct Korean-flavoured use and must survive");
+  check("does NOT flag 哎呀, an ordinary Chinese interjection",
+    none(g.nameYaVocative("“哎呀，新人妹妹也在努力呢。”", cast, "zh")),
+    "appeared in a real live round and is correct Chinese");
+  check("does not apply to en, which has no competing 呀",
+    none(g.nameYaVocative("Irene呀", cast, "en")));
+
+  // --- the two pre-existing graders, never unit-tested until now.
+  check("sinicized-honorific flags <name>姐 in zh",
+    g.sinicizedHonorifics("Irene姐轻轻笑了。", cast, "zh").length > 0);
+  check("...and does not flag the correct 欧尼",
+    none(g.sinicizedHonorifics("Irene欧尼轻轻笑了。", cast, "zh")));
+  check("...and does not flag an unrelated 姐姐 in narration",
+    none(g.sinicizedHonorifics("走廊尽头有个陌生姐姐。", cast, "zh")),
+    "anchored to a cast name, so ordinary prose is safe");
+  check("real-name-vocative flags a legal name used to address someone",
+    g.selfNameErrors("“裴珠泃，谢谢你的咖啡。”", cast).length > 0);
+  check("...and does not flag a self-introduction",
+    none(g.selfNameErrors("“我叫姜涩琪，请多指教。”", cast)),
+    "the v1.3.7 false positive");
+  check("...and does not flag a real name in narration",
+    none(g.selfNameErrors("裴珠泃转过头来。", cast)),
+    "narration may use real names freely");
+
+  // The harness must actually call them, or the layer tests dead code.
+  const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");
+  for (const fn of ["narratedHonorifics", "nameYaVocative", "sinicizedHonorifics", "selfNameErrors"]) {
+    check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
+  }
+}
+
 // ============================================================ main
 (async () => {
   console.log("\x1b[1mSmoke test — LLM client, error classifier, Aliyun router\x1b[0m");
@@ -1492,7 +2077,7 @@ async function layerI() {
   const { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_FREE_ROUTE } = cfg;
 
   await layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg);
-  await layerB(mod.callLLM, MODEL_CONFIGS);
+  await layerB(mod.callLLM, MODEL_CONFIGS, mod);
   layerC();
   await layerD();
   layerE(mod);
@@ -1501,6 +2086,9 @@ async function layerI() {
   await layerG(mod, MODEL_CONFIGS);
   await layerH(mod, ALIYUN_FREE_ROUTE, cfg.getAliyunModelFamily);
   await layerI();
+  await layerJ();
+  await layerK();
+  await layerL();
 
   console.log(`\n\x1b[1m${fail === 0 ? "\x1b[32mALL PASS" : "\x1b[31mFAILURES"}\x1b[0m  ${pass} passed, ${fail} failed`);
   if (fail) { console.log("failed:\n  - " + failures.join("\n  - ")); process.exit(1); }

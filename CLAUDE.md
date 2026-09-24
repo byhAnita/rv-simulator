@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.8** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.3.9** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -12,7 +12,18 @@ Active branches:
 
 See **Branch & Deploy Workflow** for the release, hotfix and merge-back rules.
 
-Measured production numbers (real player sessions, reasoning off): **~95.8% prompt-cache hit rate**, **~10s generation time per round**.
+Production numbers (reasoning off). **Four cache figures exist and they are not interchangeable** —
+quote the right one, with its source:
+
+| Figure | Source | Status |
+| --- | --- | --- |
+| ~92% | calculated from the token profile | **estimate**, the ceiling for clean sequential play |
+| 86.7% | DeepSeek Official billing, 40 clean rounds, 2026-09-24 | measured |
+| ~95.8% | DeepSeek Official billing, hours of real play with regenerates | measured |
+| ~83% | Aliyun, across free-route models | measured, different cache, not comparable |
+
+Median round: **6.3s on DeepSeek Official V4.1 Flash**, **~16-17s on Aliyun flash models** — it
+tracks the provider, not the game. See open question 2 and the README performance section.
 
 ---
 
@@ -26,6 +37,7 @@ node test/smoke.mjs --live            # + one real round on the provider in .env
 node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, then one routed round
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
+node scripts/update-golden.mjs        # regenerate test/fixtures/*.txt after an INTENTIONAL prompt change, then read the diff
 npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
@@ -34,6 +46,16 @@ DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 `npm run deploy` refuses to run unless it is on `main`, the staged paths are clean, `main` is level with `origin/main`, **and the smoke suite passes** — see Branch & Deploy Workflow.
 
 Validate every change with `npm run build` **and** `node test/smoke.mjs`. No lint config.
+
+**A change that introduces a *technique* also gets an entry in `docs/TECH_NOTES.md`, in the same
+commit.** A technique is anything where a reader could reasonably ask "why not just do the simple
+thing" — a caching strategy, a retrieval method, a statistical model, a routing or build
+mechanism. The entry says what it is in plain language, what it replaced and how that fell short,
+what it measurably bought, and what it costs. Features do not need one; if the honest answer to
+"why this way" is "it's the obvious way", there is nothing to write. This file exists because
+CLAUDE.md records how the system *behaves* and a diff records what changed, but neither recovers
+why an approach was chosen over the obvious alternative — which is the thing that is unexplainable
+six months later.
 
 **Both harnesses must define `import.meta.env.BASE_URL` when bundling `src/`.** Vite fills it at build time and Node has no `import.meta.env` at all, so any module reaching `groupLoader.js` throws `Cannot read properties of undefined` before the first API call. `playthrough.mjs` and smoke Layer I both pass `define: { "import.meta.env.BASE_URL": '"/"' }` to esbuild — `"/"` matching the dev-server base and the `/groups/` paths their fetch stubs serve from disk. v1.3.5 introduced the dependency and killed `playthrough.mjs` outright; it stayed dead until v1.3.7 because nothing offline exercised that bundling path. Layer I now does.
 
@@ -105,16 +127,17 @@ Player choice
 | `src/agent/probabilityEngine.js` | `calculateProbability`, `pickPrimaryMember` — picks which target member drives this round |
 | `src/tools/llmTool.js` | Unified OpenAI-compatible client + per-provider reasoning flags, 90s timeout, per-kind retry, Aliyun free-credit router |
 | `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
+| `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` |
 | `src/config/constants.js` | Numeric game constants (see below) |
-| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams` |
+| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_USD_PER_1M`, `estimateCallCostUsd` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
 | `src/i18n/` | `useTranslation(lang)` hook + `${var}` interpolation; zh/en/ko |
-| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, MemberSelector |
-| `src/utils.js` | `STORAGE_KEYS`, `loadFromStorage`, `saveToStorage` |
+| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, MemberSelector, UsagePanel |
+| `src/utils.js` | `STORAGE_KEYS`, `loadFromStorage`, `saveToStorage` (returns a boolean — see below) |
 
 ### State Management
 
@@ -145,6 +168,31 @@ Player choice
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
 
+### `saveToStorage` returns a boolean, and save slots must check it
+
+It used to be `try { … } catch {}`. A `QuotaExceededError` was therefore
+indistinguishable from success, and `SaveOverlay` proved how bad that is: it called
+`setSaves(updated)` *before* writing, so a refused save still appeared in the slot list. The
+player saw their save, closed the overlay, and discovered weeks later that it had never existed.
+Silence is the wrong default for the one operation whose entire purpose is durability.
+
+localStorage is ~5MB and a slot carries the full `messages` array, so ten slots of a long run
+genuinely reach it — this is not a theoretical limit. It gets tighter in v1.4.0, which adds
+custom members, worlds, rosters and photos (see `docs/V140_PLAN.md` §10).
+
+The split is deliberate and not laziness:
+
+- **Player data checks the result.** `SaveOverlay` writes first, renders second, and on failure
+  leaves the list showing exactly what is on disk plus a **persistent** in-panel notice — not a
+  toast, which would be gone in three seconds. `t.save.quotaFull` when there are slots to delete,
+  `t.save.quotaRetry` when there are none and the advice has to be different.
+- **Preferences ignore it.** Theme, font scale, language, time speed. A lost preference is
+  visible immediately and re-settable in one tap, so a modal about it would cost more than the
+  failure.
+
+`aliyunRoute.js` also ignores the result, for a third reason: its state is a cache of what the
+router learned, and the worst case of losing it is re-walking the route once.
+
 ---
 
 ## Key Constants (`src/config/constants.js`)
@@ -158,6 +206,7 @@ KKT_THRESHOLD       = 30   // affection score required to unlock KKT per member
 MAIN_INITIAL_AFFECTION       = 12
 SUB_INITIAL_AFFECTION_MIN    = 5
 SUB_INITIAL_AFFECTION_MAX    = 10
+AFFECTION_MAX_DELTA          = 8    // per member per round, both directions
 NPC_APPEARANCE_CHANCE        = 0.3  // DEAD - not imported anywhere
 NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 ```
@@ -293,9 +342,46 @@ The response reader uses `choice.message.content` **only** — never falls back 
 
 A round only needs ~800 output tokens; these are ceilings, not reservations. Aliyun honors **both** cap names — verified live 2026-08-26: a cap of 16 truncates with `finish_reason:'length'` under either — so the per-model split is about matching the documented field, not about one being rejected. `test/smoke.mjs --live` asserts the cap is genuinely honored, not merely accepted, since an ignored unknown field would still return HTTP 200.
 
+### Usage metering (`usageMeter.js` + `UsagePanel.jsx`)
+
+Every provider returns a `usage` block and until v1.3.9 **nothing in `src/` read it**. Players run
+their own key, so the cost of a round was invisible to the only person paying it — and this
+project's central engineering claim, the ~95.8% cache hit, was something the README asserted
+rather than something the app could show. The panel lives in the settings overlay.
+
+**It is a module-level sink, not a value returned from `callLLM`.** `callModelWithRetry` and
+`callAliyunFreeRoute` both return a plain string, and widening that to carry usage would touch
+every branch of the route walk for a number none of them use. The sink also records the right
+thing: `callLLMOnce` reports on **every** HTTP 200, so same-model retries and the attempts on
+models the router walked past are all counted. Those are billed. A per-round return value would
+report only the call that happened to succeed, and would understate a bad route walk by 4x.
+
+Session-scoped and never persisted — no new storage key, nothing to migrate, and nothing leaves
+the device. It does not reset on a new game: "what has this key cost me today" is the question a
+BYO-key player actually has.
+
+**A number that is not known is rendered as `—` or "not reported", never as `0`.** This is the
+whole design constraint, and two separate cases force it:
+
+- **Cache.** Twelve Aliyun route models send no `cached_tokens` field at all. Folding their prompt
+  tokens into the denominator would drag a perfectly healthy cache toward 0% and tell the player
+  the architecture is broken. Their calls are excluded from the rate and counted in
+  `unmeasuredCalls`, which the panel names. Note the distinction the meter keeps: a **reported**
+  `cached_tokens: 0` is a real 0% and is included; an **absent** field is not a measurement.
+- **Cost.** Several served models have no published per-1M price — see `MODEL_PRICES_USD_PER_1M`
+  under Cost strings. One of them in a session sets `costComplete: false` and the panel says the
+  real figure is higher, rather than showing a partial total that looks whole.
+
+Where a price does exist, the peak multiplier is applied **at the moment of the call**, not at
+render time, so a session spanning 22:00 Beijing is still costed correctly. Cached tokens are
+subtracted from `prompt_tokens` before the miss rate is applied, since every provider counts them
+inside it.
+
+Smoke **Layer K** covers the meter and the pricing arithmetic offline.
+
 ---
 
-## Add-on Features (v1.3.8)
+## Add-on Features (v1.3.9)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -466,11 +552,37 @@ The setting is South Korea and the audience is K-pop fans, so Korean address for
 
 | | 언니 | 님 | 씨 | 야/아 |
 | --- | --- | --- | --- | --- |
-| zh | `欧尼` — never `姐`/`姐姐` | **`nim`, in Latin** — never `尼姆` | **`xi`, in Latin** — never `西` | `呀`/`啊` |
+| zh | `欧尼` — never `姐`/`姐姐` | **`nim`, in Latin** — never `尼姆` | **`xi`, in Latin** — never `西` | **standalone `呀！` only** — never `小饼呀` |
 | en | `unnie` — never "big sister" | `-nim` | `-ssi` | `-ya`/`-ah` |
 | ko | `언니` | `님` | `씨` | `야`/`아` |
 
-**zh deliberately mixes scripts.** 언니 and 야 have settled Chinese transliterations that fans read fluently (`欧尼`, `呀`), but 님 and 씨 do not — a reader knows `会长nim，早上好` at sight and stumbles over `会长尼姆`. Romanization for those two, Chinese characters for the other two; the split is by what the audience actually reads, not by consistency.
+**zh deliberately mixes scripts.** 언니 has a settled Chinese transliteration that fans read fluently (`欧尼`), but 님 and 씨 do not — a reader knows `会长nim，早上好` at sight and stumbles over `会长尼姆`. Romanization for those two, Chinese characters for the other; the split is by what the audience actually reads, not by consistency.
+
+**야 is the exception that shows where transliteration stops working — fixed in v1.3.9.** The rule
+above says keep the Korean form and trust the reader. That holds for 欧尼 and `nim` because
+neither is a Chinese word: the syllable arrives carrying only its Korean meaning. It **fails** for
+야, because the obvious transliteration `呀` *is* an existing Chinese particle with a different
+job. Korean 야 is a vocative suffix attached to a name (`민지야`); Chinese 呀 is sentence-final.
+Transliterating the sound therefore imports the wrong grammar, and `小饼呀，你来了，吃饭了吗`
+parses as Chinese and reads as slightly off — the plain `小饼，你来了` is what a native speaker
+writes, because the sentence is ordinary small talk that wants no particle at all.
+
+So zh keeps 呀 **only in the use where the two languages agree**: standing alone at the head of a
+line as an exclamation — `呀！你胆子真大了` — for surprise, embarrassment or mock indignation.
+Warmth in Chinese is carried by the bare given name or a nickname, not by a suffix. `en` is
+unaffected (`Yerim-ah` collides with nothing in English) and `ko` is native.
+
+Generalise it when adding a form: **transliterate only where the target language has no competing
+function for that syllable.** Where it does, keep the Korean form for the sense the two share and
+express the rest the way the target language actually does it. Reported from hand play in
+v1.3.9 by a native speaker, which is the only way this class of bug is ever found — it breaks no
+test and throws no error.
+
+**Address forms are spoken, not narrated.** `欧尼` / `nim` / `xi` and every per-member Address
+line belong **inside quotation marks**. In narration a member is her stage name alone:
+`Irene正站在窗边`, never `Irene欧尼正站在窗边`. The SPEAKER CONTRACT scoped *pronouns* to narration
+from v1.3.6 but said nothing about address forms, and the token examples carried no scope marker,
+so the model reasonably applied them everywhere. Also reported from hand play in v1.3.9.
 
 zh also romanizes 씨 as **`xi`**, not `ssi`, because that is the pinyin a Chinese reader maps back to 시.
 
@@ -478,9 +590,64 @@ zh also romanizes 씨 as **`xi`**, not `ssi`, because that is the pinyin a Chine
 
 Comparison is by **birth year, not age gap in years** — Korean seniority is a birth-year boundary, so a 1994 and a 1995 member are not peers even though they are months apart. The old `±2 years` tolerance erased that distinction.
 
+**Known defect: the player's birth year is derived from her age and is wrong for half of all
+players.** `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes her birthday has
+already passed this year. For anyone whose has not, the real birth year is one earlier. Reported
+from hand play in v1.3.9: a player born 1999-11-19 entering age 26 derives **2000**, so Yeri
+(born 1999) becomes her senior when the two are actually peers — the player is told to call a
+same-year member `欧尼`.
+
+This is not fixable from age. Age alone cannot determine birth year, ever, and the error is
+~50/50 by construction. Since seniority is a hard year boundary with no tolerance, a one-year
+error flips the relationship whenever it lands on a member's birth year — which for a cast
+spanning three or four years is a large fraction of the cast.
+
+The fix is to collect **birth year** at setup instead of age: age is derivable from birth year
+exactly, and the reverse is not. That needs a `form` field and legacy handling for saves that
+carry only `age`, so it belongs with the save migration in `docs/V140_PLAN.md` step 4. Until then
+the derived value stands and this paragraph is the record that it is approximate.
+
 **`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
 
 The lesson generalises past this field: **a test that reads `public/groups/*.json` directly tests the formatter, not the feature.** The v1.3.6 checks did exactly that and passed while the app was broken. Anything asserting on member data must load it through `loadGroupConfig`, which is what smoke Layer I now does. When you add a member field to a group JSON, add it to the whitelist in the same commit or it will not exist at runtime.
+
+### `buildSystemPrompt` must be a pure function of the save
+
+**The same save must produce a byte-identical system prompt on every round, forever.** This is not a style preference — it is the load-bearing assumption behind the entire 3-tier design. `executeRound` rebuilds the system prompt from scratch every round (`mainAgent.js:579`) and relies on the ~5,500 tokens coming out identical so the provider serves them from cache. One character of drift costs the whole prefix.
+
+It also has to hold *across sessions*: a player who saves at round 12 and loads a week later must get the same prompt, or their backstory changes under them.
+
+**This was broken for one identity from the start.** `主线成员前女友` (the main member's ex-girlfriend) composes its background from two `Math.random()` picks — the breakup reason and the keepsake:
+
+```js
+- 你和${name}曾是学生时代的恋人，几年前因${reasons[Math.floor(Math.random()*4)]}分手
+```
+
+Because the whole prompt is rebuilt per round, those re-rolled **every round**, with two consequences. The cheap one is billing: the static prompt could never cache for these players, so they paid full input price on ~5,500 tokens every round while the architecture claimed ~95.8%. The expensive one is the writing — the model was handed a *different* breakup reason and a different keepsake each round, on a route whose entire premise is a shared past. A player would see the game contradict its own backstory with no way to describe the bug beyond "she keeps forgetting".
+
+**Measured live, A/B, same model and settings in both arms** (Aliyun, `qwen3.8-flash` pinned, 8 rounds each, identity `主线成员前女友`, zh): the unfixed code drifted the static prompt in **7 of 8 rounds** and measured a **60.5%** cache hit; the fixed code drifted **0 of 8** and measured **87.2%** — **+26.7 points**. 87.2% matches the ~83% this project sees on Aliyun generally, which is the point: the fix restores normal behaviour rather than inventing any. Aliyun figures only; not comparable with the ~95.8% DeepSeek Official number (open question 2).
+
+The fix keeps the variety and removes the drift: both indices are now derived from **`backstorySeed(form, mainId)`**, an FNV-1a hash over fields fixed at character setup (`name`, `age`, `pace`, `mainId`). Different playthroughs still get different backstories; one playthrough gets one backstory. It needs no new save field and no migration, so an old save simply stops drifting on its next load — which also means the reason and keepsake it settles on may differ from the one it last happened to roll. That is the intended trade: a stable past the player can rely on beats matching a value that was never stable to begin with.
+
+**Anything else that reaches the static prompt must clear the same bar.** No `Math.random()`, no `Date.now()`, no locale-dependent formatting, no iteration over an unordered `Set` or object whose key order is not fixed by construction. Derive from the save, or compute once at setup and persist it. Smoke **Layer J** enforces this: it builds each prompt twice and asserts byte-equality across all 8 identities in all 3 languages, which is what fails against the unfixed code.
+
+**`playthrough.mjs` now checks the same thing live**, rebuilding the system prompt each round and reporting `system-drift@<rounds>` plus a `static system prompt: N drifts across M rounds` summary line. It is the larger of the two cacheable blocks and had no invariant at all, while the smaller one (the history ledger) has had `prefixBreaks` since v1.3.2.
+
+**Why this survived every live run ever made:** `playthrough.mjs` hardcoded `identity: "练习生"`, so 7 of the 8 identities — including the only one containing randomness — had never been played by any automated test. It now takes `--identity`.
+
+### Golden prompt snapshots (`test/fixtures/`)
+
+Three full system prompts are committed as text files and asserted byte-for-byte by smoke Layer J. They exist because **a prompt regression throws no error and fails no test** — it produces slightly different writing some weeks later, with nothing to bisect. That is the exact risk profile of the v1.4.0 cast/world/roster split, which moves large blocks of `buildSystemPrompt` into `worldLoader.js` while intending to change nothing.
+
+| Fixture | Covers |
+| --- | --- |
+| `red_velvet-classic-zh.txt` | 5 members, main + 2 subs + 2 NPCs, zh token table (`欧尼`/`呀`/`nim`/`xi`), no work override |
+| `twice-nine-en.txt` | the largest cast (9), en forms, `Staff` work override, both seniority directions |
+| `red_velvet-solo-ko.txt` | one romanceable member and 4 NPCs, native ko forms, and the `主线成员前女友` backstory — so the randomness bug above cannot return silently |
+
+**A golden file is not a specification, and a diff against one is not a failure.** It records what the code does today. When you change the prompt *on purpose*, run `node scripts/update-golden.mjs`, then **read the diff** — it is the review artifact, and the only place a one-word change to a shared rule shows up as the eleven lines it actually touched. Commit the regenerated files with the change that caused them.
+
+Regenerating to make a red suite green, without reading the diff, converts the only prompt regression detector this repo has into a rubber stamp. If a diff appears that you did not intend, that is the tool working.
 
 ### LLM Output JSON Schema
 
@@ -510,7 +677,29 @@ The lesson generalises past this field: **a test that reads `public/groups/*.jso
 3. Regex field extraction (the story regex handles `summary` sitting between `story` and `options`)
 4. Return safe defaults — never crash the round
 
-`validateAndFixOutput()` post-parse repairs: unescape `\n`, `\"`, `\/`, `\\` in the story field; fill a missing `summary` with `""`.
+`validateAndFixOutput()` post-parse repairs: unescape `\n`, `\"`, `\/`, `\\` in the story field; fill a missing `summary` with `""`; and clamp every `affectionChanges` delta to ±`AFFECTION_MAX_DELTA` — see below.
+
+### Affection pacing is the game's, not the model's
+
+`affectionChanges` arrives unbounded. The prompt asks for ±1 to ±10, but a prompt is a request,
+and the only enforcement that existed bounded the **result** to 0–100 — which says nothing about
+how fast you get there. A model returning `+30` in one round moved the player through three
+relationship stages at once, firing their stage-transition events in a burst and skipping the
+writing those stages exist to produce.
+
+That is not a hypothetical spread across 28 free-route models of very different sizes. The whole
+point of the router is that the player does not know or care which model served the round, so
+**pacing cannot be a property of the model** — a run that switches models mid-game would visibly
+change speed for no reason the player can see.
+
+`validateAndFixOutput` clamps each delta to ±8 — deliberately *below* the ±10 the prompt asks for,
+not equal to it. The prompt keeps its wider range because asking for the range you want produces
+better-distributed values than asking for the range you will merely tolerate; the clamp is the
+backstop for models that ignore the request entirely. At ±8 a compliant model is almost never
+touched, while a model returning +30 needs ~11 rounds to cross the board instead of 4.
+
+It clamps the **delta**, not the result, and runs before the 0–100 bound at the application site —
+so the two are independent and a clamped delta still cannot push a member out of range.
 
 ---
 
@@ -533,7 +722,7 @@ The recency window's reference round comes from the tail of `memory.history`. It
 
 ## Social Media System
 
-4 platforms generated by the LLM per round, displayed in the **next** round (delayed display hides LLM latency — the player checks social while waiting ~10s):
+4 platforms generated by the LLM per round, displayed in the **next** round (delayed display hides LLM latency — the player checks social while the next round generates):
 
 | Platform | Content | Unlock |
 | --- | --- | --- |
@@ -741,6 +930,27 @@ Commits must be authored as `52732052+byhAnita@users.noreply.github.com` (set gl
 
 Use the noreply alias rather than one of the account's real addresses: all of them are marked Private on GitHub, which normally also enables *Block command line pushes that expose my email*, and committing as one would start getting pushes rejected with `GH007`. Commits made before 2026-09-16 keep the old address — that is baked into their hashes and not worth rewriting history over.
 
+### CI (`.github/workflows/ci.yml`)
+
+Every push to `main`, `dev`, `hotfix/**` or `feat/**`, and every PR into `main` or `dev`, runs:
+`npm ci` -> `node scripts/dev-index.mjs` -> `npm run build` -> `node test/smoke.mjs`.
+
+**No secrets, and none should ever be added.** Offline smoke reads fixtures from `docs/`, mocks
+`fetch` for the router layers, and skips every live layer when `API_KEY` is absent. The live
+layers spend credits and are deliberately a local, deliberate action — putting a key in Actions
+would make every push bill someone.
+
+`dev-index.mjs` runs before the build for the same reason Vercel and Cloudflare need it: a clean
+checkout of `main` has `index.html` in production mode, and Vite would re-bundle the committed
+output instead of compiling `src/`. Without that step CI would pass while testing nothing.
+
+**CI does not assert `index.html`'s mode.** It is committed in production mode on `main` and dev
+mode on `dev`, so there is no single correct state across branches — such a check would fail every
+push to `main`. `deploy.sh`'s `EXIT` trap is what restores the working tree.
+
+This does not replace `deploy.sh` preflight, which still runs smoke itself. CI catches a broken
+commit at push time; preflight is what makes it impossible to ship one.
+
 ### Vercel
 
 Vercel builds **from source**, unlike GitHub Pages which serves the committed root `index.html` + `assets/`. Config lives in `vercel.json`:
@@ -778,7 +988,9 @@ It has the identical entry-point trap as Vercel — without `dev-index.mjs` it r
 
 Only Pages serves committed artifacts, which is why `npm run deploy` exists at all. The other two rebuild on any push to `main`, so **deploy promptly after a release merge** or the three disagree.
 
-**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal. But **nothing keeps the `groups/` mirror in sync**: `deploy.sh` copies only `assets/*.js` and `*.css`. Edit a group JSON under `public/` and the Pages site silently keeps serving the old one until the root copy is updated by hand.
+**The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal.
+
+**Nothing *automates* the `groups/` mirror — `deploy.sh` copies only `assets/*.js` and `*.css` — smoke Layer C now fails when it drifts** (on `dev`, ships with v1.3.9). Two checks: the file trees must match name-for-name, and every file must match in content with trailing whitespace stripped. Before that guard existed, editing a group JSON under `public/` left the Pages site serving the old cast data indefinitely, with no error and nothing a player could report. Copy `public/groups/` over root `groups/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push. The same obligation will apply to `worlds/` and `rosters/` when v1.4.x adds them.
 
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
@@ -821,11 +1033,58 @@ Then:
 
 ---
 
-## Project Status (2026-09-23)
+## Project Status (2026-09-24)
 
-**v1.3.8 is the current release.** It carries the GPT-6 Luna swap and the bump-script coverage for this file; the larger feature work discussed alongside it was deliberately deferred to v1.4.0 rather than held back this release. Validated offline (`npm run build` + **457 checks** in `node test/smoke.mjs`), and exercised live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0 sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+**v1.3.9 is the current release.** Seven player-visible changes, all old-save-safe and none
+touching the save schema.
+
+Four were planned: the **usage panel** (the `usage` block every provider returns had never been
+read by anything in `src/`), the **±8 affection clamp**, **quota-guarded `saveToStorage`**, and
+**`backstorySeed`** — committed back in `37f8a1c` and unreleased until now.
+
+Three came from a 40-round hand playthrough run *after* the branch was already green, and are the
+more instructive half: **honorifics leaking into narration**, **`呀` transliterated into Chinese
+where the syllable already has a different job**, and a **`Alex--ya` double hyphen** that had been
+in every English prompt since v1.3.6. A fourth defect from the same session — the usage panel
+reading **6.7% high** — was caught only by comparing it against the provider's billing page. See
+`docs/V140_PLAN.md`, *"What a hand playthrough found that a green branch did not"*: most of these
+are register judgements a native speaker makes, which no assertion written in advance could reach.
+
+Validated offline (`npm run build` + **578 checks** in `node test/smoke.mjs`, up from 469) and
+live across ~90 real rounds: 8/8 clean on `主线成员前女友`, 32 clean across two identities and two
+models in zh, 6 in en, **0 static-prompt drifts** and **0 ledger prefix breaks** throughout. The
+usage meter was confirmed against a real Aliyun response end-to-end, and separately reconciled to
+the token against a real DeepSeek Official bill.
+
+v1.3.8 carried the GPT-6 Luna swap and the bump-script coverage for this file. It was exercised
+live across ~130 real rounds in Korean and Chinese: 0 honorific reversals, 0 phantom Kakao, 0
+sinicized honorifics, 30 collapses with **0 ledger prefix breaks**. Positive evidence too, not just absent flags — sample prose shows `Irene欧尼，前辈nim，这么晚还没回去？`, which is the intended register.
+
+**In progress: v1.4.0–v1.5.0 — see `docs/V140_PLAN.md`, whose Progress table and "Pick up here"
+section are the authority on where the work stands.** It splits the single `group` concept into
+**cast library / world / roster**, which is the change every feature in that line depends on.
+Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section layout, or the save
+shape. Two pre-existing bugs it also closes are documented there: save slots record no group id,
+and `saveToStorage` swallows quota errors.
+
+Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**. Step 3 —
+world extraction and the resolver — is next. Two of the plan-documented pre-existing bugs are
+closed by v1.3.9: `saveToStorage` no longer swallows quota errors, and affection pacing no
+longer depends on which model the router served. Save slots still record no group id; that is
+step 4, which now also carries the **player birth-year field** (see below).
+
+Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_PER_1M` is partial, and the
+gaps are documented rather than filled — never back-derive a per-1M price from a per-round
+estimate. The player's birth year is still derived from age and is wrong for ~half of players;
+the fix needs a save field, so it waits for step 4.
 
 **Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
+
+**Open, and deliberately not acted on: `real-name-vocative` on a member scolding another member.** One round in a `留学生` run flagged `real-name-vocative:seulgi` on `"姜涩琪，闭嘴。"` — Irene snapping Seulgi's full legal name at her, blushing, after Seulgi let slip that Irene had wanted to come. Full-name address as a rebuke is a real Korean register, and the rest of the round is exactly right (`林夏xi`, `欧尼` both correct). The grader's premise — *members address each other by stage name* — is right in general and has this exception.
+
+It is **not** changed, for two reasons. It occurred once in 35 rounds, and narrowing the check to member-to-member address would blind the detector for the player-reported bug it was built for (a member addressing the *player*, or herself, by a real name). Tuning a grader on n=1 is how it stops working. Left as a judgement call, since it turns on Korean register rather than on code: the stored prose is in `test/.out/`.
+
+**Dev key free-tier status (probed 2026-09-23):** 2 of 28 route models are genuinely out of free credits — `qwen3.8-max` and `glm-5.2`, both returning `AllocationQuota.FreeTierOnly`. The other 26 answer normally and the router skips the two correctly, so this affects only *pinned* harness runs: pinning an exhausted model leaves the walk with no fallback and ends the playthrough. Use `--models qwen3.7-plus` (or any healthy model) when a run must not be interrupted, and re-probe with `node test/smoke.mjs --live-free` rather than assuming.
 
 ### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23)
 
@@ -917,7 +1176,34 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 **Open questions (not blocking release)**
 
 1. **The empty-route notice has never been rendered.** It only appears at 0/28 available, which needs a genuinely exhausted key. Everything else on the key page has now been hand-checked at 390px.
-2. **Re-check the 95.8% cache figure against DeepSeek Official billing** after a long hand-played session. That figure comes from DeepSeek's platform; the ~83% measured here is Aliyun-specific and the two are not comparable, so pricing stays as published until then. `docs/TEST_FINDINGS.md` records the size of the gap if it does need revising, and the open `qwen3.6-flash` question (Aliyun reports no cached tokens for it at all).
+2. **Partly answered in v1.3.9 — the 95.8% figure is play-style dependent, and the README now says
+   so.** A clean 40-round hand-played session on DeepSeek Official V4.1 Flash (2026-09-24, zh, Red
+   Velvet, 1 main + 1 sub, no retries) billed **86.7%**: 240,000 of 276,862 input tokens served
+   from cache. The usage panel agreed with the billing page to the token on every field, which is
+   what validates the panel itself.
+
+   That average was **still climbing at round 40** — the player watched it go from ~50% to 87%,
+   which is the signature of a cumulative mean converging, since round 1 is structurally 0% and
+   early rounds never fully wash out.
+
+   **The ceiling for clean sequential play is ~92%, and that number is calculated, not measured.**
+   From the token profile: the ~5,500-token static prompt hits every round, while the newest
+   ledger entry (~500) and the dynamic tail (~150) always miss, so ~7,300 of ~7,950 input tokens
+   can hit — 91.8%, before the extra misses each collapse adds. Mark it `(?)` wherever it appears;
+   it follows from the profile's own round numbers and inherits their error. If it is right, 95.8%
+   was never the steady state.
+
+   What can exceed it is **regenerates**: ↺ Retry re-sends a byte-identical system prompt and
+   ledger that were cached moments earlier, so it is a ~98% cache-hit call by construction. The
+   likeliest reading is that the original 95.8% came from a long session with many retries, and
+   that clean play and retry-heavy play are simply two different measurements. Both are now quoted
+   in the README rather than one being presented as the steady state.
+
+   **Still open:** this is n=1 for the clean-play figure, and the ~92% asymptote is calculated, not
+   measured. A second long session — ideally one that also records how many rounds were
+   regenerated — would settle it. The usage panel makes that cheap now. Aliyun's ~83% remains
+   separate and non-comparable, as does the open `qwen3.6-flash` question (Aliyun reports no cached
+   tokens for it at all); `docs/TEST_FINDINGS.md` has the detail.
 3. **Verify `reasoning_effort:'none'` on OpenAI** and Gemini's behaviour with Deep Thinking off — both are doc-derived, never observed. Aliyun's side is now observed. GPT-6 Luna's model page lists `none` explicitly (v1.3.8), so the value is no longer inferred from a general parameter table — but *documented* is still not *observed*, and neither provider has ever been exercised live. `test/README.md` records the same gap.
 4. **Token Plan decision** — leave `sk-sp-` unsupported, or add a proxy (see the Token Plan note in the Model Layer).
 
@@ -936,3 +1222,33 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 `MODEL_CONFIGS[*].gameplay` (rendered through `t.guide.billing`) and each `ALIYUN_PAID_MODELS[*].gameplay` (rendered in the paid-mode cost box) are hand-derived from the README cost table — **when provider pricing changes, update both**. zh quotes hours per ￥1, en per \$1, ko per ₩1,000.
 
 Derivation: README token profile (7,664 cache-hit + 336 cache-miss input, 800 output per round, 12 rounds/hour). CNY-priced Aliyun models convert at ￥7.1 = \$1; ₩1,000 = \$0.72. Peak-priced models are blended: Aliyun DeepSeek is 2x for 14 of 24 hours daily (08:00–22:00 Beijing), DeepSeek Official is 2x for 35 of 168 weekly hours.
+
+**`MODEL_PRICES_PER_1M` is the third copy and carries the same obligation.** Added in v1.3.9
+for the usage panel, it holds `[cacheHit, cacheMiss, output]` per 1M for the models whose
+providers publish all three, plus the peak window where one applies. Unlike `gameplay`, it is not
+a rounded per-hour string but the arithmetic itself, so a stale entry produces a wrong number
+with four decimal places of false precision. Change it in the same commit as the README table.
+
+**Each entry is priced in the currency the provider actually bills, and converted once for
+display.** This is not tidiness — pricing DeepSeek Official from the README's USD sheet made the
+panel read **6.7% high** against a real bill, and that was caught only by comparing the panel to
+the billing page. `deepseek-flash` bills CNY; the README quotes DeepSeek's USD sheet; and those
+two sheets do not convert at the ￥7.1 this repo uses everywhere else. All three rates give
+exactly **￥6.67 = \$1** — DeepSeek's own internal rate — so converting its USD figures at 7.1
+over-charged every line by the ratio between the two. Store the billed currency, convert at the
+boundary, and the arithmetic stops depending on whose FX assumption you inherited.
+
+Verified against a real bill (DeepSeek Official, `deepseek-v4.1-flash`, 40 rounds, off-peak,
+2026-09-24): 240,000 cache-hit + 36,862 cache-miss input + 39,696 output priced at ￥0.02 / ￥1 /
+￥4 per 1M gives **￥0.2004**, and the platform billed **￥0.20**. Those CNY rates are back-derived
+from that bill rather than read off a price page — the ￥6.67 agreement across all three is what
+makes them trustworthy, and they should be replaced with published figures if DeepSeek ever
+publishes a CNY sheet.
+
+It is **deliberately incomplete**, and that is a feature rather than a backlog item. A model is
+absent when its price is not published: Gemini 3.5 Flash-Lite (the README costs it from a
+comparable tier), `qwen3.6-flash` (Aliyun lists no cache-hit price, so the README row *assumes*
+the usual 20% of input), and the Aliyun models the README gives only per-round figures for —
+including the `qwen3.8-max` default. Those render `—` in the panel. Do not fill a gap by
+back-deriving a per-1M price from a per-round estimate: that turns an estimate into something
+that looks like a measurement.
