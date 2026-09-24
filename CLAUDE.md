@@ -1205,9 +1205,21 @@ All three plan-documented pre-existing bugs are now closed: v1.3.9 fixed `saveTo
 swallowing quota errors and affection pacing depending on the served model; step 4 fixed save
 slots recording no group id.
 
-**Step 5 — `habit` across the 27 group files — is next, and it is the step that moves the
-goldens.** Every step since step 1 has held them byte-identical; step 5 adds the `Habit:` line, so
-`update-golden.mjs` is run once, deliberately, and the diff is read before committing.
+**Step 5 — `habit` across the group library — is done, on `dev`, unreleased** (`6cdb550`,
+`26ca206`). Two commits: 175 habit strings across 30 files plus the 30 root mirror copies, then
+the one conditional `Habit:` line. Smoke **671 → 683**.
+
+**The goldens moved here — deliberately, and for the first time since step 1.** 19 insertions, 0
+deletions, every one a `Habit:` line, one per member. `update-golden.mjs` was run once and the
+diff was read before committing.
+
+**Step 5's most useful finding is about the goldens themselves: they cover what the data happens
+to contain, not the branch the data never exercises.** The `Habit:` line is conditional, so a
+member without one renders nothing rather than `  Habit: ` with a trailing space. Mutating it to
+unconditional leaves **all three goldens green**, because every library member has a habit and the
+empty case therefore appears in no snapshot. Only the dedicated guard in Layer I fails. Step 6's
+custom members are exactly that untested branch, so do not read a green golden as coverage of a
+case the fixtures cannot contain.
 
 Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_PER_1M` is partial, and the
 gaps are documented rather than filled — never back-derive a per-1M price from a per-round

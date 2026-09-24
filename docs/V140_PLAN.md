@@ -16,8 +16,8 @@ scheduled for v1.4.2.
 | **2 — Release v1.3.9** | ✅ **released.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), the backstory fix inherited from step 1, and four writing/pricing fixes found by hand play after the branch was already green (below). Smoke 469 → **578**. |
 | **3 — World extraction + resolver** | ✅ **done**, on `dev`, unreleased. Four commits: world JSON + `worldLoader`, `buildSystemPrompt` reading it, `rosterResolver`, and the `habit`/`tags` whitelist. Smoke 578 → **630**. **The gate held: goldens byte-identical, `update-golden.mjs` never run.** Found two pieces of dead code — see below. |
 | **4 — Save migration** | ✅ **done**, on `dev`, unreleased. Three commits: the player **birth-year field**, `saveMigrator` (`schema`/`worldId`/`groupId`/`roster`), and the App-side rewiring through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke 630 → **671**. **The gate held**: a pinned v1.3.8 save migrates to the same member set `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte. Goldens untouched. |
-| 5 — Content (`habit` × 27) | ⬜ **next.** The one step that moves the goldens on purpose. |
-| 6 — UI | ⬜ |
+| **5 — Content (`habit`)** | ✅ **done**, on `dev`, unreleased. Two commits: 175 habits across 30 files + the 30 root mirror copies, then the conditional `Habit:` line. Smoke 671 → **683**. **The goldens moved here, on purpose and for the first time since step 1**: 19 insertions, 0 deletions, every one a `Habit:` line. Scope was wider than "27 files" — 57 members × 3 languages. |
+| 6 — UI | ⬜ **next.** |
 | 7 — Release v1.4.0 | ⬜ |
 
 **Step 1 paid for itself before the first fixture existed.** Writing a snapshot forces the
@@ -185,17 +185,33 @@ seed hashing `birthYear`, reversed member order, a disabled group scan, a remove
 short-circuit, `phaseRef` pinned late, the group not taken from the save, and `SaveOverlay`
 dropping `groupId` or `roster`.
 
-**Next action is step 5 — content: `habit` across the 27 group files.**
+**Next action is step 6 — UI: roster builder, member editor, card generation, photos.**
 
-**Step 5 is the one step that moves the goldens, and that is correct.** Every step since step 1
-has held them byte-identical; step 5 adds the `Habit:` line to the member profile block, so
-`node scripts/update-golden.mjs` **is** run here, once, and `git diff test/fixtures/` **is read**
-before committing. The diff is the review artifact. Regenerating without reading it is what turns
-the only prompt-regression detector in the repo into a rubber stamp.
+### Done in step 5
 
-`habit` is already on the `parseGroupConfig` whitelist (step 3) and already survives the loader,
-asserted through a stubbed fetch. What does not exist yet is the content, the prompt line that
-renders it, and the root `groups/` mirror update — Layer C fails when that drifts.
+Two commits. `6cdb550` authored the content and mirrored it; `26ca206` added the one prompt line
+and moved the goldens.
+
+**The goldens moved for the first time since step 1, and the diff was read before committing**:
+19 insertions, 0 deletions, every one a `  Habit: ` line, one per member, after `Queer Texture`
+and before `Hidden Conflict` where that exists. No other byte moved in any of the three fixtures.
+
+**Scope was wider than this plan said.** "27 group files" was wrong twice over: there are **30**
+files (9 groups + `_template`) and **57** members, so the content is **175 strings**, not 27. All
+30 are **CRLF**, and `cat -A` piped through GNU sed shows clean `$` and is lying — sed strips the
+CR in text mode, which is the same trap that made step 4's mutation run report a SKIP.
+
+**A golden covers what the data happens to contain, not the branch the data never exercises.**
+The `Habit:` line is conditional, so an absent habit renders nothing rather than `  Habit: ` with
+a trailing space. Mutating it to unconditional leaves **all three goldens green** — every library
+member has a habit, so the empty case appears in no snapshot — and only the dedicated
+trailing-whitespace guard in Layer I fails. This matters immediately for step 6: a custom member
+with no habit is exactly that untested branch. Do not read a green golden as coverage of a case
+the fixtures cannot contain.
+
+The same guard's first catch was a flaw in its own harness rather than in the code — slicing the
+member-profile section at `"6. CAST IDENTITY"` ends mid-banner and leaves a dangling `║ ` that
+reads as trailing whitespace. It now cuts back to the start of the next banner box.
 
 ### Habit provenance: what is sourced and what is derived
 
@@ -920,7 +936,7 @@ data instead of an inherited figure.
 | 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` | new | ✅ |
 | 3 | `buildSystemPrompt` reads world + roster | `mainAgent.js` | ✅ |
 | 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` | ✅ |
-| 5 | `habit` in all 9 group JSONs × 3 languages, **plus the prompt line that renders it** | `public/groups/**`, `mainAgent.js` | ⬜ **next** |
+| 5 | `habit` in all 9 group JSONs × 3 languages, **plus the prompt line that renders it** | `public/groups/**`, `mainAgent.js` | ✅ — 175 strings across 30 files, not 27 |
 | 6 | Save migration + `groupId`/`worldId`/`roster` in the slot | `App.jsx`, `SaveOverlay.jsx` | ✅ |
 | 7 | Roster builder + member editor UI | new `platforms/*` | ⬜ |
 | 8 | `cardGenerator.js` | new | ⬜ |
@@ -928,7 +944,7 @@ data instead of an inherited figure.
 | 10 | Usage panel | `llmTool.js`, new `platforms/UsagePanel.jsx` | ✅ (v1.3.9) |
 | 11 | Affection clamp | `mainAgent.js` | ✅ (v1.3.9) |
 | 12 | Smoke migration / resolver / static-prompt stability checks | `test/smoke.mjs` | ✅ — Layers **I** and **J**, not J alone |
-| 13 | Root `groups/` mirror re-synced by hand after (5) | — | ⬜ |
+| 13 | Root `groups/` mirror re-synced by hand after (5) | — | ✅ |
 
 > ⚠️ Task 13 is not optional. `deploy.sh` copies only `assets/*.js` and `*.css`; nothing keeps
 > the root `groups/` mirror in sync with `public/groups/`. Adding `habit` to the public copies

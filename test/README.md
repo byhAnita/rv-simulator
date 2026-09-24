@@ -74,6 +74,33 @@ changes a running game underneath its player. See `docs/TECH_NOTES.md`.
 beside the `getNpcMembers` equivalence anchor they are measured against; the
 plan has been corrected in place.
 
+**And `habit`** (v1.4.0 step 5), in two halves. The **content** half sweeps all
+nine groups in all three languages *through `loadGroupConfig`* and asserts that
+every member arrives with a non-empty, single-line habit, that the three
+language files of a group agree on their member ids, that no two members of one
+cast share a habit, and that a member appearing in more than one group carries
+the same habit in each — `x` is a crossover roster sharing seven ids, and a
+physical tic belongs to the person, not the roster. They are aggregate checks
+that *name their offenders*, because one check per member would add 171 lines
+of noise to the suite.
+
+The **rendering** half asserts the `Habit:` line reaches the member profile
+block, sits below `Queer Texture`, and — the one that matters — that a member
+with **no** habit renders nothing at all, with no trailing whitespace left
+where the line would have been.
+
+> **That last guard is the reason to keep it after reading this.** Making the
+> line unconditional leaves **all three goldens green**: every library member
+> has a habit, so the empty case appears in no snapshot. A golden covers what
+> the data happens to contain, never the branch the data does not exercise.
+> Custom members (step 6) are exactly that branch.
+
+Both halves are mutation-verified — ten mutations, all RED, each naming the
+guard it was aimed at. Two incidental confirmations from that run: blanking one
+member's habit also tripped the crossover check (she is in two groups), and
+every content mutation tripped **Layer C's mirror assertion**, because only
+`public/` was edited. The root `groups/` tree is load-bearing, not bookkeeping.
+
 ### Layer J and the golden prompts
 
 Three complete system prompts are committed under `test/fixtures/` and compared
