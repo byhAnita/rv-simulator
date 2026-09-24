@@ -3,8 +3,9 @@
 Planning artifact. Written before any code, per the repo convention that docs lead.
 Audience: whoever implements this, which is me in a later session and Yuhan reviewing it.
 
-Status: **agreed in discussion 2026-09-23. Steps 0, 1 and 2 done — v1.3.9 is released and live.
-Step 3 next.** Plot mode (§19) was specced on 2026-09-24 and scheduled for v1.4.2.
+Status: **agreed in discussion 2026-09-23. Steps 0–3 done — v1.3.9 is released and live, and the
+world/roster extraction is on `dev`. Step 4 next.** Plot mode (§19) was specced on 2026-09-24 and
+scheduled for v1.4.2.
 
 ## Progress
 
@@ -13,8 +14,8 @@ Step 3 next.** Plot mode (§19) was specced on 2026-09-24 and scheduled for v1.4
 | **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
 | **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug, **confirmed live A/B**: 7 drifts in 8 rounds and 60.5% cache before, 0 drifts and 87.2% after. Verified failing against the unfixed code. |
 | **2 — Release v1.3.9** | ✅ **released.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), the backstory fix inherited from step 1, and four writing/pricing fixes found by hand play after the branch was already green (below). Smoke 469 → **578**. |
-| **3 — World extraction + resolver** | ⬜ **next. The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
-| 4 — Save migration | ⬜ Now also carries the **player birth-year field** — see below. |
+| **3 — World extraction + resolver** | ✅ **done**, on `dev`, unreleased. Four commits: world JSON + `worldLoader`, `buildSystemPrompt` reading it, `rosterResolver`, and the `habit`/`tags` whitelist. Smoke 578 → **630**. **The gate held: goldens byte-identical, `update-golden.mjs` never run.** Found two pieces of dead code — see below. |
+| 4 — Save migration | ⬜ **next.** Also carries the **player birth-year field**, the App-side rewiring through `resolveRoster`, and `getNpcMembers` ceasing to derive — see below. |
 | 5 — Content (`habit` × 27) | ⬜ |
 | 6 — UI | ⬜ |
 | 7 — Release v1.4.0 | ⬜ |
@@ -71,6 +72,31 @@ What did change is that each is now mechanised going forward: smoke **Layer L** 
 live prose graders (which had never been tested at all — only run live, where a grader that can
 never fire looks identical to a clean run), and Layer K pins the cost arithmetic to a real bill.
 
+### Found by step 3: two blocks of dead code, one of them a real feature gap
+
+A faithful extraction has a useful side effect — moving a string forces you to find its reader.
+Two had none.
+
+**`paceRules` was never sent.** All four pace descriptions were built into a local and never
+referenced, so the player's pace reaches the model only as a bare id on the `Progression Pace:`
+line — `浪漫情感向` and nothing else. The model is left to infer what that means from four Chinese
+characters, in a prompt that is otherwise explicit about everything.
+
+This is a **feature gap, not just dead code**, and it is worth fixing on its own: the authored
+text says things like *"secrecy changes doubled"* and *"love triangle probability doubled"* that
+the model currently has no way to know. The strings are preserved in the world file. Wiring them
+in is a **deliberate prompt change** — it moves the goldens, and the diff should be read — so it
+was explicitly not folded into a step whose entire gate is that the goldens do not move.
+
+It also sharpens the plot-mode design in §19: `pace` currently does even less than that section
+assumes, which makes "let `pace` choose the beat pool" a bigger win than it first looked, and
+means these two changes should probably land together.
+
+**`const identity` resolving `"H"` to `form.customIdentity` was a leftover.** `App.jsx` already
+resolves it before calling `executeRound` ([App.jsx:489](../src/App.jsx#L489)), so the local
+shadowed nothing and fed nothing. No player-visible bug: custom identity text does reach the
+prompt, through `form.identity`. Deleted.
+
 ### Carried into step 4: the player's birth year
 
 `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes the player's birthday has
@@ -92,22 +118,28 @@ direction. All three mirrors serve `index-DAtY_Xfc.js` and CI is green on both b
 **578** offline checks. The working tree carries only ` M index.html` in dev mode, which is
 normal and never committed.
 
-**Next action is step 3 — world extraction + resolver.** Unlike the v1.3.9 tail, none of it is a
-red line: it is `src/` work on `dev`, gated by a mechanical test.
+**Step 3 is done** (4 commits, `3bbc033`..`fdcbf3c`, unpushed at time of writing). The gate held:
+goldens byte-identical, `update-golden.mjs` never run, smoke 578 → **630**.
 
-| Task | Files |
+**Next action is step 4 — save migration.** It now carries four things, not one:
+
+| Task | Why it landed here |
 | --- | --- |
-| 1 | `worldLoader.js` + `public/worlds/kpop_idol/{zh,en,ko}.json` — today's hardcoded blocks, verbatim, **including the address token table** (see §6) |
-| 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` |
-| 3 | `buildSystemPrompt` reads world + roster |
-| 4 | `birthday` + `habit` + `tags` into the `parseGroupConfig` whitelist |
-| 12 | Smoke **Layer J** extensions — resolver, world load |
+| `groupId` / `worldId` / `roster` in the save slot | the original step-4 scope (§9) |
+| Player **birth year** replacing age | age cannot determine birth year; wrong for ~half of players |
+| Rewire `App.jsx` through `resolveRoster` | deferred from step 3 — members are needed at the setup screen before a main member exists, so a roster cannot replace that load until saves carry one |
+| `getNpcMembers` stops deriving | needs a roster in the save to read slots from |
 
-**The gate is one command, and it has one trap.** `node test/smoke.mjs` must be green with
-`test/fixtures/*.txt` **untouched** — not regenerated. A golden diff during step 3 means the
-extraction changed the prompt, which is precisely the failure this step exists to catch, so
-`node scripts/update-golden.mjs` must not be run at any point in it. The one legitimate exception
-is a diff you can explain and intend; there should be none in a pure extraction.
+**Step 4's gate, in the plan's own words: a pinned v1.3.8 save must migrate and resolve to the
+*same* member set `getNpcMembers` returns today.** Smoke already asserts that equivalence for a
+freshly built classic roster ("explicit NPCs match what getNpcMembers derives today"); migration
+has to reach the same place starting from an old save instead.
+
+**The step-3 gate, kept here because step 5 inherits it.** `node test/smoke.mjs` must be green
+with `test/fixtures/*.txt` **untouched** — not regenerated. A golden diff during an extraction
+means the prompt changed, which is the failure the goldens exist to catch, so
+`node scripts/update-golden.mjs` must not be run during one. The legitimate exception is a diff
+you intend and read: step 5 adds the `Habit:` line and **will** move them, deliberately.
 
 **Four things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
 free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
