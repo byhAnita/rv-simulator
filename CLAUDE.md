@@ -12,7 +12,18 @@ Active branches:
 
 See **Branch & Deploy Workflow** for the release, hotfix and merge-back rules.
 
-Measured production numbers (real player sessions, reasoning off): prompt-cache hit rate **~87% in clean sequential play, ~95.8% in long sessions with retries** (see open question 2), and a median round of **6.3s on DeepSeek Official V4.1 Flash** / **~16-17s on Aliyun flash models**.
+Production numbers (reasoning off). **Four cache figures exist and they are not interchangeable** —
+quote the right one, with its source:
+
+| Figure | Source | Status |
+| --- | --- | --- |
+| ~92% | calculated from the token profile | **estimate**, the ceiling for clean sequential play |
+| 86.7% | DeepSeek Official billing, 40 clean rounds, 2026-09-24 | measured |
+| ~95.8% | DeepSeek Official billing, hours of real play with regenerates | measured |
+| ~83% | Aliyun, across free-route models | measured, different cache, not comparable |
+
+Median round: **6.3s on DeepSeek Official V4.1 Flash**, **~16-17s on Aliyun flash models** — it
+tracks the provider, not the game. See open question 2 and the README performance section.
 
 ---
 
@@ -1163,8 +1174,14 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 
    That average was **still climbing at round 40** — the player watched it go from ~50% to 87%,
    which is the signature of a cumulative mean converging, since round 1 is structurally 0% and
-   early rounds never fully wash out. A rough estimate from the token profile puts pure sequential
-   play's asymptote near **92%** (?), i.e. *below* 95.8%.
+   early rounds never fully wash out.
+
+   **The ceiling for clean sequential play is ~92%, and that number is calculated, not measured.**
+   From the token profile: the ~5,500-token static prompt hits every round, while the newest
+   ledger entry (~500) and the dynamic tail (~150) always miss, so ~7,300 of ~7,950 input tokens
+   can hit — 91.8%, before the extra misses each collapse adds. Mark it `(?)` wherever it appears;
+   it follows from the profile's own round numbers and inherits their error. If it is right, 95.8%
+   was never the steady state.
 
    What can exceed it is **regenerates**: ↺ Retry re-sends a byte-identical system prompt and
    ledger that were cached moments earlier, so it is a ~98% cache-hit call by construction. The

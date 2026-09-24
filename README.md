@@ -11,7 +11,7 @@
 ## ✨ Features
 
 - 🐉 **Free to start** — Aliyun (Alibaba Cloud) is the default provider. New accounts get ~1M free tokens on **each** of 28 JSON-capable models (Qwen, DeepSeek, GLM), and the game's **free-credit mode switches models for you** when one runs dry.
-- ⚡ **~6-17s per round** — Median generation time with Deep Thinking off (the default) is **6.3s on DeepSeek Official V4.1 Flash** and **~16-17s on Aliyun's flash models** — it depends on the provider, not on the game. Backed by a measured prompt-cache hit rate of **~87% in clean sequential play, up to ~95.8% in long sessions**. See the note under the token table.
+- ⚡ **~6-17s per round** — Median generation time with Deep Thinking off (the default) is **6.3s on DeepSeek Official V4.1 Flash** and **~16-17s on Aliyun's flash models** — it depends on the provider, not on the game. Backed by a prompt-cache hit rate of **~87% measured in clean sequential play, up to ~95.8% in long sessions with retries**, against a calculated steady-state ceiling of ~92%. See the note under the token table.
 - 🔄 **Regenerate, Edit & Copy** — Not happy with a round? ↺ Retry rewrites it on the same choice, rewinding stats, memory, KKT and achievements cleanly. ✎ Edit lets you reword the generated story, or change your last choice and replay the round — the model reads your edit from then on. ⎘ Copy grabs the pure story text.
 - 🧠 **Deep Thinking toggle** — Reasoning is OFF by default (fast, cheap, and it reads well). Flip it on in Settings when you want the model to deliberate.
 - ⏳ **Time Speed control** — 🐌 Slow (linger in the moment) / 🕛 Normal / ⚡ Fast (skip ahead to the next date). Steers narrative pacing per round.
@@ -76,14 +76,25 @@
 | Static system prompt (rules, lore, member profiles, schema) | ~5,500 | **100% hit** after R1 |
 | History ledger (collapsed summaries + recent full stories) | ~2,300 | Append-only — hits except the newest entry |
 | Dynamic tail (stats, affections, stage changes, KKT, pacing) | ~150 | Always miss, by design — kept tiny |
-| **Total input** | **~8,000** | **~87-96% hit** (measured — see below) |
+| **Total input** | **~8,000** | **~92% hit** (calculated steady state — see below) |
 | Output (story + social + options) | ~800 | — |
 
-> 📊 **Both figures are measured on the v1.3.0+ stepped-window ledger with reasoning off, and the cache figure depends on how you play.**
+> 📊 **Four cache numbers appear in this project, and they are not interchangeable.** All are for the v1.3.0+ stepped-window ledger with reasoning off.
 >
-> A clean 40-round run with no retries, hand-played on DeepSeek Official V4.1 Flash (2026-09-24), billed **86.7%** — 240,000 of 276,862 input tokens served from cache. That average is still climbing at round 40: round 1 is structurally 0%, and early rounds never fully wash out of a cumulative figure.
+> | Figure | Source | What it is |
+> | --- | --- | --- |
+> | **~92%** | calculated from the token profile above | The **estimated ceiling** for clean sequential play. Not a measurement. |
+> | **86.7%** | DeepSeek Official billing — 40 rounds, hand-played, no retries (2026-09-24) | A real clean run, and still climbing at round 40. |
+> | **~95.8%** | DeepSeek Official billing — hours of real play | Long sessions **with regenerates**, which is what lifts it past the ceiling above. |
+> | **~83%** | Aliyun, across free-route models | A different provider with a coarser cache. Not comparable to the DeepSeek rows. |
 >
-> The **~95.8%** comes from a longer session that included regenerates. A regenerate re-sends a byte-identical prompt that was cached moments earlier, so it is a near-100% cache-hit call by construction and pulls the average above what sequential play alone reaches. Both numbers are real; they measure different things. Expect the low end if you never tap ↺.
+> The ~92% falls straight out of the table: the ~5,500-token static prompt hits every round, while the newest ledger entry (~500) and the dynamic tail (~150) always miss — so roughly 7,300 of ~7,950 input tokens *can* hit, before the extra misses each collapse adds. **That is arithmetic, not a measurement.** The honest reading is that clean play converges toward it, not toward 95.8%.
+>
+> **86.7% sits below it** because a session average includes the beginning: round 1 is structurally 0%, and early rounds never fully wash out of a cumulative figure. Watched live, it climbed from ~50% to 87% across the 40 rounds.
+>
+> **~95.8% sits above it** because ↺ Retry re-sends a prompt that was cached moments earlier — a near-100% cache-hit call by construction. A session with many retries reads higher than one without. Both are real; they measure different play.
+>
+> Expect the low end if you never tap ↺, and expect any single figure to track your provider's cache rather than this game.
 >
 > ⏱️ **Generation time is the provider's, not the game's.** The same 40-round session measured a **6.3s median** round on DeepSeek Official V4.1 Flash, read straight from the in-game usage panel. Aliyun's flash models measured **~16–17s median** in the test harness on the same day. Deep Thinking roughly doubles either. Social media is displayed one round late precisely so there is something to read while the next round generates.
 
@@ -289,7 +300,7 @@ Social Media delayed display (check while the next round generates)
 
 ### Why the cache hit rate matters
 
-A naive sliding-window memory rewrites the prompt prefix every round, so **every** round is a full cache miss. The stepped-window ledger only ever *appends*, and when it collapses old stories it does so *in place* — the already-summarised prefix stays byte-identical. Result: ~87-96% of input tokens bill at the cache-hit rate (5–30x cheaper depending on provider) and time-to-first-token drops sharply.
+A naive sliding-window memory rewrites the prompt prefix every round, so **every** round is a full cache miss. The stepped-window ledger only ever *appends*, and when it collapses old stories it does so *in place* — the already-summarised prefix stays byte-identical. Result: most input tokens bill at the cache-hit rate — 5–30x cheaper depending on provider — and time-to-first-token drops sharply. Measured at ~87% in clean play and ~95.8% in long sessions with retries; see the performance section for why those differ.
 
 ---
 
@@ -433,7 +444,7 @@ npm run deploy                  # build + patch index.html + push main
 |  | |-- KKT messages (unlocked members)                            |  |
 |  | +-- [Pacing] hint from the Time Speed setting                  |  |
 |  +---------------------------------------------------------------+  |
-|                  |  ~87-96% of input tokens bill at cache-hit rate |
+|                  |  ~87% of input tokens bill at cache-hit rate     |
 |                  v                                                  |
 |  Member Probability Engine                                          |
 |  Primary-member pick = Affection(40%) + Balance(30%)                |
