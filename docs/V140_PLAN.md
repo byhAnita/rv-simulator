@@ -3,7 +3,8 @@
 Planning artifact. Written before any code, per the repo convention that docs lead.
 Audience: whoever implements this, which is me in a later session and Yuhan reviewing it.
 
-Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done and pushed to `dev`; step 2 next.**
+Status: **agreed in discussion 2026-09-23. Steps 0, 1 and 2 done — v1.3.9 is released and live.
+Step 3 next.** Plot mode (§19) was specced on 2026-09-24 and scheduled for v1.4.2.
 
 ## Progress
 
@@ -85,34 +86,28 @@ the reverse does not), which needs a `form` field and legacy handling for saves 
 
 ## Pick up here
 
-**State as of 2026-09-24.** `main` is at `f324a5e`, tagged v1.3.8, live on all three mirrors and
-**unchanged** — nothing in this line has reached players. `dev` carries v1.3.9, fully built,
-bumped and validated, **but not merged and not deployed**. `origin/dev` is at `56acf22`; the five
-commits after it are local only.
+**State as of 2026-09-24.** v1.3.9 is **released**. `main`, `dev`, `origin/main` and `origin/dev`
+are all at `758faa3` — the deploy commit, tagged `v1.3.9` — with zero divergence in either
+direction. All three mirrors serve `index-DAtY_Xfc.js` and CI is green on both branches. Smoke:
+**578** offline checks. The working tree carries only ` M index.html` in dev mode, which is
+normal and never committed.
 
-| Commit | What | Pushed |
-| --- | --- | --- |
-| `1e66262` | live usage-meter assertions in Layers B and H | no |
-| `6d71e94` | usage meter + panel, price table, smoke **Layer K** | no |
-| `f4aaad1` | quota-guarded `saveToStorage` + save-failure notice | no |
-| `e107faf` | ±8 affection clamp | no |
-| `8adff09` | step-1 handoff docs | no |
-| `56acf22` `37f8a1c` `e8a7dfd` `3364731` `aae0c0a` `3073cb7` | step 0 and step 1 | yes, CI green |
+**Next action is step 3 — world extraction + resolver.** Unlike the v1.3.9 tail, none of it is a
+red line: it is `src/` work on `dev`, gated by a mechanical test.
 
-Smoke: **535** offline. Working tree carries only ` M index.html` in dev mode, which is normal
-and never committed.
+| Task | Files |
+| --- | --- |
+| 1 | `worldLoader.js` + `public/worlds/kpop_idol/{zh,en,ko}.json` — today's hardcoded blocks, verbatim, **including the address token table** (see §6) |
+| 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` |
+| 3 | `buildSystemPrompt` reads world + roster |
+| 4 | `birthday` + `habit` + `tags` into the `parseGroupConfig` whitelist |
+| 12 | Smoke **Layer J** extensions — resolver, world load |
 
-**Next action is step 3 — world extraction + resolver.** Before that, v1.3.9 still has a tail of
-red-line steps that only the user can authorise, in this order:
-
-1. `git push origin dev` — five local commits.
-2. `git checkout main && git pull && git merge dev --no-ff -m "release: v1.3.9"`.
-3. `npm run deploy`, then `git tag v1.3.9 && git push origin v1.3.9` — **tag the deploy commit,
-   not the merge commit**.
-4. `git checkout -- index.html`, then merge `main` back into `dev`, then `node scripts/dev-index.mjs`.
-
-The merge-back in step 4 is the one that rots the branch if skipped. CLAUDE.md's **Release**
-section is the authority; this list is a reminder, not a replacement.
+**The gate is one command, and it has one trap.** `node test/smoke.mjs` must be green with
+`test/fixtures/*.txt` **untouched** — not regenerated. A golden diff during step 3 means the
+extraction changed the prompt, which is precisely the failure this step exists to catch, so
+`node scripts/update-golden.mjs` must not be run at any point in it. The one legitimate exception
+is a diff you can explain and intend; there should be none in a pure extraction.
 
 **Four things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
 free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
@@ -396,12 +391,29 @@ Section numbering is preserved so the diff stays readable.
 | 3 | Story generation | phase beats come from `world.phases` |
 | 4 | Group background | `world.setting` + `world.lore` + roster relations |
 | 5 | Member profiles | + `Habit:` line; NPCs are explicit, not leftovers |
-| 6 | Cast identity & address | identity text from `world.identities`; **address protocol unchanged** |
+| 6 | Cast identity & address | identity text from `world.identities`; token table from `world.addressForms`; **protocol logic unchanged** |
 | 7 | Social platform rules | only the platforms the world declares |
 | 8 | — | **NEW** Places (canon list) + opening scenario |
 
 **Everything added here is static and therefore cached from R1.** No change touches the history
 ledger or the cache-miss boundary.
+
+**The address token table moves into the world file — during the extraction, not after.**
+`TOKENS` in `mainAgent.js` maps 언니 / 님 / 씨 / 야 per output language, so it reads as a
+*language* table. It is not. It is a **(world, language)** table: Korean seniority is a birth-year
+boundary and these honorifics are how it is spoken, whereas a Japanese setting needs 先輩 / さん /
+ちゃん with seniority by school year, and a Chinese one has almost no formal peer register to
+carry at all. Keeping `unnie` / `xi` while changing the country would put Korean grammar in a
+Tokyo scene — the same error class as the zh `呀` bug (CLAUDE.md, *"Korean address forms are
+transliterated, never localized"*), where a transliteration was valid in one target language and
+collided with existing grammar in another.
+
+So a background country is **not** a second axis alongside the world; a country ships *as* a
+world. `kpop_idol` carries today's table **verbatim** — goldens unchanged, this stays a pure
+extraction — and a future `jpop_idol` ships its own without reopening `buildSystemPrompt`. Only
+the tokens move: the *logic* (direction fixed by birth year, register blended from stage and
+Private Personality) stays in code, because it is behaviour rather than content. Cheap while the
+file is already open, expensive once three world JSONs exist.
 
 Estimated static-prompt delta, Red Velvet, 1 main + 2 subs:
 
@@ -782,7 +794,7 @@ data instead of an inherited figure.
 
 | # | Task | Files |
 | --- | --- | --- |
-| 1 | `worldLoader.js`, `public/worlds/kpop_idol/*` — extract today's hardcoded blocks verbatim | new + `mainAgent.js` |
+| 1 | `worldLoader.js`, `public/worlds/kpop_idol/*` — extract today's hardcoded blocks verbatim, `TOKENS` included | new + `mainAgent.js` |
 | 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` | new |
 | 3 | `buildSystemPrompt` reads world + roster | `mainAgent.js` |
 | 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` |
@@ -809,7 +821,8 @@ canon in §8; map picker; discovered places.
 ### v1.4.2
 
 Player KKT/IG composers; `playerPostReactions` in the schema and parser; relations in §4;
-opening scenario; affinity matrix call + `BETA` prior in `probabilityEngine.js`.
+opening scenario; affinity matrix call + `BETA` prior in `probabilityEngine.js`; **plot mode
+(§19)** — authored story beats, offered as option D, injected into the tail.
 
 ### v1.5.0
 
@@ -894,3 +907,179 @@ None blocking v1.4.0. Carried forward:
    so the feature is discoverable without work from the player.
 4. **`BETA` value** needs one live playthrough sweep to settle; 1.5 is a starting point, not a
    measurement.
+
+---
+
+## 19. Plot mode — v1.4.2
+
+Authored story beats, opt-in, injected into the dynamic tail. Agreed in discussion 2026-09-24.
+Numbered 19 and placed last so that no existing §-reference in this file, in `CLAUDE.md` or in
+`docs/TECH_NOTES.md` has to be renumbered.
+
+### 19.1 Why
+
+The game has **no authored beats at all**. Every scene is invented by the model from the phase
+rules, which is why a long session drifts toward pleasant sameness — practice room, late night,
+coffee, repeat. The prompt can bias tone; it cannot supply an event decided elsewhere.
+
+`relationshipEvents.js` looks like a counter-example and is not. `proposal_ready`,
+`breakup_warning` and `pressure_warning` render a **modal** ([App.jsx:1453](../src/App.jsx#L1453))
+and never reach the prompt. Nothing in the current engine tells the model *what happens this
+round*.
+
+The content already exists. `src/config/specialEvents.js` on tag `archive/dev-v12.0.0` is 929
+lines of hand-written beats, already trilingual:
+
+| Pool | Tiers | Selected by |
+| --- | --- | --- |
+| `ROMANTIC_EVENTS` | attraction / ambiguous / pre_confession / together | top affection |
+| `PR_CRISIS_EVENTS` | low / medium / high | `secrecy` |
+| `DRAMA_EVENTS` | mild / moderate / intense | gap between the top two affections |
+| `CAREER_EVENTS` | early / mid / late | round number |
+| `EMOTIONAL_EVENTS` | early / late | round number |
+
+Each entry is `{ id, prompt, intro: { zh, en, ko } }` — `prompt` instructs the model, `intro` is
+the one-line teaser shown to the player.
+
+### 19.2 What v12 got wrong, and it is the expensive one
+
+v12 placed the event **instance** correctly: it appended a `[SPECIAL EVENT — THIS ROUND ONLY]`
+block to the user message, which is the tail. Keep that, including its *"open with 1-2 sentences
+that bridge from the previous round"* instruction — without it an injected event reads as a hard
+cut away from the scene the player was in.
+
+What it got wrong was the **flag**. `buildSystemPrompt(..., queueDActive = false)` took queue
+state as a parameter and rewrote two lines of the static prompt — the JSON schema's option D
+(`"D. [reserved]"`) and the options rule — whenever a beat was being offered. Every round with a
+queued beat therefore missed the entire ~5,500-token cached prefix.
+
+Same defect class as the `主线成员前女友` randomness found in step 1: invisible, no error, no
+failing test, and it silently doubles input cost on exactly the rounds the feature is active. The
+rule it violates is CLAUDE.md's **`buildSystemPrompt` must be a pure function of the save**, and
+plot mode must not reintroduce it.
+
+| Layer | Carries | Cache |
+| --- | --- | --- |
+| **Static system prompt** | the `SPECIAL EVENT OVERRIDE` *rule* — unconditional, constant, present whether or not plot mode is on | hits from R1 |
+| **Dynamic tail** | the event *instance* — target member, prompt, ~60-100 tokens | already 100% miss |
+
+Marginal cost is ~100 tail tokens on firing rounds only. This is the Time Speed `[Pacing]`
+pattern that CLAUDE.md already documents; follow it exactly.
+
+**Option D must not be reserved in the schema.** v12 told the model to emit `"D. [reserved]"` and
+then overwrote it client-side. Do the overwrite *without* telling the model: it writes a normal
+D, the client replaces that string with the beat's `intro`. The static prompt then never varies.
+
+### 19.3 Determinism — the failure mode to design against
+
+`pickRhythmEventForQueue` picks with `Math.random()`. Harmless for the cache, since the tail is
+never cached, and fatal for **↺ Retry**: regenerating would roll a *different* beat, so a player
+could reroll until they liked one, and the story would contradict the teaser they just read.
+
+**Decide the beat at the end of round N-1 and store it in `memory`.** Round N only reads. Two
+things then fall out for free:
+
+- `preRoundSnapshotRef` already snapshots `memory`, so Retry restores the same beat with no new
+  code.
+- The teaser must exist before options are rendered anyway — the actual reason v12 needed a queue.
+
+Consume-on-fire mutates the memory **clone** and commits only on success, exactly as
+`collapseHistoryIfNeeded` does. A failed round must not burn a beat.
+
+### 19.4 One toggle, and the class comes from `pace`
+
+v12 shipped **two** overlapping settings, which is why the grouping reads as unclear today. Its
+form carries both at once:
+
+```js
+{ ..., pace: "浪漫情感向", rhythm: "free" }
+```
+
+and the two value sets are the same four axes twice over. A player cannot tell the questions
+apart. Collapse them: [`PACES`](../src/App.jsx#L50) is already chosen at setup and currently only
+nudges tone, so let it pick the pool and finally do something.
+
+| `pace` | Pool |
+| --- | --- |
+| 慢热现实向 | `CAREER_EVENTS` + `EMOTIONAL_EVENTS` (slice-of-life) |
+| 浪漫情感向 | `ROMANTIC_EVENTS` |
+| 高压舆论向 | `PR_CRISIS_EVENTS` |
+| 修罗海王向 | `DRAMA_EVENTS` |
+
+Settings gets **one boolean**, `rv_sim_plotmode`, default **off** — identical current behaviour
+for every existing player, and the honest default for a feature that changes how the story moves.
+A setting rather than a save field, consistent with Time Speed, which also changes the writing.
+No second class picker. If play shows per-class control is wanted, it belongs beside `pace` on
+the setup page, not in settings.
+
+### 19.5 Where the beats live
+
+**Not in `src/config/`.** Every beat in those pools is idol-industry specific — the practice room,
+the dorm, the agency, `pr_crisis` itself. They are **world content** and belong in
+`public/worlds/<id>/<lang>.json` as an `events` block, beside `identities` and `places`.
+
+That is the main reason plot mode waits for v1.4.2 instead of being built now: implementing it
+against `src/config/specialEvents.js` means moving it a release later.
+
+Three sources, in priority order:
+
+1. **`form.customPlot`** — free text at setup. Overrides everything, stored in the save.
+2. **The world's `events` pools** — the v12 content, once ported into `kpop_idol`.
+3. **A generated arc** — if plot mode is on and the world declares no `events` (the normal case
+   for a world the player built in v1.4.1), round 1 asks for an optional `plotArc` field, stored
+   in `memory` and **never regenerated**.
+
+Source 3 is what makes plot mode work for custom worlds at all, and it is also the riskiest path.
+`plotArc` must be **optional in the parser** — a model that ignores it returns nothing and the
+round is still valid, the contract §8 already sets for `playerPostReactions`. Generate once,
+store, never re-ask: a re-rolled arc is the step-1 backstory bug wearing a different hat.
+
+### 19.6 Save shape — no migration
+
+```js
+memory.plot = {
+  queued:        null,  // {eventId, poolId, memberId, prompt, intro:{zh,en,ko}, entryRound}
+  triggered:     [],    // ids already fired, so a beat cannot repeat
+  cooldownUntil: 0,     // round number
+  arc:           null,  // source 3 only, generated once at round 1
+}
+```
+
+A v13 save with no `memory.plot` reads as `undefined` and defaults on load. **No new storage key,
+no migration table, no change to `isLegacyMemory`** — older shapes are already wiped to
+`createEmptyMemory()`. `form.customPlot` is a form field and behaves the same way.
+
+### 19.7 Scope — cut v12's knobs
+
+v12 carried `queueCooldown`, `dShownCount`, `MAX_QUEUE_STAY`, `MAX_D_SHOWN_COUNT`, `D_COOLDOWN`
+and `EMOTIONAL_LATE_ROUND` — six tuning parameters for a feature nobody had played yet. Ship the
+smallest thing that can be judged:
+
+- **at most one** queued beat
+- offered as option D, with the beat's `intro` as the option text
+- expires **3 rounds** after entering the queue if the player never picks it
+- **3-round** cooldown after one fires
+- a beat never repeats within a playthrough (`triggered`)
+
+Add knobs when real play demands them, not before.
+
+### 19.8 Test obligation
+
+| Check | Layer | Guards |
+| --- | --- | --- |
+| Static prompt byte-identical: plot off vs on, beat queued vs not | **J** | the v12 `queueDActive` bug exactly |
+| Same memory + same round ⇒ same beat | **D** | the Retry reroll |
+| Event block in the tail only on the firing round | **D** | placement |
+| Legacy save with no `memory.plot` loads and plays | **G** | the migration-free claim |
+| A failed round does not consume the queued beat | **D** | clone-and-commit |
+
+Per repo convention each must be verified failing against the unfixed code.
+
+### 19.9 Open questions
+
+1. **Does a beat fire inside the achievement window (round 30+)?** v12 gated pools by round via
+   `EMOTIONAL_LATE_ROUND`. Probably yes, but the interaction with `proposal_ready` is unexamined.
+2. **Porting effort for the v12 pools** — ~100 entries × 3 languages into `kpop_idol`, and the
+   prose was written against a v12 stat model that has since changed.
+3. **Should `慢热现实向` fire beats at all**, or is "no beats" the honest meaning of slow-burn
+   realistic? v12's `free` rhythm did exactly nothing.
