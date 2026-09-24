@@ -301,21 +301,27 @@ async function runWorker(model) {
     // default the player is born on the cast's median birth year: some members
     // are then her seniors and some her juniors, and a reversed unnie shows up.
     // --age pins it when a specific setup needs reproducing.
+    // The harness always thought in birth years and only converted to an age
+    // because that was the field the form had; since v1.4.0 it carries the
+    // birth year straight through. `age` is still written because backstorySeed
+    // hashes it (see mainAgent.js), and --age still pins the setup.
     const birthYears = members
       .map((m) => parseInt((m.birthday || "2000-01-01").split("-")[0]) || 2000)
       .sort((a, b) => a - b);
-    const playerBirthYear = birthYears[Math.floor(birthYears.length / 2)];
-    const age = AGE != null ? String(AGE) : String(GAME_YEAR - playerBirthYear);
+    const playerBirthYear = AGE != null
+      ? GAME_YEAR - AGE
+      : birthYears[Math.floor(birthYears.length / 2)];
+    const age = String(GAME_YEAR - playerBirthYear);
     const playerName = LANG === "zh" ? "\u6797\u590f" : LANG === "ko" ? "\uc774\ud558\ub9b0" : "Summer";
 
     const form = {
       mainMember: mainId, subMembers: subIds, identity: IDENTITY, customIdentity: "",
       name: playerName,
-      nationality: "KR", age, nickname: "", herNickname: "",
+      nationality: "KR", birthYear: String(playerBirthYear), age, nickname: "", herNickname: "",
       starLevel: "", pace: "\u6d6a\u6f2b\u60c5\u611f\u5411",
     };
     const cast = {
-      playerName, playerBirthYear: GAME_YEAR - parseInt(age),
+      playerName, playerBirthYear,
       members: members.map((m) => ({
         id: m.id, name: m.name, name_kr: m.name_kr,
         birthYear: parseInt((m.birthday || "2000-01-01").split("-")[0]) || 2000,

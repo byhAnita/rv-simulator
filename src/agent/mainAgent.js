@@ -97,8 +97,27 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // The previous version computed the same number and printed it as the MEMBER's
   // age texture ("15 years younger") when the sign actually describes the
   // PLAYER, so every profile in every group stated the relationship backwards.
-  const playerAge = parseInt(form.age || 20) || 20;
-  const playerBirthYear = GAME_YEAR - playerAge;
+  //
+  // `form.birthYear` is the truth and `playerAge` is a rendering of it, which is
+  // the opposite of what shipped through v1.3.9: that derived the birth year
+  // from the age as `GAME_YEAR - age`, which assumes the player's birthday has
+  // already passed this year and is therefore wrong for roughly half of all
+  // players. Age cannot determine a birth year — the information is simply not
+  // in it — and since seniority here is a hard year boundary with no tolerance,
+  // a one-year error flips the relationship outright whenever it lands on a
+  // member's birth year. Reported from hand play: a player born 1999-11-19
+  // entering age 26 derived 2000, so a 1999 member became her senior when the
+  // two are peers, and the game told her to say 欧尼 to her own age group.
+  //
+  // The fallback is the legacy path, not a default. A save written before
+  // v1.4.0 carries only `age`, and saveMigrator fills `birthYear` from exactly
+  // this arithmetic so a migrated save keeps producing the prompt it already
+  // had. It stays here rather than throwing the way a missing `world` does,
+  // because a missing world is a wiring bug worth failing loudly on, while an
+  // absent birth year is old player data — and a slightly wrong honorific is a
+  // great deal better than a game that will not load.
+  const playerBirthYear = parseInt(form.birthYear) || (GAME_YEAR - (parseInt(form.age || 20) || 20));
+  const playerAge = GAME_YEAR - playerBirthYear;
   const playerName = form.name || "Player";
 
   // The setting is South Korea, so Korean address forms are transliterated into

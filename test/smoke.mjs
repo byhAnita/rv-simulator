@@ -900,6 +900,20 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("option bar is hidden while editing", /quickOptions\.length > 0 && !loading && editingIdx === null/.test(app));
   check("custom input is hidden while editing", /\{editingIdx === null && \(\s*<div style=\{\{ padding: "6px 8px", background: th\.inputAreaBg/.test(app));
 
+  // Setup collects the birth year itself. Age is one lossy step from the only
+  // number the address protocol compares, and the loss is ~50/50 by
+  // construction — see the note above playerBirthYear in mainAgent.js.
+  check("setup collects a birth year, not an age",
+    /placeholder=\{language === "zh" \? "出生年份"/.test(app) && !/\? "年龄"/.test(app));
+  check("the start gate requires a plausible birth year",
+    /canStart = [^\n]*validBirthYear\(form\.birthYear\)/.test(app),
+    "a bare truthiness test would accept the year 12");
+  // The seed that fixes an identity backstory for the life of a save hashes
+  // form.age, so setup must keep writing it. Dropping the field would re-roll
+  // every ex-girlfriend backstory, which is the bug v1.3.9 closed.
+  check("setup still writes the frozen `age` the backstory seed hashes",
+    /setBirthYear = \(v\) => setForm\([\s\S]{0,200}age: validBirthYear\(v\)/.test(app));
+
   check("provider id 'qwen' still exists (rv_sim_model_v11 = \"qwen\" keeps working)", !!MODEL_CONFIGS.qwen);
   check("App falls back to legacy rv_sim_qwen_submodel", /loadFromStorage\("rv_sim_qwen_submodel"\)/.test(app));
 
@@ -1492,6 +1506,48 @@ async function layerI() {
     /plain given name/.test(peerBlock("Seulgi")), peerBlock("Seulgi"));
   check("a genuinely older member in the same cast still gets unnie",
     peerBlock("Irene").includes('Summer -> "Irene-unnie"'), peerBlock("Irene"));
+
+  // --- birth year is collected, not derived (v1.4.0 step 4).
+  //
+  // Through v1.3.9 the player's birth year was GAME_YEAR - age, which assumes
+  // her birthday has already passed this year and is therefore wrong for about
+  // half of all players. The reported case is pinned here exactly: born
+  // 1999-11-19, entering age 26, which derives 2000 and makes Yeri (b.1999) her
+  // senior when the two are peers. The age it is given contradicts the birth
+  // year on purpose — only an implementation that reads the birth year passes.
+  const contradicting = prompt(form({ birthYear: "1999", age: "26" }));
+  const yeriContra = addressOfIn(contradicting, "Yeri");
+  check("the player's own birth year decides seniority, not one derived from her age",
+    /same birth year as Summer/.test(yeriContra), yeriContra);
+  // The ageLine for a peer says "no unnie in either direction", so the word
+  // itself is present and cannot be the test. What must be absent is an
+  // address FORM — `-unnie"` — and the senior marking that produced it.
+  check("...so a same-year member is offered no unnie form, in either direction",
+    !/-unnie"/.test(yeriContra) && !/OLDER than Summer/.test(yeriContra), yeriContra);
+  check("the age in the prompt is rendered from the birth year, not read from the form",
+    prompt(form({ birthYear: "1996", age: "99" })).includes("age 30, born 1996"),
+    "the form's age is a frozen setup token; birth year is the live value");
+
+  // Migration safety, in miniature. saveMigrator writes birthYear as
+  // GAME_YEAR - age for every save written before v1.4.0, so a legacy save must
+  // build the prompt it already had, byte for byte — otherwise every player in
+  // flight has their honorifics move under them on the next round.
+  check("a legacy form migrated to a birth year builds a byte-identical prompt",
+    prompt(form({ birthYear: "1995" })) === prompt(form()),
+    "age 31 in GAME_YEAR 2026 is b.1995; migration must reproduce it exactly");
+
+  // backstorySeed hashes form.age, and only form.age, so that a birth year
+  // arriving at migration cannot re-roll an identity background mid-save —
+  // which is the v1.3.9 bug wearing a different hat. Seniority lines are
+  // stripped because those are supposed to move with the birth year; nothing
+  // else may.
+  const stripSeniority = (s) => s.split("\n")
+    .filter((l) => !/^ {2}(Age|Address): /.test(l)).join("\n")
+    .replace(/age \d+, born \d{4}/, "");
+  check("a birth year cannot re-roll the identity backstory",
+    stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "1990" })))
+    === stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "2000" }))),
+    "the backstory seed moved with the birth year");
 
   // --- the self-naming bug: a member thanking the player with her own name.
   check("member's own name is ruled out as an address form for the player",

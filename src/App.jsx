@@ -8,7 +8,7 @@ import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
 import { getFreeRouteStatus, resolvePaidModel, resetFreeRoute } from "./tools/aliyunRoute";
-import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
+import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
@@ -258,6 +258,21 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
   ].join("\n");
 }
 
+// The player's birth year, not her age, is what the address protocol compares
+// against each member's — Korean seniority is a hard year boundary, so an age
+// is one lossy step away from the only number that matters. See the note above
+// playerBirthYear in mainAgent.js for the bug that made this a field.
+//
+// The bounds are a sanity range, not a rule about who may play: below 18 the
+// premise stops being a premise, and a four-digit typo (1099, 2206) should not
+// silently make the whole cast her junior.
+const PLAYER_BIRTH_YEAR_MIN = GAME_YEAR - 80;
+const PLAYER_BIRTH_YEAR_MAX = GAME_YEAR - 18;
+const validBirthYear = (v) => {
+  const y = parseInt(v);
+  return y >= PLAYER_BIRTH_YEAR_MIN && y <= PLAYER_BIRTH_YEAR_MAX;
+};
+
 export default function App() {
   const [language, setLanguage] = useState(() => loadFromStorage("rv_sim_language") || "zh");
   const { t, interpolate } = useTranslation(language);
@@ -278,7 +293,7 @@ export default function App() {
   const [aliyunMode, setAliyunMode] = useState(() => loadFromStorage(STORAGE_KEYS.ALIYUN_MODE) === "paid" ? "paid" : "free");
   // rv_sim_qwen_submodel is the legacy 3-sub-model key; read once to seed the paid pick.
   const [aliyunPaidModel, setAliyunPaidModel] = useState(() => resolvePaidModel(loadFromStorage(STORAGE_KEYS.ALIYUN_PAID_MODEL) || loadFromStorage("rv_sim_qwen_submodel")));
-  const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
+  const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", birthYear: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
   const [messages, setMessages] = useState([]);
   // Index of the message being edited (choice or story), and its draft text.
   // Bumped after resetFreeRoute so the key page re-reads route state.
@@ -327,6 +342,16 @@ export default function App() {
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
   const allTargetMembers = [mainMember, ...subMembersList].filter(Boolean);
   const npcMembers = groupConfig ? getNpcMembers(members, form.mainMember, form.subMembers || []) : [];
+
+  // `age` is written here and never again. It is not a second source of truth —
+  // the prompt renders the age from the birth year — but backstorySeed hashes
+  // it, and that seed must stay frozen for the life of a save or the identity
+  // backstory re-rolls under a player mid-game — the drift that seed exists to
+  // stop. (No version string in this comment on purpose: `npm run bump`
+  // rewrites every `v<x.y.z>` in this file and smoke Layer C counts them.)
+  const setBirthYear = (v) => setForm(f => ({
+    ...f, birthYear: v, age: validBirthYear(v) ? String(GAME_YEAR - parseInt(v)) : "",
+  }));
 
   useEffect(() => {
     loadGroupIndex().then(list => {
@@ -998,7 +1023,7 @@ export default function App() {
     // `world` is in the gate because buildSystemPrompt cannot run without it.
     // It is fetched on mount and the player cannot reach this screen faster
     // than that, but a start with no world would throw rather than degrade.
-    const canStart = form.mainMember && form.name && form.age && form.identity && form.pace && world;
+    const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && form.pace && world;
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
@@ -1068,7 +1093,7 @@ export default function App() {
           <div className="s-l">{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
           <div style={{ display: "flex", gap: 5, marginBottom: 5 }}>
             <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            <input className="s-in" placeholder={language === "zh" ? "年龄" : language === "ko" ? "나이" : "Age"} value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" />
+            <input className="s-in" placeholder={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"} value={form.birthYear} onChange={e => setBirthYear(e.target.value)} style={{ flex: 1 }} type="number" min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} />
           </div>
 
           <div className="s-l">{t.setup.pace}</div>

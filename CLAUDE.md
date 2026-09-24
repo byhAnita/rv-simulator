@@ -61,7 +61,7 @@ six months later.
 
 `test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.
 
-**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's age therefore defaults to the cast's median birth year, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` pins it. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
+**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's birth year therefore defaults to the cast's median, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` still pins it, converted to a birth year on the way in. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
 
 ---
 
@@ -603,22 +603,30 @@ zh also romanizes 씨 as **`xi`**, not `ssi`, because that is the pinyin a Chine
 
 Comparison is by **birth year, not age gap in years** — Korean seniority is a birth-year boundary, so a 1994 and a 1995 member are not peers even though they are months apart. The old `±2 years` tolerance erased that distinction.
 
-**Known defect: the player's birth year is derived from her age and is wrong for half of all
-players.** `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes her birthday has
-already passed this year. For anyone whose has not, the real birth year is one earlier. Reported
-from hand play in v1.3.9: a player born 1999-11-19 entering age 26 derives **2000**, so Yeri
-(born 1999) becomes her senior when the two are actually peers — the player is told to call a
-same-year member `欧尼`.
+**The player's birth year is collected, not derived — v1.4.0 step 4.** Setup asks for
+`form.birthYear` and the prompt renders her age from it; through v1.3.9 it ran the other way,
+`playerBirthYear = GAME_YEAR - playerAge`, which assumes her birthday has already passed this
+year and is therefore **wrong for roughly half of all players**. Reported from hand play in
+v1.3.9: a player born 1999-11-19 entering age 26 derived **2000**, so Yeri (born 1999) became her
+senior when the two are peers, and the game told her to say `欧尼` to her own age group.
 
-This is not fixable from age. Age alone cannot determine birth year, ever, and the error is
-~50/50 by construction. Since seniority is a hard year boundary with no tolerance, a one-year
-error flips the relationship whenever it lands on a member's birth year — which for a cast
-spanning three or four years is a large fraction of the cast.
+Age cannot determine a birth year — the information is not in it — and since seniority is a hard
+year boundary with no tolerance, a one-year error flips the relationship outright whenever it
+lands on a member's birth year. For a cast spanning three or four years that is a large fraction
+of the cast, which is why this was worth a save field rather than a heuristic.
 
-The fix is to collect **birth year** at setup instead of age: age is derivable from birth year
-exactly, and the reverse is not. That needs a `form` field and legacy handling for saves that
-carry only `age`, so it belongs with the save migration in `docs/V140_PLAN.md` step 4. Until then
-the derived value stands and this paragraph is the record that it is approximate.
+**`age` did not leave the save; it stopped being the source of truth.** `backstorySeed` hashes
+it, and that seed must stay frozen for the life of a save or an identity backstory re-rolls
+mid-game. So setup writes `age` once, derived from the birth year, and nothing edits it
+afterwards. Birth year is the live value; age is a frozen setup token that the prompt also
+happens to print.
+
+**Old saves migrate to `birthYear = GAME_YEAR - age` — the same arithmetic, done once.** That is
+deliberately *not* a fix: it reproduces the value the save already had, so a game in flight is
+byte-identical before and after migrating and nobody's honorifics move under them. Smoke asserts
+exactly that. The consequence is that **a pre-v1.4.0 save keeps its ±1 error**, because nothing
+can recover a birth year from an age. Letting a player correct hers on a loaded save is UI and
+lands in step 6.
 
 **`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
 
@@ -784,7 +792,7 @@ Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
 Setup Page
-  -> Main member + Sub members + Identity (7+1) + Pace + Name/Age
+  -> Main member + Sub members + Identity (7+1) + Pace + Name/Birth year
       |
 Game Page (loop)
   -> Read story -> Choose A/B/C/D or Custom -> Next round
