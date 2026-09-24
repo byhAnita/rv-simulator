@@ -15,8 +15,8 @@ scheduled for v1.4.2.
 | **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug, **confirmed live A/B**: 7 drifts in 8 rounds and 60.5% cache before, 0 drifts and 87.2% after. Verified failing against the unfixed code. |
 | **2 — Release v1.3.9** | ✅ **released.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), the backstory fix inherited from step 1, and four writing/pricing fixes found by hand play after the branch was already green (below). Smoke 469 → **578**. |
 | **3 — World extraction + resolver** | ✅ **done**, on `dev`, unreleased. Four commits: world JSON + `worldLoader`, `buildSystemPrompt` reading it, `rosterResolver`, and the `habit`/`tags` whitelist. Smoke 578 → **630**. **The gate held: goldens byte-identical, `update-golden.mjs` never run.** Found two pieces of dead code — see below. |
-| 4 — Save migration | ⬜ **next.** Also carries the **player birth-year field**, the App-side rewiring through `resolveRoster`, and `getNpcMembers` ceasing to derive — see below. |
-| 5 — Content (`habit` × 27) | ⬜ |
+| **4 — Save migration** | ✅ **done**, on `dev`, unreleased. Three commits: the player **birth-year field**, `saveMigrator` (`schema`/`worldId`/`groupId`/`roster`), and the App-side rewiring through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke 630 → **671**. **The gate held**: a pinned v1.3.8 save migrates to the same member set `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte. Goldens untouched. |
+| 5 — Content (`habit` × 27) | ⬜ **next.** The one step that moves the goldens on purpose. |
 | 6 — UI | ⬜ |
 | 7 — Release v1.4.0 | ⬜ |
 
@@ -97,7 +97,40 @@ resolves it before calling `executeRound` ([App.jsx:489](../src/App.jsx#L489)), 
 shadowed nothing and fed nothing. No player-visible bug: custom identity text does reach the
 prompt, through `form.identity`. Deleted.
 
-### Carried into step 4: the player's birth year
+### Found by step 4: member ids are not unique across the library
+
+§9.3 says to find a legacy save's group by scanning the index for the one containing
+`form.mainMember`. That is not sufficient, and the plan did not know it. **`x` is a crossover
+roster and shares seven member ids with the groups those members debuted in** — `irene`, `wendy`,
+`sana`, `mina`, `sullyoon`, `wonyoung`, `jisoo`. Seven of the library's fifty ids are ambiguous,
+so a scan matching on the main member alone would pick one in index order and hand the player a
+cast she never chose, silently, on a save she had already been playing.
+
+The implemented rule is containment of the **whole chosen cast** — main plus every sub — which
+separates them in every case where the player picked a sub at all. A remaining tie (a solo
+`irene` run) is broken by the group the app currently has selected, which is a real signal and
+cannot reintroduce the §9.1 bug, because a group that does not contain the cast is never a
+candidate. A cast no group contains is **warned about, never defaulted silently**: that is the
+v1.3.5 lesson, where `loadGroupIndex`'s catch returning a hardcoded Red Velvet entry hid a path
+bug for a whole release. Here the same swallow would have a player's progress attached.
+
+Two corrections to this document follow, both made in place: §9.3's group-scan row, and §9.4's
+claim that the migration checks live in Layer J — they are in **Layer I**, next to the
+`getNpcMembers` equivalence anchor they are measured against.
+
+### Carried into step 6: correcting a migrated birth year
+
+Migration writes `birthYear = GAME_YEAR - age`, which reproduces the value a legacy save has
+always produced and is therefore **still wrong for about half of those saves**. Nothing can
+recover the real year from an age. New games are correct; old ones are not, and no loader can fix
+that without changing a running game underneath its player.
+
+So the fix is an affordance, not a migration: let the player correct her birth year on a loaded
+save. It belongs in step 6 because it is UI, and because editing it mid-run rewrites the static
+prompt and costs one full cache miss — a fine price for a deliberate action, and not something to
+incur as a side effect of loading.
+
+### Done in step 4: the player's birth year
 
 `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes the player's birthday has
 already passed this year, so it is **wrong for roughly half of all players**. Reported live: a
@@ -106,40 +139,58 @@ two are peers, and the game tells her to say `欧尼` to a same-year member.
 
 This is not fixable from age — age alone cannot determine birth year, and since seniority is a
 hard year boundary with no tolerance, a one-year error flips the relationship whenever it lands on
-a member's birth year. The fix is to collect **birth year** at setup (age derives from it exactly;
-the reverse does not), which needs a `form` field and legacy handling for saves carrying only
-`age`. Step 4 already migrates saves, so it belongs there.
+a member's birth year.
+
+**Setup now collects `form.birthYear` and the prompt renders her age from it**, which is the only
+direction that throws nothing away. The comparison itself never needed touching: `mainAgent.js`
+already compared birth year to birth year, and only the source of the player's was lossy.
+
+`age` stayed in the form, **demoted to a frozen setup token**. `backstorySeed` hashes it and that
+seed must stay fixed for the life of a save, or an identity backstory re-rolls mid-game — the
+drift step 1 closed. Setup writes it once from the birth year; nothing edits it afterwards. Had
+the seed been re-pointed at `birthYear` instead, every existing ex-girlfriend save would have
+re-rolled once on load, which is the same bug wearing a different hat.
+
+Old saves migrate to `GAME_YEAR - age`, reproducing the value they already produced, so a game in
+flight is byte-identical before and after. That is preservation, not repair — see *"Carried into
+step 6"* above.
 
 ## Pick up here
 
-**State as of 2026-09-24.** v1.3.9 is **released**. `main`, `dev`, `origin/main` and `origin/dev`
-are all at `758faa3` — the deploy commit, tagged `v1.3.9` — with zero divergence in either
-direction. All three mirrors serve `index-DAtY_Xfc.js` and CI is green on both branches. Smoke:
-**578** offline checks. The working tree carries only ` M index.html` in dev mode, which is
-normal and never committed.
+**State as of 2026-09-24.** v1.3.9 is **released** and is what players run: `main` and
+`origin/main` are at `758faa3`, the deploy commit, tagged `v1.3.9`. All three mirrors serve
+`index-DAtY_Xfc.js`.
 
-**Step 3 is done** (4 commits, `3bbc033`..`fdcbf3c`, unpushed at time of writing). The gate held:
-goldens byte-identical, `update-golden.mjs` never run, smoke 578 → **630**.
+**Steps 3 and 4 are done on `dev` and unreleased** — seven commits, `3bbc033`..`73b0995`, plus
+docs. Neither ships a player-visible change on its own, so both ride with v1.4.0 rather than
+justifying a release. Smoke **578 → 671**. Goldens byte-identical throughout and
+`update-golden.mjs` never run.
 
-**Next action is step 4 — save migration.** It now carries four things, not one:
-
-| Task | Why it landed here |
+| Step 4 commit | What |
 | --- | --- |
-| `groupId` / `worldId` / `roster` in the save slot | the original step-4 scope (§9) |
-| Player **birth year** replacing age | age cannot determine birth year; wrong for ~half of players |
-| Rewire `App.jsx` through `resolveRoster` | deferred from step 3 — members are needed at the setup screen before a main member exists, so a roster cannot replace that load until saves carry one |
-| `getNpcMembers` stops deriving | needs a roster in the save to read slots from |
+| `9d1c6cd` | the player's birth year is collected, not derived |
+| `a629182` | `saveMigrator`, not yet consumed |
+| `73b0995` | the game path resolves its cast from the roster |
 
-**Step 4's gate, in the plan's own words: a pinned v1.3.8 save must migrate and resolve to the
-*same* member set `getNpcMembers` returns today.** Smoke already asserts that equivalence for a
-freshly built classic roster ("explicit NPCs match what getNpcMembers derives today"); migration
-has to reach the same place starting from an old save instead.
+**The gate held.** A pinned v1.3.8 save (`test/fixtures/save-v138.json`, TWICE) migrates and
+resolves to the same member set `getNpcMembers` derives today, in the same order, and builds the
+same system prompt **byte for byte**. Every guard added across the three commits was verified to
+fail against a broken implementation — the old age-derivation, an off-by-one migration fallback, a
+seed hashing `birthYear`, reversed member order, a disabled group scan, a removed idempotence
+short-circuit, `phaseRef` pinned late, the group not taken from the save, and `SaveOverlay`
+dropping `groupId` or `roster`.
 
-**The step-3 gate, kept here because step 5 inherits it.** `node test/smoke.mjs` must be green
-with `test/fixtures/*.txt` **untouched** — not regenerated. A golden diff during an extraction
-means the prompt changed, which is the failure the goldens exist to catch, so
-`node scripts/update-golden.mjs` must not be run during one. The legitimate exception is a diff
-you intend and read: step 5 adds the `Habit:` line and **will** move them, deliberately.
+**Next action is step 5 — content: `habit` across the 27 group files.**
+
+**Step 5 is the one step that moves the goldens, and that is correct.** Every step since step 1
+has held them byte-identical; step 5 adds the `Habit:` line to the member profile block, so
+`node scripts/update-golden.mjs` **is** run here, once, and `git diff test/fixtures/` **is read**
+before committing. The diff is the review artifact. Regenerating without reading it is what turns
+the only prompt-regression detector in the repo into a rubber stamp.
+
+`habit` is already on the `parseGroupConfig` whitelist (step 3) and already survives the loader,
+asserted through a stubbed fetch. What does not exist yet is the content, the prompt line that
+renders it, and the root `groups/` mirror update — Layer C fails when that drifts.
 
 **Four things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
 free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
@@ -584,7 +635,7 @@ New fields written: `schema: 14`, `worldId`, `roster`, `groupId`.
 | --- | --- |
 | no `schema` | treat as schema 13 |
 | no `worldId` | `"kpop_idol"` |
-| no `groupId` | scan the group index for the group containing `form.mainMember`; ambiguous or absent → `"red_velvet"` + `console.warn` |
+| no `groupId` | scan for the group containing **the whole chosen cast** — `form.mainMember` *and* every `form.subMembers` entry. Matching on the main member alone is not enough: `x` is a crossover roster sharing seven ids with the groups those members debuted in. A remaining tie → the group the app has selected, if it is a candidate; still tied → first in index order + `console.warn`; no candidate at all → `"red_velvet"` + `console.warn` |
 | no `roster` | build from `groupId` + `form.mainMember` + `form.subMembers`; **all remaining group members get `slot:"npc"`**, reproducing today's `getNpcMembers` exactly |
 | `form.identity` unknown to the world | keep the raw string, render as a custom identity — never blank it |
 | `form.pace` / `starLevel` unknown | same |
@@ -597,10 +648,16 @@ say so.
 
 ### 9.4 Test obligation
 
-Smoke **Layer J** pins a real v1.3.8 save as a fixture and asserts it migrates, resolves a
-roster, and builds a prompt without throwing — and that the resolved member set is *identical*
-to what `getNpcMembers` produces today. Per the v1.3.7 lesson, every assertion goes through
-`resolveRoster` / `loadGroupConfig`, never by reading `public/groups/*.json` directly.
+Smoke **Layer I** — not Layer J, as this section originally said — pins a real v1.3.8 save as
+`test/fixtures/save-v138.json` and asserts it migrates, resolves a roster, and builds a prompt
+without throwing, and that the resolved member set is *identical* to what `getNpcMembers` produces
+today. Layer I is where that equivalence anchor already lives, and a gate reads better next to the
+thing it gates. Per the v1.3.7 lesson, every assertion goes through `resolveRoster` /
+`loadGroupConfig`, never by reading `public/groups/*.json` directly.
+
+**The fixture is TWICE, deliberately.** Red Velvet is both the app's default selection and the
+migrator's last-resort fallback, so a Red Velvet save would pass every check in this section with
+the group scan doing nothing whatsoever.
 
 ---
 

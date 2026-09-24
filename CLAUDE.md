@@ -1175,15 +1175,28 @@ of a step whose whole gate is that they do not move, and it likely lands with pl
 leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
 upstream — and is deleted.
 
-**Step 4 — save migration — is next, and now carries four things:** the save shape
-(`groupId`/`worldId`/`roster`), the **player birth-year field** (see below), the `App.jsx`
-rewiring through `resolveRoster` deferred from step 3, and `getNpcMembers` ceasing to derive. The
-last two were deferred because members are needed at the setup screen *before* a main member
-exists, so a roster cannot replace that load until saves carry one.
+**Step 4 — save migration — is done on `dev` and unreleased** (`9d1c6cd`..`73b0995`). Three
+commits: the **player birth-year field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/
+`roster`), and the `App.jsx` rewiring through `resolveRoster` with `getNpcMembers` ceasing to
+derive. Smoke **630 → 671**, goldens untouched.
 
-Two of the plan-documented pre-existing bugs are closed by v1.3.9: `saveToStorage` no longer
-swallows quota errors, and affection pacing no longer depends on which model the router served.
-Save slots still record no group id; that is step 4.
+**Its gate held:** a pinned v1.3.8 save migrates and resolves to the same member set
+`getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte.
+
+**Step 4 found that member ids are not unique across the library.** `x` is a crossover roster
+sharing seven ids — `irene`, `wendy`, `sana`, `mina`, `sullyoon`, `wonyoung`, `jisoo` — with the
+groups those members debuted in. The plan's rule (scan for the group containing
+`form.mainMember`) would therefore have silently recast seven of fifty possible saves. The scan
+matches on the **whole chosen cast** instead, breaks a tie with the selected group, and warns
+rather than defaulting when nothing fits.
+
+All three plan-documented pre-existing bugs are now closed: v1.3.9 fixed `saveToStorage`
+swallowing quota errors and affection pacing depending on the served model; step 4 fixed save
+slots recording no group id.
+
+**Step 5 — `habit` across the 27 group files — is next, and it is the step that moves the
+goldens.** Every step since step 1 has held them byte-identical; step 5 adds the `Habit:` line, so
+`update-golden.mjs` is run once, deliberately, and the diff is read before committing.
 
 Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_PER_1M` is partial, and the
 gaps are documented rather than filled — never back-derive a per-1M price from a per-round

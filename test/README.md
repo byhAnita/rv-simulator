@@ -56,6 +56,24 @@ blocks that are English rule text, and that a classic roster resolves to a
 **byte-identical prompt**. That last one is what makes "one engine, two doors"
 a fact rather than a claim.
 
+**And save migration** (v1.4.0 step 4). `test/fixtures/save-v138.json` is a real
+pre-split save slot, pinned so the migration runs against something authentic
+rather than something written to make it pass. It is **TWICE, not Red Velvet**,
+because Red Velvet is both the app's default selection and the migrator's
+last-resort fallback — a Red Velvet fixture would pass every check with the
+group scan doing nothing at all.
+
+The gate is that the migrated save resolves to the same member set
+`getNpcMembers` derives today, in the same order, and builds the same prompt
+byte for byte. Migration **reproduces rather than fixes**: the birth year it
+writes is the one the save already produced, wrong by up to a year and
+deliberately left that way, because a loader that silently corrects a save
+changes a running game underneath its player. See `docs/TECH_NOTES.md`.
+
+`docs/V140_PLAN.md` §9.4 pencilled these into Layer J. They are here instead,
+beside the `getNpcMembers` equivalence anchor they are measured against; the
+plan has been corrected in place.
+
 ### Layer J and the golden prompts
 
 Three complete system prompts are committed under `test/fixtures/` and compared
