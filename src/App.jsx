@@ -3,6 +3,7 @@ import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
+import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
@@ -288,6 +289,10 @@ export default function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [groupConfig, setGroupConfig] = useState(null);
+  // The setting the cast lives in: identities, paces, phase beats, address
+  // forms. One world ships today, so it is not yet a player choice and not yet
+  // part of a save — that arrives with the roster in v1.4.0 step 4.
+  const [world, setWorld] = useState(null);
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
@@ -331,6 +336,12 @@ export default function App() {
   }, []);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // Reloads on language change, like the group config: the world file is
+  // per-language and carries the identity backgrounds the prompt renders.
+  useEffect(() => {
+    loadWorld(DEFAULT_WORLD_ID, language).then(setWorld).catch(console.error);
+  }, [language]);
 
   useEffect(() => {
     if (!selectedGroup) return;
@@ -487,7 +498,7 @@ export default function App() {
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
-        members, mainId, subIds, groupConfig, apiKey, selectedModel, kktUnlocked: {}, language,
+        members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
         aliyun: aliyunOptions(), timeSpeed,
       });
       statsRef.current = result.newStats;
@@ -559,7 +570,7 @@ export default function App() {
         playerChoice: text, stats: statsRef.current, memory: memoryRef.current,
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
-        groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+        groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
         aliyun: aliyunOptions(), timeSpeed,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
@@ -660,7 +671,7 @@ export default function App() {
         playerChoice: snap.playerChoice, stats: snap.stats, memory: JSON.parse(JSON.stringify(snap.memory)),
         form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
         members, mainId: form.mainMember, subIds: form.subMembers || [],
-        groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
+        groupConfig, world, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
         aliyun: aliyunOptions(), timeSpeed,
       });
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
@@ -984,7 +995,10 @@ export default function App() {
 
   // ── Setup Page ──
   if (phase === "setup") {
-    const canStart = form.mainMember && form.name && form.age && form.identity && form.pace;
+    // `world` is in the gate because buildSystemPrompt cannot run without it.
+    // It is fetched on mount and the player cannot reach this screen faster
+    // than that, but a start with no world would throw rather than degrade.
+    const canStart = form.mainMember && form.name && form.age && form.identity && form.pace && world;
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
@@ -1465,7 +1479,7 @@ export default function App() {
                       stats: statsRef.current, memory: memoryRef.current,
                       form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
-                      groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+                      groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
                       aliyun: aliyunOptions(),
                     });
                     const epStats = epilogue.newStats || statsRef.current;

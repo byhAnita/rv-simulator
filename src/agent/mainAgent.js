@@ -7,6 +7,7 @@ import { getStageIdx, getStageName } from "../config/stageConfig";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
+import { getIdentity, renderIdentityBackground } from "../rag/worldLoader";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -43,9 +44,16 @@ function getChapterByRound(roundNum) {
 // ============================================================
 // Build System Prompt
 // ============================================================
-export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language) {
+// `world` is required and has no default on purpose. A default would be a second
+// copy of every string in public/worlds/, and the two would drift silently; it
+// would also let a missing-wiring bug render as plausible output instead of
+// failing. Callers load it with loadWorld() once per game, exactly as they
+// already load the group config.
+export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language, world) {
+  if (!world?.addressForms?.tokens) {
+    throw new Error("buildSystemPrompt: a world is required (see rag/worldLoader.js)");
+  }
   const mainMember = members.find(m => m.id === mainId);
-  const identity = form.identity === "H" ? form.customIdentity : form.identity;
   const modelName = selectedModel || "AI";
   const allTargetIds = [mainId, ...subIds];
   const npcIds = members.map(m => m.id).filter(id => !allTargetIds.includes(id));
@@ -78,16 +86,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Identity background. The seed is what keeps this stable round to round —
   // see backstorySeed below, and "buildSystemPrompt must be a pure function of
   // the save" in CLAUDE.md.
-  const identityBg = getIdentityBackground(form.identity, mainMember?.name, language, backstorySeed(form, mainId));
-
-  // Pace rules
-  const paceRules = {
-    "慢热现实向": "[Pace: Slow Burn] Flipped & Ambiguous. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
-    "浪漫情感向": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage. ",
-    "高压舆论向": "[Pace: High Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans.",
-    "修罗海王向": "[Pace: Harem Route] Light comedic. Love triangle scences probability doubled. Members compete more openly for your attention.",
-  };
-  const paceRule = paceRules[form.pace] || "";
+  const identityBg = renderIdentityBackground(world, form.identity, mainMember?.name, backstorySeed(form, mainId));
 
   // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
   // 1995 idol are not peers even though they may be months apart. Direction is
@@ -110,38 +109,39 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // 언니 has a settled Chinese transliteration (欧尼), but 님 and 씨 are written
   // in Latin as "nim" and "xi" — a reader knows "会长nim" at sight and would
   // stumble over "会长尼姆".
-  const TOKENS = {
-    // zh has no `ya`, and that is the one place transliteration stops working.
-    // 欧尼 and nim arrive in Chinese carrying only their Korean sense, because
-    // neither is a Chinese word. 呀 IS one - a sentence-final particle, where
-    // Korean 야 is a vocative suffix on a name - so "小饼呀，你来了" parses as
-    // Chinese and reads as slightly wrong to a native speaker. Chinese shows
-    // closeness with the bare given name instead. 呀 survives only in the use
-    // the two languages share, as a standalone exclamation; see the zh token
-    // block below. Reported from hand play in v1.3.9.
-    zh: { unnie: "欧尼", ya: null, nim: "nim", ssi: "xi", sep: "" },
-    // `sep` supplies the hyphen, so the tokens must not carry their own. `ya`
-    // did, and every English prompt has been emitting "Alex--ya" since the
-    // address protocol shipped in v1.3.6 - visible in the committed golden,
-    // which is exactly the kind of thing a golden is for.
-    en: { unnie: "unnie", ya: "ya", nim: "nim", ssi: "ssi", sep: "-" },
-    ko: { unnie: "언니", ya: "야", nim: "님", ssi: "씨", sep: " " },
-  };
-  const tk = TOKENS[language] || TOKENS.zh;
+  // The table now lives in the world file, one per language, because which
+  // forms exist is a property of the SETTING and not of the output language:
+  // Korean seniority is a birth-year boundary that 언니/님/씨 encode, and a
+  // different country needs different forms and a different rule. See
+  // public/worlds/kpop_idol/<lang>.json and CLAUDE.md.
+  //
+  // Two invariants the data carries, both of them bugs that shipped:
+  //   - zh `ya` is null. 呀 is an existing Chinese sentence-final particle, so
+  //     transliterating the Korean vocative 야 imports the wrong grammar.
+  //   - `sep` supplies the hyphen, so no token carries one of its own; `ya`
+  //     did, and every English prompt emitted "Alex--ya" from v1.3.6 to v1.3.9.
+  const tk = world.addressForms.tokens;
   const call = (name, token) => `${name}${tk.sep}${token}`;
   // The casual form only exists where the language has a vocative particle that
-  // survives transliteration. zh does not (see TOKENS), so the clause is dropped
-  // rather than rendered as a duplicate of the plain name.
+  // survives transliteration. zh does not (see the token table), so the clause
+  // is dropped rather than rendered as a duplicate of the plain name.
   const casually = (name) => tk.ya ? `, or "${call(name, tk.ya)}" once close` : "";
 
+  // Round-phase beats and the archetypes an unnamed supporting role may be.
+  // Both are English rule text in every language file, so the three world files
+  // must agree on them - smoke Layer I asserts they do.
+  const phaseLines = world.phases.map(p => p.line).join("\n");
+  const a = world.npcArchetypes;
+  const archetypeList = a.length > 1
+    ? `${a.slice(0, -1).join(", ")}, or ${a[a.length - 1]}`
+    : (a[0] || "");
+
   // Identities carrying a workplace register that outranks age. It softens
-  // toward her given name as they get closer — REGISTER covers that.
-  const WORK_TITLE = {
-    "Staff": { zh: "经纪人nim", en: "Manager-nim", ko: "매니저님", kr: "매니저님" },
-    "财阀": { zh: "会长nim", en: "Chairwoman-nim", ko: "회장님", kr: "회장님" },
-    "练习生": { zh: "前辈nim", en: "sunbae-nim", ko: "선배님", kr: "선배님" },
-  }[form.identity] || null;
-  const workTitle = WORK_TITLE ? `"${WORK_TITLE[language] || WORK_TITLE.zh}" (${WORK_TITLE.kr})` : null;
+  // toward her given name as they get closer — REGISTER covers that. The world
+  // file is per-language, so `form` is already the right language and `kr` is
+  // the Hangul the prompt shows alongside it.
+  const WORK_TITLE = getIdentity(world, form.identity)?.workTitle || null;
+  const workTitle = WORK_TITLE ? `"${WORK_TITLE.form}" (${WORK_TITLE.kr})` : null;
   const identityAddress = !workTitle ? null
     : form.identity === "练习生"
       ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work`
@@ -213,12 +213,9 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
-- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan. 
+- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: ${archetypeList}. 
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
-- Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
-- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy.
-- Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma.
-- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation.
+${phaseLines}
 
 ╔══════════════════════════════════════════╗
 ║ 4. GROUP BACKGROUND                      ║
@@ -260,17 +257,7 @@ How much of that formality she actually speaks is a blend of three things, none 
 A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in ${lr.lang} as transliterations, because swapping them for a native equivalent throws away the setting.
-${language === "zh" ? `Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.
-  언니 -> "欧尼"  (NEVER "姐"/"姐姐"/"姐妹" — that reads as a Chinese family drama, not K-pop)
-  님 -> "nim" in Latin letters (e.g. "会长nim，早上好") — NEVER "尼姆"
-  씨 -> "xi" in Latin letters (e.g. "珠泫xi") — NEVER "西"
-  야 -> "呀" ONLY as a standalone exclamation opening a line ("呀！你胆子真大了") — surprise, embarrassment, mock indignation. NEVER as a suffix on a name: "小饼呀" reads as Chinese grammar, not Korean warmth, and a plain "小饼，你来了" is what a native speaker writes. Closeness in Chinese is the bare given name or a nickname, never an added particle
-  선배 -> "前辈" (or "前辈nim")    존댓말 vs 반말: show it in how formal the sentence endings feel` :
-  language === "en" ? `  언니 -> "unnie" (e.g. "Irene-unnie")  — NEVER "big sister", "sis" or "miss"
-  씨 -> "-ssi" (e.g. "Ju-hyun-ssi")    님 -> "-nim" (e.g. "Manager-nim")
-  야/아 -> "-ya"/"-ah" (e.g. "Yerim-ah") — warm and close, or a flash of irritation
-  선배 -> "sunbae"    존댓말 vs 반말: show it in how formal the phrasing feels` :
-  `  언니 / 씨 / 님 / 야 / 아 / 선배님 을 그대로 쓴다. 존댓말과 반말의 차이를 어미로 드러낸다.`}
+${world.addressForms.guide}
 A Korean word dropped into the prose is texture, not a translation error. Keep them frequent enough to feel Korean and rare enough to stay readable.
 
 ╔══════════════════════════════════════════╗
@@ -340,7 +327,7 @@ ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}
 }
 
 // ============================================================
-// Identity Background (Trilingual)
+// Backstory seed
 // ============================================================
 
 // The system prompt is rebuilt from scratch every round and must come out
@@ -354,6 +341,9 @@ ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}
 // playthroughs. Every field here is chosen at character setup and never changes
 // afterwards, so the value is stable for the life of a save and survives
 // save/load with no new field to persist and nothing to migrate.
+//
+// The text it indexes into now lives in the world file, as `variants` on the
+// identity; renderIdentityBackground applies this seed to it.
 function backstorySeed(form, mainId) {
   let h = 0x811c9dc5;                                            // FNV-1a, as in aliyunRoute.js
   for (const ch of `${form.name || ""}|${form.age || ""}|${form.pace || ""}|${mainId || ""}`) {
@@ -361,70 +351,6 @@ function backstorySeed(form, mainId) {
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h;
-}
-
-function getIdentityBackground(identity, mainMemberName, language = "zh", seed = 0) {
-  const name = mainMemberName || "her";
-  // Two picks from one seed. Separate bit ranges, so the keepsake is not locked
-  // to the breakup reason - the low bits alone would only ever yield 4 of the
-  // 16 combinations.
-  const pickReason = seed % 4;
-  const pickKeepsake = (seed >>> 16) % 4;
-  const sepReasons = {
-    zh: ["事业规划不同", "家庭压力", "年少不懂事", "聚少离多"],
-    en: ["different career plans", "family pressure", "youthful immaturity", "long distance"],
-    ko: ["서로 다른 진로 계획", "가족의 압력", "어린 시절의 미숙함", "바쁜 스케줄로 인한 소원함"],
-  };
-  const keepsakes = {
-    zh: ["她送的手链", "一起拍的照片", "她写的信", "你们共同听过的CD"],
-    en: ["a bracelet she gave", "a photo together", "a letter she wrote", "a CD you shared"],
-    ko: ["그녀가 준 팔찌", "함께 찍은 사진", "그녀가 쓴 편지", "함께 듣던 CD"],
-  };
-  const reasons = sepReasons[language] || sepReasons.zh;
-  const keeps = keepsakes[language] || keepsakes.zh;
-
-  const backgrounds = {
-    zh: {
-      "练习生": `[身份背景] 你是${name}的练习生后辈, 与${name}在公司练习室自然相识。\ 典型事件：向${name}请教舞台发声和舞蹈技巧；\ 在公司走廊偶遇时${name}顺手帮你整理了一下发型；\ 深夜练习室和${name}两人练到最后，互相袒露心声；\ 被选入公司综艺后辈特辑与${name}共同出镜等 \ 优势：接触自然，有共同训练记忆。劣势：公司内规严格，前后辈身份差异。`,
-      "Staff": `[身份背景] 你是${name}的新任Staff(助理+经纪人)，负责组合打歌行程、妆发协调、后台照顾${name}等。\ 典型事件：去练习室探班给全组带奶茶，${name}对此感到意外且有些受宠若惊；\ 深夜陪${name}下班开车送她回宿舍，接纳她的脆弱； \ 打歌后台关心${name}状态督促她吃饭等 \ 优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
-      "韩娱艺人": `[身份背景] 你是其他公司的kpop女idol, 与${name}有合作机会。\ 典型事件：你和${name}两人私下排练合作舞台，逐渐熟悉和默契；\ 你和${name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析; \ 你和${name}的综艺同框被剪辑成暧昧视频广泛流传等。 \ 优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。`,
-      "粉丝": `[身份背景] 你是${name}的粉丝，粉丝活动中她似乎对你有超过其他粉丝的特殊对应。\ 典型事件：打歌舞台你抢到前排，${name}的眼神似乎在你身上多停留了一秒；\ 签售会${name}注意到你换了发型/装扮/风格主动提及 \ 你在${name}的bubble粉丝留言板发了条普通的消息, 她接着你的话题和粉丝们聊天 \ 粉丝活动你和${name}拍双人拍立得时${name}凑近搭上了你的肩 \ 优势：对${name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。`,
-      "留学生": `[身份背景] 你是来韩留学生，因与${name}因有共同的舞蹈/唱歌/艺术爱好偶然在日常活动中与${name}相识。优势：有共同爱好, 在日常活动中自然接触。劣势：身份差距、年龄差异`,
-      "财阀": `[身份背景] 你是${name}组合所在公司的新任年轻女会长，主导组合事业走向。\ 典型事件：与${name}所在女团开回归企划讨论会，${name}提出想法令你刮目相看；\ 借关心成员们的名义亲自去探班制造和${name}相处机会；\ 你心疼${name}辛苦于是让秘书给整个组合带薪放假、发奖金等 \ 优势：充足资金和资源。劣势：身份差距。`,
-      "主线成员前女友": `[特殊身份背景-主线成员前女友]
-- 你和${name}曾是学生时代的恋人，几年前因${reasons[pickReason]}分手
-- 你至今保留着${keeps[pickKeepsake]}
-- 现在因工作调动重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
-- 其他成员可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行`,
-    },
-    en: {
-      "练习生": `[Identity: Trainee] You are a trainee junior of ${name}, and naturally met through training at the company practice room. Typical events: Asking ${name} for vocal and dance tips; ${name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside ${name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy.`,
-      "Staff": `[Identity: Staff] You are ${name}'s new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after ${name} backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching ${name} off guard and feeling touched; Driving ${name} home late at night after schedules, being there for her vulnerable moments; Checking in on ${name} backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct.`,
-      "韩娱艺人": `[Identity: K-pop Artist] You are a K-pop idol from another company, with opportunities to collaborate with ${name}. Typical events: Rehearsing a collaboration stage together in private, growing familiar and in sync; Performing together on Music Bank, your interactions getting screenshotted and wildly analyzed by CP fans; Your variety show appearances together being edited into romantic compilations that circulate widely. Advantage: Equal status, collaboration opportunities. Disadvantage: Extremely high public attention, any interaction dissected by CP fans and solo stans from both sides.`,
-      "粉丝": `[Identity: Fan] You are ${name}'s fan, and during fan events she seems to give you special treatment beyond what other fans receive. Typical events: You grab a front-row spot at a music show, and ${name}'s gaze seems to linger on you a second longer; At a fansign, ${name} notices and brings up your new hairstyle/outfit/style change; You post an ordinary message on ${name}'s Bubble, and she picks up your topic to chat with the fans; During a fan event two-shot Polaroid, ${name} leans in and puts her hand on your shoulder. Advantage: Deep knowledge of ${name}. Disadvantage: Highly sensitive identity, exposure means fandom trial.`,
-      "留学生": `[Identity: International Student] You are an international student in Korea who met ${name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference.`,
-      "财阀": `[Identity: Chaebol] You are the new young female chairwoman of ${name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with ${name}'s group, where ${name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around ${name}; Feeling for ${name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap.`,
-      "主线成员前女友": `[Special Identity: Main Member's Ex-Girlfriend]
-- You and ${name} were lovers back in your school days, breaking up years ago due to ${reasons[pickReason]}
-- You still keep ${keeps[pickKeepsake]} to this day
-- Now reunited through a work transfer: awkwardness, complex feelings, unspoken words. Early interactions involve deliberate distance, averted eyes, polite but distant
-- Other members may or may not know about your past. As the game progresses, you may reconcile or go your separate ways`,
-    },
-    ko: {
-      "练习生": `[신분: 연습생] 당신은 ${name}의 연습생 후배로, 회사 연습실에서 자연스럽게 알게 되었습니다. 주요 이벤트: ${name}에게 보컬과 댄스 팁을 구함; 복도에서 우연히 마주친 ${name}이 손수 머리를 정리해 줌; 늦은 밤 연습실에 둘만 남아 서로의 진심을 털어놓음; 회사 예능 후배 특집에 선발되어 ${name}와 함께 출연. 장점: 자연스러운 접촉, 함께한 훈련의 추억. 단점: 엄격한 회사 규정, 선후배 신분 차이.`,
-      "Staff": `[신분: 스태프] 당신은 ${name}의 새로운 스태프(어시스턴트+매니저)로, 그룹의 음악방송 스케줄, 헤어메이크업 조율, 대기실에서 ${name}를 챙기는 일을 맡고 있습니다. 주요 이벤트: 연습실에 밀크티를 들고 찾아가 전 멤버에게 나눠주자 ${name}가 의외라며 감동함; 늦은 밤 스케줄 끝난 ${name}를 차로 숙소까지 데려다주며 그녀의 약한 모습을 감싸줌; 음악방송 대기실에서 ${name}의 컨디션을 살피고 밥을 꼭 챙겨 먹게 함. 장점: 무대 밖 진짜 모습을 볼 수 있음. 단점: 명확한 직장 경계, 애매한 관계는 실책으로 간주될 수 있음.`,
-      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 소속사의 케이팝 여성 아이돌로, ${name}와 협업 기회가 있습니다. 주요 이벤트: 둘이서만 비공개로 합동 무대를 연습하며 점점 가까워지고 호흡이 맞아감; 뮤직뱅크에서 함께한 무대, 상호작용이 CP 팬들에게 캡처되어 열렬히 분석됨; ${name}와의 예능 동반 출연 장면이 묘한 분위기의 영상으로 편집되어 널리 퍼짐. 장점: 동등한 지위, 협업 기회. 단점: 대중의 관심이 극도로 높아 모든 동선이 CP 팬과 양측 독팬에게 해석됨.`,
-      "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로, 팬 이벤트에서 그녀가 다른 팬들에게는 하지 않는 특별한 대응을 당신에게만 보여주는 듯합니다. 주요 이벤트: 음악방송에서 앞줄을 차지한 당신에게 ${name}의 시선이 1초 더 머문 듯한 순간; 팬사인회에서 ${name}가 당신의 바뀐 헤어스타일/스타일링/분위기를 먼저 알아채고 말을 건넴; ${name}의 버블에 평범한 메시지를 남겼는데 그녀가 당신의 주제를 이어받아 팬들과 대화를 나눔; 팬 이벤트 투샷 폴라로이드를 찍을 때 ${name}가 가까이 다가와 어깨에 손을 올림. 장점: ${name}에 대한 깊은 이해. 단점: 극도로 민감한 신분, 발각되면 팬덤의 재판을 받게 됨.`,
-      "留学生": `[신분: 유학생] 당신은 한국에 유학 온 학생으로, 춤/노래/예술이라는 공통된 취미를 통해 일상 속에서 우연히 ${name}와 알게 되었습니다. 장점: 공통된 취미, 일상 활동 속 자연스러운 접촉. 단점: 신분 격차, 나이 차이.`,
-      "财阀": `[신분: 재벌] 당신은 ${name}의 그룹 소속사에 새로 부임한 젊은 여성 회장으로, 그룹의 활동 방향을 이끌고 있습니다. 주요 이벤트: ${name}의 그룹과 컴백 기획 회의를 하던 중 ${name}가 제안한 아이디어에 감탄함; 멤버들을 살피러 왔다는 명목으로 직접 연습실을 방문해 ${name}와 마주할 기회를 만듦; ${name}의 고생이 안쓰러워 비서를 시켜 그룹 전원에게 유급 휴가와 보너스를 지급함. 장점: 풍부한 자금과 자원. 단점: 신분 격차.`,
-      "主线成员前女友": `[특별 신분: 메인 멤버의 전 여자친구]
-- 당신과 ${name}는 학창 시절 연인이었으며, 몇 년 전 ${reasons[pickReason]}로 인해 헤어졌습니다
-- 당신은 아직도 ${keeps[pickKeepsake]}을/를 간직하고 있습니다
-- 지금은 업무 발령으로 재회: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠
-- 다른 멤버들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다`,
-    },
-  };
-  return (backgrounds[language] || backgrounds.zh)[identity] || "";
 }
 
 // ============================================================
@@ -619,7 +545,7 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
-  groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
+  groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
   timeSpeed = "default",
 }) {
   const allTargetIds = [mainId, ...subIds];
@@ -639,7 +565,7 @@ export async function executeRound({
   // Tier 1 (static)  — system prompt: rules, lore, member profiles, JSON schema
   // Tier 2 (ledger)  — append-only history: 2/3 rounds cache hit
   // Tier 3 (dynamic) — stats, affections, KKT: always cache miss, kept small
-  const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language);
+  const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
   const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds);
 

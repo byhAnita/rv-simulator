@@ -1404,8 +1404,12 @@ async function layerI() {
     name: "Summer", age: "31", identity: "韩娱艺人", pace: "浪漫情感向",
     mainMember: "irene", subMembers: ["yeri"], ...over,
   });
+  const worldFor = {};
+  for (const lang of ["zh", "en", "ko"]) {
+    worldFor[lang] = await fromDisk(() => loader.loadWorld("kpop_idol", lang));
+  }
   const prompt = (f = form(), lang = "en") =>
-    buildSystemPrompt(f, members, "irene", ["yeri"], GROUP, "", "qwen", lang);
+    buildSystemPrompt(f, members, "irene", ["yeri"], GROUP, "", "qwen", lang, worldFor[lang]);
 
   const p = prompt();
   const addressOfIn = (text, name) => {
@@ -1564,7 +1568,7 @@ async function layerI() {
   // --- a member with no birthday must not crash or invent seniority.
   const noBday = members.map((m) => (m.id === "joy" ? { ...m, birthday: undefined } : m));
   let fellBack = "";
-  try { fellBack = buildSystemPrompt(form(), noBday, "irene", ["yeri"], GROUP, "", "qwen", "en"); }
+  try { fellBack = buildSystemPrompt(form(), noBday, "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en); }
   catch (e) { fellBack = `THREW ${e.message}`; }
   check("missing birthday falls back instead of throwing",
     fellBack.includes("b.2000") && !fellBack.startsWith("THREW"), fellBack.slice(0, 120));
@@ -1719,10 +1723,7 @@ async function layerI() {
   // Nothing in src/ consumes this yet; these guard the data and the loader so
   // that when buildSystemPrompt does start reading it, a malformed world fails
   // here rather than as a blank prompt section nobody notices.
-  const worlds = {};
-  for (const lang of ["zh", "en", "ko"]) {
-    worlds[lang] = await fromDisk(() => loader.loadWorld("kpop_idol", lang));
-  }
+  const worlds = worldFor;   // loaded above, through loadWorld, off disk
   check("the world loads through loadWorld in all three languages",
     Object.values(worlds).every((w) => w && w.id === "kpop_idol"),
     JSON.stringify(Object.entries(worlds).map(([l, w]) => `${l}:${w?.id}`)));
@@ -1911,12 +1912,16 @@ async function layerJ() {
   // route that is entirely about a shared past.
   const mod = await loadPromptModules(OUT);
   const cfg = await withDiskFetch(() => mod.loadGroupConfig("red_velvet", "en"));
+  const dWorld = {};
+  for (const lang of LANGUAGES) {
+    dWorld[lang] = await withDiskFetch(() => mod.loadWorld("kpop_idol", lang));
+  }
   const dForm = (over = {}) => ({
     name: "Summer", age: "28", identity: "韩娱艺人", pace: "浪漫情感向",
     mainMember: "irene", subMembers: ["seulgi"], customIdentity: "childhood neighbour", ...over,
   });
   const dBuild = (form, lang) =>
-    mod.buildSystemPrompt(form, cfg.members, "irene", ["seulgi"], cfg, "", "qwen", lang);
+    mod.buildSystemPrompt(form, cfg.members, "irene", ["seulgi"], cfg, "", "qwen", lang, dWorld[lang]);
 
   const drifted = [];
   for (const identity of IDENTITIES) {

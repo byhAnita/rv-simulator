@@ -104,6 +104,7 @@ export async function loadPromptModules(outDir) {
       contents: [
         'export * from "./src/agent/mainAgent.js";',
         'export * from "./src/rag/groupLoader.js";',
+        'export * from "./src/rag/worldLoader.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -117,17 +118,24 @@ export async function loadPromptModules(outDir) {
 export async function renderFixtures(outDir) {
   const mod = await loadPromptModules(outDir);
   const configs = new Map();
+  const worlds = new Map();
   const out = [];
   for (const f of FIXTURES) {
     const key = `${f.group}/${f.lang}`;
     if (!configs.has(key)) {
       configs.set(key, await withDiskFetch(() => mod.loadGroupConfig(f.group, f.lang)));
     }
+    // Loaded through loadWorld for the same reason the cast is loaded through
+    // loadGroupConfig: reading the JSON directly would test the file, not the
+    // path the app actually takes.
+    if (!worlds.has(f.lang)) {
+      worlds.set(f.lang, await withDiskFetch(() => mod.loadWorld(f.world || "kpop_idol", f.lang)));
+    }
     const cfg = configs.get(key);
     out.push({
       id: f.id,
       text: mod.buildSystemPrompt(
-        f.form, cfg.members, f.mainId, f.subIds, cfg, "", f.model, f.lang),
+        f.form, cfg.members, f.mainId, f.subIds, cfg, "", f.model, f.lang, worlds.get(f.lang)),
     });
   }
   return out;

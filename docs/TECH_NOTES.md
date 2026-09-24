@@ -290,6 +290,62 @@ hard part is not counting — it is refusing to print `0` for a number nobody re
 
 ---
 
+### World data as a fetched document, validated not whitelisted — v1.4.0
+
+**What it is.** The parts of the prompt that describe the *setting* rather than the *cast* —
+identities and their backgrounds, paces, round-phase beats, NPC archetypes, and the Korean
+address-form table — moved out of `mainAgent.js` into `public/worlds/kpop_idol/{zh,en,ko}.json`.
+`buildSystemPrompt` now takes a `world` argument and renders from it. One world ships, so nothing
+a player sees changed.
+
+**What it replaced.** Those strings were template literals and object literals inside
+`buildSystemPrompt` and `getIdentityBackground`. That is fine for one setting and blocks every
+later one: a second world could only be a second branch in the same function, and the address
+table in particular was keyed by output language as though 언니/님/씨 were a Chinese-vs-English
+question. They are not. They encode Korean seniority, which is a birth-year boundary; a Japanese
+setting needs 先輩/さん/ちゃん and seniority by school year. The table is really keyed on
+**(world, language)**, and writing it as (language) alone made "add a country" look like a
+translation task.
+
+**What it bought.** A world is now data, so adding one is authoring three JSON files rather than
+editing a 300-line function. The static-prompt text also left the JS bundle: **324.73 KB →
+317.51 KB** (gzip 116.59 → 109.97), since ~7 KB of identity prose is fetched instead of shipped
+to every player in every language. The extraction is verifiable in a way a refactor normally is
+not — see below.
+
+**What it costs.** One more runtime fetch and one more mirrored tree (root `worlds/`, which
+GitHub Pages serves and which nothing automates — Layer C now loops over `groups/` and `worlds/`
+rather than naming one). The per-language file layout triplicates the blocks that are English
+rule text in every language, so smoke asserts the three files still agree on them. And
+`buildSystemPrompt` is no longer callable without a loaded world, which is a deliberate cost: it
+has no default, because a default would be a second copy of every string.
+
+**Validation is the interesting part.** A pure extraction has an exact success criterion —
+byte-identical output — but only if something checks it. Two things did. The JSON was generated
+*programmatically* from the live literals rather than retyped, then the result was rendered
+against the original `getIdentityBackground` across every identity × language × name × seed that
+can reach the prompt: **1,368 renders, 0 mismatches**, including all 16 reason × keepsake pairs of
+the seeded ex-girlfriend backstory. Then the golden prompts (v1.3.9) had to stay byte-identical
+with `update-golden.mjs` never run. They did, after catching one real defect the round-trip could
+not: a **trailing space** after the NPC-archetype list, which no reviewer would ever see. That is
+the whole argument for goldens in one character.
+
+**`parseWorld` validates and throws; it does not whitelist-copy.** `parseGroupConfig` is a field
+whitelist and silently dropped `birthday` for two releases — every member reached the prompt as a
+`"2000-01-01"` fallback while sixteen offline checks passed. A missing world key now fails at
+load, naming the key. Silence is the wrong default for a loader whose output is invisible until
+the writing drifts weeks later.
+
+**Where it lives.** `src/rag/worldLoader.js` (`loadWorld`, `parseWorld`, `getIdentity`,
+`getPaceRule`, `renderIdentityBackground`), `public/worlds/kpop_idol/*`, root `worlds/*`,
+`buildSystemPrompt` in `src/agent/mainAgent.js`, smoke Layers C, I and J.
+
+**Short form.** The setting became data instead of code, because the honorific table was keyed on
+the wrong axis. Proved byte-identical two ways — 1,368 seeded renders and three golden prompts —
+and the goldens still found a trailing space that nothing else would have.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

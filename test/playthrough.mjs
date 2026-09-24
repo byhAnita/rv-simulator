@@ -110,6 +110,7 @@ async function buildBundle() {
         'export * from "./src/agent/memoryPool.js";',
         'export * from "./src/tools/aliyunRoute.js";',
         'export * from "./src/rag/groupLoader.js";',
+        'export * from "./src/rag/worldLoader.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -229,7 +230,7 @@ async function runWorker(model) {
   const mod = await import("file://" + bundle.replace(/\\/g, "/"));
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { executeRound, createInitialStats, createEmptyMemory, buildHistoryLedger,
-          collapseHistoryIfNeeded, loadGroupConfig, getNpcMembers, markModel, resetSessionSkips,
+          collapseHistoryIfNeeded, loadGroupConfig, loadWorld, getNpcMembers, markModel, resetSessionSkips,
           resetFreeRoute, buildSystemPrompt } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
 
@@ -285,6 +286,7 @@ async function runWorker(model) {
   const report = { model, identity: IDENTITY, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
     const groupConfig = await loadGroupConfig(GROUP, LANG);
+    const world = await loadWorld("kpop_idol", LANG);
     const members = groupConfig.members;
     const mainId = members[0].id;
     // Sub-member count changes the dynamic tail (affections, KKT, social targets)
@@ -357,7 +359,7 @@ async function runWorker(model) {
       // changed every round, and no test anywhere could see it: the offline
       // suite never called it twice and this harness only ever played 练习生.
       const systemSent = buildSystemPrompt(
-        form, members, mainId, subIds, groupConfig, "", "qwen", LANG);
+        form, members, mainId, subIds, groupConfig, "", "qwen", LANG, world);
       if (prevSystem !== null && systemSent !== prevSystem) {
         let i = 0;
         const a = prevSystem.split("\n"), b = systemSent.split("\n");
@@ -383,7 +385,7 @@ async function runWorker(model) {
         try {
           res = await executeRound({
             playerChoice: `${choice}. option ${choice}`, stats, memory, form, members,
-            mainId, subIds, groupConfig, apiKey: API_KEY, selectedModel: "qwen",
+            mainId, subIds, groupConfig, world, apiKey: API_KEY, selectedModel: "qwen",
             kktUnlocked, language: LANG, reasoningEnabled: REASONING,
             aliyun: { mode: "free" }, timeSpeed: "default",
           });
