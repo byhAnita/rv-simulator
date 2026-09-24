@@ -132,6 +132,7 @@ Player choice
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
 | `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground` — the **setting**: identities, paces, phase beats, address forms |
 | `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()` — turns "who is in this run" into the `members[]` the prompt consumes |
+| `src/rag/saveMigrator.js` | `migrateSave(save, lang)`, `migrateSaveFields`, `SAVE_SCHEMA` — brings a pre-v1.4.0 save up to `groupId`/`worldId`/`roster`/`birthYear`, reproducing what it already implied |
 | `src/config/constants.js` | Numeric game constants (see below) |
 | `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_PER_1M`, `estimateCallCostUsd` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |

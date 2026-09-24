@@ -344,6 +344,56 @@ the writing drifts weeks later.
 the wrong axis. Proved byte-identical two ways — 1,368 seeded renders and three golden prompts —
 and the goldens still found a trailing space that nothing else would have.
 
+### Migration that reproduces rather than fixes — v1.4.0
+
+**What it is.** A save written before v1.4.0 records who the player chose but not where they came
+from — no group id, no world, no roster — and carries her age where the prompt needs her birth
+year. `migrateSave` fills all four at read time, in place, under one rule: **every value written
+is one the save already implied.** A game in flight therefore builds a byte-identical system
+prompt before and after migrating.
+
+**What it replaced.** Nothing — saves had never been migrated. The absence was itself a bug:
+`loadSave` never set the selected group, so loading a TWICE save while Red Velvet was selected
+produced a prompt whose `mainMember` was `undefined` and whose cast was the wrong five people.
+Optional chaining meant it did not crash, which is why it survived several releases.
+
+**What it bought.** The group a save belongs to is now recorded rather than assumed. The gate is
+mechanical: a pinned v1.3.8 slot must migrate and resolve to the same member set `getNpcMembers`
+derives today, in the same order, and build the same prompt byte for byte — asserted in smoke
+Layer I, and verified to fail against a reversed member order, an off-by-one birth year, and a
+disabled group scan.
+
+**The counter-intuitive part is the birth year.** Migration writes `GAME_YEAR - age` — the exact
+arithmetic v1.4.0 removed for being wrong about half the time. Writing the *correct* value is
+impossible (age does not contain a birth year) and writing a *different* wrong one would move
+every honorific in a save mid-run. A player who saved at round 12 and loads a week later must get
+the game she left. So the error is preserved deliberately, and correcting it is a separate,
+visible act she takes — UI, step 6 — not something a loader does to her save behind her back.
+
+**Identifying the group needs the whole cast, not the main member.** Member ids are not unique
+across the library: `x` is a crossover roster sharing seven ids with the groups those members
+debuted in, so `irene` alone is genuinely ambiguous between `red_velvet` and `x`. The scan matches
+on main **plus every sub**, which separates them whenever the player picked a sub at all; a
+remaining tie is broken by the group the app has selected, and a cast no group contains is
+**warned about rather than defaulted silently**. That last point is the v1.3.5 lesson applied:
+`loadGroupIndex`'s catch returning a hardcoded Red Velvet entry is what made a path bug invisible
+for a whole release, and the same swallow with a player's progress attached would read as "the
+game replaced my cast".
+
+**What it costs.** The scan fetches every group in the index — nine small files, once, only for a
+save that has never been migrated; a save carrying a roster short-circuits before any network
+call, which smoke asserts. Idempotence is by field, not by schema number, so a save half-written
+by a build between the two shapes is completed rather than trusted or rejected — slightly more
+code than `if (save.schema >= 14) return save`, and it cannot be fooled by a schema stamp that got
+ahead of the data. The preserved birth-year error is the real cost, and it is permanent for every
+save made before v1.4.0.
+
+**Where it lives.** `src/rag/saveMigrator.js` (`migrateSave`, `migrateSaveFields`,
+`SAVE_SCHEMA`), the fixture `test/fixtures/save-v138.json`, smoke Layer I.
+
+**Short form.** Migration's job is to make an old save mean what it always meant, not to improve
+it. Anything a loader silently corrects, the player experiences as the game changing under her.
+
 ---
 
 ## To backfill

@@ -1353,7 +1353,7 @@ function layerC() {
 // really prompt or memory plumbing. Each check is written so it fails against
 // the pre-v1.3.6 implementation.
 async function layerI() {
-  section("LAYER I — address protocol, KKT lock, edited stories, world + roster (offline)");
+  section("LAYER I — address protocol, KKT lock, edited stories, world + roster + save migration (offline)");
   const esbuild = await import("esbuild");
   // Own filename: playthrough.mjs writes a different bundle to agent.mjs.
   const outfile = join(OUT, "agentPrompt.mjs");
@@ -1383,6 +1383,7 @@ async function layerI() {
         'export * from "./src/rag/groupLoader.js";',
         'export * from "./src/rag/worldLoader.js";',
         'export * from "./src/rag/rosterResolver.js";',
+        'export * from "./src/rag/saveMigrator.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -2025,6 +2026,147 @@ async function layerI() {
   check("a roster entry the library no longer has is dropped, not faked",
     ghost.members.length === 1 && ghost.members[0].id === "irene",
     JSON.stringify(ghost.members.map((m) => m.id)));
+
+  // ---- save migration (v1.4.0 step 4) --------------------------------
+  //
+  // docs/V140_PLAN.md §9.4 pencilled these into Layer J. They are here instead:
+  // the anchor they are measured against — "explicit NPCs match what
+  // getNpcMembers derives today" — is twenty lines up, and a gate reads better
+  // next to the thing it is a gate on.
+  //
+  // The fixture is a real v1.3.8 slot, and it is TWICE rather than Red Velvet
+  // because Red Velvet is both the app's default selection and the migrator's
+  // last-resort fallback. A Red Velvet save would pass every check below with
+  // the group scan doing nothing whatsoever.
+  const v138 = () => JSON.parse(
+    readFileSync(join(ROOT, "test", "fixtures", "save-v138.json"), "utf8"));
+
+  const warnsFrom = async (fn) => {
+    const real = console.warn;
+    const seen = [];
+    console.warn = (...a) => seen.push(a.join(" "));
+    try { return [await fn(), seen]; } finally { console.warn = real; }
+  };
+
+  const migrated = await fromDisk(() => loader.migrateSave(v138(), "en"));
+
+  check("a v1.3.8 save comes back declaring schema 14",
+    migrated.schema === loader.SAVE_SCHEMA && loader.SAVE_SCHEMA === 14,
+    String(migrated.schema));
+  check("...and the world it was always played in",
+    migrated.worldId === "kpop_idol", String(migrated.worldId));
+  check("...and the group it was played with, found by scanning the library",
+    migrated.groupId === "twice",
+    `${migrated.groupId} — red_velvet here means the scan did nothing`);
+
+  // Migration reproduces; it does not fix. GAME_YEAR 2026 minus age 29 is the
+  // 1997 the prompt has been deriving on every build since this save was made.
+  check("age becomes the birth year the save was already producing",
+    migrated.form.birthYear === "1997", String(migrated.form.birthYear));
+  check("...and the age itself is left alone, because the backstory seed hashes it",
+    migrated.form.age === "29", String(migrated.form.age));
+
+  // THE GATE (docs/V140_PLAN.md, "Pick up here"): a pinned v1.3.8 save must
+  // migrate and resolve to the same member set the app derives today.
+  const twiceCfg = await fromDisk(() => loader.loadGroupConfig("twice", "en"));
+  const fromSave = await fromDisk(() => loader.resolveRoster(migrated.roster, "en"));
+  check("a migrated save resolves to exactly the cast it had, in the same order",
+    JSON.stringify(fromSave.members.map((m) => m.id))
+      === JSON.stringify(twiceCfg.members.map((m) => m.id)),
+    JSON.stringify(fromSave.members.map((m) => m.id)));
+  check("a migrated save's NPCs are the ones getNpcMembers derives today",
+    JSON.stringify(fromSave.npcIds.sort())
+      === JSON.stringify(loader.getNpcMembers(twiceCfg.members, "nayeon", ["jihyo", "tzuyu"])
+        .map((m) => m.id).sort()),
+    JSON.stringify(fromSave.npcIds));
+  check("a migrated save keeps its main and sub slots",
+    fromSave.mainId === "nayeon"
+      && JSON.stringify(fromSave.subIds) === JSON.stringify(["jihyo", "tzuyu"]),
+    `main=${fromSave.mainId} subs=${fromSave.subIds}`);
+
+  // The claim migration lives or dies on: a game in flight sees no change.
+  check("a migrated save builds the prompt it already had, byte for byte",
+    buildSystemPrompt(migrated.form, fromSave.members, fromSave.mainId, fromSave.subIds,
+      fromSave.groupConfig, "", "qwen", "en", worldFor.en)
+    === buildSystemPrompt(v138().form, twiceCfg.members, "nayeon", ["jihyo", "tzuyu"],
+      twiceCfg, "", "qwen", "en", worldFor.en),
+    "migration moved a prompt that was supposed to stay put");
+
+  // Idempotent, and not by trusting the schema number: each field is filled
+  // only when absent, so a save half-written by a build between the two shapes
+  // is completed rather than rejected.
+  const twice_ = await fromDisk(() => loader.migrateSave(migrated, "en"));
+  check("migrating an already-migrated save changes nothing",
+    JSON.stringify(twice_) === JSON.stringify(migrated), "");
+  // And costs nothing: a save carrying a roster must not re-scan the library.
+  let rescanned = false;
+  const realFetch2 = globalThis.fetch;
+  globalThis.fetch = async (...a) => { rescanned = true; return realFetch2?.(...a); };
+  try { await loader.migrateSave(migrated, "en"); } catch { /* the point is the flag */ }
+  globalThis.fetch = realFetch2;
+  check("...and does not re-scan the library to do it", !rescanned);
+
+  // An identity or pace the world no longer declares is somebody's run, not a
+  // lookup miss. Blanking it would erase the premise they chose.
+  const odd = v138();
+  odd.form.identity = "退役练习生的妹妹";
+  odd.form.pace = "made up in 2024";
+  const oddOut = await fromDisk(() => loader.migrateSave(odd, "en"));
+  check("an identity the world does not declare survives migration verbatim",
+    oddOut.form.identity === "退役练习生的妹妹", String(oddOut.form.identity));
+  check("...and so does an unknown pace", oddOut.form.pace === "made up in 2024");
+
+  // A save with no usable age gets no birth year rather than a fabricated one:
+  // buildSystemPrompt's legacy fallback covers it, and an invented 2006 in a
+  // save field would read as something the player chose.
+  const ageless = v138();
+  delete ageless.form.age;
+  const agelessOut = await fromDisk(() => loader.migrateSave(ageless, "en"));
+  check("a save with no age gets no invented birth year",
+    agelessOut.form.birthYear === undefined, String(agelessOut.form.birthYear));
+
+  // Member ids are NOT unique across the library: `x` is a crossover roster
+  // sharing seven ids with the groups those members debuted in. Matching on the
+  // main member alone would hand the player a cast she never chose.
+  const solo = v138();
+  solo.form = { ...solo.form, mainMember: "irene", subMembers: [] };
+  const [soloOut, soloWarns] = await warnsFrom(
+    () => fromDisk(() => loader.migrateSave(solo, "en")));
+  check("a cast that several groups could explain is reported, not picked silently",
+    soloWarns.some((w) => w.includes("red_velvet") && w.includes("x")),
+    JSON.stringify(soloWarns));
+  check("...and resolves to something real either way",
+    ["red_velvet", "x"].includes(soloOut.groupId), String(soloOut.groupId));
+
+  const [prefOut] = await warnsFrom(() => fromDisk(
+    () => loader.migrateSave(solo, "en", { preferGroupId: "x" })));
+  check("the selected group breaks a tie between groups that both fit",
+    prefOut.groupId === "x", String(prefOut.groupId));
+
+  // A sub member settles it without any hint, which is the common case.
+  const withSub = v138();
+  withSub.form = { ...withSub.form, mainMember: "irene", subMembers: ["sana"] };
+  const crossOut = await fromDisk(() => loader.migrateSave(withSub, "en"));
+  check("a sub member the home group lacks identifies the crossover roster",
+    crossOut.groupId === "x", String(crossOut.groupId));
+  const homeSub = v138();
+  homeSub.form = { ...homeSub.form, mainMember: "irene", subMembers: ["yeri"] };
+  const homeOut = await fromDisk(() => loader.migrateSave(homeSub, "en"));
+  check("...and a sub the crossover roster lacks identifies the home group",
+    homeOut.groupId === "red_velvet", String(homeOut.groupId));
+
+  // Nothing in the library contains this cast. Say so: the resolve that follows
+  // will drop members it cannot find, and a silent Red Velvet is how that
+  // becomes "the game replaced my cast" with nothing a player can report.
+  const orphan = v138();
+  orphan.form = { ...orphan.form, mainMember: "nobody_at_all", subMembers: [] };
+  const [orphanOut, orphanWarns] = await warnsFrom(
+    () => fromDisk(() => loader.migrateSave(orphan, "en")));
+  check("a cast no group contains is warned about, loudly",
+    orphanWarns.some((w) => w.includes("no group contains")), JSON.stringify(orphanWarns));
+  check("...and still produces a loadable save rather than throwing",
+    orphanOut.groupId === "red_velvet" && Array.isArray(orphanOut.roster?.entries),
+    String(orphanOut.groupId));
 }
 
 // ==================================== LAYER J (offline, pure logic)
