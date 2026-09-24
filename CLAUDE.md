@@ -1191,11 +1191,14 @@ of a step whose whole gate is that they do not move, and it likely lands with pl
 leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
 upstream — and is deleted.
 
-**Step 4 — save migration — is done, pushed and unreleased** (`9d1c6cd`..`73b0995`; `dev` is at
-`83ea5bb`, CI green, 11 commits ahead of `main` and 0 behind). Three
-commits: the **player birth-year field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/
-`roster`), and the `App.jsx` rewiring through `resolveRoster` with `getNpcMembers` ceasing to
-derive. Smoke **630 → 671**, goldens untouched.
+**Steps 3, 4 and 5 are done, pushed and unreleased.** `dev` and `origin/dev` are at `7fd109c`,
+**CI green** (run `36046756985`), 16 commits ahead of `main` and 0 behind. Smoke **578 → 695**.
+None ships a player-visible change on its own, so all three ride with v1.4.0.
+
+**Step 4 — save migration** (`9d1c6cd`..`73b0995`). Three commits: the **player birth-year
+field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/`roster`), and the `App.jsx` rewiring
+through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke **630 → 671**, goldens
+untouched.
 
 **Its gate held:** a pinned v1.3.8 save migrates and resolves to the same member set
 `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte.
@@ -1211,9 +1214,11 @@ All three plan-documented pre-existing bugs are now closed: v1.3.9 fixed `saveTo
 swallowing quota errors and affection pacing depending on the served model; step 4 fixed save
 slots recording no group id.
 
-**Step 5 — `habit` across the group library — is done, on `dev`, unreleased** (`6cdb550`,
-`26ca206`). Two commits: 175 habit strings across 30 files plus the 30 root mirror copies, then
-the one conditional `Habit:` line. Smoke **671 → 683**.
+**Step 5 — `habit` across the group library** (`6cdb550`, `26ca206`). Two commits: 175 habit
+strings across 30 files plus the 30 root mirror copies, then the one conditional `Habit:` line.
+Smoke **671 → 683**. A v1.3.9 hand-play bug found while the branch was green rode along in
+`7fd109c` (a Kakao transcribed into the story — see the KKT note under Social Media System),
+taking smoke to **695** and moving the goldens a second time.
 
 **The goldens moved here — deliberately, and for the first time since step 1.** 19 insertions, 0
 deletions, every one a `Habit:` line, one per member. `update-golden.mjs` was run once and the

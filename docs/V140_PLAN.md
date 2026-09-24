@@ -16,7 +16,7 @@ scheduled for v1.4.2.
 | **2 — Release v1.3.9** | ✅ **released.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), the backstory fix inherited from step 1, and four writing/pricing fixes found by hand play after the branch was already green (below). Smoke 469 → **578**. |
 | **3 — World extraction + resolver** | ✅ **done**, on `dev`, unreleased. Four commits: world JSON + `worldLoader`, `buildSystemPrompt` reading it, `rosterResolver`, and the `habit`/`tags` whitelist. Smoke 578 → **630**. **The gate held: goldens byte-identical, `update-golden.mjs` never run.** Found two pieces of dead code — see below. |
 | **4 — Save migration** | ✅ **done**, on `dev`, unreleased. Three commits: the player **birth-year field**, `saveMigrator` (`schema`/`worldId`/`groupId`/`roster`), and the App-side rewiring through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke 630 → **671**. **The gate held**: a pinned v1.3.8 save migrates to the same member set `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte. Goldens untouched. |
-| **5 — Content (`habit`)** | ✅ **done**, on `dev`, unreleased. Two commits: 175 habits across 30 files + the 30 root mirror copies, then the conditional `Habit:` line. Smoke 671 → **683**. **The goldens moved here, on purpose and for the first time since step 1**: 19 insertions, 0 deletions, every one a `Habit:` line. Scope was wider than "27 files" — 57 members × 3 languages. |
+| **5 — Content (`habit`)** | ✅ **done**, on `dev`, unreleased. Two commits: 175 habits across 30 files + the 30 root mirror copies, then the conditional `Habit:` line. **The goldens moved here, on purpose and for the first time since step 1**: 19 insertions, 0 deletions, every one a `Habit:` line. Scope was wider than "27 files" — 57 members × 3 languages. A hand-play bug found while the branch was green rode along (`7fd109c`, a Kakao transcribed into the story), moving them a second time. Smoke 671 → **695**. |
 | 6 — UI | ⬜ **next.** |
 | 7 — Release v1.4.0 | ⬜ |
 
@@ -161,11 +161,14 @@ step 6"* above.
 `origin/main` are at `758faa3`, the deploy commit, tagged `v1.3.9`. All three mirrors serve
 `index-DAtY_Xfc.js`.
 
-**Steps 3 and 4 are done, pushed, and unreleased.** `dev` and `origin/dev` are both at `83ea5bb`
-— eleven commits ahead of `main`, zero behind — and **CI is green** (run `36027650098`). Nothing
-is pending on anyone's machine. Neither step ships a player-visible change on its own, so both
-ride with v1.4.0 rather than justifying a release. Smoke **578 → 671**. Goldens byte-identical
-throughout and `update-golden.mjs` never run.
+**Steps 3, 4 and 5 are done, pushed, and unreleased.** `dev` and `origin/dev` are both at
+`7fd109c` — **sixteen** commits ahead of `main`, zero behind — and **CI is green** (run
+`36046756985`). Nothing is pending on anyone's machine. No step ships a player-visible change on
+its own, so all three ride with v1.4.0 rather than justifying a release. Smoke **578 → 695**.
+
+Goldens were byte-identical through steps 3 and 4; **step 5 moved them twice, both deliberate,
+both diffs read before committing** — 19 `Habit:` lines, then +3/−2 per fixture for the KKT rule
+restructure that came with the v1.3.9 hand-play bug below.
 
 CI matters more than usual for these two: it builds from a clean checkout with `npm ci` on Linux,
 while `src/` on the development machine is CRLF and the goldens are LF. Green there is what says
@@ -187,10 +190,20 @@ dropping `groupId` or `roster`.
 
 **Next action is step 6 — UI: roster builder, member editor, card generation, photos.**
 
+Step 6 is a multi-file change, so it gets a written plan first. Two findings below bear on it
+directly: the golden blind spot (custom members are the habit-less branch no fixture contains)
+and §18b (presence data, which the place work has to build anyway).
+
 ### Done in step 5
 
-Two commits. `6cdb550` authored the content and mirrored it; `26ca206` added the one prompt line
-and moved the goldens.
+Three commits plus a bug fix found by hand play while the branch was green.
+
+| Commit | What |
+| --- | --- |
+| `6cdb550` | 175 habits across 30 files + the 30 root mirror copies |
+| `26ca206` | the conditional `Habit:` line; goldens moved, +19/−0 |
+| `d3541d2` | docs |
+| `7fd109c` | **fix** — a Kakao is delivered by the app, never transcribed into the story |
 
 **The goldens moved for the first time since step 1, and the diff was read before committing**:
 19 insertions, 0 deletions, every one a `  Habit: ` line, one per member, after `Queer Texture`
@@ -212,6 +225,33 @@ the fixtures cannot contain.
 The same guard's first catch was a flaw in its own harness rather than in the code — slicing the
 member-profile section at `"6. CAST IDENTITY"` ends mid-banner and leaves a dangling `║ ` that
 reads as trailing whitespace. It now cuts back to the start of the next banner box.
+
+### Found by hand play during step 5: a Kakao written into the story
+
+Reported on DeepSeek Official in zh, on **v1.3.9** — so not a v1.4.0 regression, but fixed here
+because the branch was already moving the goldens. A round delivered Irene's Kakao *and*
+transcribed it into the prose, phone-screen header and all, so the player read the same three
+lines twice: once in the narrator's voice, before she had looked at her phone.
+
+**Root cause is specification by contrast.** The prohibition lived *inside* the LOCKED-channel
+bullet — *"A LOCKED member … the story MUST NOT mention her texting"*. A long, emphatic rule
+conditioned on LOCKED invites the reading that an unlocked member may be narrated, and nothing
+else covered the unlocked case but a generic "no social media in story" line four sections
+earlier. That also dates it: the locked bullet landed in **v1.3.6**, which is when a rare symptom
+became a regular one. The rule is now unconditional and stated *first*, with the locked case as
+an additional constraint.
+
+**The live grader had the identical blind spot, and that is the more reusable half.**
+`kkt-narrated-but-locked` runs only `if (!delivered)`, so a round that delivered a Kakao and
+duplicated it was unreachable by it. `kktTranscribed` covers the delivered case by matching a
+delivered message **verbatim** in the prose. Generalise it: **when a rule is scoped to one
+branch, check whether its detector is scoped to the same branch.** Two independent scopings, the
+same blind spot, and neither would have surfaced without the other being questioned.
+
+Mutation testing earned its keep again. Two of the six new guards came back **GREEN** on the
+first run — the punctuation-reflow fixture used a message with no trailing punctuation to strip,
+and the `{sender, content}` fixture passed only plain strings. Both were passing for the wrong
+reason, and both now isolate the case they claim to test.
 
 ### Habit provenance: what is sourced and what is derived
 
