@@ -1,0 +1,120 @@
+{
+  "world": {
+    "id": "kpop_idol",
+    "name": "韩娱偶像",
+    "emoji": "🎤",
+    "color": "#e887b0"
+  },
+  "identities": [
+    {
+      "id": "练习生",
+      "background": "[身份背景] 你是{name}的练习生后辈, 与{name}在公司练习室自然相识。 典型事件：向{name}请教舞台发声和舞蹈技巧； 在公司走廊偶遇时{name}顺手帮你整理了一下发型； 深夜练习室和{name}两人练到最后，互相袒露心声； 被选入公司综艺后辈特辑与{name}共同出镜等  优势：接触自然，有共同训练记忆。劣势：公司内规严格，前后辈身份差异。",
+      "workTitle": {
+        "form": "前辈nim",
+        "kr": "선배님"
+      }
+    },
+    {
+      "id": "Staff",
+      "background": "[身份背景] 你是{name}的新任Staff(助理+经纪人)，负责组合打歌行程、妆发协调、后台照顾{name}等。 典型事件：去练习室探班给全组带奶茶，{name}对此感到意外且有些受宠若惊； 深夜陪{name}下班开车送她回宿舍，接纳她的脆弱；  打歌后台关心{name}状态督促她吃饭等  优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。",
+      "workTitle": {
+        "form": "经纪人nim",
+        "kr": "매니저님"
+      }
+    },
+    {
+      "id": "韩娱艺人",
+      "background": "[身份背景] 你是其他公司的kpop女idol, 与{name}有合作机会。 典型事件：你和{name}两人私下排练合作舞台，逐渐熟悉和默契； 你和{name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析;  你和{name}的综艺同框被剪辑成暧昧视频广泛流传等。  优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。"
+    },
+    {
+      "id": "粉丝",
+      "background": "[身份背景] 你是{name}的粉丝，粉丝活动中她似乎对你有超过其他粉丝的特殊对应。 典型事件：打歌舞台你抢到前排，{name}的眼神似乎在你身上多停留了一秒； 签售会{name}注意到你换了发型/装扮/风格主动提及  你在{name}的bubble粉丝留言板发了条普通的消息, 她接着你的话题和粉丝们聊天  粉丝活动你和{name}拍双人拍立得时{name}凑近搭上了你的肩  优势：对{name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。"
+    },
+    {
+      "id": "留学生",
+      "background": "[身份背景] 你是来韩留学生，因与{name}因有共同的舞蹈/唱歌/艺术爱好偶然在日常活动中与{name}相识。优势：有共同爱好, 在日常活动中自然接触。劣势：身份差距、年龄差异"
+    },
+    {
+      "id": "财阀",
+      "background": "[身份背景] 你是{name}组合所在公司的新任年轻女会长，主导组合事业走向。 典型事件：与{name}所在女团开回归企划讨论会，{name}提出想法令你刮目相看； 借关心成员们的名义亲自去探班制造和{name}相处机会； 你心疼{name}辛苦于是让秘书给整个组合带薪放假、发奖金等  优势：充足资金和资源。劣势：身份差距。",
+      "workTitle": {
+        "form": "会长nim",
+        "kr": "회장님"
+      }
+    },
+    {
+      "id": "主线成员前女友",
+      "background": "[特殊身份背景-主线成员前女友]\n- 你和{name}曾是学生时代的恋人，几年前因{reason}分手\n- 你至今保留着{keepsake}\n- 现在因工作调动重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离\n- 其他成员可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行",
+      "variants": {
+        "reason": [
+          "事业规划不同",
+          "家庭压力",
+          "年少不懂事",
+          "聚少离多"
+        ],
+        "keepsake": [
+          "她送的手链",
+          "一起拍的照片",
+          "她写的信",
+          "你们共同听过的CD"
+        ]
+      }
+    }
+  ],
+  "paces": [
+    {
+      "id": "慢热现实向",
+      "rule": "[Pace: Slow Burn] Flipped & Ambiguous. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship."
+    },
+    {
+      "id": "浪漫情感向",
+      "rule": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage. "
+    },
+    {
+      "id": "高压舆论向",
+      "rule": "[Pace: High Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans."
+    },
+    {
+      "id": "修罗海王向",
+      "rule": "[Pace: Harem Route] Light comedic. Love triangle scences probability doubled. Members compete more openly for your attention."
+    }
+  ],
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "addressForms": {
+    "tokens": {
+      "unnie": "欧尼",
+      "ya": null,
+      "nim": "nim",
+      "ssi": "xi",
+      "sep": ""
+    },
+    "guide": "Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.\n  언니 -> \"欧尼\"  (NEVER \"姐\"/\"姐姐\"/\"姐妹\" — that reads as a Chinese family drama, not K-pop)\n  님 -> \"nim\" in Latin letters (e.g. \"会长nim，早上好\") — NEVER \"尼姆\"\n  씨 -> \"xi\" in Latin letters (e.g. \"珠泫xi\") — NEVER \"西\"\n  야 -> \"呀\" ONLY as a standalone exclamation opening a line (\"呀！你胆子真大了\") — surprise, embarrassment, mock indignation. NEVER as a suffix on a name: \"小饼呀\" reads as Chinese grammar, not Korean warmth, and a plain \"小饼，你来了\" is what a native speaker writes. Closeness in Chinese is the bare given name or a nickname, never an added particle\n  선배 -> \"前辈\" (or \"前辈nim\")    존댓말 vs 반말: show it in how formal the sentence endings feel"
+  },
+  "npcArchetypes": [
+    "manager",
+    "assistant",
+    "executive",
+    "fan"
+  ]
+}

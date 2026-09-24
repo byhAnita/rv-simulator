@@ -1240,9 +1240,11 @@ function layerC() {
     subpathHits.length === 0,
     subpathHits.map((p) => p.replace(ROOT, "")).join(", "));
 
-  check("groupLoader derives its prefix from BASE_URL",
-    readFileSync(join(ROOT, "src/rag/groupLoader.js"), "utf8").includes("import.meta.env.BASE_URL"),
-    "a hostname check cannot know the deploy path");
+  for (const loader of ["groupLoader", "worldLoader"]) {
+    check(`${loader} derives its prefix from BASE_URL`,
+      readFileSync(join(ROOT, `src/rag/${loader}.js`), "utf8").includes("import.meta.env.BASE_URL"),
+      "a hostname check cannot know the deploy path");
+  }
 
   for (const rel of ["manifest.json", "public/manifest.json"]) {
     const m = JSON.parse(readFileSync(join(ROOT, rel), "utf8"));
@@ -1259,15 +1261,20 @@ function layerC() {
     JSON.stringify(rootManifest) === JSON.stringify(pubManifest),
     "edit both, or the Pages site and the built hosts diverge");
 
-  // --- The root groups/ mirror has no other guard ---
+  // --- The root data mirrors have no other guard ---
   //
-  // groupLoader fetches `${base}groups/index.json` at runtime and GitHub Pages
-  // serves the repo root, so root groups/ is load-bearing, not a duplicate of
-  // public/. Nothing keeps the two in sync: deploy.sh copies only assets/*.js
-  // and *.css, so editing a group JSON under public/ leaves Pages serving the
-  // old cast data indefinitely - no error, no warning, just stale members for
+  // groupLoader fetches `${base}groups/index.json` and worldLoader
+  // `${base}worlds/<id>/<lang>.json` at runtime, and GitHub Pages serves the
+  // repo root, so root groups/ and worlds/ are load-bearing, not duplicates of
+  // public/. Nothing keeps them in sync: deploy.sh copies only assets/*.js and
+  // *.css, so editing a group or world JSON under public/ leaves Pages serving
+  // the old data indefinitely - no error, no warning, just stale content for
   // everyone on that host. Content is compared with trailing whitespace
   // stripped, because the two trees differ by a trailing newline by history.
+  //
+  // Both trees are checked by the same loop on purpose: worlds/ landed in
+  // v1.4.0 and the plan warns that each new mirrored tree is another chance to
+  // forget. Adding rosters/ later means adding one string here.
   const walkTree = (dir, prefix = "") => {
     const out = [];
     for (const name of readdirSync(join(ROOT, dir, prefix), { withFileTypes: true })) {
@@ -1277,21 +1284,23 @@ function layerC() {
     }
     return out.sort();
   };
-  const rootTree = walkTree("groups");
-  const pubTree = walkTree("public/groups");
-  const missing = pubTree.filter((f) => !rootTree.includes(f));
-  const extra = rootTree.filter((f) => !pubTree.includes(f));
-  check("root groups/ mirrors public/groups/ file-for-file",
-    missing.length === 0 && extra.length === 0,
-    `missing from root: ${missing.join(", ") || "none"}; only in root: ${extra.join(", ") || "none"}`);
+  for (const tree of ["groups", "worlds"]) {
+    const rootTree = walkTree(tree);
+    const pubTree = walkTree(`public/${tree}`);
+    const missing = pubTree.filter((f) => !rootTree.includes(f));
+    const extra = rootTree.filter((f) => !pubTree.includes(f));
+    check(`root ${tree}/ mirrors public/${tree}/ file-for-file`,
+      missing.length === 0 && extra.length === 0,
+      `missing from root: ${missing.join(", ") || "none"}; only in root: ${extra.join(", ") || "none"}`);
 
-  const drifted = pubTree
-    .filter((f) => rootTree.includes(f))
-    .filter((f) => readFileSync(join(ROOT, "groups", f), "utf8").trimEnd()
-      !== readFileSync(join(ROOT, "public/groups", f), "utf8").trimEnd());
-  check("root groups/ content matches public/groups/",
-    drifted.length === 0,
-    `drifted: ${drifted.join(", ")} - copy public/groups/ over root groups/`);
+    const drifted = pubTree
+      .filter((f) => rootTree.includes(f))
+      .filter((f) => readFileSync(join(ROOT, tree, f), "utf8").trimEnd()
+        !== readFileSync(join(ROOT, `public/${tree}`, f), "utf8").trimEnd());
+    check(`root ${tree}/ content matches public/${tree}/`,
+      drifted.length === 0,
+      `drifted: ${drifted.join(", ")} - copy public/${tree}/ over root ${tree}/`);
+  }
 
   // Referencing the manifest as "/manifest.json" makes Vite treat it as a
   // public-dir asset and rewrite it to "./manifest.json" for the relative base.
@@ -1355,7 +1364,13 @@ async function layerI() {
   // while a raw-JSON fixture passed every check.
   const loaderBundle = join(OUT, "groupLoader.mjs");
   await esbuild.build({
-    entryPoints: [join(ROOT, "src", "rag", "groupLoader.js")],
+    stdin: {
+      contents: [
+        'export * from "./src/rag/groupLoader.js";',
+        'export * from "./src/rag/worldLoader.js";',
+      ].join("\n"),
+      resolveDir: ROOT, loader: "js",
+    },
     bundle: true, format: "esm", platform: "neutral", outfile: loaderBundle, logLevel: "silent",
     define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
   });
@@ -1697,6 +1712,129 @@ async function layerI() {
   try { buildDynamicTail({ history: [] }, members, ["irene"]); } catch (e) { threwEmpty = e.message; }
   check("wiped legacy memory renders a dynamic tail without throwing",
     threwEmpty === null, threwEmpty || "");
+
+  // --- world JSON (v1.4.0 step 3) -----------------------------------------
+  //
+  // The world half of the old "group" concept, loaded the way the app loads it.
+  // Nothing in src/ consumes this yet; these guard the data and the loader so
+  // that when buildSystemPrompt does start reading it, a malformed world fails
+  // here rather than as a blank prompt section nobody notices.
+  const worlds = {};
+  for (const lang of ["zh", "en", "ko"]) {
+    worlds[lang] = await fromDisk(() => loader.loadWorld("kpop_idol", lang));
+  }
+  check("the world loads through loadWorld in all three languages",
+    Object.values(worlds).every((w) => w && w.id === "kpop_idol"),
+    JSON.stringify(Object.entries(worlds).map(([l, w]) => `${l}:${w?.id}`)));
+
+  // form.identity and form.pace are STORED values, sitting in every save on
+  // every device. Renaming one to something tidier blanks that player's
+  // identity block silently. Plan §4.1 calls this the gpt4omini lesson.
+  const SAVED_IDENTITY_IDS =
+    ["练习生", "Staff", "韩娱艺人", "粉丝", "留学生", "财阀", "主线成员前女友"];
+  const SAVED_PACE_IDS = ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"];
+  for (const lang of ["zh", "en", "ko"]) {
+    const ids = worlds[lang].identities.map((i) => i.id);
+    check(`[${lang}] the world declares every identity id that can sit in a save`,
+      SAVED_IDENTITY_IDS.every((id) => ids.includes(id)),
+      `missing: ${SAVED_IDENTITY_IDS.filter((id) => !ids.includes(id)).join(", ")}`);
+    const pids = worlds[lang].paces.map((p) => p.id);
+    check(`[${lang}] the world declares every pace id that can sit in a save`,
+      SAVED_PACE_IDS.every((id) => pids.includes(id)),
+      `missing: ${SAVED_PACE_IDS.filter((id) => !pids.includes(id)).join(", ")}`);
+    check(`[${lang}] every identity carries a non-empty background`,
+      worlds[lang].identities.every((i) => typeof i.background === "string" && i.background.length > 40),
+      worlds[lang].identities.filter((i) => !(i.background?.length > 40)).map((i) => i.id).join(", "));
+    check(`[${lang}] every pace carries a rule`,
+      worlds[lang].paces.every((p) => typeof p.rule === "string" && p.rule.length > 20), "");
+  }
+
+  // "H" is the custom-identity escape hatch: the player types their own text,
+  // so the world must NOT ship a background for it. One that existed would
+  // silently override what they wrote.
+  check("the world ships no background for the custom identity H",
+    Object.values(worlds).every((w) => !w.identities.some((i) => i.id === "H")), "");
+
+  // The address token table is the whole reason the extraction is per-world
+  // rather than per-language. zh has no usable vocative particle — 呀 is an
+  // existing Chinese sentence-final particle, so transliterating 야 imports the
+  // wrong grammar (CLAUDE.md, "Korean address forms are transliterated").
+  check("[zh] the world keeps no name-suffix vocative",
+    worlds.zh.addressForms.tokens.ya === null,
+    JSON.stringify(worlds.zh.addressForms.tokens));
+  check("[en] the separator is a hyphen and tokens carry none of their own",
+    worlds.en.addressForms.tokens.sep === "-"
+      && !Object.entries(worlds.en.addressForms.tokens)
+        .some(([k, v]) => k !== "sep" && typeof v === "string" && v.startsWith("-")),
+    JSON.stringify(worlds.en.addressForms.tokens));
+  check("[ko] the separator is a space and the forms are native",
+    worlds.ko.addressForms.tokens.sep === " " && worlds.ko.addressForms.tokens.unnie === "언니",
+    JSON.stringify(worlds.ko.addressForms.tokens));
+  check("[zh] 씨 romanizes as xi, not ssi",
+    worlds.zh.addressForms.tokens.ssi === "xi", worlds.zh.addressForms.tokens.ssi);
+
+  // Blocks that are English rule text in every language file. Triplicating them
+  // is what `public/worlds/<id>/<lang>.json` costs; this is what stops the three
+  // copies drifting apart.
+  const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes]);
+  check("phases and npcArchetypes are identical across zh/en/ko",
+    langIndependent(worlds.zh) === langIndependent(worlds.en)
+      && langIndependent(worlds.en) === langIndependent(worlds.ko),
+    "the three world files disagree on language-independent rule text");
+  check("the world covers all four round phases",
+    worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
+    JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
+
+  // --- background rendering: stable for one save, varied across saves -------
+  const exGf = (seed, lang = "zh") =>
+    loader.renderIdentityBackground(worlds[lang], "主线成员前女友", "Joy", seed);
+  check("no rendered background leaves an unsubstituted placeholder",
+    ["zh", "en", "ko"].every((l) => worlds[l].identities.every((i) =>
+      !/\{(name|reason|keepsake)\}/.test(
+        loader.renderIdentityBackground(worlds[l], i.id, "Joy", 12345)))),
+    "a {placeholder} reached the prompt");
+  check("the same seed renders the same backstory every time",
+    exGf(0x811c9dc5) === exGf(0x811c9dc5),
+    "this is the cache invariant: an unstable static prompt never hits");
+  // Different seeds must actually reach different variants, or backstorySeed is
+  // decorative and every playthrough shares one past.
+  const variants = new Set();
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) variants.add(exGf(r + (k << 16)));
+  check("the seed reaches all 16 reason x keepsake combinations",
+    variants.size === 16, `${variants.size} distinct backstories from 16 seeds`);
+  check("an identity with no variants renders identically for any seed",
+    exGf(1, "en") !== exGf(2, "en")
+      && loader.renderIdentityBackground(worlds.en, "留学生", "Joy", 1)
+        === loader.renderIdentityBackground(worlds.en, "留学生", "Joy", 999),
+    "");
+
+  // --- the loader validates instead of silently dropping -------------------
+  //
+  // parseGroupConfig is a field whitelist and quietly dropped `birthday` for
+  // two releases. parseWorld throws instead, so this asserts it actually does.
+  const good = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "kpop_idol", "zh.json"), "utf8"));
+  for (const key of ["identities", "paces", "phases", "addressForms", "npcArchetypes"]) {
+    const broken = { ...good };
+    delete broken[key];
+    let msg = null;
+    try { loader.parseWorld(broken); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects a world missing "${key}"`,
+      msg !== null && msg.includes(key), msg || "parsed without complaint");
+  }
+  for (const tok of ["unnie", "ya", "nim", "ssi", "sep"]) {
+    const broken = JSON.parse(JSON.stringify(good));
+    delete broken.addressForms.tokens[tok];
+    let msg = null;
+    try { loader.parseWorld(broken); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects a token table missing "${tok}"`,
+      msg !== null && msg.includes(tok), msg || "parsed without complaint");
+  }
+  // `ya: null` is meaningful data, not a missing field — the zh table ships it.
+  let nullYa = null;
+  try { loader.parseWorld(good); } catch (e) { nullYa = e.message; }
+  check("parseWorld accepts a null ya, which is a real value and not an absence",
+    nullYa === null, nullYa || "");
 }
 
 // ==================================== LAYER J (offline, pure logic)

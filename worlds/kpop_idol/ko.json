@@ -1,0 +1,120 @@
+{
+  "world": {
+    "id": "kpop_idol",
+    "name": "케이팝 아이돌",
+    "emoji": "🎤",
+    "color": "#e887b0"
+  },
+  "identities": [
+    {
+      "id": "练习生",
+      "background": "[신분: 연습생] 당신은 {name}의 연습생 후배로, 회사 연습실에서 자연스럽게 알게 되었습니다. 주요 이벤트: {name}에게 보컬과 댄스 팁을 구함; 복도에서 우연히 마주친 {name}이 손수 머리를 정리해 줌; 늦은 밤 연습실에 둘만 남아 서로의 진심을 털어놓음; 회사 예능 후배 특집에 선발되어 {name}와 함께 출연. 장점: 자연스러운 접촉, 함께한 훈련의 추억. 단점: 엄격한 회사 규정, 선후배 신분 차이.",
+      "workTitle": {
+        "form": "선배님",
+        "kr": "선배님"
+      }
+    },
+    {
+      "id": "Staff",
+      "background": "[신분: 스태프] 당신은 {name}의 새로운 스태프(어시스턴트+매니저)로, 그룹의 음악방송 스케줄, 헤어메이크업 조율, 대기실에서 {name}를 챙기는 일을 맡고 있습니다. 주요 이벤트: 연습실에 밀크티를 들고 찾아가 전 멤버에게 나눠주자 {name}가 의외라며 감동함; 늦은 밤 스케줄 끝난 {name}를 차로 숙소까지 데려다주며 그녀의 약한 모습을 감싸줌; 음악방송 대기실에서 {name}의 컨디션을 살피고 밥을 꼭 챙겨 먹게 함. 장점: 무대 밖 진짜 모습을 볼 수 있음. 단점: 명확한 직장 경계, 애매한 관계는 실책으로 간주될 수 있음.",
+      "workTitle": {
+        "form": "매니저님",
+        "kr": "매니저님"
+      }
+    },
+    {
+      "id": "韩娱艺人",
+      "background": "[신분: 케이팝 아티스트] 당신은 다른 소속사의 케이팝 여성 아이돌로, {name}와 협업 기회가 있습니다. 주요 이벤트: 둘이서만 비공개로 합동 무대를 연습하며 점점 가까워지고 호흡이 맞아감; 뮤직뱅크에서 함께한 무대, 상호작용이 CP 팬들에게 캡처되어 열렬히 분석됨; {name}와의 예능 동반 출연 장면이 묘한 분위기의 영상으로 편집되어 널리 퍼짐. 장점: 동등한 지위, 협업 기회. 단점: 대중의 관심이 극도로 높아 모든 동선이 CP 팬과 양측 독팬에게 해석됨."
+    },
+    {
+      "id": "粉丝",
+      "background": "[신분: 팬] 당신은 {name}의 팬으로, 팬 이벤트에서 그녀가 다른 팬들에게는 하지 않는 특별한 대응을 당신에게만 보여주는 듯합니다. 주요 이벤트: 음악방송에서 앞줄을 차지한 당신에게 {name}의 시선이 1초 더 머문 듯한 순간; 팬사인회에서 {name}가 당신의 바뀐 헤어스타일/스타일링/분위기를 먼저 알아채고 말을 건넴; {name}의 버블에 평범한 메시지를 남겼는데 그녀가 당신의 주제를 이어받아 팬들과 대화를 나눔; 팬 이벤트 투샷 폴라로이드를 찍을 때 {name}가 가까이 다가와 어깨에 손을 올림. 장점: {name}에 대한 깊은 이해. 단점: 극도로 민감한 신분, 발각되면 팬덤의 재판을 받게 됨."
+    },
+    {
+      "id": "留学生",
+      "background": "[신분: 유학생] 당신은 한국에 유학 온 학생으로, 춤/노래/예술이라는 공통된 취미를 통해 일상 속에서 우연히 {name}와 알게 되었습니다. 장점: 공통된 취미, 일상 활동 속 자연스러운 접촉. 단점: 신분 격차, 나이 차이."
+    },
+    {
+      "id": "财阀",
+      "background": "[신분: 재벌] 당신은 {name}의 그룹 소속사에 새로 부임한 젊은 여성 회장으로, 그룹의 활동 방향을 이끌고 있습니다. 주요 이벤트: {name}의 그룹과 컴백 기획 회의를 하던 중 {name}가 제안한 아이디어에 감탄함; 멤버들을 살피러 왔다는 명목으로 직접 연습실을 방문해 {name}와 마주할 기회를 만듦; {name}의 고생이 안쓰러워 비서를 시켜 그룹 전원에게 유급 휴가와 보너스를 지급함. 장점: 풍부한 자금과 자원. 단점: 신분 격차.",
+      "workTitle": {
+        "form": "회장님",
+        "kr": "회장님"
+      }
+    },
+    {
+      "id": "主线成员前女友",
+      "background": "[특별 신분: 메인 멤버의 전 여자친구]\n- 당신과 {name}는 학창 시절 연인이었으며, 몇 년 전 {reason}로 인해 헤어졌습니다\n- 당신은 아직도 {keepsake}을/를 간직하고 있습니다\n- 지금은 업무 발령으로 재회: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠\n- 다른 멤버들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다",
+      "variants": {
+        "reason": [
+          "서로 다른 진로 계획",
+          "가족의 압력",
+          "어린 시절의 미숙함",
+          "바쁜 스케줄로 인한 소원함"
+        ],
+        "keepsake": [
+          "그녀가 준 팔찌",
+          "함께 찍은 사진",
+          "그녀가 쓴 편지",
+          "함께 듣던 CD"
+        ]
+      }
+    }
+  ],
+  "paces": [
+    {
+      "id": "慢热现实向",
+      "rule": "[Pace: Slow Burn] Flipped & Ambiguous. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship."
+    },
+    {
+      "id": "浪漫情感向",
+      "rule": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage. "
+    },
+    {
+      "id": "高压舆论向",
+      "rule": "[Pace: High Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans."
+    },
+    {
+      "id": "修罗海王向",
+      "rule": "[Pace: Harem Route] Light comedic. Love triangle scences probability doubled. Members compete more openly for your attention."
+    }
+  ],
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "addressForms": {
+    "tokens": {
+      "unnie": "언니",
+      "ya": "야",
+      "nim": "님",
+      "ssi": "씨",
+      "sep": " "
+    },
+    "guide": "  언니 / 씨 / 님 / 야 / 아 / 선배님 을 그대로 쓴다. 존댓말과 반말의 차이를 어미로 드러낸다."
+  },
+  "npcArchetypes": [
+    "manager",
+    "assistant",
+    "executive",
+    "fan"
+  ]
+}
