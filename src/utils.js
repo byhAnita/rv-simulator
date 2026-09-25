@@ -1,4 +1,10 @@
 // src/utils.js
+//
+// CAREFUL: `src/utils/` (the directory holding imageStore.js) exists alongside
+// this file. Every `from "./utils"` in src/ resolves HERE, because both resolvers
+// prefer the file — but adding a `src/utils/index.js` would silently re-point
+// all of them at the directory instead. Do not create one; give a new module
+// its own named path, as imageStore.js does.
 
 export const nowTime = () => {
   const d = new Date();
@@ -15,6 +21,18 @@ export const STORAGE_KEYS = {
   ALIYUN_MODE: "rv_sim_aliyun_mode",
   ALIYUN_PAID_MODEL: "rv_sim_aliyun_paid_model",
   ALIYUN_ROUTE: "rv_sim_aliyun_route",
+  // v1.4.0 step 6. New keys go here rather than into an inline string literal
+  // in App.jsx — the note above this object has said so for three releases and
+  // nine of the fifteen keys still ignore it.
+  //
+  // docs/V140_PLAN.md §4.3 lists two more, `rv_sim_worlds_custom_v14` and
+  // `rv_sim_world`, and they are deliberately NOT here: custom worlds and world
+  // selection are v1.4.1, and this repo already carries two constants nobody
+  // imports (NPC_APPEARANCE_CHANCE, NPC_COOLDOWN_ROUNDS) as a standing example
+  // of what declaring ahead of the reader costs.
+  CAST_CUSTOM: "rv_sim_cast_custom_v14",   // [{id, lang, createdAt, profile}]
+  ROSTERS: "rv_sim_rosters_v14",           // [{id, name, createdAt, roster}]
+  CAST_PHOTOS: "rv_sim_cast_photos_v14",   // {memberId: dataUrl} - 256x256 WebP
 };
 
 export const loadFromStorage = (key) => {

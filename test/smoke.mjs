@@ -2456,6 +2456,169 @@ async function layerI() {
   check("...and still produces a loadable save rather than throwing",
     orphanOut.groupId === "red_velvet" && Array.isArray(orphanOut.roster?.entries),
     String(orphanOut.groupId));
+
+  // --- step 6 commit 2: the custom-cast palette and the photo store ---------
+  // Both are pure functions over a plain object so they can be tested here at
+  // all. The quota rules are the half that can lose a player's data, and
+  // putting them behind the canvas would leave them testable only by hand.
+  const storeBundle = join(OUT, "stores.mjs");
+  await esbuild.build({
+    stdin: {
+      contents: [
+        'export * from "./src/rag/customCast.js";',
+        'export * from "./src/utils/imageStore.js";',
+      ].join("\n"),
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile: storeBundle, logLevel: "silent",
+  });
+  const store = await import("file://" + storeBundle.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  // `src/utils.js` and `src/utils/` both exist now. Every `from "./utils"` in
+  // src/ must still reach the FILE — a src/utils/index.js would silently
+  // re-point all of them, and the app would lose STORAGE_KEYS with no error.
+  check("src/utils.js still wins over the src/utils/ directory",
+    typeof store.loadPhotos === "function" && typeof store.PHOTO_MAX_CHARS === "number",
+    "imageStore imported STORAGE_KEYS through ../utils.js");
+  check("no src/utils/index.js exists to hijack `from \"./utils\"`",
+    !existsSync(join(ROOT, "src/utils/index.js")));
+
+  // --- the palette ---------------------------------------------------------
+  const REQ = { name: "Lin Xia", birthday: "1999-04-02",
+                private_personality: "fixes things quietly" };
+  for (const f of ["name", "birthday", "private_personality"]) {
+    const without = { ...REQ, [f]: "" };
+    const r = store.upsertMember([], { id: "c_1", profile: without });
+    check(`a custom member without ${f} is refused`,
+      r.ok === false && r.reason === "missing" && r.missing.includes(f),
+      JSON.stringify(r.missing || r.reason));
+  }
+  // birthday especially: the whole address protocol is a birth-year comparison
+  // and a member without one falls back to 2000-01-01, which makes honorifics
+  // uniform across the cast. That is the v1.3.6 -> v1.3.7 failure returning one
+  // custom member at a time, which is why it is REQUIRED and not recommended.
+  check("a complete custom member is accepted",
+    store.upsertMember([], { id: "c_1", profile: REQ }).ok === true);
+
+  const one = store.upsertMember([], { id: "c_1", profile: REQ }).cast;
+  check("...and is stored under the entry id, not anything in the profile body",
+    one[0].id === "c_1" && one[0].profile.id === "c_1",
+    `${one[0].id} / ${one[0].profile.id}`);
+  const renamed = store.upsertMember(one,
+    { id: "c_1", profile: { ...REQ, id: "irene" } }).cast;
+  check("an edited profile cannot rename itself onto another member's id",
+    renamed[0].id === "c_1" && renamed[0].profile.id === "c_1",
+    `${renamed[0].id} / ${renamed[0].profile.id}`);
+
+  // The whitelist is applied on write: the stored shape stays the documented
+  // one even if a later editor version puts something else in scope.
+  const junk = store.upsertMember([], {
+    id: "c_1", profile: { ...REQ, apiKey: "sk-secret", notes: "x", habit: "hums" },
+  }).cast[0].profile;
+  check("an unrecognised field never reaches the stored profile",
+    !("apiKey" in junk) && !("notes" in junk) && junk.habit === "hums",
+    JSON.stringify(Object.keys(junk)));
+  const blanks = store.upsertMember([], {
+    id: "c_1", profile: { ...REQ, habit: "   ", queer_texture: "" },
+  }).cast[0].profile;
+  check("a blank optional field is dropped rather than stored as an empty string",
+    !("habit" in blanks) && !("queer_texture" in blanks),
+    JSON.stringify(Object.keys(blanks)));
+
+  check("cosmetic fields are auto-assigned so the player never has to pick",
+    Boolean(junk.emoji && junk.color && junk.accent && junk.ig),
+    JSON.stringify([junk.emoji, junk.color, junk.accent, junk.ig]));
+
+  // An id collision would merge two people's affections, KKT channel and
+  // appearance history silently — step 4 found library ids are not unique even
+  // across the library, so the prefix is doing real work.
+  const ids = new Set();
+  for (let i = 0; i < 200; i++) ids.add(store.newMemberId(Date.now() + i, () => i / 200));
+  check("generated member ids are prefixed and collision-free",
+    ids.size === 200 && [...ids].every((id) => id.startsWith("c_")),
+    `${ids.size}/200 unique`);
+
+  let full = [];
+  for (let i = 0; i < store.CAST_MAX; i++) {
+    full = store.upsertMember(full, { id: `c_${i}`, profile: REQ }).cast;
+  }
+  const overflow = store.upsertMember(full, { id: "c_over", profile: REQ });
+  check("the palette refuses member 21 rather than silently dropping one",
+    overflow.ok === false && overflow.reason === "full" && overflow.cast.length === store.CAST_MAX,
+    `${overflow.cast.length} stored`);
+  // A full palette must still be editable, or the last member in is frozen.
+  check("...but a member already in a full palette can still be edited",
+    store.upsertMember(full, { id: "c_0", profile: { ...REQ, name: "Renamed" } }).ok === true);
+  check("removing a member shortens the palette",
+    store.removeMember(full, "c_0").length === store.CAST_MAX - 1);
+
+  // The snapshot rule: a roster entry carries the profile by value, so deleting
+  // the palette member afterwards cannot reach a running save.
+  const entry = store.toRosterEntry(one[0], "sub");
+  const afterDelete = store.removeMember(one, "c_1");
+  check("a roster entry snapshots the profile rather than referencing it",
+    entry.src === "custom" && entry.profile.name === "Lin Xia"
+      && afterDelete.length === 0 && entry.profile.name === "Lin Xia",
+    JSON.stringify(entry.profile.name));
+
+  // --- the photo store -----------------------------------------------------
+  const img = (chars) => "data:image/webp;base64," + "A".repeat(chars);
+  check("a photo under the cap is stored",
+    store.putPhoto({}, "irene", img(100)).ok === true);
+  check("a non-image is refused",
+    store.putPhoto({}, "irene", "javascript:alert(1)").reason === "not_an_image");
+  check("an oversized photo is refused rather than written",
+    store.putPhoto({}, "irene", img(store.PHOTO_MAX_CHARS + 1)).reason === "too_large");
+  // The limit is on the STORED STRING because that is what the quota counts; a
+  // data URL is ~37% larger than the image it carries.
+  check("...and the cap is measured on the data URL, not the decoded image",
+    store.putPhoto({}, "irene", img(store.PHOTO_MAX_CHARS - 40)).ok === true,
+    `limit ${store.PHOTO_MAX_CHARS} chars`);
+
+  let photos = {};
+  for (let i = 0; i < store.PHOTO_MAX_COUNT; i++) {
+    photos = store.putPhoto(photos, `m_${i}`, img(50)).photos;
+  }
+  const photoOver = store.putPhoto(photos, "m_new", img(50));
+  check("photo 31 is refused rather than evicting someone else's",
+    photoOver.ok === false && photoOver.reason === "full"
+      && Object.keys(photoOver.photos).length === store.PHOTO_MAX_COUNT,
+    `${Object.keys(photoOver.photos).length} stored`);
+  check("...but replacing an existing photo in a full store still works",
+    store.putPhoto(photos, "m_0", img(60)).ok === true,
+    "a full store must not freeze the photos already in it");
+
+  check("removing a photo drops exactly one",
+    Object.keys(store.removePhoto(photos, "m_0")).length === store.PHOTO_MAX_COUNT - 1);
+  check("removing a photo nobody has changes nothing",
+    Object.keys(store.removePhoto(photos, "nope")).length === store.PHOTO_MAX_COUNT);
+  check("orphaned photos are pruned when their member is deleted",
+    Object.keys(store.pruneOrphans(photos, ["m_1", "m_2"])).sort().join() === "m_1,m_2",
+    JSON.stringify(Object.keys(store.pruneOrphans(photos, ["m_1", "m_2"]))));
+  check("photoBytes counts the stored characters",
+    store.photoBytes({ a: "12345", b: "123" }) === 8);
+
+  // Corrupt or absent storage must read as empty, never throw: the same
+  // tolerance aliyunRoute.js applies to a malformed route state.
+  //
+  // Wrapped, because a throw here would abort the whole suite and take every
+  // later layer with it. A regression has to report as one red check, not as a
+  // crash that hides how much else still works.
+  const tolerates = (fn) => {
+    for (const bad of [null, undefined, [], "nonsense", 42]) {
+      try { if (!fn(bad)) return `rejected ${JSON.stringify(bad) ?? "undefined"}`; }
+      catch (e) { return `threw on ${JSON.stringify(bad) ?? "undefined"}: ${e.message}`; }
+    }
+    return null;
+  };
+  const badPhotos = tolerates((bad) => store.putPhoto(bad, "irene", img(10)).ok === true);
+  check("a corrupt photo map is treated as empty", badPhotos === null, badPhotos);
+  const badCast = tolerates((bad) => store.removeMember(bad, "x").length === 0);
+  check("a corrupt palette is treated as empty", badCast === null, badCast);
+  const badUpsert = tolerates((bad) => store.upsertMember(bad, { id: "c_1", profile: REQ }).ok);
+  check("a corrupt palette still accepts a new member", badUpsert === null, badUpsert);
+  const badPrune = tolerates((bad) => Object.keys(store.pruneOrphans(bad, ["a"])).length === 0);
+  check("pruning a corrupt photo map yields an empty map", badPrune === null, badPrune);
 }
 
 // ==================================== LAYER J (offline, pure logic)
