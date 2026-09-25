@@ -1403,7 +1403,7 @@ function layerC() {
 // really prompt or memory plumbing. Each check is written so it fails against
 // the pre-v1.3.6 implementation.
 async function layerI() {
-  section("LAYER I — address protocol, KKT lock, edited stories, world + roster + save migration (offline)");
+  section("LAYER I — address protocol, KKT lock, edited stories, world + roster + save migration, custom cast (offline)");
   const esbuild = await import("esbuild");
   // Own filename: playthrough.mjs writes a different bundle to agent.mjs.
   const outfile = join(OUT, "agentPrompt.mjs");
@@ -2619,6 +2619,222 @@ async function layerI() {
   check("a corrupt palette still accepts a new member", badUpsert === null, badUpsert);
   const badPrune = tolerates((bad) => Object.keys(store.pruneOrphans(bad, ["a"])).length === 0);
   check("pruning a corrupt photo map yields an empty map", badPrune === null, badPrune);
+
+  // --- step 6 commit 3: the card generator ---------------------------------
+  // The call is an ACCELERATOR, NEVER A GATE: every failure has to resolve to a
+  // blank form so a dead provider, an exhausted free route or a missing key
+  // cannot block character creation. That is the whole contract, and it is the
+  // one thing a live test would exercise least often.
+  const cardBundle = join(OUT, "cardGen.mjs");
+  await esbuild.build({
+    stdin: {
+      contents: 'export * from "./src/agent/cardGenerator.js";',
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile: cardBundle, logLevel: "silent",
+  });
+  const cg = await import("file://" + cardBundle.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  const FULL_CARD = {
+    name: "Lin Xia", birthday: "1999-04-02",
+    private_personality: "fixes things quietly", public_image: "the calm one",
+    queer_texture: "she notices hands first", speech_style: "clipped, trails off",
+    habit: "tunes a string that is already in tune", animal_plastic: "heron - still, then sudden",
+    hidden_conflict: "she was the reason the last group split",
+  };
+
+  // Tolerance, in the same spirit as the round parser. A card has no long
+  // escaped prose field, so none of parseLLMOutput's story repair applies -
+  // these are the shapes a model actually returns.
+  check("a bare JSON card parses",
+    cg.parseCard(JSON.stringify(FULL_CARD)).name === "Lin Xia");
+  check("a fenced JSON card parses",
+    cg.parseCard("```json\n" + JSON.stringify(FULL_CARD) + "\n```").habit.length > 0);
+  check("an unlabelled fence parses",
+    cg.parseCard("```\n" + JSON.stringify(FULL_CARD) + "\n```").name === "Lin Xia");
+  // Fence stripping has to happen BEFORE the brace slice, and this is the case
+  // that proves it: trailing prose containing braces moves lastIndexOf("}") past
+  // the card, so the slice alone would extract "{habit}" and parse nothing.
+  // Without this the fence handling is redundant with the slice and a mutation
+  // removing it stays green - which is exactly what it did.
+  check("a fenced card survives trailing prose that contains braces",
+    cg.parseCard("```json\n" + JSON.stringify(FULL_CARD)
+      + "\n```\nAdjust the {habit} field if you like.").name === "Lin Xia",
+    JSON.stringify(cg.parseCard("```json\n" + JSON.stringify(FULL_CARD)
+      + "\n```\nAdjust the {habit} field if you like.")));
+  check("prose around the object is discarded",
+    cg.parseCard("Here you go!\n" + JSON.stringify(FULL_CARD) + "\nHope that helps.")
+      .name === "Lin Xia");
+  check("an object left open by truncation is closed and parsed",
+    cg.parseCard('{"name":"Lin Xia","birthday":"1999-04-02"')?.name === "Lin Xia",
+    "a card cut mid-object still carries usable fields");
+
+  // §4.5: missing fields stay empty rather than failing the call. Six of nine
+  // fields is still a head start, and refusing it hands the player a blank form
+  // for no reason.
+  const partial = cg.parseCard('{"name":"Lin Xia","habit":"hums"}');
+  check("a partial card keeps what it has and does not invent the rest",
+    partial.name === "Lin Xia" && partial.habit === "hums"
+      && Object.keys(partial).length === 2,
+    JSON.stringify(partial));
+  check("a field the schema does not list is dropped",
+    !("apiKey" in cg.parseCard('{"name":"Lin Xia","apiKey":"sk-secret"}')),
+    "the card parser is a whitelist too");
+  check("a blank field is not stored as an empty string",
+    !("habit" in cg.parseCard('{"name":"Lin Xia","habit":"   "}')));
+  // A habit renders as ONE line in the profile block, exactly as in the group
+  // library, so a model that returns a wrapped one must not break the shape.
+  check("a multi-line habit is folded onto one line",
+    cg.parseCard('{"habit":"taps the rim\\n  twice, always"}').habit
+      === "taps the rim twice, always",
+    JSON.stringify(cg.parseCard('{"habit":"taps the rim\\n  twice, always"}').habit));
+  for (const junk of ["", "   ", "no json here", "[1,2,3]", '"a string"', "null", null, 42]) {
+    if (Object.keys(cg.parseCard(junk)).length !== 0) {
+      check("unparseable output yields an empty card, never a throw", false, JSON.stringify(junk));
+    }
+  }
+  check("unparseable output yields an empty card, never a throw", true);
+
+  // The prompt's two non-stylistic constraints.
+  const cardPrompt = cg.buildCardPrompt("a reserved cellist", { name: "K-pop Idol" }, "ko");
+  // The INSTRUCTION, not merely the word: the language name also appears inside
+  // the schema's field hints, so `includes("Korean")` stayed true even with the
+  // instruction removed. A guard that cannot fail is not a guard.
+  check("the card prompt instructs the model in the player's language",
+    /Write every field in Korean\./.test(cardPrompt) && !/in Chinese/.test(cardPrompt),
+    "custom profiles are authored in one language and never translated (§5)");
+  // A player can type a real idol's name into the box, and the fields being
+  // asked for are private personality, queer texture and hidden conflict.
+  // Without this the feature generates invented claims about a real person's
+  // private life — the exact thing the habit sourcing rule forbids.
+  // Whitespace-normalized: the prompt is a hard-wrapped template literal, so a
+  // phrase can legitimately straddle a newline and a raw substring match would
+  // fail on a reflow that changed nothing the model sees.
+  const flat = cardPrompt.replace(/\s+/g, " ");
+  check("the card prompt refuses to write about a real person",
+    /ORIGINAL FICTIONAL CHARACTER/.test(flat)
+      && /no claim about any real individual/i.test(flat),
+    flat.slice(0, 160));
+  check("the card prompt carries the world's setting",
+    cg.buildCardPrompt("x", { name: "Campus" }, "en").includes("Campus"));
+  check("...and prefers world.setting once v1.4.1 adds it",
+    cg.buildCardPrompt("x", { name: "Campus", setting: "a music conservatory" }, "en")
+      .includes("a music conservatory"));
+
+  // --- the contract: every failure is a blank form -------------------------
+  const withFetch = async (impl, fn) => {
+    const real = globalThis.fetch;
+    globalThis.fetch = impl;
+    try { return await fn(); } finally { globalThis.fetch = real; }
+  };
+  const ok200 = (content) => async () => ({
+    ok: true, status: 200,
+    json: async () => ({ choices: [{ message: { content }, finish_reason: "stop" }] }),
+    text: async () => "",
+  });
+  // generateCard's contract is that it NEVER throws. Calling it bare would let a
+  // regression abort the suite and hide every layer after it, so a throw is
+  // captured and reported as the failure it is.
+  const safeGenerate = async (args) => {
+    try { return await cg.generateCard(args); }
+    catch (e) { return { threw: `${e?.kind || "?"}: ${e?.message || e}` }; }
+  };
+  const err = (status, body) => async () => ({
+    ok: false, status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  });
+
+  const cardOk = await withFetch(ok200(JSON.stringify(FULL_CARD)), () => cg.generateCard({
+    description: "a reserved cellist who never sleeps before 3am",
+    world: { name: "K-pop Idol" }, language: "en", apiKey: "sk-test", modelId: "deepseek",
+  }));
+  check("a good response produces a usable card",
+    cardOk.ok === true && cardOk.profile.name === "Lin Xia"
+      && cardOk.profile.habit.length > 0,
+    JSON.stringify(cardOk.reason || Object.keys(cardOk.profile)));
+
+  // No key at all: callLLM throws `auth` before any request is made. This is the
+  // most likely real failure, because the editor is reachable before the key
+  // page on a loaded save.
+  const noKey = await safeGenerate({
+    description: "a reserved cellist", world: { name: "K-pop Idol" }, apiKey: "",
+  });
+  check("a missing key yields a blank form and the auth kind",
+    noKey.ok === false && noKey.reason === "auth"
+      && Object.keys(noKey.profile).length === 0,
+    JSON.stringify(noKey));
+
+  const authFail = await withFetch(
+    err(401, { error: { code: "invalid_api_key", message: "no" } }),
+    () => safeGenerate({
+      description: "a reserved cellist", world: {}, apiKey: "sk-bad", modelId: "deepseek",
+    }));
+  check("a rejected key yields a blank form, not an exception",
+    authFail.ok === false && authFail.reason === "auth"
+      && Object.keys(authFail.profile).length === 0,
+    JSON.stringify(authFail));
+
+  // The reason is an LLMError KIND, so the caller can render the same localized
+  // line the game already uses for that failure rather than inventing a second
+  // vocabulary for it.
+  const { default: zh } = await import("../src/i18n/zh.js");
+  check("every reason the generator returns has a translation already",
+    ["auth", "balance", "rate_limit", "timeout", "bad_response", "unknown"]
+      .every((k) => typeof zh.errors?.[k] === "string" && zh.errors[k].length > 0),
+    "reusing t.errors is the reason the kind is returned instead of a message");
+
+  // A 200 whose content cannot yield a single field is unusable. It is reported
+  // as bad_response rather than as a card, because an empty card rendered as
+  // success looks like the model refused to answer.
+  const garbage = await withFetch(ok200("I'm afraid I can't help with that."),
+    () => safeGenerate({
+      description: "a reserved cellist", world: {}, apiKey: "sk-test", modelId: "deepseek",
+    }));
+  check("a 200 carrying no card is reported as bad_response, not as success",
+    garbage.ok === false && Object.keys(garbage.profile).length === 0
+      && garbage.reason === "bad_response",
+    JSON.stringify(garbage));
+
+  // The usability callback is what makes that a RETRY rather than a shrug: it is
+  // the same mechanism that stops a degenerate round reaching the player, and in
+  // free mode it is what walks to another model. Without it the call would
+  // return the useless content once and give up, which no assertion on the
+  // returned reason can distinguish — only the attempt count can.
+  let attempts = 0;
+  await withFetch(async (...a) => { attempts++; return ok200("nothing usable here")(...a); },
+    () => safeGenerate({
+      description: "a reserved cellist", world: {}, apiKey: "sk-test", modelId: "deepseek",
+    }));
+  check("an unusable card is retried, not accepted on the first attempt",
+    attempts > 1, `${attempts} attempt(s) - the validateContent callback is what drives this`);
+
+  // Too short to work from: refused locally without spending a call.
+  let called = 0;
+  const shortDesc = await withFetch(
+    async (...a) => { called++; return ok200("{}")(...a); },
+    () => safeGenerate({ description: "hi", world: {}, apiKey: "sk-test" }));
+  check("a description too short to use spends no API call",
+    shortDesc.ok === false && shortDesc.reason === "no_description" && called === 0,
+    `fetch called ${called} times`);
+
+  check("the generator asks for no field that reaches no prompt",
+    !cg.CARD_FIELDS.includes("mbti") && !cg.CARD_FIELDS.includes("role")
+      && !cg.CARD_FIELDS.includes("emoji") && !cg.CARD_FIELDS.includes("tags")
+      && cg.CARD_FIELDS.includes("habit"),
+    JSON.stringify(cg.CARD_FIELDS));
+
+  // A generated card must satisfy the palette's own rules, or the fast path
+  // ends at a form that refuses to save. This is the seam between commits 2
+  // and 3 and nothing else crosses it.
+  const generated = cg.parseCard(JSON.stringify(FULL_CARD));
+  check("a generated card satisfies the palette's required tier",
+    store.missingRequired(generated).length === 0,
+    JSON.stringify(store.missingRequired(generated)));
+  const stored = store.upsertMember([], { id: "c_gen", profile: generated });
+  check("...and can be stored without further editing",
+    stored.ok === true && stored.cast[0].profile.name === "Lin Xia",
+    JSON.stringify(stored.reason || "ok"));
 }
 
 // ==================================== LAYER J (offline, pure logic)
