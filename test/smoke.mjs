@@ -897,7 +897,70 @@ async function layerG(mod, MODEL_CONFIGS) {
     "the failure path must return before the first setter");
 
   check("startNewGame records the roster it is starting",
-    /setRoster\(buildClassicRoster\(/.test(app));
+    /setRoster\(pendingRoster \|\| buildClassicRoster\(/.test(app));
+  // Two doors, and the builder's roster wins. Rebuilding it from the form would
+  // throw away the NPC slots the player assigned and flatten a cross-group cast
+  // into whichever single group happened to be selected. The order in that
+  // expression IS the behaviour, so it is pinned rather than merely mentioned.
+  check("a roster built by the builder is preferred over one composed from the form",
+    app.indexOf("setRoster(pendingRoster ||") > 0
+      && !/setRoster\(buildClassicRoster\([^)]*\) \|\| pendingRoster/.test(app),
+    "pendingRoster must come first");
+  // The classic door must still be able to start: leaving a builder roster in
+  // place would make a group pick silently resolve to the previous custom cast.
+  check("choosing the classic door clears any roster the builder left behind",
+    /setDoor\("classic"\); setPendingRoster\(null\);/.test(app),
+    "otherwise startNewGame prefers a cast the player is no longer looking at");
+  // Scoped to loadSave's own body: the same two calls appear in the builder's
+  // onBack handler, so a whole-file match passed with the line deleted from
+  // loadSave entirely.
+  check("loading a save clears the builder's roster too",
+    /setPendingRoster\(null\); setDoor\("classic"\);/.test(loadSaveBody),
+    "a save carries its own roster and that one is authoritative");
+
+// --- the two doors --------------------------------------------------------
+  // Both end at Setup holding a roster, which is what keeps "one engine, two
+  // doors" true: nothing downstream of resolveRoster knows which was used.
+  check("the cover offers a second door into the roster builder",
+    /setDoor\("custom"\)/.test(app) && /setPhase\("roster"\)/.test(app));
+  // The builder's Generate button spends the player's key, so the key page has
+  // to come first when there is none — §4.5 assumes the key already exists.
+  check("the custom door routes through the key page when there is no key",
+    /setDoor\("custom"\);[\s\S]{0,300}if \(apiKey\?\.trim\(\)\) setPhase\("roster"\); else setPhase\("keyInput"\);/.test(app),
+    "cardGenerator runs on the key the player already entered");
+  check("...and the key page then continues into the builder, not Setup",
+    /door === "custom"\) setPhase\("roster"\)/.test(app));
+  // The door is session state. A remembered "custom" would drop a returning
+  // player into a builder they never asked for.
+  check("the door is not persisted",
+    !/saveToStorage\([^)]*door/.test(app) && !/rv_sim_door/.test(app));
+
+  // The custom door must not have its cast overwritten by whichever group is
+  // still selected from a previous classic run - two effects would otherwise
+  // race for `members`.
+  check("the group effect stands down while a builder roster is pending",
+    /if \(pendingRoster\) \{[\s\S]{0,200}return;/.test(app),
+    "otherwise loadGroupConfig overwrites the builder's cast at Setup");
+  check("the builder's roster is resolved so Setup sees the same members shape",
+    /resolveRoster\(pendingRoster, language\)/.test(app));
+  // Deriving the form from the roster's own slots is what lets mainMember,
+  // allTargetMembers, createInitialStats and the stats bar stay untouched.
+  check("...and the form's main and subs are derived from the roster's slots",
+    /setForm\(f => \(\{ \.\.\.f, mainMember: r\.mainId, subMembers: r\.subIds \}\)\)/.test(app),
+    "everything downstream reads the form, so the form has to agree with the builder");
+  // A roster that cannot be resolved must say so rather than fall back to a
+  // default cast: loadGroupIndex's catch returning a hardcoded Red Velvet entry
+  // is what hid the v1.3.5 path bug for a whole release.
+  check("a builder roster that cannot be resolved aborts to the cover with a notice",
+    /roster resolve failed/.test(app) && /setPendingRoster\(null\);\s*\n?\s*setPhase\("cover"\)/.test(app),
+    "never fall back to a cast the player did not choose");
+  // Setup asks only what the builder did not: identity, name, birth year, pace.
+  check("Setup hides the member pickers when the builder already chose the cast",
+    /\{pendingRoster \? \(/.test(app) && /t\.cast\.changeCast/.test(app),
+    "asking twice is what makes that page long");
+  check("...and Back from Setup returns to the builder, not the cover",
+    /setPhase\(pendingRoster \? "roster" : "cover"\)/.test(app),
+    "dropping the player at the cover discards a cast they spent time on");
   // NPC identity comes from the roster now. getNpcMembers stays in groupLoader
   // as the anchor smoke measures migration against, but App derives nothing.
   // A call or an import, not any mention: the comment explaining why the
@@ -2952,6 +3015,157 @@ async function layerI() {
     ["zh", "en", "ko"].every((l) => typeof castKeys[l].missing === "function"
       && castKeys[l].missing("X").includes("X")),
     "it names what is still required, so it has to carry the names");
+
+  // --- step 6 commit 5: the roster builder and the second door -------------
+  const builderSrc = readFileSync(join(ROOT, "src/platforms/RosterBuilder.jsx"), "utf8");
+  let builderCompiled = "";
+  try {
+    await esbuild.build({
+      entryPoints: [join(ROOT, "src/platforms/RosterBuilder.jsx")],
+      bundle: true, format: "esm", platform: "neutral", write: false,
+      external: ["react"], jsx: "automatic", logLevel: "silent",
+      define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
+    });
+    builderCompiled = "ok";
+  } catch (e) {
+    builderCompiled = (e.errors || []).map((x) => x.text).join(" | ") || e.message;
+  }
+  check("RosterBuilder.jsx compiles and its imports resolve",
+    builderCompiled === "ok", builderCompiled);
+
+  // THE constraint of this component. Step 4 established that member ids are not
+  // unique across the library — `x` shares seven with the groups those members
+  // debuted in — and affections, KKT channels and memberAppearances are all keyed
+  // by id. A roster holding one id twice would silently merge two people's state,
+  // so the picks map is keyed BY ID, which makes that impossible to express.
+  check("the builder keys its picks by member id, so one id cannot appear twice",
+    /out\[member\.id\] = /.test(builderSrc)
+      && !/\$\{tab\}\/\$\{member\.id\}/.test(builderSrc)
+      && !/`\$\{[^}]*groupId[^}]*\}\/\$\{/.test(builderSrc),
+    "a composite group/id key would let the same person into the cast twice");
+
+  // The roster shaping itself lives in customCast.js so it can be tested as
+  // behaviour rather than asserted as a regex — it is the part of the builder
+  // that has to be right, and it feeds resolveRoster directly.
+  const PICKS = {
+    irene: { slot: "npc", src: "library", groupId: "red_velvet" },
+    sana: { slot: "sub", src: "library", groupId: "twice" },
+    c_1: { slot: "main", src: "custom", lang: "zh", profile: { name: "Lin Xia" } },
+    yeri: { slot: "sub", src: "library", groupId: "red_velvet" },
+  };
+  const built = store.rosterFromPicks(PICKS, "kpop_idol");
+  // Entry order IS prompt order, and prompt order is a cache boundary: the same
+  // cast in a different order is the same game and a total cache miss. Iterating
+  // the picks object would tie it to insertion order instead.
+  check("the built roster orders entries main, then subs, then NPCs",
+    built.entries.map((e) => e.slot).join(",") === "main,sub,sub,npc",
+    built.entries.map((e) => `${e.memberId}:${e.slot}`).join(" "));
+  check("...and that order is stable however the picks were inserted",
+    JSON.stringify(store.rosterFromPicks(
+      Object.fromEntries(Object.entries(PICKS).reverse()), "kpop_idol").entries.map((e) => e.slot))
+      === JSON.stringify(built.entries.map((e) => e.slot)),
+    "object key order must not reach the prompt");
+  check("a custom pick is snapshotted inline and a library pick stays a reference",
+    built.entries[0].src === "custom" && built.entries[0].profile?.name === "Lin Xia"
+      && built.entries[1].src === "library" && built.entries[1].profile === undefined,
+    JSON.stringify(built.entries.map((e) => e.src)));
+  // The group whose lore the prompt uses: the main member's, which is the only
+  // defensible answer for a mixed cast until composed lore lands in v1.4.1.
+  // The MAIN's group is listed SECOND here on purpose. With her first, a buggy
+  // "first pick with a group" would return the right answer by luck and the check
+  // would pass against a broken implementation — which is exactly what it did.
+  check("a cross-group roster takes its groupId from the main member's group",
+    store.rosterFromPicks({
+      irene: { slot: "sub", src: "library", groupId: "red_velvet" },
+      sana: { slot: "main", src: "library", groupId: "twice" },
+    }).groupId === "twice",
+    "the main member's group is the one whose lore the prompt renders");
+  check("...and falls back to any picked group when the main is a custom member",
+    built.groupId === "twice" || built.groupId === "red_velvet",
+    `custom main, so groupId came from a library pick: ${built.groupId}`);
+  check("an empty pick set yields an empty roster rather than throwing",
+    store.rosterFromPicks({}).entries.length === 0
+      && store.rosterFromPicks().entries.length === 0);
+
+  // The real path: what the builder emits must resolve. Nothing else proves the
+  // two halves fit, and per the v1.3.7 lesson it goes through resolveRoster.
+  const builtResolved = await fromDisk(() => loader.resolveRoster(store.rosterFromPicks({
+    sana: { slot: "main", src: "library", groupId: "twice" },
+    irene: { slot: "sub", src: "library", groupId: "red_velvet" },
+    c_9: { slot: "npc", src: "custom", lang: "en", profile: REQUIRED_TIER },
+  }), "en"));
+  // Note the custom member resolves as `c_9`, the PICK's id, even though the
+  // profile body carries `c_req`. The pick key wins all the way down — the same
+  // rule upsertMember enforces — so a profile can never rename itself onto
+  // another member's id and merge her affections.
+  check("a roster the builder emits resolves to the cast it names",
+    builtResolved.members.map((m) => m.id).join(",") === "sana,irene,c_9"
+      && builtResolved.mainId === "sana" && builtResolved.subIds.join() === "irene"
+      && builtResolved.npcIds.join() === "c_9",
+    JSON.stringify({ ids: builtResolved.members.map((m) => m.id), main: builtResolved.mainId }));
+  // Asserted on the ENTRY, not on the resolved member: resolveRoster re-applies
+  // `id: e.memberId` on its own, so a snapshot carrying the wrong id is invisible
+  // downstream. That is defence in depth and worth keeping, but it means only an
+  // entry-level check can see whether toRosterEntry holds up its end.
+  const collide = store.rosterFromPicks({
+    c_9: { slot: "main", src: "custom", lang: "en", profile: { id: "irene", name: "Lin Xia" } },
+  });
+  check("a snapshotted profile cannot carry an id other than its pick's",
+    collide.entries[0].memberId === "c_9" && collide.entries[0].profile.id === "c_9",
+    JSON.stringify(collide.entries[0]));
+  check("...and the resolved member agrees, which is the second layer of the same rule",
+    builtResolved.members[2].id === "c_9" && builtResolved.members[2].name === "Lin Xia",
+    JSON.stringify(builtResolved.members[2]));
+  check("...across groups, with a custom member alongside two library ones",
+    builtResolved.members.length === 3 && builtResolved.groupConfig !== null,
+    "a cross-group cast is the case the whole roster split exists for");
+
+  // Exactly one main, always. Promoting a second demotes the first rather than
+  // dropping her, because resolveRoster takes idsWith("main")[0] and a second
+  // main would simply be ignored — the player would see her pick do nothing.
+  check("promoting a second main demotes the first instead of dropping her",
+    /if \(next === "main"\)/.test(builderSrc) && /out\[id\] = \{ \.\.\.p, slot: "sub" \}/.test(builderSrc),
+    "resolveRoster reads only the first main, so two mains lose one silently");
+
+  // Roster order is prompt order, and prompt order is a cache boundary: the same
+  // cast in a different order is the same game and a total cache miss. Iterating
+  // the picks object directly would make the order depend on insertion, so the
+  // slots are walked in a fixed sequence.
+  check("the builder emits entries in a fixed slot order, not object key order",
+    /\["main", "sub", "npc"\]\.flatMap/.test(builderSrc),
+    "prompt order is a cache boundary");
+
+  // Editing a picked member has to refresh the snapshot, or the roster carries
+  // her profile as it was before the edit.
+  check("editing a picked custom member refreshes her snapshot in the roster",
+    /setPicks\(\(prev\) => \(prev\[entry\.id\]/.test(builderSrc),
+    "custom entries are snapshotted, so a stale one ships the pre-edit profile");
+
+  // A deleted member's photo would otherwise sit in a capped store forever and
+  // eventually refuse a photo for a member who exists.
+  check("deleting a custom member prunes her photo",
+    /pruneOrphans\(photos, next\.map/.test(builderSrc));
+
+  // The photo store is keyed by member id, and a photo can be picked on step 1
+  // before anything is saved — so the CALLER mints the id. Minting it at submit
+  // time instead would store the image under one id and the member under another.
+  check("the builder mints the member id before opening the editor",
+    /setEditing\(\{ id: newMemberId\(\), profile: \{\}, isNew: true \}\)/.test(builderSrc),
+    "otherwise a photo added on step 1 is orphaned the moment the member is saved");
+  check("...and the editor never mints one of its own",
+    !/newMemberId/.test(editorSrc),
+    "two sources for the id is how the photo and the member end up disagreeing");
+
+  // Every string is localized, and the builder must not invent its own English.
+  check("the builder hardcodes no visible English string",
+    !/>[A-Z][a-z]+ [a-z]+</.test(builderSrc.replace(/\{[^}]*\}/g, "")),
+    "every label comes off t.cast");
+  const builderKeys = [...builderSrc.matchAll(/\bc\.([a-zA-Z]+)/g)].map((m) => m[1]);
+  const missingKeys = [...new Set(builderKeys)]
+    .filter((k) => !["fields", "hints"].includes(k))
+    .filter((k) => ["zh", "en", "ko"].some((l) => castKeys[l][k] === undefined));
+  check("every t.cast key the builder reads exists in all three languages",
+    missingKeys.length === 0, missingKeys.join(", "));
 }
 
 // ==================================== LAYER J (offline, pure logic)

@@ -19,7 +19,7 @@
 
 import React, { useState } from "react";
 import {
-  REQUIRED_FIELDS, missingRequired, newMemberId, sanitizeProfile,
+  REQUIRED_FIELDS, missingRequired, sanitizeProfile,
 } from "../rag/customCast";
 import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
 import { downscale, PHOTO_MAX_CHARS } from "../utils/imageStore";
@@ -50,13 +50,18 @@ const BIRTH_YEAR_MIN = 1980;
 const BIRTH_YEAR_MAX = 2012;
 
 export default function MemberEditor({
-  member, language = "zh", theme = "dark", t,
+  member, isNew = false, language = "zh", theme = "dark", t,
   apiKey, modelId, aliyun, world,
   photo, onPhotoChange,
   onSave, onCancel, notify,
 }) {
   const isLight = theme === "light";
-  const editing = Boolean(member?.id);
+  // The CALLER owns the id and always supplies one, including for a new member.
+  // A photo can be picked on step 1, before anything is saved, and the photo
+  // store is keyed by member id - so an id minted here at submit time would
+  // store the image under one id and the member under another. `isNew` carries
+  // what the title needs instead of inferring it from the id's presence.
+  const editing = !isNew;
 
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState(() => ({ ...(member?.profile || {}) }));
@@ -131,7 +136,7 @@ export default function MemberEditor({
       notify?.(c.missing?.(missing.map(fieldLabel).join(", ")), "error");
       return;
     }
-    const id = member?.id || newMemberId();
+    const id = member?.id;
     onSave?.({ id, lang: language, profile: sanitizeProfile({ ...profile, id }) });
   };
 

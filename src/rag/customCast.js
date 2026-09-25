@@ -14,6 +14,9 @@
 // of which door a member came through.
 
 import { STORAGE_KEYS, loadFromStorage, saveToStorage } from "../utils";
+// The slot order, from the one module that defines it. Re-declaring it here would
+// be a second source of truth for something the prompt's member order depends on.
+import { SLOTS } from "./rosterResolver";
 
 // docs/V140_PLAN.md §10 budgets 20 members at ~2 KB. The cap is a quota
 // guard, not a design opinion about how many characters a player may want.
@@ -164,5 +167,40 @@ export function toRosterEntry(member, slot) {
     slot,
     lang: member.lang || "zh",
     profile: { ...member.profile, id: member.id },
+  };
+}
+
+/**
+ * Turn the roster builder's picks into a roster.
+ *
+ * `picks` is keyed BY MEMBER ID — {id: {slot, src, groupId, lang, profile}} —
+ * which is the correctness constraint rather than a convenience: step 4 found
+ * that ids are not unique across the library (`x` shares seven with the groups
+ * those members debuted in), and affections, KKT channels and memberAppearances
+ * are all keyed by id. A map keyed by id cannot express the same person twice.
+ *
+ * ENTRY ORDER IS PROMPT ORDER, AND PROMPT ORDER IS A CACHE BOUNDARY. The same
+ * cast in a different order is the same game and a total cache miss, so the
+ * slots are walked in a fixed sequence — main, then subs, then NPCs — rather
+ * than however the picks object happens to iterate.
+ *
+ * Lives here rather than in the component so it can be tested as behaviour
+ * instead of asserted as a regex: it is the part of the builder that has to be
+ * right.
+ */
+export function rosterFromPicks(picks = {}, worldId = "kpop_idol") {
+  const chosen = Object.entries(picks).map(([id, p]) => ({ id, ...p }));
+  const main = chosen.find((p) => p.slot === "main");
+  return {
+    worldId,
+    // The group whose lore the prompt uses. The main member's group is the right
+    // answer for a single-group cast and the only defensible one for a mixed
+    // cast until composed lore lands in v1.4.1.
+    groupId: main?.groupId || chosen.find((p) => p.groupId)?.groupId || null,
+    entries: SLOTS.flatMap((slot) => chosen
+      .filter((p) => p.slot === slot)
+      .map((p) => (p.src === "custom"
+        ? toRosterEntry({ id: p.id, lang: p.lang, profile: p.profile }, slot)
+        : { src: "library", groupId: p.groupId, memberId: p.id, slot }))),
   };
 }

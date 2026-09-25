@@ -21,6 +21,7 @@ import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
 import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
+import RosterBuilder from "./platforms/RosterBuilder";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
 // brackets confuse the JSON schema, control characters break it outright.
@@ -316,6 +317,16 @@ export default function App() {
   // main member yet, so `members` there is the palette to choose from rather
   // than a cast that has been chosen.
   const [roster, setRoster] = useState(null);
+  // Which door the player came through. Session state, never persisted: the
+  // classic door is the default every time the app opens, and a remembered
+  // "custom" would drop a returning player into a builder they did not ask for.
+  const [door, setDoor] = useState("classic");
+  // The roster the builder produced, before a game exists. It is what makes the
+  // custom door reach Setup with a cast already chosen, so Setup asks only for
+  // identity, name, birth year and pace — the main/sub pickers are the builder's
+  // job and are hidden there. Null on the classic door, where startNewGame
+  // composes a roster from the group and the form instead.
+  const [pendingRoster, setPendingRoster] = useState(null);
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
@@ -399,6 +410,14 @@ export default function App() {
       }).catch(console.error);
       return;
     }
+    // The custom door owns `members` before the game starts, and this effect
+    // would otherwise overwrite the builder's cast with whichever group happens
+    // to still be selected from a previous classic run. The group id is kept
+    // written through, because it is what the cover's classic door restores.
+    if (pendingRoster) {
+      if (selectedGroup) saveToStorage("rv_sim_group", selectedGroup);
+      return;
+    }
     if (!selectedGroup) return;
     loadGroupConfig(selectedGroup, language).then(config => {
       setGroupConfig(config);
@@ -408,7 +427,29 @@ export default function App() {
       }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
-  }, [selectedGroup, language]);
+  }, [selectedGroup, language, pendingRoster]);
+
+  // The custom door, resolved once so Setup sees exactly the `members` shape the
+  // classic door gets from a group load. Deriving form.mainMember/subMembers from
+  // the roster's own slots is what lets everything downstream — mainMember,
+  // allTargetMembers, createInitialStats, the stats bar — stay untouched: they
+  // read the form, and the form now agrees with the builder.
+  useEffect(() => {
+    if (!pendingRoster || phaseRef.current === "game") return;
+    resolveRoster(pendingRoster, language).then(r => {
+      setGroupConfig(r.groupConfig);
+      setMembers(r.members);
+      setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
+    }).catch(e => {
+      // A roster that cannot be resolved must say so rather than fall back to a
+      // default cast — the v1.3.5 lesson, where loadGroupIndex's catch returning
+      // a hardcoded Red Velvet entry hid a path bug for a whole release.
+      console.error("roster resolve failed:", e);
+      setPendingRoster(null);
+      setPhase("cover");
+      showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
+    });
+  }, [pendingRoster, language]);
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -520,13 +561,16 @@ export default function App() {
     if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
     const mainId = form.mainMember;
     const subIds = form.subMembers || [];
-    // The classic door, expressed as a roster. Member order comes from the
-    // loaded group because that is the order profiles appear in the prompt —
-    // the same cast in a different order is the same game and a total cache
-    // miss. Built here rather than resolved: `members` is already the answer
+    // Two doors, one roster. The custom door already built one and it is
+    // authoritative — rebuilding it from the form would throw away the NPC slots
+    // the player assigned and flatten a cross-group cast into a single group.
+    // The classic door composes one here instead: member order comes from the
+    // loaded group because that is the order profiles appear in the prompt, and
+    // the same cast in a different order is the same game and a total cache miss.
+    // Built rather than resolved, because `members` is already the answer
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
-    setRoster(buildClassicRoster(
+    setRoster(pendingRoster || buildClassicRoster(
       selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
     setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
     setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
@@ -619,6 +663,10 @@ export default function App() {
     // config with TWICE member ids in `form` — no crash, just a prompt whose
     // main member was undefined.
     setSelectedGroup(migrated.groupId);
+    // A save carries its own roster and that one is authoritative. Leaving the
+    // builder's behind would make a later New Game silently prefer it over the
+    // group the player picked.
+    setPendingRoster(null); setDoor("classic");
     setRoster(migrated.roster);
     setGroupConfig(resolved.groupConfig);
     setMembers(resolved.members);
@@ -866,13 +914,30 @@ export default function App() {
             </button>
           </div>
 
+          {/* Two doors, one engine (docs/V140_PLAN.md §14.1). Classic is exactly
+              today's flow and stays the primary button; the custom door leads to
+              the roster builder. Both end at Setup with a roster, so nothing
+              downstream knows which one was used. */}
           <button
             onClick={() => {
               if (!selectedGroup) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
+              // Leaving a builder roster in place would silently override the
+              // group just picked, since startNewGame prefers it.
+              setDoor("classic"); setPendingRoster(null);
               if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput");
             }}
             style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: selectedGroup ? "pointer" : "default", background: selectedGroup ? th.accentGrad : th.newGameDisabled, color: selectedGroup ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
             {ct.newGame}
+          </button>
+          <button
+            onClick={() => {
+              setDoor("custom");
+              // The builder's Generate button spends the player's key, so the key
+              // page comes first when there is none — §4.5 assumes it exists.
+              if (apiKey?.trim()) setPhase("roster"); else setPhase("keyInput");
+            }}
+            style={{ padding: "11px 30px", borderRadius: 40, border: `1px solid ${th.coverContinueBorder}`, background: "transparent", color: th.coverContinueColor, fontSize: 13, cursor: "pointer", marginBottom: 10 }}>
+            {t.cast.customTitle}
           </button>
           {hasSaves() && (
             <button onClick={() => setOverlay({ type: "save" })}
@@ -1073,7 +1138,7 @@ export default function App() {
                 {language === "zh" ? "✅ Key 已保存！选择下一步" : language === "ko" ? "✅ Key 저장 완료! 다음을 선택하세요" : "✅ Key saved! What's next?"}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setKeyJustSaved(false); if (!selectedGroup) setPhase("cover"); else setPhase("setup"); }}
+                <button onClick={() => { setKeyJustSaved(false); if (door === "custom") setPhase("roster"); else if (!selectedGroup) setPhase("cover"); else setPhase("setup"); }}
                   style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: th.accentGrad, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {language === "zh" ? "✨ 开始新游戏" : language === "ko" ? "✨ 새 게임" : "✨ New Game"}
                 </button>
@@ -1092,6 +1157,23 @@ export default function App() {
   }
 
   // ── Setup Page ──
+  // ── Roster Builder (the custom door) ──
+  if (phase === "roster") {
+    return (
+      <>
+        <RosterBuilder
+          language={language} theme={theme} t={t} world={world}
+          apiKey={apiKey} modelId={selectedModel}
+          aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
+          onStart={(r) => { setPendingRoster(r); setPhase("setup"); }}
+          onBack={() => { setPendingRoster(null); setDoor("classic"); setPhase("cover"); }}
+          notify={showNotif}
+        />
+        <NotificationBar />
+      </>
+    );
+  }
+
   if (phase === "setup") {
     // `world` is in the gate because buildSystemPrompt cannot run without it.
     // It is fetched on mount and the player cannot reach this screen faster
@@ -1112,6 +1194,32 @@ export default function App() {
             </div>
           </div>
 
+          {/* The custom door already chose the cast AND the slots, so Setup shows
+              it rather than asking again. This is what keeps this page short on
+              that path: identity, name, birth year and pace, and nothing else. */}
+          {pendingRoster ? (
+            <>
+              <div className="s-l">{t.cast.castLabel}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6, alignItems: "center" }}>
+                {members.map(m => {
+                  const slot = m.id === form.mainMember ? "★"
+                    : (form.subMembers || []).includes(m.id) ? "●" : "○";
+                  return (
+                    <span key={m.id} style={{ display: "flex", alignItems: "center", gap: 3, padding: "5px 9px", borderRadius: 14, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 14 }}>{m.emoji}</span>
+                      <span>{m.name}</span>
+                      <span style={{ color: th.textMuted, fontSize: 10 }}>{slot}</span>
+                    </span>
+                  );
+                })}
+                <button onClick={() => setPhase("roster")}
+                  style={{ padding: "5px 10px", borderRadius: 14, border: `1px dashed ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 10, cursor: "pointer" }}>
+                  {t.cast.changeCast}
+                </button>
+              </div>
+            </>
+          ) : (
+          <>
           <div className="s-l">{t.setup.mainMember(MAIN_INITIAL_AFFECTION)}</div>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", color: th.textMuted, padding: 20, fontSize: 12 }}>{t.setup.loading}</div>
@@ -1149,6 +1257,8 @@ export default function App() {
               )}
             </>
           )}
+          </>
+          )}
 
           <div className="s-l">{t.setup.identity}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
@@ -1180,7 +1290,10 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
-            <button onClick={() => setPhase("cover")}
+            {/* Back goes one step, not all the way out: on the custom door the
+                previous step is the builder, and dropping the player at the cover
+                would discard a cast they may have spent real time assembling. */}
+            <button onClick={() => setPhase(pendingRoster ? "roster" : "cover")}
               style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>
