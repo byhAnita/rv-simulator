@@ -231,12 +231,23 @@ dropping `groupId` or `roster`.
 | `ca66510` | **fix** — the birth year could not be typed; the role picker hid what it did |
 | `b8e66b0` | **fix** — a cross-group cast is its own group, not the main member's |
 | `081fc86` | **docs** — step 6 recorded, and this document corrected where phone play moved the design |
-| _pending_ | correcting a migrated birth year (commit 6) — see *"Done in step 6"* above |
+| `2eca085` | correcting a migrated birth year (commit 6) — see *"Done in step 6"* above |
+| _pending_ | the live gate: `--cast` on the harness, and the harness revived — see below |
 
-**Remaining in step 6:** optionally splitting the classic Setup page into steps, and a live
-`playthrough.mjs` run on a cross-group roster — the one part of step 6's gate no offline check
-covers. The roster builder's visual design is **known to be unpolished and deliberately deferred** —
-Yuhan's call after the phone test: "works but doesn't look good, we can improve this later."
+**The live gate is met.** The reported roster played **10/10 clean rounds** in zh — 0 outside-cast
+names, 0 real agencies, 0 static-prompt drifts, 3 collapses with 0 prefix breaks, 81.2% cache —
+against a 6/6 clean classic control at 85.6%.
+
+Getting there needed the harness taught to express a roster at all (`--cast
+blackpink:jisoo,red_velvet:irene,custom:李飞,twice:mina@npc,twice:sana@npc`) and, first,
+**`playthrough.mjs` un-broken: it had been dead since step 3**, its `fetch` stub serving `/groups/`
+but not the `/worlds/` step 3 introduced. So steps 3, 4, 5 and 6 were every one of them validated
+with zero live rounds. The new guard derives the trees from `src/` rather than listing them; see
+CLAUDE.md, *"`playthrough.mjs` had been dead since step 3"*.
+
+**Remaining in step 6:** optionally splitting the classic Setup page into steps. The roster
+builder's visual design is **known to be unpolished and deliberately deferred** — Yuhan's call
+after the phone test: "works but doesn't look good, we can improve this later."
 
 ### Hand-tested on a phone, which is the only place three of these showed
 

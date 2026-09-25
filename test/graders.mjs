@@ -128,6 +128,47 @@ export function nameYaVocative(story, cast, lang) {
 // because "ok" or "응" legitimately appear in dialogue.
 const KKT_MIN_VERBATIM = 6;
 
+// A cross-group cast is its own group, and the origin groups are never named in
+// section 4 — because naming them lets the model complete the group from its own
+// knowledge. That is exactly what happened on the phone: a cast of Jisoo, Irene,
+// a custom member, Mina and Sana was handed "[BLACKPINK Background]", and round 1
+// put Jennie, Rose and Lisa in the story and set the company to YG.
+//
+// So this grades the leak itself rather than the prompt: a member of an origin
+// group who is NOT in the roster, appearing by name, and a real agency appearing
+// at all when the cast's agency is derived from its own name.
+//
+// `forbidden` is [{name, name_kr}] — computed by the caller, which is the only
+// place that knows which members were left out. A name that is a SUBSTRING of
+// someone present is dropped by the caller, not here.
+const REAL_AGENCIES = ["YG", "SM", "JYP", "HYBE", "ADOR", "Starship", "Pledis",
+                       "Cube", "Source Music", "Belift", "KOZ"];
+
+export function outsideCastNames(story, forbidden = []) {
+  if (!story) return [];
+  const bad = [];
+  for (const m of forbidden) {
+    for (const form of [m?.name, m?.name_kr]) {
+      const needle = String(form || "").trim();
+      if (needle.length < 2) continue;
+      if (story.includes(needle)) { bad.push(`outside-cast:${m.name || needle}`); break; }
+    }
+  }
+  return bad;
+}
+
+// Latin acronyms need a boundary or "SM" matches inside an ordinary word. The
+// boundary is non-letter rather than \b so a zh sentence wrapping the acronym in
+// Chinese characters still counts as a hit.
+export function realAgencyNames(story) {
+  if (!story) return [];
+  const bad = [];
+  for (const a of REAL_AGENCIES) {
+    if (new RegExp(`(^|[^A-Za-z])${esc(a)}([^A-Za-z]|$)`).test(story)) bad.push(`real-agency:${a}`);
+  }
+  return bad;
+}
+
 export function kktTranscribed(story, kktUpdate) {
   if (!story) return [];
   for (const [id, msgs] of Object.entries(kktUpdate || {})) {

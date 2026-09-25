@@ -2144,6 +2144,42 @@ async function layerI() {
     (cfg?.members || []).every((m) => /^\d{4}-/.test(m.birthday || "")),
     "parseGroupConfig drops birthday — the address protocol would fall back to b.2000 for everyone");
 
+  // The check above boots the bundle; this one says the harness can FEED it.
+  //
+  // playthrough.mjs stubs fetch for the app's data trees and served only
+  // `/groups/`. Step 3 added `/worlds/`, so every world fetch fell through to a
+  // real fetch on a relative URL and the harness died with "Failed to parse URL"
+  // before its first round — dead across steps 3, 4, 5 and 6, which were all
+  // validated offline. That is the SECOND silent death of this harness; the first
+  // was BASE_URL in v1.3.5, which is what the bootability check above exists for.
+  //
+  // So the trees are DERIVED from src/ rather than listed here. A new loader that
+  // fetches `${base()}rosters/` fails this check until the harness serves it,
+  // which is the whole point — the same reason Layer C loops over mirrored trees
+  // instead of naming them.
+  const fetchedTrees = new Set();
+  (function scanForTrees(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) scanForTrees(p);
+      else if (/\.(js|jsx)$/.test(e.name)) {
+        for (const m of readFileSync(p, "utf8").matchAll(/\$\{base\(\)\}([a-z_]+)\//g)) {
+          fetchedTrees.add(m[1]);
+        }
+      }
+    }
+  })(join(ROOT, "src"));
+  const harnessSrc = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");
+  const servedDecl = (harnessSrc.match(/SERVED_TREES\s*=\s*\[([^\]]*)\]/) || [, ""])[1];
+  const servedTrees = [...servedDecl.matchAll(/"\/([a-z_]+)\/"/g)].map((m) => m[1]);
+  check("src/ fetches at least the two data trees this test knows about",
+    fetchedTrees.has("groups") && fetchedTrees.has("worlds"),
+    `the scan found ${[...fetchedTrees].join(", ") || "nothing"} — a broken scan would pass the next check vacuously`);
+  const unserved = [...fetchedTrees].filter((t) => !servedTrees.includes(t));
+  check("the live harness serves every data tree src/ fetches from disk",
+    unserved.length === 0,
+    `playthrough.mjs does not serve ${unserved.join(", ")} — it will die on a relative URL before round 1`);
+
   // ------------------------------------------------------ save compatibility
   // A v1.3.5 save has no keepFull anywhere. It must collapse exactly as before.
   const legacy = { history: [
@@ -3985,10 +4021,52 @@ async function layerL() {
     none(g.kktTranscribed(transcribed, {})),
     "that is the sibling check's job, and it must not double-report");
 
+  // --- the cross-group leak, graded from the prose -------------------------
+  // The phone-reported round: told the cast was BLACKPINK, the model supplied
+  // Jennie, Rose and Lisa from its own knowledge and set the company to YG.
+  // Neither name is in any file the prompt sends, which is what makes prose the
+  // only place this is visible.
+  const outsiders = [
+    { name: "Jennie", name_kr: "金珍妮" },
+    { name: "Lisa", name_kr: "丽莎" },
+    { name: "Rosé", name_kr: "朴彩英" },
+  ];
+  const leaked = "Jisoo推开练习室的门，Jennie和Lisa正坐在镜子前。";
+  check("a member outside the roster, named in the prose, is flagged",
+    g.outsideCastNames(leaked, outsiders).length === 2,
+    JSON.stringify(g.outsideCastNames(leaked, outsiders)));
+  check("...and is named in the flag, so the report says who leaked",
+    g.outsideCastNames(leaked, outsiders).includes("outside-cast:Jennie"),
+    JSON.stringify(g.outsideCastNames(leaked, outsiders)));
+  check("...and the localized real name counts too",
+    g.outsideCastNames("朴彩英站在门口。", outsiders)[0] === "outside-cast:Rosé",
+    "a zh round names her 朴彩英, not Rosé");
+  check("...and a clean round flags nothing",
+    none(g.outsideCastNames("Jisoo和Irene在练习室里待到很晚。", outsiders)));
+  check("...and an empty outsider list cannot fire",
+    none(g.outsideCastNames(leaked, [])),
+    "a whole single group has no outsiders, and the check must be silent there");
+
+  // The agency was never in a file either. "X Entertainment" is derived from the
+  // cast's own name; a real one means the model inferred the group.
+  check("a real agency named in the prose is flagged",
+    g.realAgencyNames("YG的会议室里，气氛很僵。")[0] === "real-agency:YG",
+    JSON.stringify(g.realAgencyNames("YG的会议室里，气氛很僵。")));
+  check("...and the cast's own derived agency is not",
+    none(g.realAgencyNames("X Entertainment的会议室里，气氛很僵。")),
+    "the composed lore names it, so the model is right to use it");
+  // A bare acronym needs a boundary or it fires inside ordinary words, which is
+  // how a grader gets tuned away for crying wolf.
+  check("...and an acronym inside a word does not fire",
+    none(g.realAgencyNames("She sent an SMS and smiled."))
+      && none(g.realAgencyNames("他用KOZY的杯子喝水。")),
+    JSON.stringify([g.realAgencyNames("She sent an SMS and smiled."),
+                    g.realAgencyNames("他用KOZY的杯子喝水。")]));
+
   // The harness must actually call them, or the layer tests dead code.
   const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");
   for (const fn of ["narratedHonorifics", "nameYaVocative", "sinicizedHonorifics", "selfNameErrors",
-                    "kktTranscribed"]) {
+                    "kktTranscribed", "outsideCastNames", "realAgencyNames"]) {
     check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
   }
 }

@@ -83,6 +83,25 @@ const ROUTE_MODE = has("route");
 const IDENTITY = arg("identity", "练习生");
 const WORKER = arg("worker", null);
 
+// --cast plays a ROSTER instead of a group, which is the only way to exercise
+// the second door live. Until v1.4.0 step 6 this harness could express exactly
+// one shape — one whole group — so the composed-lore path that step 6 added had
+// never been played by anything, and the bug it fixed was found by hand on a
+// phone.
+//
+//   --cast blackpink:jisoo,red_velvet:irene,twice:mina@npc,twice:sana@npc
+//
+// `group:member` picks, optional `@slot` (main | sub | npc). The first pick is
+// the main unless one says `@main`; the rest default to `sub`. A pick of
+// `custom:<name>` splices in an inline custom member carrying only the three
+// fields §4.4 requires, which is the branch no golden file can contain.
+const CAST = arg("cast", null);
+const CUSTOM_BIRTH_YEAR = arg("custom-birth-year", "1998");
+// The composed group's name. "X" is the app's default, and the agency is derived
+// from it as "X Entertainment" — so a model that invents "YG" instead is doing
+// what the unfixed prompt invited.
+const CAST_NAME = arg("cast-name", "X");
+
 // ---------------------------------------------------------------- env
 function loadEnvLocal() {
   const p = join(ROOT, ".env.local");
@@ -113,6 +132,7 @@ async function buildBundle() {
         'export * from "./src/tools/aliyunRoute.js";',
         'export * from "./src/rag/groupLoader.js";',
         'export * from "./src/rag/worldLoader.js";',
+        'export * from "./src/rag/rosterResolver.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -143,7 +163,7 @@ function languageOk(story, lang) {
 // Prose graders live in graders.mjs so smoke can unit-test them; see the
 // header there. esc moved with them.
 import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative,
-         kktTranscribed } from "./graders.mjs";
+         kktTranscribed, outsideCastNames, realAgencyNames } from "./graders.mjs";
 // unnie in the three scripts the game can output, with or without a separator.
 // The transliterated forms only. 姐 is deliberately absent: the setting is
 // Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
@@ -176,7 +196,7 @@ function honorificErrors(story, cast) {
 }
 
 // Grades one round's parsed output. Returns the list of things that went wrong.
-function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) {
+function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast, outsiders }) {
   const bad = [];
   if (parseLevel !== "direct") bad.push(`parse:${parseLevel}`);
   if (!story || story.length < 80) bad.push(`story-short:${story?.length ?? 0}`);
@@ -216,6 +236,17 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
     // AND transcribed it into the prose was invisible here by construction.
     bad.push(...kktTranscribed(story || "", res.kktUpdate));
 
+    // A cross-group cast only. `outsiders` is the members of the origin groups
+    // who are NOT in this roster: naming one is the leak the composed lore
+    // exists to close, and a real agency is the same leak by inference. Section
+    // 6 forbids both for any cast, so this is not a --cast-only rule — it is
+    // only CHECKABLE with --cast, because a whole group's own lore legitimately
+    // names every member and its own agency.
+    if (outsiders) {
+      bad.push(...outsideCastNames(story || "", outsiders));
+      bad.push(...realAgencyNames(story || ""));
+    }
+
     const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);
     if (!delivered) {
       const s = story || "";
@@ -232,6 +263,58 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
   return bad;
 }
 
+// ------------------------------------------------------------- cross-group
+// `group:member[@slot]` picks into roster entries. Library members go in BY
+// REFERENCE and custom ones are SNAPSHOTTED inline, exactly as the app writes
+// them — see rosterResolver.js.
+function parseCastSpec(spec) {
+  const picks = spec.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!picks.length) throw new Error("--cast is empty");
+  const parsed = picks.map((p) => {
+    const [ref, slot] = p.split("@");
+    const [group, member] = ref.split(":");
+    if (!group || !member) throw new Error(`--cast: "${p}" is not group:member`);
+    if (slot && !["main", "sub", "npc"].includes(slot)) {
+      throw new Error(`--cast: "${slot}" is not main|sub|npc`);
+    }
+    return { group, member, slot: slot || null };
+  });
+  const declaredMain = parsed.some((e) => e.slot === "main");
+  return parsed.map((e, i) => ({
+    ...e, slot: e.slot || (!declaredMain && i === 0 ? "main" : "sub"),
+  }));
+}
+
+function rosterFromSpec(parsed, castName) {
+  const main = parsed.find((e) => e.slot === "main") || parsed[0];
+  return {
+    worldId: "kpop_idol",
+    // A cross-group cast is its OWN group, and `name` is load-bearing: it is the
+    // group name section 4 is composed around. The origin groups are never named
+    // there — that is the leak the fix exists to close.
+    name: castName,
+    groupId: main.group === "custom" ? null : main.group,
+    entries: parsed.map((e) => (e.group === "custom"
+      // Only the three fields §4.4 requires. A member this sparse renders four
+      // defects in the profile block if any optional field is unconditional,
+      // and no golden file can contain that branch because all 175 library
+      // records are complete.
+      ? {
+        src: "custom", memberId: `c_${e.member}`, slot: e.slot,
+        profile: {
+          name: e.member,
+          birthday: `${CUSTOM_BIRTH_YEAR}-01-01`,
+          private_personality: LANG === "zh"
+            ? "安静而固执，对在意的人很软"
+            : LANG === "ko"
+              ? "조용하지만 고집이 새다"
+              : "Quiet and stubborn, soft only with the people she has chosen",
+        },
+      }
+      : { src: "library", groupId: e.group, memberId: e.member, slot: e.slot })),
+  };
+}
+
 // ---------------------------------------------------------------- worker
 async function runWorker(model) {
   const bundle = join(OUT, "agent.mjs");
@@ -239,7 +322,7 @@ async function runWorker(model) {
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { executeRound, createInitialStats, createEmptyMemory, buildHistoryLedger,
           collapseHistoryIfNeeded, loadGroupConfig, loadWorld, getNpcMembers, markModel, resetSessionSkips,
-          resetFreeRoute, buildSystemPrompt } = mod;
+          resetFreeRoute, buildSystemPrompt, resolveRoster } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
 
   // --- browser globals the app modules expect
@@ -251,15 +334,25 @@ async function runWorker(model) {
   };
   globalThis.window = { location: { hostname: "localhost" } };
 
-  // Serve public/groups/*.json from disk so the real parseGroupConfig runs;
-  // everything else (the API call) goes out over the network unchanged, but we
-  // read finish_reason and usage off the way past. cached_tokens is the only
-  // direct evidence that the 3-tier prompt is actually hitting the KV cache.
+  // Serve the app's own data trees out of public/ so the real loaders and their
+  // whitelists run; everything else (the API call) goes out over the network
+  // unchanged, but we read finish_reason and usage off the way past.
+  // cached_tokens is the only direct evidence that the 3-tier prompt is actually
+  // hitting the KV cache.
+  //
+  // A LIST, not a name: this stub served only `/groups/` and v1.4.0 step 3 added
+  // `/worlds/`, so every world fetch fell through to a real `fetch` on a relative
+  // URL and every playthrough died with "Failed to parse URL" before its first
+  // round. That killed this harness for four steps of work, which is the SECOND
+  // time it has silently gone dead — v1.3.5 did it with BASE_URL. Layer C learned
+  // the same lesson about mirrored trees and loops over them for the same reason;
+  // adding `rosters/` here must be one string, not another branch.
+  const SERVED_TREES = ["/groups/", "/worlds/"];
   let meta = null;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     const u = String(url);
-    if (u.startsWith("/groups/")) {
+    if (SERVED_TREES.some((t) => u.startsWith(t))) {
       const p = join(ROOT, "public", u.replace(/^\//, ""));
       if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
       const body = readFileSync(p, "utf8");
@@ -293,16 +386,59 @@ async function runWorker(model) {
 
   const report = { model, identity: IDENTITY, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
-    const groupConfig = await loadGroupConfig(GROUP, LANG);
     const world = await loadWorld("kpop_idol", LANG);
-    const members = groupConfig.members;
-    const mainId = members[0].id;
-    // Sub-member count changes the dynamic tail (affections, KKT, social targets)
-    // and therefore the cache-miss share of every prompt. The game's minimum is
-    // 1 main + 0 subs; 1 main + 1 sub is the reference setting for cost strings.
-    const subIds = members.slice(1, 1 + SUBS).map(m => m.id);
+
+    // Two doors, and the harness now plays both. Without --cast this is the
+    // classic path, byte for byte what it always was.
+    let groupConfig, members, mainId, subIds, outsiders = null;
+    if (CAST) {
+      const parsed = parseCastSpec(CAST);
+      const resolved = await resolveRoster(rosterFromSpec(parsed, CAST_NAME), LANG);
+      groupConfig = resolved.groupConfig;
+      members = resolved.members;
+      mainId = resolved.mainId;
+      subIds = resolved.subIds;
+      if (!members.length) throw new Error("--cast resolved to an empty cast");
+      report.roster = {
+        name: CAST_NAME, picks: parsed.map((e) => `${e.group}:${e.member}@${e.slot}`),
+        groups: [...new Set(parsed.map((e) => e.group))],
+        members: members.length, mainId, subIds, npcIds: resolved.npcIds,
+        // What section 4 says about them, which is the whole thing under test.
+        loreHead: String(groupConfig?.groupLore || "").split("\n").slice(0, 2).join(" / "),
+      };
+      // Everyone the origin groups contain who is NOT in this roster. These are
+      // the names round 1 produced on the phone, and they appear in no file the
+      // prompt sends — the model supplied them from knowing what BLACKPINK is.
+      //
+      // A name that is a substring of someone PRESENT is dropped: it would fire
+      // on the cast member instead of on the outsider, and a grader that cries
+      // wolf gets tuned away. Same reason `x`'s shared ids are compared by id.
+      const presentIds = new Set(members.map((m) => m.id));
+      const presentText = members.flatMap((m) => [m.name, m.name_kr]).filter(Boolean).join(" | ");
+      const pool = [];
+      for (const gid of report.roster.groups) {
+        if (gid === "custom") continue;
+        const cfg = await loadGroupConfig(gid, LANG);
+        for (const m of cfg.members) {
+          if (presentIds.has(m.id)) continue;
+          if (m.name && presentText.includes(m.name)) continue;
+          if (pool.some((p) => p.name === m.name)) continue;
+          pool.push({ name: m.name, name_kr: m.name_kr });
+        }
+      }
+      outsiders = pool;
+      report.roster.outsiders = pool.map((m) => m.name);
+    } else {
+      groupConfig = await loadGroupConfig(GROUP, LANG);
+      members = groupConfig.members;
+      mainId = members[0].id;
+      // Sub-member count changes the dynamic tail (affections, KKT, social targets)
+      // and therefore the cache-miss share of every prompt. The game's minimum is
+      // 1 main + 0 subs; 1 main + 1 sub is the reference setting for cost strings.
+      subIds = members.slice(1, 1 + SUBS).map(m => m.id);
+      report.group = { id: GROUP, members: members.length, mainId, subIds };
+    }
     const memberIds = members.map(m => m.id);
-    report.group = { id: GROUP, members: members.length, mainId, subIds };
 
     // The player's age is what makes honorifics gradeable. A cast that is
     // uniformly older than the player only ever exercises one direction, so by
@@ -446,7 +582,7 @@ async function runWorker(model) {
       prevLedger = ledgerSent;
 
       const story = res.storyContent;
-      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast });
+      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast, outsiders });
       report.rounds.push({
         round, ms, parseLevel, chars: story.length,
         summary: (res.updatedMemory.history.at(-1)?.summary || "").length,

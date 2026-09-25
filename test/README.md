@@ -217,6 +217,50 @@ Note `--identity`. It was added because the harness had `练习生` hardcoded, s
 `Math.random()` in one identity's background block survived every live run ever
 made. When testing prompt-level behaviour, sweep identities.
 
+`--cast` is the same lesson one door over. The harness could express exactly one
+shape — one whole group — so the roster path v1.4.0 step 6 added had never been
+played:
+
+```bash
+node test/playthrough.mjs --route --rounds 10 --cast \
+  blackpink:jisoo,red_velvet:irene,custom:李飞,twice:mina@npc,twice:sana@npc
+```
+
+`group:member[@slot]`, slot one of `main|sub|npc`; the first pick is the main
+unless one says `@main`. `custom:<name>` splices in an inline member carrying
+only the three fields §4.4 requires — the sparse-profile branch **no golden file
+can contain**, since all 175 library records are complete.
+
+With `--cast` two extra graders run, and they grade the leak rather than the
+prompt: `outside-cast:<name>` for a member of an origin group who is not in the
+roster appearing by name, and `real-agency:<token>` for a real agency appearing at
+all when the cast's own is derived as `<name> Entertainment`. Neither string is in
+any file the prompt sends — on the phone the model supplied Jennie, Rosé, Lisa and
+YG from knowing what BLACKPINK is — so prose is the only place this is visible.
+Both are unit-tested in Layer L, including the two false positives worth fearing:
+a forbidden name that is a substring of someone present, and `SM` inside `SMS`.
+
+### This harness has now gone silently dead twice
+
+`playthrough.mjs` was dead from v1.4.0 step 3 until step 6. Its `fetch` stub
+served `/groups/` and step 3 added `/worlds/`, so every world fetch fell through
+to a real `fetch` on a relative URL and every playthrough died before its first
+round. **Steps 3, 4, 5 and 6 were all validated with zero live rounds.** v1.3.5
+had already done this once with `BASE_URL`, which is why Layer I boots the harness
+bundle at all — and that check could not see this one, because it bundles
+`mainAgent` + `groupLoader` and never `worldLoader`. It proved the harness boots
+while the harness could not feed it.
+
+The guard added instead does not name the trees: it scans `src/` for
+`${base()}<tree>/` and requires the harness to serve each one, with a second check
+that the scan found anything at all, since a broken scan would pass the first
+vacuously. A loader that starts fetching `rosters/` fails smoke until
+`SERVED_TREES` learns about it.
+
+**Read a green offline suite as covering what it covers.** When a step's gate is
+"offline checks pass", ask what the live harness has run since this area last
+changed. "Nothing" is a finding.
+
 Layer J's determinism sweep was checked the same way: restoring the two
 `Math.random()` calls in the identity background builder failed three checks — the
 `red_velvet-solo-ko` golden (reporting the differing line), the 8×3 sweep

@@ -1297,8 +1297,36 @@ source is its own group"*). All three are fixed. **Goldens byte-identical throug
 `<branch>.<project>.pages.dev`; Vercel's preview hostname embeds a team slug that exists nowhere in
 this repo and cannot be derived from it.
 
-Remaining in step 6: optionally splitting the classic Setup page, the roster builder's visual
-design (unpolished by agreement), and a live `playthrough.mjs` run on a cross-group roster.
+**Step 6's live gate is met.** The reported roster — Jisoo (BLACKPINK) main, Irene (Red Velvet) and
+a custom member as subs, Mina and Sana (TWICE) as NPCs — played **10/10 clean rounds** in zh:
+**0** outside-cast names among the 14 members of those groups who are not in the roster, **0** real
+agencies, **0** static-prompt drifts, 3 collapses with **0** ledger prefix breaks, 81.2% cache. A
+classic single-group control ran 6/6 clean at 85.6%. Section 4 read `[X Background] / X is a
+5-member group under X Entertainment`, naming none of the four origin groups.
+
+Remaining in step 6: optionally splitting the classic Setup page, and the roster builder's visual
+design (unpolished by agreement).
+
+### `playthrough.mjs` had been dead since step 3, and that is the second time
+
+Its `fetch` stub served `/groups/` and nothing else. Step 3 added `/worlds/`, so every world fetch
+fell through to a real `fetch` on a **relative** URL and the harness died with `Failed to parse URL
+from /worlds/kpop_idol/zh.json` before its first round. **Steps 3, 4, 5 and 6 were therefore all
+validated with zero live rounds** — every gate they claim to have met was met offline.
+
+v1.3.5 did the same thing with `BASE_URL`, and the bootability check in Layer I exists because of
+it. That check could not see this one: it bundles `mainAgent` + `groupLoader` and never
+`worldLoader`, so it proved the harness *boots* while the harness could not *feed* it.
+
+So the guard does not name the trees. It **scans `src/` for `${base()}<tree>/` and requires the
+harness to serve every one it finds**, plus a second check that the scan itself found something —
+a broken scan would otherwise pass the first vacuously. A future loader fetching `rosters/` fails
+smoke until `SERVED_TREES` learns about it. Same reasoning as Layer C's loop over mirrored trees:
+**the thing that keeps going wrong is a list that has to be updated by hand, so derive it.**
+
+**The general rule: a harness that cannot fail is indistinguishable from a passing one.** When a
+step's gate is "offline checks are green", ask what the live harness has actually run lately — and
+if the answer is "nothing since before this area changed", that is a finding, not a formality.
 
 **Step 4 — save migration** (`9d1c6cd`..`73b0995`). Three commits: the **player birth-year
 field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/`roster`), and the `App.jsx` rewiring
@@ -1372,6 +1400,11 @@ the fix needs a save field, so it waits for step 4.
 It is **not** changed, for two reasons. It occurred once in 35 rounds, and narrowing the check to member-to-member address would blind the detector for the player-reported bug it was built for (a member addressing the *player*, or herself, by a real name). Tuning a grader on n=1 is how it stops working. Left as a judgement call, since it turns on Korean register rather than on code: the stored prose is in `test/.out/`.
 
 **Dev key free-tier status (probed 2026-09-23):** 2 of 28 route models are genuinely out of free credits — `qwen3.8-max` and `glm-5.2`, both returning `AllocationQuota.FreeTierOnly`. The other 26 answer normally and the router skips the two correctly, so this affects only *pinned* harness runs: pinning an exhausted model leaves the walk with no fallback and ends the playthrough. Use `--models qwen3.7-plus` (or any healthy model) when a run must not be interrupted, and re-probe with `node test/smoke.mjs --live-free` rather than assuming.
+
+**`qwen3.7-plus` joined them by 2026-09-25**, which is the point of the sentence above: the healthy
+set shrinks and a pinned model is a bet on stale information. **Prefer `--route`** for a run that
+only needs *a* model — it walks the real route, serves from the first that answers, and reports
+`(route)` instead of a name. Pin a model only when the model itself is what is under test.
 
 ### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23)
 
