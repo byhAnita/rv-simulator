@@ -185,21 +185,37 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
-    // `Habit:` is conditional, exactly like Hidden Conflict beside it. A member
-    // without one must render NOTHING rather than `  Habit: ` with a trailing
-    // space: custom members (step 6) can have no habit, and a trailing space is
-    // invisible to a reviewer while costing the whole ~5,500-token cached
-    // prefix. That is not hypothetical — it is the single byte the goldens
-    // caught in the step 3 extraction, after 1,368 clean renders had not.
-    // It sits below Queer Texture because it is the staging handle for the
-    // three prose fields above, not a fourth differentiator alongside them.
-    return `${m.emoji} ${m.name}(${m.name_kr}) ${role}
+    // EVERY optional field is conditional: an absent one renders nothing at all,
+    // never a label with a trailing space and never the string "undefined".
+    //
+    // Only Age and Address are unconditional, because both are computed here and
+    // can never come out empty. Everything else is data, and step 6's custom
+    // members are allowed to omit all of it — docs/V140_PLAN.md §4.4 requires
+    // exactly three fields (name, birthday, private_personality), so a member
+    // built from the required tier alone has no emoji, no name_kr, no animal and
+    // no prose but one line.
+    //
+    // That branch used to produce four defects in one profile block: `undefined`
+    // twice (emoji, animal) and a trailing space twice (`  Public: `,
+    // `  Queer Texture: `). A trailing space is invisible to a reviewer and costs
+    // the whole ~5,500-token cached prefix — it is the single byte the goldens
+    // caught during the step 3 extraction, after 1,368 clean renders had not.
+    //
+    // The goldens cannot catch it HERE, which is the point worth remembering:
+    // all 175 library member records are complete, so every fixture renders
+    // byte-identically whether these lines are conditional or not. Only the
+    // dedicated Layer I guard fails, and it was verified to. Custom members are
+    // the branch no snapshot can contain.
+    //
+    // Habit sits below the prose fields because it is the staging handle for
+    // them, not a fourth differentiator alongside them.
+    const line = (label, value) =>
+      (value && String(value).trim() ? `\n  ${label}: ${value}` : "");
+    const emojiPart = m.emoji ? `${m.emoji} ` : "";
+    const krPart = m.name_kr ? `(${m.name_kr})` : "";
+    return `${emojiPart}${m.name}${krPart} ${role}
   Age: ${ageLine}
-  Address: ${addressLine}
-  Animal: ${m.animal_plastic}
-  Public: ${m.public_image || ""}
-  Private: ${m.private_personality || ""}
-  Queer Texture: ${m.queer_texture || ""}${m.habit ? `\n  Habit: ${m.habit}` : ""}${m.hidden_conflict ? `\n  Hidden Conflict: ${m.hidden_conflict}` : ""}`;
+  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Habit", m.habit)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
   // JSON schema

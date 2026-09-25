@@ -81,13 +81,15 @@ function parseGroupConfig(config) {
     // which made the age line uniform nonsense rather than merely inverted.
     birthday: m.birthday,
     // On the whitelist before any group JSON declares them, and that order is
-    // deliberate. `habit` is authored across 27 files in step 5 and `tags` is
-    // v1.4.2; adding the field here first means the content arrives working
+    // deliberate: adding the field here first means the content arrives working
     // rather than arriving silently dropped, which is exactly how `birthday`
-    // was lost. Neither reaches the prompt yet — a `Habit:` line rendered from
-    // `undefined` would move the goldens, so the prompt change ships with the
-    // content that fills it.
+    // was lost. `habit` was authored across 30 files in step 5 and now renders.
+    // `speech_style` is a recommended custom-member field (docs/V140_PLAN.md
+    // §4.4) that no group JSON declares yet; it renders conditionally, so a
+    // member without one is not a prompt change. `tags` reaches no prompt at
+    // all — it is read by the v1.4.2 place-affinity matrix.
     habit: m.habit || "",
+    speech_style: m.speech_style || "",
     tags: m.tags || [],
     ig: m.ig || `${m.id}_official`,
     public_image: m.public_image || "",

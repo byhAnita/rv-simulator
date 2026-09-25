@@ -1461,12 +1461,15 @@ async function layerI() {
     new Set(members.map((m) => m.birthday)).size > 1,
     "one birth year for the whole cast means the seniority fallback is in play");
 
-  // `habit` (step 5) and `tags` (v1.4.2) are on the whitelist before any group
-  // JSON declares them, so the content arrives working instead of arriving
-  // silently dropped — which is precisely what happened to `birthday`.
-  check("the whitelist carries habit and tags through parseGroupConfig",
-    members.every((m) => typeof m.habit === "string" && Array.isArray(m.tags)),
-    JSON.stringify(members.map((m) => `${m.name}:${typeof m.habit}/${Array.isArray(m.tags)}`)));
+  // `habit` (step 5), `speech_style` (step 6) and `tags` (v1.4.2) go on the
+  // whitelist before any group JSON declares them, so the content arrives
+  // working instead of arriving silently dropped — precisely what happened to
+  // `birthday`.
+  check("the whitelist carries habit, speech_style and tags through parseGroupConfig",
+    members.every((m) => typeof m.habit === "string"
+      && typeof m.speech_style === "string" && Array.isArray(m.tags)),
+    JSON.stringify(members.map((m) =>
+      `${m.name}:${typeof m.habit}/${typeof m.speech_style}/${Array.isArray(m.tags)}`)));
   // Served through a stub rather than read from a file ON PURPOSE, even now
   // that every group JSON declares a habit. This asserts the field survives
   // parseGroupConfig for an ARBITRARY value, independently of what the library
@@ -1711,6 +1714,112 @@ async function layerI() {
     (profilesOf(oneMissing).match(/^ {2}Habit: /gm) || []).length === members.length - 1
       && profilesOf(oneMissing).includes(`\n  Habit: ${ireneHabit}`),
     profilesOf(oneMissing).split("\n").filter((l) => /[ \t]$/.test(l)).join("|"));
+
+  // --- step 6: a member built from the REQUIRED tier alone -------------------
+  // docs/V140_PLAN.md §4.4 requires exactly three fields of a custom member:
+  // name, birthday, private_personality. Everything else is optional, so the
+  // prompt has to survive a profile that has nothing else — and this is the
+  // branch NO golden fixture can contain, because all 175 library member
+  // records are complete. Before step 6 this rendered four defects in one
+  // block: `undefined` for emoji and animal, and a trailing space after
+  // `Public:` and `Queer Texture:`.
+  const ireneMember = members.find((m) => m.id === "irene");
+  const REQUIRED_TIER = {
+    id: "c_req", name: "Lin Xia", birthday: "1999-04-02",
+    private_personality: "expresses affection by quietly fixing things",
+  };
+  const bare = buildSystemPrompt(
+    form(), [ireneMember, REQUIRED_TIER], "irene", ["c_req"], GROUP, "", "qwen", "en", worldFor.en);
+  const bareBlock = profilesOf(bare).split("\n\n").find((b) => b.includes("Lin Xia")) || "";
+  check("a required-tier member renders no trailing whitespace",
+    profilesOf(bare).split("\n").filter((l) => /[ \t]$/.test(l)).length === 0,
+    JSON.stringify(profilesOf(bare).split("\n").filter((l) => /[ \t]$/.test(l)).slice(0, 4)));
+  // Anywhere in the prompt, not just her block: an absent field reaching any
+  // other section as the literal string is the same defect wearing a hat.
+  check("...and puts the literal string undefined nowhere in the prompt",
+    !bare.includes("undefined"),
+    bare.split("\n").filter((l) => l.includes("undefined")).slice(0, 3).join(" | "));
+  check("...and renders only the lines she actually has",
+    bareBlock.split("\n").length === 4
+      && /^Lin Xia \[SUB - Romanceable\]$/.test(bareBlock.split("\n")[0])
+      && bareBlock.includes("\n  Private: expresses affection"),
+    JSON.stringify(bareBlock));
+  // The header degrades in two independent places, so check them apart: no
+  // emoji must not leave a leading space, and no name_kr must not leave `()`.
+  const headerOf = (m) => {
+    const pr = buildSystemPrompt(
+      form(), [ireneMember, m], "irene", [m.id], GROUP, "", "qwen", "en", worldFor.en);
+    return (profilesOf(pr).split("\n\n").find((b) => b.includes(m.name)) || "").split("\n")[0];
+  };
+  check("no emoji leaves no leading space on the header",
+    headerOf({ ...REQUIRED_TIER, name_kr: "林夏" }) === "Lin Xia(林夏) [SUB - Romanceable]",
+    headerOf({ ...REQUIRED_TIER, name_kr: "林夏" }));
+  check("no name_kr leaves no empty parentheses on the header",
+    headerOf({ ...REQUIRED_TIER, emoji: "🎻" }) === "🎻 Lin Xia [SUB - Romanceable]",
+    headerOf({ ...REQUIRED_TIER, emoji: "🎻" }));
+
+  // Every optional field, one at a time, over the WHOLE cast: dropping it must
+  // remove its label and leave no trailing whitespace behind. Parametric on
+  // purpose — a field added to the profile block later is covered only if it is
+  // added to this list, and the list is short enough to keep honest.
+  const OPTIONAL_LINES = [
+    ["animal_plastic", "Animal"], ["public_image", "Public"],
+    ["private_personality", "Private"], ["queer_texture", "Queer Texture"],
+    ["speech_style", "Speech Style"], ["habit", "Habit"],
+    ["hidden_conflict", "Hidden Conflict"],
+  ];
+  const strippedOffenders = [];
+  for (const [field, label] of OPTIONAL_LINES) {
+    // "" and undefined must behave identically: an empty string produces the
+    // same trailing space as a missing key, and the editor will write both.
+    for (const empty of ["", undefined]) {
+      const pr = buildSystemPrompt(
+        form(), members.map((m) => ({ ...m, [field]: empty })),
+        "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
+      const block = profilesOf(pr);
+      if (block.includes(`  ${label}: `)) strippedOffenders.push(`${field}:label-remains`);
+      if (block.split("\n").some((l) => /[ \t]$/.test(l))) strippedOffenders.push(`${field}:trailing`);
+      if (pr.includes("undefined")) strippedOffenders.push(`${field}:undefined`);
+    }
+  }
+  check("every optional profile line vanishes cleanly when empty or absent",
+    strippedOffenders.length === 0, strippedOffenders.slice(0, 6).join(", "));
+
+  // speech_style is on the whitelist ahead of any group JSON declaring it, so
+  // nothing else proves it can render at all.
+  const withSpeech = buildSystemPrompt(
+    form(), members.map((m) => (m.id === "irene" ? { ...m, speech_style: "clipped, trails off" } : m)),
+    "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
+  check("a speech_style renders below Queer Texture and above Habit",
+    /\n {2}Queer Texture: [^\n]*\n {2}Speech Style: clipped, trails off\n {2}Habit: /
+      .test(profilesOf(withSpeech)),
+    (profilesOf(withSpeech).match(/^ {2}(Queer Texture|Speech Style|Habit): .*/gm) || [])
+      .slice(0, 3).join(" / "));
+
+  // The real path: a custom entry is snapshotted inline by resolveRoster and so
+  // NEVER passes through parseGroupConfig, which is where the `|| ""` defaults
+  // live. Hand-built members above cannot prove that, and per the v1.3.7 lesson
+  // a check that skips the loader tests the formatter rather than the feature.
+  const customRoster = {
+    worldId: "kpop_idol", groupId: "red_velvet",
+    entries: [
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
+      { src: "custom", memberId: "c_req", slot: "sub", lang: "en", profile: REQUIRED_TIER },
+    ],
+  };
+  const resolvedCustom = await fromDisk(() => loader.resolveRoster(customRoster, "en"));
+  check("resolveRoster carries a custom member through beside a library one",
+    resolvedCustom.members.map((m) => m.id).join(",") === "irene,c_req"
+      && resolvedCustom.mainId === "irene" && resolvedCustom.subIds.join() === "c_req",
+    JSON.stringify(resolvedCustom.members.map((m) => m.id)));
+  const resolvedPrompt = buildSystemPrompt(
+    form(), resolvedCustom.members, resolvedCustom.mainId, resolvedCustom.subIds,
+    resolvedCustom.groupConfig, "", "qwen", "en", worldFor.en);
+  check("a roster-resolved custom member reaches the prompt with no defect",
+    !resolvedPrompt.includes("undefined")
+      && profilesOf(resolvedPrompt).split("\n").every((l) => !/[ \t]$/.test(l)),
+    profilesOf(resolvedPrompt).split("\n")
+      .filter((l) => /[ \t]$/.test(l) || l.includes("undefined")).slice(0, 4).join(" | "));
 
   // --- a Kakao written into the story as well as delivered ------------------
   // The prohibition used to live ONLY inside the LOCKED-channel bullet, which
