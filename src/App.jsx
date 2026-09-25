@@ -22,6 +22,8 @@ import SaveOverlay from "./platforms/SaveOverlay";
 import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
 import RosterBuilder from "./platforms/RosterBuilder";
+import DebugPanel from "./platforms/DebugPanel";
+import { debugEnabled } from "./tools/debugConsole";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
 // brackets confuse the JSON schema, control characters break it outright.
@@ -353,6 +355,12 @@ export default function App() {
   const [confirmDest, setConfirmDest] = useState(null);
   const [keyJustSaved, setKeyJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // The on-device console. Enabled by ?debug=1 and then persisted, so a PWA
+  // launched from the home screen - which has no address bar to retype a query
+  // string into - keeps it across reloads. Read once: it must not flip
+  // mid-session and unmount the panel someone is reading.
+  const [debugOn] = useState(() => debugEnabled());
+  const [showDebug, setShowDebug] = useState(false);
   const [timeSpeed, setTimeSpeed] = useState(() => loadFromStorage("rv_sim_timespeed") || "default");
   const [fontScale, setFontScale] = useState(() => Number(loadFromStorage("rv_sim_fontscale")) || 1);
   const [exportOpen, setExportOpen] = useState(false);
@@ -863,9 +871,31 @@ export default function App() {
   const stageLabel = t.stageNames[stageIdx];
   const [triggeredAchievements, setTriggeredAchievements] = useState(new Set());
 
-  const NotificationBar = () => notification ? (
-    <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: notification.type === "error" ? "rgba(220,50,50,.92)" : "rgba(50,180,100,.92)", color: "#fff", padding: "8px 20px", borderRadius: 20, fontSize: 12, fontWeight: 600, zIndex: 9999, pointerEvents: "none" }}>{notification.msg}</div>
-  ) : null;
+  // The fixed chrome: the toast, and the debug console launcher when it is on.
+  // Both live here because this is the one element every phase renders — the five
+  // pages each return their own tree, so anything that must be reachable from all
+  // of them either goes in here or gets pasted five times.
+  const NotificationBar = () => (
+    <>
+      {notification && (
+        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: notification.type === "error" ? "rgba(220,50,50,.92)" : "rgba(50,180,100,.92)", color: "#fff", padding: "8px 20px", borderRadius: 20, fontSize: 12, fontWeight: 600, zIndex: 9999, pointerEvents: "none" }}>{notification.msg}</div>
+      )}
+      {debugOn && !showDebug && (
+        // Bottom-left, above the iOS home indicator and away from every primary
+        // action in the app, which all sit bottom-right or centre.
+        <button onClick={() => setShowDebug(true)} aria-label="debug console"
+          style={{ position: "fixed", left: 10, bottom: "calc(10px + env(safe-area-inset-bottom))", zIndex: 9998, width: 34, height: 34, borderRadius: 17, border: "1px solid rgba(232,135,176,.4)", background: "rgba(20,8,18,.72)", color: "#f8c8d8", fontSize: 14, cursor: "pointer", padding: 0 }}>
+          {"⌗"}
+        </button>
+      )}
+      {debugOn && showDebug && (
+        <DebugPanel theme={theme} onClose={() => setShowDebug(false)}
+          extra={{ phase, language, model: selectedModel, group: selectedGroup,
+                   door, hasRoster: Boolean(roster), pendingRoster: Boolean(pendingRoster),
+                   members: members.length, round: stats?.week ?? null }} />
+      )}
+    </>
+  );
 
   // ── Cover Page ──
   if (phase === "cover") {

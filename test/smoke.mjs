@@ -3166,6 +3166,116 @@ async function layerI() {
     .filter((k) => ["zh", "en", "ko"].some((l) => castKeys[l][k] === undefined));
   check("every t.cast key the builder reads exists in all three languages",
     missingKeys.length === 0, missingKeys.join(", "));
+
+  // --- the on-device console -----------------------------------------------
+  // iOS Safari has no reachable devtools, and this project's two most
+  // phone-specific failures — localStorage quota and provider errors — are both
+  // reported through console.error, so they are invisible where they happen.
+  const dbgBundle = join(OUT, "debugConsole.mjs");
+  await esbuild.build({
+    stdin: {
+      contents: 'export * from "./src/tools/debugConsole.js";',
+      resolveDir: ROOT, loader: "js",
+    },
+    bundle: true, format: "esm", platform: "neutral", outfile: dbgBundle, logLevel: "silent",
+  });
+  const dbg = await import("file://" + dbgBundle.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  // THE check. The buffer exists to be copied off the phone and pasted into a bug
+  // report, so a key that ever reaches a log line must not travel with it. Nothing
+  // in src/ logs a key today; this is what keeps that true after someone adds a
+  // log line without having read the rule.
+  const KEYS = [
+    ["sk-ws-abc123def456ghi", "Aliyun"],
+    ["sk-sp-abc123def456ghi", "Aliyun Token Plan"],
+    ["sk-abcdef1234567890", "DeepSeek / OpenAI"],
+    ["AIzaSyABCDEF1234567890xyz", "Gemini"],
+  ];
+  const leaked = KEYS.filter(([k]) => dbg.redact(`calling with ${k} now`).includes(k));
+  check("every provider's key shape is redacted out of the log",
+    leaked.length === 0, leaked.map(([k, n]) => `${n}:${k}`).join(", "));
+  // A token the sk- rule CANNOT match, or this passes on the other rule's work
+  // and says nothing about the header rule — which is what it did at first.
+  const jwt = "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.Dk3sVq";
+  check("...and an Authorization header is redacted too",
+    !dbg.redact(jwt).includes("eyJhbGciOiJIUzI1NiJ9"), dbg.redact(jwt));
+  // Replaced, not removed: a log that silently drops the key reads as though no
+  // key was involved, which is a different bug report.
+  check("a redacted key leaves a marker rather than vanishing",
+    dbg.redact("key=sk-ws-abc123def456ghi").includes("REDACTED"),
+    dbg.redact("key=sk-ws-abc123def456ghi"));
+  check("ordinary prose containing sk- is not mangled",
+    dbg.redact("the sk- prefix identifies a key") === "the sk- prefix identifies a key",
+    "a redactor that eats prose makes every log harder to read");
+
+  // The capture layer wraps console. If it ever swallows a call, it makes the
+  // desktop console worse in exchange for making the phone better.
+  const realLog = console.log, realErr = console.error, realWarn = console.warn,
+        realInfo = console.info;
+  const seen = [];
+  try {
+    console.log = (...a) => seen.push(["log", a.join(" ")]);
+    console.error = (...a) => seen.push(["error", a.join(" ")]);
+    console.warn = (...a) => seen.push(["warn", a.join(" ")]);
+    console.info = (...a) => seen.push(["info", a.join(" ")]);
+    // A DOM-free stand-in for the two globals the capture layer also hooks.
+    globalThis.window = { addEventListener() {} };
+    dbg.installDebugCapture();
+    console.log("plain line");
+    console.error("boom sk-ws-abc123def456ghi");
+    // A cyclic object is ordinary here (React elements, fetch responses) and a
+    // throw inside the capture layer would take out the log call it wraps.
+    const cyclic = { a: 1 }; cyclic.self = cyclic;
+    console.warn("cyclic:", cyclic);
+    console.log("fn:", () => 1);
+  } finally {
+    console.log = realLog; console.error = realErr;
+    console.warn = realWarn; console.info = realInfo;
+    delete globalThis.window;
+  }
+  check("capture always calls through to the real console",
+    seen.length === 4 && seen[0][1] === "plain line",
+    JSON.stringify(seen.map((s) => s[0])));
+  const log = dbg.getDebugLog();
+  check("...and records every level it wrapped",
+    log.length === 4 && log.map((e) => e.level).join(",") === "log,error,warn,log",
+    JSON.stringify(log.map((e) => e.level)));
+  check("a key logged by accident is redacted in the buffer, not just on export",
+    !JSON.stringify(log).includes("sk-ws-abc123"),
+    "redaction at capture time, so the buffer itself is safe to hand over");
+  check("a cyclic object is captured rather than throwing",
+    log[2].text.includes("circular"), log[2].text.slice(0, 80));
+  check("a function argument is captured rather than throwing",
+    log[3].text.includes("function"), log[3].text.slice(0, 60));
+  dbg.clearDebugLog();
+  check("the buffer can be cleared", dbg.getDebugLog().length === 0);
+
+  // Bounded: a long session must not grow the buffer without limit, and the
+  // NEWEST entries are the ones worth keeping because a bug is reported right
+  // after it happens.
+  const dbgSrc = readFileSync(join(ROOT, "src/tools/debugConsole.js"), "utf8");
+  check("the buffer is a bounded ring that drops the oldest entries",
+    /buffer\.splice\(0, buffer\.length - MAX_ENTRIES\)/.test(dbgSrc),
+    "an unbounded log on a phone is a memory leak with a UI");
+  check("capture is installed before React renders",
+    /installDebugCapture\(\)/.test(readFileSync(join(ROOT, "src/main.jsx"), "utf8")),
+    "a boot-time throw happens before any component could install a handler");
+  // Opt-in, and off by default: the launcher must not appear for ordinary players.
+  // Layer G owns the App.jsx source guards, but these belong with the rest of the
+  // debug checks, so the file is read locally rather than the block being split.
+  const appSrc = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+  check("the debug panel is gated behind an explicit flag",
+    /debugEnabled\(\)/.test(appSrc) && /\{debugOn && !showDebug &&/.test(appSrc),
+    "no player should meet a debug button they did not ask for");
+  // Eruda is a third-party script running next to a stored API key. It has to
+  // stay a separate, deliberate opt-in rather than riding along with ?debug=1.
+  check("Eruda is a separate opt-in and is pinned to a version",
+    /q !== "eruda"\) return false/.test(dbgSrc)
+      && /eruda@\d+\.\d+\.\d+\/eruda\.min\.js/.test(dbgSrc),
+    "an unpinned CDN URL lets a third party choose what runs beside the key");
+  check("...and nothing loads Eruda unless it is asked for by name",
+    !/loadEruda\(\)/.test(readFileSync(join(ROOT, "src/main.jsx"), "utf8")),
+    "the built-in panel is the default precisely because it needs no third party");
 }
 
 // ==================================== LAYER J (offline, pure logic)

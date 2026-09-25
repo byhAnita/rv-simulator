@@ -396,6 +396,52 @@ it. Anything a loader silently corrects, the player experiences as the game chan
 
 ---
 
+### Always-on log capture with an opt-in panel — v1.4.0
+
+**What it is.** A 300-entry ring buffer that wraps `console.log/info/warn/error` plus
+`window.onerror` and `unhandledrejection`, installed on the first line of `main.jsx`. An in-app
+panel renders it, opened with `?debug=1`. Every captured string is run through a redactor that
+replaces provider API keys with `***REDACTED***` before it enters the buffer.
+
+**What it replaced.** Nothing — there was no way to see a console on a phone. iOS Safari's
+devtools need a tethered Mac, and this project's two most phone-specific failures are exactly the
+ones reported through `console.error`: a `QuotaExceededError` from `saveToStorage`, and every
+`LLMError` kind. Three of the four defects found in v1.3.9 came from hand play on a phone, and
+each one was described by its symptom because the diagnostic was unreachable.
+
+**What it bought.** A bug report that carries its own evidence: tap the badge, tap copy, paste a
+log that already has the user agent, viewport, URL, phase, model and round count attached. Not
+measured in time saved — it is a first, so there is no before.
+
+**Why the capture is always on and the panel is not.** This is the whole design. A tool you must
+enable *before* the bug is a tool you use after reproducing the bug, and some of these bugs need a
+twenty-round game to reach. Capture costs one function call per log line and a bounded array, so
+it runs for everyone; the panel and its button appear only when asked for.
+
+**Why not just Eruda.** Eruda is a full mobile devtools in a single CDN script and it is supported
+here — `?debug=eruda` — but deliberately not the default, for three reasons. It loads a
+third-party script into a page holding the player's API key in `localStorage`, which is a trust
+decision rather than a convenience. It cannot work offline, and this is an installable PWA. And it
+starts recording when it loads, so a boot-time throw — the one class of error nothing else can
+see — is already gone by the time it initialises; the buffer is replayed into it on load
+specifically to paper over that. The built-in panel has none of those properties and is ~120 lines.
+
+**What it costs.** `console` is monkey-patched for every player, so a stack trace in the desktop
+devtools now shows the wrapper as the call site. The buffer holds up to ~600 KB of strings in
+memory in the worst case. The redactor is a blocklist of four patterns, so a credential in a shape
+nobody anticipated would pass through — it reduces the risk of a leaked key, it does not remove
+it. And 6.2 KB of bundle that only a debugging session uses.
+
+**Where it lives.** `src/tools/debugConsole.js` (`installDebugCapture`, `redact`, `debugEnabled`,
+`loadEruda`), `src/platforms/DebugPanel.jsx`, one call in `src/main.jsx`, the launcher inside
+`App.jsx#NotificationBar`, and smoke Layer I.
+
+**Short form.** A phone has no console, so the app keeps its own — always recording, bounded,
+key-redacted, and copyable in one tap. The panel is opt-in; the recording is not, because you
+never know you want a log until after the thing has happened.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.
