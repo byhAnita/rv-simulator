@@ -2835,6 +2835,123 @@ async function layerI() {
   check("...and can be stored without further editing",
     stored.ok === true && stored.cast[0].profile.name === "Lin Xia",
     JSON.stringify(stored.reason || "ok"));
+
+  // --- step 6 commit 4: the member editor ----------------------------------
+  // Source-string checks, the same shape as the Layer G key-page guards: a JSX
+  // overlay cannot be rendered offline, but the invariants worth protecting here
+  // are structural rather than visual, and each one below is a bug that would
+  // otherwise only show up in a hand test.
+  const editorSrc = readFileSync(join(ROOT, "src/platforms/MemberEditor.jsx"), "utf8");
+
+  // Compile it. Nothing else does yet — App.jsx imports it in commit 5 — so
+  // until then a JSX syntax error or a bad import path would ship silently: the
+  // Vite build only compiles what the module graph reaches. React and the DOM
+  // stay external because this proves the file PARSES and its imports RESOLVE,
+  // not that it renders.
+  let editorCompiled = "";
+  try {
+    await esbuild.build({
+      entryPoints: [join(ROOT, "src/platforms/MemberEditor.jsx")],
+      bundle: true, format: "esm", platform: "neutral", write: false,
+      external: ["react"], jsx: "automatic", logLevel: "silent",
+      define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
+    });
+    editorCompiled = "ok";
+  } catch (e) {
+    editorCompiled = (e.errors || []).map((x) => x.text).join(" | ") || e.message;
+  }
+  check("MemberEditor.jsx compiles and its imports resolve",
+    editorCompiled === "ok", editorCompiled);
+
+  // EVERY field the generator can fill must be editable, or the model writes
+  // something the player has no way to correct.
+  const stepFields = [...editorSrc.matchAll(/^\s*\["([^\]]+)\],?$/gm)]
+    .flatMap((m) => m[1].split(",").map((s) => s.trim().replace(/^"|"$/g, "")));
+  const uneditable = cg.CARD_FIELDS.filter((f) => !stepFields.includes(f));
+  check("every field the card generator fills is editable in the editor",
+    uneditable.length === 0, `not editable: ${uneditable.join(", ")}`);
+
+  // A `const Field = ...` declared in the render body is a new component TYPE on
+  // every render, so React remounts the input on each keystroke and the field
+  // loses focus after one character. This was written that way first; the guard
+  // exists so it cannot come back, since nothing else would catch it offline.
+  check("form fields are rendered by a function, not a nested component",
+    /const renderField = \(/.test(editorSrc) && !/const Field = \(/.test(editorSrc),
+    "a nested component type remounts the input and steals focus every keystroke");
+
+  // Save must be reachable from any step. Gating it on the last step is what
+  // makes a wizard worse than the form it replaced, and step 3 is optional only.
+  check("Save is gated on the required fields, not on reaching the last step",
+    /const canSave = missing\.length === 0;/.test(editorSrc)
+      && !/step === 2 && canSave/.test(editorSrc),
+    "canSave must not mention the step index");
+
+  // The birth YEAR is stored as a full date because buildSystemPrompt parses the
+  // year off a date string; a bare year would not survive that parse, and a
+  // missing one falls back to 2000-01-01 and flattens the whole cast's
+  // honorifics (the v1.3.6 -> v1.3.7 failure).
+  check("the editor stores a birth year as a parseable date",
+    /set\("birthday", `\$\{digits\}-01-01`\)/.test(editorSrc),
+    "mainAgent parses the year with (m.birthday || \"2000-01-01\").split('-')[0]");
+  const yearToDate = (raw) => {
+    const digits = String(raw).replace(/\D/g, "").slice(0, 4);
+    return digits ? `${digits}-01-01` : "";
+  };
+  check("...and the year it writes round-trips through the prompt's own parse",
+    parseInt((yearToDate("1999") || "2000-01-01").split("-")[0]) === 1999
+      && parseInt((yearToDate("") || "2000-01-01").split("-")[0]) === 2000,
+    "an empty year must fall back, not produce NaN");
+
+  // A generated value must never overwrite something the player typed, or
+  // pressing Generate twice destroys their edits.
+  check("generated fields merge under what the player already typed",
+    /\{ \.\.\.res\.profile, \.\.\.p \}/.test(editorSrc),
+    "player values must win the spread");
+
+  // The editor owns no storage: it hands a profile to onSave so the palette can
+  // enforce its own cap and report a refusal.
+  check("the editor writes nothing to storage itself",
+    !/saveToStorage|localStorage/.test(editorSrc),
+    "persistence belongs to the caller, which is what lets the cap be reported");
+
+  // A failed generation has to surface the game's own line for that kind, not a
+  // second vocabulary for the same failures.
+  check("a failed generation renders the existing t.errors line for its kind",
+    /t\?\.errors\?\.\[res\.reason\]/.test(editorSrc));
+
+  // Localization: no visible string may be hardcoded in the component. Every one
+  // comes off t.cast, and all three languages must carry the same keys.
+  const castKeys = {};
+  for (const lang of ["zh", "en", "ko"]) {
+    const { default: pack } = await import(`../src/i18n/${lang}.js`);
+    castKeys[lang] = pack.cast;
+    check(`t.cast exists in ${lang} with the editor's step labels`,
+      Array.isArray(pack.cast?.steps) && pack.cast.steps.length === 3,
+      JSON.stringify(pack.cast?.steps));
+  }
+  const keyShape = (o) => JSON.stringify(Object.keys(o).sort());
+  check("t.cast has the same keys in zh, en and ko",
+    keyShape(castKeys.zh) === keyShape(castKeys.en)
+      && keyShape(castKeys.en) === keyShape(castKeys.ko),
+    `zh ${keyShape(castKeys.zh).length} / en ${keyShape(castKeys.en).length} / ko ${keyShape(castKeys.ko).length}`);
+  check("...and the same field labels",
+    keyShape(castKeys.zh.fields) === keyShape(castKeys.en.fields)
+      && keyShape(castKeys.en.fields) === keyShape(castKeys.ko.fields),
+    JSON.stringify(Object.keys(castKeys.zh.fields)));
+  // Every field the editor renders needs a label in every language, or a player
+  // in one language sees a raw field name like `queer_texture`.
+  const unlabelled = [];
+  for (const lang of ["zh", "en", "ko"]) {
+    for (const f of [...stepFields, "birthYear"]) {
+      if (!castKeys[lang].fields?.[f]) unlabelled.push(`${lang}:${f}`);
+    }
+  }
+  check("every editable field has a label in all three languages",
+    unlabelled.length === 0, unlabelled.slice(0, 6).join(", "));
+  check("t.cast.missing interpolates the field list in all three languages",
+    ["zh", "en", "ko"].every((l) => typeof castKeys[l].missing === "function"
+      && castKeys[l].missing("X").includes("X")),
+    "it names what is still required, so it has to carry the names");
 }
 
 // ==================================== LAYER J (offline, pure logic)
