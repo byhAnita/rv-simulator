@@ -4,7 +4,7 @@ import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
 import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
-import { resolveRoster, buildClassicRoster } from "./rag/rosterResolver";
+import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, agencyFor } from "./rag/rosterResolver";
 import { migrateSave } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
@@ -329,6 +329,12 @@ export default function App() {
   // job and are hidden there. Null on the classic door, where startNewGame
   // composes a roster from the group and the form instead.
   const [pendingRoster, setPendingRoster] = useState(null);
+  // What the custom cast is called. Kept OUT of pendingRoster on purpose: the
+  // effect that resolves that roster depends on it, so folding the name in would
+  // re-resolve the whole cast on every keystroke. It is applied once, when the
+  // game starts, which is also the last moment it can change without moving the
+  // static prompt under a game in progress.
+  const [castName, setCastName] = useState("");
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
@@ -578,7 +584,8 @@ export default function App() {
     // Built rather than resolved, because `members` is already the answer
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
-    setRoster(pendingRoster || buildClassicRoster(
+    setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
+      || buildClassicRoster(
       selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
     setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
     setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
@@ -1216,7 +1223,7 @@ export default function App() {
           <style>{th.setupCss}</style>
           <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
             <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>{language === "zh" ? "创建角色" : language === "ko" ? "캐릭터 생성" : "Character Creation"}</h2>
-            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{groupConfig?.group?.name || "Loading..."}</p>
+            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</p>
             <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
               <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
               <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
@@ -1247,6 +1254,17 @@ export default function App() {
                   {t.cast.changeCast}
                 </button>
               </div>
+              {/* The cast debuts as a group, so it needs a name — and naming the
+                  agency after it is what stops the model inventing one. A
+                  cross-group cast was previously described as the main member's
+                  group, which is how a BLACKPINK main produced "YG". */}
+              <div className="s-l">{t.cast.castName}</div>
+              <input className="s-in" value={castName} maxLength={24}
+                onChange={e => setCastName(e.target.value)}
+                placeholder={t.cast.castNamePlaceholder} style={{ marginBottom: 3 }} />
+              <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+                {t.cast.castNameHint(agencyFor(castName.trim() || DEFAULT_CAST_NAME))}
+              </p>
             </>
           ) : (
           <>

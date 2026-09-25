@@ -897,15 +897,26 @@ async function layerG(mod, MODEL_CONFIGS) {
     "the failure path must return before the first setter");
 
   check("startNewGame records the roster it is starting",
-    /setRoster\(pendingRoster \|\| buildClassicRoster\(/.test(app));
+    /setRoster\(\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app),
+    "the builder's roster, named, or one composed from the form");
   // Two doors, and the builder's roster wins. Rebuilding it from the form would
   // throw away the NPC slots the player assigned and flatten a cross-group cast
   // into whichever single group happened to be selected. The order in that
   // expression IS the behaviour, so it is pinned rather than merely mentioned.
   check("a roster built by the builder is preferred over one composed from the form",
-    app.indexOf("setRoster(pendingRoster ||") > 0
+    app.indexOf("setRoster((pendingRoster &&") > 0
       && !/setRoster\(buildClassicRoster\([^)]*\) \|\| pendingRoster/.test(app),
     "pendingRoster must come first");
+  // The name is applied at START, not held in pendingRoster: the effect that
+  // resolves that roster depends on it, so folding it in would re-resolve the
+  // whole cast on every keystroke.
+  check("the cast name is applied when the game starts, not stored in the roster state",
+    /name: castName\.trim\(\) \|\| DEFAULT_CAST_NAME/.test(app)
+      && !/setPendingRoster\(\{ \.\.\.pendingRoster, name/.test(app),
+    "re-resolving per keystroke would refetch every group in the cast");
+  check("Setup lets the player name the cast, and shows the agency it derives",
+    /t\.cast\.castName\b/.test(app) && /agencyFor\(castName/.test(app),
+    "naming the agency is what stops the model inventing one");
   // The classic door must still be able to start: leaving a builder roster in
   // place would make a group pick silently resolve to the previous custom cast.
   check("choosing the classic door clears any roster the builder left behind",
@@ -2336,9 +2347,90 @@ async function layerI() {
     JSON.stringify(xr.members.map((m) => m.id)));
   check("a custom member is snapshotted inline, not looked up",
     xr.members[2].name === "Mina K" && xr.members[2].id === "c_1", "");
-  check("lore follows the main member's group, not the first group listed",
-    xr.groupConfig?.group?.name?.toLowerCase().includes("twice"),
-    String(xr.groupConfig?.group?.name));
+  // --- REGRESSION: a cross-group cast was described as the main member's group -
+  // Reported from phone play. Jisoo (BLACKPINK) as main, Irene (Red Velvet) and a
+  // custom member as subs, Mina and Sana (TWICE) as NPCs. Round 1 put Jennie, Rose
+  // and Lisa in the story and set the company to YG.
+  //
+  // This guard used to assert the OLD behaviour — that the lore follows the main
+  // member's group — which is precisely the bug. Section 4 handed over
+  // "[BLACKPINK Background]" plus full prose for all four BLACKPINK members, three
+  // of whom were not in the roster, contradicting section 6's rule two sections
+  // earlier and with richer detail. "YG" was in no file: the model inferred the
+  // agency from being told the cast was BLACKPINK.
+  const xLore = xr.groupConfig.groupLore;
+  check("a cross-group cast is not described as the main member's group",
+    !/TWICE is a \d+-member group/.test(xLore) && !xLore.includes("[TWICE Background]"),
+    xLore.split("\n")[0]);
+  // The origin groups are not named at all. Naming them is the leak: the model
+  // completes a group it has been told about.
+  check("...and the origin groups are never named",
+    !/TWICE/.test(xLore) && !/Red Velvet/.test(xLore),
+    xLore.split("\n").filter((l) => /TWICE|Red Velvet/.test(l)).join(" | "));
+  // No member outside the roster may be mentioned. nayeon's TWICE bandmates are
+  // the ones that would leak.
+  const outsiders = ["Momo", "Sana", "Jeongyeon", "Jihyo", "Seulgi", "Wendy", "Joy", "Yeri"];
+  check("...and no member outside the roster appears in the lore",
+    outsiders.every((n) => !xLore.includes(n)),
+    outsiders.filter((n) => xLore.includes(n)).join(", "));
+  check("...while every member who IS in the roster does",
+    ["Nayeon", "Irene", "Mina K"].every((n) => xLore.includes(n)),
+    xLore);
+  // The cast is presented as a group in its own right, with a named agency — the
+  // setting's machinery (secrecy, dorms, schedules, phase beats) is all group
+  // machinery, and a named agency is what stops one being invented.
+  check("a cross-group cast is presented as its own group, under a named agency",
+    xLore.includes("[X Background]") && xLore.includes("X Entertainment")
+      && /X is a 3-member group/.test(xLore),
+    xLore.split("\n").slice(0, 2).join(" / "));
+  check("...and the exclusion is stated in the lore itself, not left to section 6",
+    /ONLY the members listed in MEMBER PROFILES/.test(xLore),
+    "section 4 was contradicting section 6, so section 4 has to carry the rule too");
+  check("the cast's display name follows its lore",
+    xr.groupConfig.group.name === "X", String(xr.groupConfig.group.name));
+
+  // A player-supplied name replaces the default everywhere, agency included.
+  const named = await fromDisk(() => loader.resolveRoster({ ...cross, name: "Aurora" }, "en"));
+  check("a named cast uses that name for the group and derives the agency from it",
+    named.groupConfig.groupLore.includes("[Aurora Background]")
+      && named.groupConfig.groupLore.includes("Aurora Entertainment")
+      && named.groupConfig.group.name === "Aurora",
+    named.groupConfig.groupLore.split("\n").slice(0, 2).join(" / "));
+
+  // A SUBSET of one group is still that group — but the exclusion has to be said,
+  // or "BLACKPINK is a 4-member group" while naming one member invites the model
+  // to supply the other three itself. Same leak, quieter.
+  const subset = await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol",
+    entries: [
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
+      { src: "library", groupId: "red_velvet", memberId: "yeri", slot: "sub" },
+    ],
+  }, "en"));
+  const sLore = subset.groupConfig.groupLore;
+  check("a subset of one group keeps that group's name",
+    sLore.includes("[Red Velvet Background]") && subset.groupConfig.group.name === "Red Velvet",
+    sLore.split("\n")[0]);
+  check("...and names only the members who are in it",
+    sLore.includes("Irene") && sLore.includes("Yeri")
+      && !sLore.includes("Seulgi") && !sLore.includes("Wendy") && !sLore.includes("Joy"),
+    sLore.split("\n").filter((l) => /Seulgi|Wendy|Joy/.test(l)).join(" | "));
+  check("...and says out loud that nobody else exists",
+    /ONLY these members of Red Velvet exist in this story/.test(sLore),
+    sLore.split("\n")[2]);
+
+  // An all-custom cast has no group config at all. buildSystemPrompt reads
+  // groupConfig.groupLore unconditionally, so this threw a TypeError before the
+  // first round — and it is reachable, because a custom member can be the main.
+  const allCustom = await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol",
+    entries: [{ src: "custom", memberId: "c_9", slot: "main", lang: "en",
+      profile: { name: "Li Fei", birthday: "1999-01-01", private_personality: "quiet" } }],
+  }, "en"));
+  check("an all-custom cast resolves instead of throwing",
+    allCustom.groupConfig !== null && typeof allCustom.groupConfig.groupLore === "string"
+      && allCustom.groupConfig.groupLore.includes("Li Fei"),
+    JSON.stringify(allCustom.groupConfig?.group));
 
   // An override edits the copy, never the library.
   const overridden = await fromDisk(() => loader.resolveRoster({

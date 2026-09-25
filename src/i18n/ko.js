@@ -113,6 +113,9 @@ const ko = {
     clearCast: "캐스트 비우기",
     badYear: "1980년부터 2012년 사이로 입력해주세요",
     confirmDelete: (name) => `"${name}"을(를) 삭제할까요? 되돌릴 수 없습니다.`,
+    castName: "그룹 이름",
+    castNamePlaceholder: "X",
+    castNameHint: (agency) => `이 멤버들은 한 그룹으로 데뷔합니다. 소속사: ${agency}`,
     fictionNote: "커스텀 멤버는 가상의 인물이며 실제 인물과 무관합니다.",
   },
   identities: {

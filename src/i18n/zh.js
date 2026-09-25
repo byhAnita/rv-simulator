@@ -113,6 +113,9 @@ const zh = {
     clearCast: "清空卡司",
     badYear: "请输入 1980 到 2012 之间的年份",
     confirmDelete: (name) => `删除「${name}」？此操作无法撤销。`,
+    castName: "组合名",
+    castNamePlaceholder: "X",
+    castNameHint: (agency) => `这些成员将作为一个组合出道。经纪公司：${agency}`,
     fictionNote: "自定义成员是虚构角色，与任何真实人物无关。",
   },
   identities: {

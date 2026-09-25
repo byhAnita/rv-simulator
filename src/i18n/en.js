@@ -113,6 +113,9 @@ const en = {
     clearCast: "Clear cast",
     badYear: "Enter a year between 1980 and 2012",
     confirmDelete: (name) => `Delete "${name}"? This cannot be undone.`,
+    castName: "Group name",
+    castNamePlaceholder: "X",
+    castNameHint: (agency) => `Your cast debuts as one group. Agency: ${agency}`,
     fictionNote: "Custom members are fictional characters and describe no real person.",
   },
   identities: {
