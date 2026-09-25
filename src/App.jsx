@@ -5,12 +5,12 @@ import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
 import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
 import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, agencyFor } from "./rag/rosterResolver";
-import { migrateSave } from "./rag/saveMigrator";
+import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
 import { getFreeRouteStatus, resolvePaidModel, resetFreeRoute } from "./tools/aliyunRoute";
-import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR } from "./config/constants";
+import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
@@ -263,20 +263,11 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
   ].join("\n");
 }
 
-// The player's birth year, not her age, is what the address protocol compares
-// against each member's — Korean seniority is a hard year boundary, so an age
-// is one lossy step away from the only number that matters. See the note above
-// playerBirthYear in mainAgent.js for the bug that made this a field.
-//
-// The bounds are a sanity range, not a rule about who may play: below 18 the
-// premise stops being a premise, and a four-digit typo (1099, 2206) should not
-// silently make the whole cast her junior.
-const PLAYER_BIRTH_YEAR_MIN = GAME_YEAR - 80;
-const PLAYER_BIRTH_YEAR_MAX = GAME_YEAR - 18;
-const validBirthYear = (v) => {
-  const y = parseInt(v);
-  return y >= PLAYER_BIRTH_YEAR_MIN && y <= PLAYER_BIRTH_YEAR_MAX;
-};
+// The player's birth year, its bounds and its one validator now live in
+// config/constants.js: the year is written in two places — at Setup, and by the
+// in-game correction a migrated save needs — and a second copy of the range is
+// how the two start disagreeing about what a legal year is.
+const validBirthYear = validPlayerBirthYear;
 
 export default function App() {
   const [language, setLanguage] = useState(() => loadFromStorage("rv_sim_language") || "zh");
@@ -390,6 +381,31 @@ export default function App() {
   const setBirthYear = (v) => setForm(f => ({
     ...f, birthYear: v, age: validBirthYear(v) ? String(GAME_YEAR - parseInt(v)) : "",
   }));
+
+  // The correction, mid-run, for a save whose birth year was never stated —
+  // migration derives it as GAME_YEAR - age and that is wrong for about half of
+  // all legacy saves. Deliberately NOT setBirthYear: `correctBirthYear` leaves
+  // `age` alone, for the reason written above it.
+  //
+  // `birthYearEstimated` is session state and not a save field. loadSave knows
+  // something the migrated save no longer does — whether the year was present
+  // before the migration filled it — and that is worth one line of explanation
+  // in the panel, not a field that would then have to be cleared.
+  const [birthYearDraft, setBirthYearDraft] = useState("");
+  const [birthYearEstimated, setBirthYearEstimated] = useState(false);
+  const birthYearDraftValid = validBirthYear(birthYearDraft);
+  const applyBirthYearCorrection = () => {
+    if (!birthYearDraftValid) return;
+    const next = correctBirthYear(form, birthYearDraft);
+    // Identity means the year did not move, so nothing was invalidated and
+    // there is nothing to announce. She has still stated it, which is what
+    // retires the estimate notice.
+    if (next !== form) {
+      setForm(next);
+      showNotif(t.settings?.birthYearSaved || "Birth year updated");
+    }
+    setBirthYearEstimated(false);
+  };
 
   useEffect(() => {
     loadGroupIndex().then(list => {
@@ -588,6 +604,8 @@ export default function App() {
       || buildClassicRoster(
       selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
     setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
+    // A new game states its birth year at Setup, so nothing here is an estimate.
+    setBirthYearEstimated(false);
     setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
     setTriggeredAchievements(new Set());
     statsRef.current = null;
@@ -686,6 +704,11 @@ export default function App() {
     setGroupConfig(resolved.groupConfig);
     setMembers(resolved.members);
     setForm(migrated.form);
+    // Read BEFORE the migrated form replaces it: a slot that carried no birth
+    // year of its own is now carrying one derived from age, which is wrong for
+    // about half of those saves and cannot be recovered from the save. The
+    // settings panel says so until she states a year. See saveMigrator.js.
+    setBirthYearEstimated(!save.form?.birthYear && Boolean(migrated.form?.birthYear));
     setMessages(save.messages);
     statsRef.current = save.stats;
     setStats({ ...save.stats });
@@ -1407,7 +1430,7 @@ export default function App() {
               );
             })}
             <button onClick={() => setOverlay({ type: "save" })} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>💾</button>
-            <button onClick={() => setShowSettings(true)} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>⚙️</button>
+            <button onClick={() => { setBirthYearDraft(form.birthYear || ""); setShowSettings(true); }} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>⚙️</button>
           </div>
         </div>
 
@@ -1634,6 +1657,42 @@ export default function App() {
                   </div>
                 );
               })()}
+
+              {/* Player birth year.
+                  Here rather than only on a migrated save, because a typo at
+                  Setup produces exactly the same wrong honorifics as a
+                  migration does. The year decides which way every address form
+                  points — Korean seniority is a hard year boundary — and a save
+                  written before v1.4.0 carries one derived from her age, which
+                  is wrong for about half of those saves and unrecoverable.
+                  Applying a CHANGED year rewrites the static system prompt and
+                  costs one prompt-cache miss; an unchanged one costs nothing,
+                  which correctBirthYear guarantees by returning the same
+                  object. */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
+                  <div style={{ fontSize: 13, color: th.textPrimary, fontWeight: 600 }}>{t.settings?.birthYearTitle}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {/* Not type="number": on iOS it fights a 4-digit field, and
+                        the member editor lost a whole field to that in step 6.
+                        Digits are filtered here instead, so the input holds
+                        exactly what the player typed. */}
+                    <input value={birthYearDraft} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                      onChange={e => setBirthYearDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={String(PLAYER_BIRTH_YEAR_MAX)}
+                      style={{ width: 54, padding: "5px 4px", borderRadius: 8, textAlign: "center", fontSize: 13, outline: "none", background: th.cardBg, color: th.textPrimary, border: `1px solid ${!birthYearDraft || birthYearDraftValid ? th.border : th.warnTitle}` }} />
+                    <button onClick={applyBirthYearCorrection} disabled={!birthYearDraftValid}
+                      style={{ padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: birthYearDraftValid ? "pointer" : "default", background: birthYearDraftValid ? th.switchLlmBg : th.cardBg, border: `1px solid ${birthYearDraftValid ? th.switchLlmBorder : th.border}`, color: birthYearDraftValid ? th.switchLlmColor : th.textFaint }}>
+                      {t.settings?.birthYearApply}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, lineHeight: 1.5, color: birthYearEstimated && birthYearDraftValid ? th.warnTitle : th.textMuted }}>
+                  {birthYearDraft && !birthYearDraftValid
+                    ? t.settings?.birthYearRange?.(PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX)
+                    : birthYearEstimated ? t.settings?.birthYearEstimated : t.settings?.birthYearHint}
+                </div>
+              </div>
 
               {/* Session usage. Reads the meter at render time, which is enough:
                   the overlay is mounted fresh on every open and the numbers only

@@ -2612,6 +2612,88 @@ async function layerI() {
     orphanOut.groupId === "red_velvet" && Array.isArray(orphanOut.roster?.entries),
     String(orphanOut.groupId));
 
+  // --- step 6 commit 6: correcting a migrated birth year --------------------
+  //
+  // Migration reproduces `GAME_YEAR - age` and is therefore still wrong for
+  // about half of all legacy saves, which nothing can recover from the save
+  // itself. The only honest fix is to let the player say the year — so this is
+  // the counterpart to every "migration does not fix it" check above.
+  //
+  // `migrated.form` here is the real v1.3.8 fixture: age 29, birth year 1997.
+  // 1996 is the reported shape of the bug — a birthday later in the year, so
+  // the derived year is one too high and every member born in 1996 is wrongly
+  // marked her senior.
+  const corrected = loader.correctBirthYear(migrated.form, "1996");
+  check("a player can correct the birth year her save only ever implied",
+    corrected.birthYear === "1996", String(corrected.birthYear));
+  // THE one that matters. backstorySeed hashes form.age and nothing else, so an
+  // age recomputed here would re-roll an identity backstory mid-save — the
+  // v1.3.9 drift wearing a third hat. Setup's handler writes both fields on
+  // purpose; this one must write exactly one.
+  check("...without touching the age the backstory seed is frozen on",
+    corrected.age === migrated.form.age && corrected.age === "29",
+    `age moved to ${corrected.age}`);
+  check("...and without disturbing anything else in the form",
+    JSON.stringify({ ...corrected, birthYear: null })
+      === JSON.stringify({ ...migrated.form, birthYear: null }),
+    "the correction is one field wide");
+
+  // Re-confirming the year already on record must be free: every change to this
+  // field rewrites the ~5,500-token static prompt. Identity of the object is
+  // the check, because that is what lets the caller skip setForm entirely.
+  check("re-confirming the same year returns the very same form object",
+    loader.correctBirthYear(migrated.form, migrated.form.birthYear) === migrated.form,
+    "an unchanged year must not cost a prompt-cache miss");
+  check("...and so does a year outside the playable range",
+    loader.correctBirthYear(migrated.form, "1500") === migrated.form
+      && loader.correctBirthYear(migrated.form, "2030") === migrated.form
+      && loader.correctBirthYear(migrated.form, "") === migrated.form,
+    "a correction may not write a year Setup would have refused");
+
+  // The loop closed: the corrected year has to reach the address protocol, or
+  // the affordance is a field that stores a number nobody reads.
+  const promptOf = (f) => buildSystemPrompt(f, fromSave.members, fromSave.mainId,
+    fromSave.subIds, fromSave.groupConfig, "", "qwen", "en", worldFor.en);
+  check("the corrected year reaches the prompt as the player's age",
+    promptOf(corrected).includes("age 30, born 1996")
+      && promptOf(migrated.form).includes("age 29, born 1997"),
+    "the prompt renders the age FROM the birth year");
+  // Sana is born 1996. On the migrated year the player is her junior and is
+  // told to say "Sana-unnie"; on the corrected one they are peers and no unnie
+  // form exists in either direction. That flip IS the bug being fixed — one
+  // year of error, a relationship pointing the wrong way.
+  // Scoped to section 5, and walked to her own Address line rather than taken
+  // at a fixed offset. Both matter here: a whole single group puts its lore in
+  // section 4 verbatim, and that lore names her too, so an unscoped search
+  // finds a block that has no Address line in it at all.
+  const sanaAt = (f) => {
+    const p5 = promptOf(f);
+    const lines = p5.slice(p5.indexOf("5. MEMBER PROFILES")).split("\n");
+    const i = lines.findIndex((l) => l.includes("Sana("));
+    const j = lines.slice(i, i + 14).findIndex((l) => l.startsWith("  Address: "));
+    return i === -1 || j === -1 ? "" : lines[i + j];
+  };
+  check("...and flips the honorific direction it decides",
+    /Sana-unnie/.test(sanaAt(migrated.form))
+      && !/-unnie/.test(sanaAt(corrected)) && /plain given name/.test(sanaAt(corrected)),
+    `${sanaAt(migrated.form)} -> ${sanaAt(corrected)}`);
+  // Everything that is not seniority must stay byte-identical, or correcting a
+  // year silently rewrites the run's premise as well as its honorifics.
+  //
+  // Pinned to `主线成员前女友` deliberately: it is the only identity whose
+  // background is drawn from backstorySeed, so it is the only one where an `age`
+  // recomputed by the correction would be VISIBLE as a different breakup reason
+  // and a different keepsake. Against any other identity this check cannot fail,
+  // and a check that cannot fail is not a check — the fixture's own identity is
+  // one of those, which is why the form is overridden here.
+  const stripAges = (s) => s.split("\n")
+    .filter((l) => !/^ {2}(Age|Address): /.test(l)).join("\n")
+    .replace(/age \d+, born \d{4}/, "");
+  const exForm = { ...migrated.form, identity: "主线成员前女友" };
+  check("...and moves nothing else in the prompt, backstory included",
+    stripAges(promptOf(loader.correctBirthYear(exForm, "1996"))) === stripAges(promptOf(exForm)),
+    "a correction is not allowed to re-roll the identity background");
+
   // --- step 6 commit 2: the custom-cast palette and the photo store ---------
   // Both are pure functions over a plain object so they can be tested here at
   // all. The quota rules are the half that can lose a player's data, and
@@ -3455,6 +3537,60 @@ async function layerI() {
   check("...and nothing loads Eruda unless it is asked for by name",
     !/loadEruda\(\)/.test(readFileSync(join(ROOT, "src/main.jsx"), "utf8")),
     "the built-in panel is the default precisely because it needs no third party");
+
+  // --- step 6 commit 6: the birth-year correction, as wired ----------------
+  // The behaviour is tested by running correctBirthYear above; these three say
+  // the UI reaches it, and reaches the right one.
+  const settingsBody = appSrc.slice(appSrc.indexOf("{showSettings && ("));
+  check("the settings panel offers the birth-year correction",
+    /t\.settings\?\.birthYearTitle/.test(settingsBody)
+      && /applyBirthYearCorrection/.test(settingsBody),
+    "a correction nobody can find fixes nothing");
+  // THE regression this pair exists for: Setup's handler mints `age` and this
+  // one must not. Calling setBirthYear here would re-roll the identity
+  // backstory of every save it touched.
+  const applyBody = appSrc.slice(appSrc.indexOf("const applyBirthYearCorrection"),
+    appSrc.indexOf("useEffect(() => {", appSrc.indexOf("const applyBirthYearCorrection")));
+  check("the correction goes through correctBirthYear, not Setup's handler",
+    /correctBirthYear\(form, birthYearDraft\)/.test(applyBody)
+      && !/setBirthYear\(/.test(applyBody) && !/age:/.test(applyBody),
+    "Setup writes both fields on purpose; the correction writes one");
+  // iOS ate a whole field to type="number" in this step already (the member
+  // editor's birthday). Comments are stripped first — the one explaining why
+  // it is not a number input would otherwise trip this.
+  const noComments = settingsBody.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const yearInput = noComments.slice(noComments.indexOf("value={birthYearDraft}"),
+    noComments.indexOf("value={birthYearDraft}") + 260);
+  check("...and the year field is typable on a phone",
+    /inputMode="numeric"/.test(yearInput) && !/type="number"/.test(yearInput),
+    yearInput.slice(0, 120));
+
+  // The notice has to be decided from the save as it arrived, not from the
+  // migrated copy — migration fills the field, so reading `migrated.form` there
+  // would mean the estimate is never announced to anyone.
+  const loadBody = appSrc.slice(appSrc.indexOf("const loadSave"), appSrc.indexOf("const sendMessage"));
+  check("a save that carried no birth year is flagged as carrying an estimate",
+    /setBirthYearEstimated\(!save\.form\?\.birthYear/.test(loadBody),
+    "read before the migrated form replaces it, or nothing is ever flagged");
+  // One range, one validator. A second copy is how Setup and the correction
+  // start disagreeing about which years are legal.
+  check("the playable year range is defined once, in constants",
+    /PLAYER_BIRTH_YEAR_MIN[,\s}][^\n]*from "\.\/config\/constants"/.test(appSrc)
+      && !/const PLAYER_BIRTH_YEAR_MIN\s*=/.test(appSrc),
+    "App.jsx must not carry its own copy of the bounds");
+
+  for (const lang of ["zh", "en", "ko"]) {
+    const { default: pack } = await import(`../src/i18n/${lang}.js`);
+    const s = pack.settings || {};
+    check(`[${lang}] the birth-year row is translated`,
+      ["birthYearTitle", "birthYearApply", "birthYearHint", "birthYearEstimated",
+       "birthYearSaved"].every((k) => typeof s[k] === "string" && s[k].length > 0),
+      JSON.stringify(Object.keys(s)));
+    check(`[${lang}] ...and the out-of-range hint names both bounds`,
+      typeof s.birthYearRange === "function"
+        && s.birthYearRange(1946, 2008).includes("1946") && s.birthYearRange(1946, 2008).includes("2008"),
+      String(s.birthYearRange?.(1946, 2008)));
+  }
 }
 
 // ==================================== LAYER J (offline, pure logic)

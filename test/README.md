@@ -98,6 +98,24 @@ writes is the one the save already produced, wrong by up to a year and
 deliberately left that way, because a loader that silently corrects a save
 changes a running game underneath its player. See `docs/TECH_NOTES.md`.
 
+**And the correction migration deliberately does not make** (step 6, commit 6).
+`correctBirthYear` is tested by *running* it, not by grepping the component that
+calls it, because the rule worth guarding is behavioural: it writes `birthYear`
+and leaves `age` alone, since `backstorySeed` hashes `age` and a recomputed one
+re-rolls an identity backstory mid-save.
+
+That last guard needs the right fixture to mean anything. Pointed at the v1.3.8
+save's own identity it **cannot fail** — only `主线成员前女友` draws its
+background from the seed — so the check overrides the identity, and a mutation
+that recomputes `age` then moves a breakup reason and a keepsake where it
+otherwise moves nothing. The first draft of that check was green against its own
+mutation; this is the fourth time in this step that a guard had to be re-aimed
+rather than merely written.
+
+Two more behavioural ones: an unchanged year returns the **same object**, so
+re-confirming a correct year is not a ~5,500-token cache miss, and a year outside
+the range Setup enforces is refused rather than written.
+
 `docs/V140_PLAN.md` §9.4 pencilled these into Layer J. They are here instead,
 beside the `getNpcMembers` equivalence anchor they are measured against; the
 plan has been corrected in place.

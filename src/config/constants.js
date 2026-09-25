@@ -16,6 +16,26 @@ export const SUB_INITIAL_AFFECTION_MAX = 10;
 // and the player never sees which one. See CLAUDE.md, "Affection pacing".
 export const AFFECTION_MAX_DELTA = 8;
 
+// The player's birth year, not her age, is what the address protocol compares
+// against each member's - Korean seniority is a hard year boundary, so an age is
+// one lossy step away from the only number that matters. See the note above
+// playerBirthYear in mainAgent.js for the bug that made this a save field.
+//
+// The bounds are a sanity range, not a rule about who may play: below 18 the
+// premise stops being a premise, and a four-digit typo (1099, 2206) should not
+// silently make the whole cast her junior.
+//
+// They live here, with one predicate, because the year is now written in TWO
+// places - at Setup and by the in-game correction a migrated save needs - and a
+// correction that accepted a year Setup would have refused is a save holding
+// data no path was allowed to produce.
+export const PLAYER_BIRTH_YEAR_MIN = GAME_YEAR - 80;
+export const PLAYER_BIRTH_YEAR_MAX = GAME_YEAR - 18;
+export const validPlayerBirthYear = (v) => {
+  const y = parseInt(v);
+  return y >= PLAYER_BIRTH_YEAR_MIN && y <= PLAYER_BIRTH_YEAR_MAX;
+};
+
 // NPC_APPEARANCE_CHANCE / NPC_COOLDOWN_ROUNDS were removed in v1.3.1: nothing
 // imported them. NPC appearance is driven entirely by the NPC rules in
 // buildSystemPrompt() plus the [NPC Appearances] block in the dynamic tail.

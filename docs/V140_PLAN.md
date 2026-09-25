@@ -118,7 +118,7 @@ Two corrections to this document follow, both made in place: §9.3's group-scan 
 claim that the migration checks live in Layer J — they are in **Layer I**, next to the
 `getNpcMembers` equivalence anchor they are measured against.
 
-### Carried into step 6: correcting a migrated birth year
+### Done in step 6: correcting a migrated birth year (`commit 6`)
 
 Migration writes `birthYear = GAME_YEAR - age`, which reproduces the value a legacy save has
 always produced and is therefore **still wrong for about half of those saves**. Nothing can
@@ -129,6 +129,36 @@ So the fix is an affordance, not a migration: let the player correct her birth y
 save. It belongs in step 6 because it is UI, and because editing it mid-run rewrites the static
 prompt and costs one full cache miss — a fine price for a deliberate action, and not something to
 incur as a side effect of loading.
+
+**As shipped.** A birth-year row in the in-game settings overlay, beside Deep Thinking and Time
+Speed, available in every run rather than only a migrated one — a typo at Setup produces exactly
+the same wrong honorifics as a migration does, and one path is easier to reason about than two.
+
+Three rules govern it, and each is a guard:
+
+1. **It writes `birthYear` and never `age`.** `backstorySeed` hashes `age`, and that seed must stay
+   frozen for the life of a save or the identity backstory re-rolls mid-game — step 1's bug wearing
+   a third hat. The Setup field deliberately writes *both* (age is minted there, once); the
+   correction writes one. They are therefore **different functions**, not one shared handler:
+   `setBirthYear` at Setup, `correctBirthYear` afterwards.
+2. **An unchanged year costs nothing.** Submitting the value already in the form returns the form
+   object untouched, so re-confirming a correct year is not a cache miss. Only a real change pays.
+3. **It is refused outside the bounds.** `validPlayerBirthYear` is now one function in
+   `constants.js` instead of a copy at each call site, because a correction that bypassed the range
+   Setup enforces would let a save hold a year Setup would have rejected.
+
+`correctBirthYear` lives in **`saveMigrator.js`**, next to the migration that deliberately did not
+fix the value. The two halves of one decision belong in one file: that header already said
+*"correcting it is a separate, visible act the player takes"*, and this is that act. It also makes
+the rule **executable** rather than a source-string assertion — the guard that matters here is that
+`age` does not move, and that is worth running rather than grepping for.
+
+**Discoverability is the other half, and it is session state, not a save field.** `loadSave` knows
+something the migrated save no longer does: whether `form.birthYear` was present *before*
+`migrateSave` filled it. A save that had none carries an estimate, so the row explains itself in
+that session. Persisting that provenance would mean a new save field that must then be cleared,
+and the row is permanent and self-describing anyway — the flag only decides whether an extra line
+of explanation shows.
 
 ### Done in step 4: the player's birth year
 
@@ -188,8 +218,7 @@ seed hashing `birthYear`, reversed member order, a disabled group scan, a remove
 short-circuit, `phaseRef` pinned late, the group not taken from the save, and `SaveOverlay`
 dropping `groupId` or `roster`.
 
-**Step 6 is in progress and is the current work.** `dev` and `origin/dev` are at `b8e66b0`, **CI
-green** (run `36136433425`), smoke **849**. Nine commits so far:
+**Step 6 is in progress and is the current work.** Smoke **868**. Eleven commits so far:
 
 | Commit | What |
 | --- | --- |
@@ -201,11 +230,13 @@ green** (run `36136433425`), smoke **849**. Nine commits so far:
 | `5548050` | **tooling** — an on-device console |
 | `ca66510` | **fix** — the birth year could not be typed; the role picker hid what it did |
 | `b8e66b0` | **fix** — a cross-group cast is its own group, not the main member's |
+| `081fc86` | **docs** — step 6 recorded, and this document corrected where phone play moved the design |
+| _pending_ | correcting a migrated birth year (commit 6) — see *"Done in step 6"* above |
 
-**Remaining in step 6:** correcting a migrated birth year on a loaded save (the item carried from
-step 4, below), optionally splitting the classic Setup page into steps, and docs. The roster
-builder's visual design is **known to be unpolished and deliberately deferred** — Yuhan's call
-after the phone test: "works but doesn't look good, we can improve this later."
+**Remaining in step 6:** optionally splitting the classic Setup page into steps, and a live
+`playthrough.mjs` run on a cross-group roster — the one part of step 6's gate no offline check
+covers. The roster builder's visual design is **known to be unpolished and deliberately deferred** —
+Yuhan's call after the phone test: "works but doesn't look good, we can improve this later."
 
 ### Hand-tested on a phone, which is the only place three of these showed
 

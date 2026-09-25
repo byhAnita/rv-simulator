@@ -22,7 +22,7 @@
 import { loadGroupIndex, loadGroupConfig } from "./groupLoader";
 import { DEFAULT_WORLD_ID } from "./worldLoader";
 import { buildClassicRoster } from "./rosterResolver";
-import { GAME_YEAR } from "../config/constants";
+import { GAME_YEAR, validPlayerBirthYear } from "../config/constants";
 
 // Written into every migrated save. The storage key stays `rv_sim_saves_v13`
 // on purpose — bumping it would orphan every existing save, which is the exact
@@ -67,6 +67,37 @@ export function migrateSaveFields(save) {
     // premise of somebody's run to satisfy a lookup table.
     form: birthYear ? { ...form, birthYear } : { ...form },
   };
+}
+
+/**
+ * The act the migration above deliberately leaves to the player.
+ *
+ * `GAME_YEAR - age` reproduces what a legacy save already produced and is still
+ * wrong for about half of those saves, because an age does not contain a birth
+ * year. Nothing can recover it, so the only honest fix is to let her say it —
+ * which is what this is, and why it lives here rather than in the component that
+ * renders the field.
+ *
+ * `age` is NOT recomputed, and that is the whole reason this is a separate
+ * function from Setup's handler rather than a shared one. Setup mints `age` once
+ * from the birth year and nothing edits it afterwards: `backstorySeed` hashes
+ * it, and that seed must stay frozen for the life of a save or the identity
+ * backstory re-rolls under a player mid-game. Writing the "obviously matching"
+ * age here would re-introduce exactly the drift step 1 closed.
+ *
+ * Returns the form UNCHANGED when the year is out of range or already the one
+ * on record — so re-confirming a year costs nothing. Every change to this field
+ * rewrites the static system prompt and costs one full prompt-cache miss, which
+ * is a fair price for a deliberate correction and no price at all for a no-op.
+ *
+ * @param {object} form  the save's form
+ * @param {string|number} year
+ */
+export function correctBirthYear(form, year) {
+  if (!form || !validPlayerBirthYear(year)) return form;
+  const next = String(parseInt(year));
+  if (form.birthYear === next) return form;
+  return { ...form, birthYear: next };
 }
 
 /**

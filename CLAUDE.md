@@ -136,7 +136,7 @@ Player choice
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
 | `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
 | `src/tools/debugConsole.js` | the on-device console: always-on key-redacted ring buffer + `?debug=1` panel. See TECH_NOTES |
-| `src/rag/saveMigrator.js` | `migrateSave(save, lang)`, `migrateSaveFields`, `SAVE_SCHEMA` — brings a pre-v1.4.0 save up to `groupId`/`worldId`/`roster`/`birthYear`, reproducing what it already implied |
+| `src/rag/saveMigrator.js` | `migrateSave(save, lang)`, `migrateSaveFields`, `SAVE_SCHEMA` — brings a pre-v1.4.0 save up to `groupId`/`worldId`/`roster`/`birthYear`, reproducing what it already implied; plus `correctBirthYear`, the one value it deliberately does **not** fix |
 | `src/config/constants.js` | Numeric game constants (see below) |
 | `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_PER_1M`, `estimateCallCostUsd` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
@@ -209,7 +209,10 @@ router learned, and the worst case of losing it is re-walking the route once.
 ## Key Constants (`src/config/constants.js`)
 
 ```js
-GAME_YEAR           = 2026 // used to derive player birth year from age
+GAME_YEAR           = 2026 // renders the player's age FROM her birth year; also the
+                           // legacy fallback that derives one when a save has none
+PLAYER_BIRTH_YEAR_MIN = GAME_YEAR - 80   // + validPlayerBirthYear(): one range, two
+PLAYER_BIRTH_YEAR_MAX = GAME_YEAR - 18   // writers (Setup, and the in-game correction)
 HISTORY_FULL_MAX    = 3    // N: full-story entries before collapse trigger
 HISTORY_PRUNE_BATCH = 15   // batch-prune this many oldest summaries when total summaries > N*3
 KKT_MAX             = 10   // Q: KakaoTalk messages stored per member
@@ -658,8 +661,26 @@ happens to print.
 deliberately *not* a fix: it reproduces the value the save already had, so a game in flight is
 byte-identical before and after migrating and nobody's honorifics move under them. Smoke asserts
 exactly that. The consequence is that **a pre-v1.4.0 save keeps its ±1 error**, because nothing
-can recover a birth year from an age. Letting a player correct hers on a loaded save is UI and
-lands in step 6.
+can recover a birth year from an age.
+
+**So the player is given the year back — `correctBirthYear`, in the settings overlay, since step
+6.** It is the counterpart to the migration's deliberate non-fix and lives in the same file for
+that reason. Three rules, each one a guard:
+
+- **It writes `birthYear` and never `age`.** Setup's `setBirthYear` writes both, because that is
+  where `age` is minted; the correction writes one, because `backstorySeed` hashes `age` and a
+  recomputed one re-rolls the identity backstory mid-save. They are therefore **two functions and
+  must stay two** — smoke turns red if the UI calls Setup's.
+- **An unchanged year returns the same object**, so re-confirming a correct year is not a
+  ~5,500-token cache miss. Only a real change pays, which is the right price for a deliberate act
+  and the wrong one for a no-op.
+- **`validPlayerBirthYear` is one function in `constants.js`.** It used to be a copy in `App.jsx`;
+  a second writer of the field is exactly how the two start disagreeing about which years are legal.
+
+Whether the year is an *estimate* is session state, decided in `loadSave` by whether
+`save.form.birthYear` existed **before** `migrateSave` filled it — read it from the migrated copy
+and nothing is ever flagged. It is deliberately not a save field: the row is permanent and
+self-describing, and the flag only chooses one extra line of explanation.
 
 **`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
 
@@ -1261,12 +1282,12 @@ of a step whose whole gate is that they do not move, and it likely lands with pl
 leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
 upstream — and is deleted.
 
-**Steps 3, 4 and 5 are done and step 6 is in progress — all on `dev`, all unreleased.** `dev` and
-`origin/dev` are at `b8e66b0`, **CI green** (run `36136433425`), 0 behind. Smoke **578 → 849**.
+**Steps 3, 4 and 5 are done and step 6 is in progress — all on `dev`, all unreleased.** Smoke
+**578 → 868**.
 
 **Step 6 is the first of these with player-visible changes**: a second door on the cover leading to
-a roster builder, a three-step member editor with LLM card generation, cast photos, and an
-on-device console behind `?debug=1`. It was **hand-tested on an iPhone against the Cloudflare
+a roster builder, a three-step member editor with LLM card generation, cast photos, an on-device
+console behind `?debug=1`, and the birth-year correction a migrated save needs. It was **hand-tested on an iPhone against the Cloudflare
 branch alias** — `dev.idol-dating-sim.pages.dev` — which found three bugs nothing offline could:
 the birth-year field could not be typed into, the role picker hid what it was assigning, and a
 cross-group cast was described as the main member's group (see *"A cast drawn from more than one
@@ -1276,8 +1297,8 @@ source is its own group"*). All three are fixed. **Goldens byte-identical throug
 `<branch>.<project>.pages.dev`; Vercel's preview hostname embeds a team slug that exists nowhere in
 this repo and cannot be derived from it.
 
-Remaining in step 6: correcting a migrated birth year on a loaded save, optionally splitting the
-classic Setup page, and docs. The roster builder's visual design is unpolished by agreement.
+Remaining in step 6: optionally splitting the classic Setup page, the roster builder's visual
+design (unpolished by agreement), and a live `playthrough.mjs` run on a cross-group roster.
 
 **Step 4 — save migration** (`9d1c6cd`..`73b0995`). Three commits: the **player birth-year
 field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/`roster`), and the `App.jsx` rewiring
@@ -1304,9 +1325,10 @@ Smoke **671 → 683**. A v1.3.9 hand-play bug found while the branch was green r
 `7fd109c` (a Kakao transcribed into the story — see the KKT note under Social Media System),
 taking smoke to **695** and moving the goldens a second time.
 
-**Step 6 — the custom-cast UI** (`919449a`..`b8e66b0`, nine commits). Smoke **695 → 849**. In order:
+**Step 6 — the custom-cast UI** (`919449a`.., eleven commits). Smoke **695 → 868**. In order:
 the prompt surviving an incomplete member, the palette + photo store, `cardGenerator`, the member
-editor, the roster builder + second door, the on-device console, then the three phone-test fixes.
+editor, the roster builder + second door, the on-device console, the three phone-test fixes, docs,
+then the birth-year correction (`correctBirthYear` — see *"So the player is given the year back"*).
 
 Three deviations from `docs/V140_PLAN.md`, each deliberate and recorded there: **three storage keys,
 not five** (custom worlds and world selection are v1.4.1, and this repo already carries two
