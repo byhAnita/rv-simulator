@@ -102,6 +102,17 @@ const en = {
     customDesc: "Any members, any mix",
     changeCast: "Change cast",
     castLabel: "Cast",
+    roles: { main: "Main", sub: "Sub", npc: "NPC" },
+    roleHints: {
+      main: "the core romance line — exactly one",
+      sub: "also romanceable — as many as you like",
+      npc: "appears in the story, not romanceable",
+    },
+    viaGroup: "from",
+    remove: "Remove",
+    clearCast: "Clear cast",
+    badYear: "Enter a year between 1980 and 2012",
+    confirmDelete: (name) => `Delete "${name}"? This cannot be undone.`,
     fictionNote: "Custom members are fictional characters and describe no real person.",
   },
   identities: {

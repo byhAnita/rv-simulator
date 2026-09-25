@@ -102,6 +102,17 @@ const zh = {
     customDesc: "任意成员，任意组合",
     changeCast: "更换卡司",
     castLabel: "卡司",
+    roles: { main: "主线", sub: "支线", npc: "NPC" },
+    roleHints: {
+      main: "核心恋爱线，只能选一位",
+      sub: "也可攻略，可选多位",
+      npc: "会出场，但不可攻略",
+    },
+    viaGroup: "来自",
+    remove: "移除",
+    clearCast: "清空卡司",
+    badYear: "请输入 1980 到 2012 之间的年份",
+    confirmDelete: (name) => `删除「${name}」？此操作无法撤销。`,
     fictionNote: "自定义成员是虚构角色，与任何真实人物无关。",
   },
   identities: {

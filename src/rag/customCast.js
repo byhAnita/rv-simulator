@@ -92,6 +92,41 @@ export function missingRequired(profile = {}) {
   return REQUIRED_FIELDS.filter((f) => !String(profile?.[f] ?? "").trim());
 }
 
+// A player supplies a YEAR; the prompt needs a DATE. buildSystemPrompt reads the
+// year with `(m.birthday || "2000-01-01").split('-')[0]`, so a bare year would
+// parse but a missing one silently becomes 2000 and flattens the cast's
+// honorifics. These two functions are the whole conversion, and they are here
+// rather than inline in the editor because the BUG WAS IN THE ROUND TRIP, not in
+// either direction alone: the editor stored "1-01-01" after one keystroke and fed
+// `"1-01-01".slice(0, 4)` — "1-01" — back into a `type="number"` input, which
+// cannot render that, so the field blanked and looked broken.
+export const BIRTH_YEAR_MIN = 1980;
+export const BIRTH_YEAR_MAX = 2012;
+
+/** The year digits a birthday carries, for display. "" when there is none. */
+export function birthYearOf(birthday) {
+  const m = String(birthday || "").match(/^(\d{1,4})/);
+  return m ? m[1] : "";
+}
+
+/**
+ * A birthday from year digits — or "" while the year is still incomplete.
+ *
+ * Returning "" for a partial year is the point: a half-typed year must leave the
+ * profile INVALID so Save stays disabled, rather than storing "19-01-01" and
+ * letting a two-digit year reach the address protocol.
+ */
+export function birthdayFromYear(year) {
+  const digits = String(year ?? "").replace(/\D/g, "").slice(0, 4);
+  return digits.length === 4 ? `${digits}-01-01` : "";
+}
+
+/** Is this year one an idol active in 2026 could plausibly have? */
+export function validBirthYear(year) {
+  const n = Number(String(year ?? "").replace(/\D/g, ""));
+  return n >= BIRTH_YEAR_MIN && n <= BIRTH_YEAR_MAX;
+}
+
 /**
  * A stable id for a new member.
  *

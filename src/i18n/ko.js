@@ -102,6 +102,17 @@ const ko = {
     customDesc: "어떤 멤버든, 어떤 조합이든",
     changeCast: "캐스트 변경",
     castLabel: "캐스트",
+    roles: { main: "메인", sub: "서브", npc: "NPC" },
+    roleHints: {
+      main: "핵심 로맨스 라인 — 한 명만",
+      sub: "공략 가능 — 여러 명 선택 가능",
+      npc: "등장하지만 공략 대상은 아님",
+    },
+    viaGroup: "출신",
+    remove: "제거",
+    clearCast: "캐스트 비우기",
+    badYear: "1980년부터 2012년 사이로 입력해주세요",
+    confirmDelete: (name) => `"${name}"을(를) 삭제할까요? 되돌릴 수 없습니다.`,
     fictionNote: "커스텀 멤버는 가상의 인물이며 실제 인물과 무관합니다.",
   },
   identities: {

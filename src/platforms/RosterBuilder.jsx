@@ -26,10 +26,9 @@ import MemberEditor from "./MemberEditor";
 
 const CUSTOM_TAB = "__custom__";
 
-// none -> main -> sub -> npc -> none. One tap per step, because a long-press or a
-// second control would need explaining and this does not.
-const CYCLE = [null, "main", "sub", "npc"];
-const MARK = { main: "★", sub: "●", npc: "○" };
+// The order roles are offered in, and the order the cast summary groups them in.
+// Same sequence as SLOTS in rosterResolver, which is also prompt order.
+const SLOT_ORDER = ["main", "sub", "npc"];
 
 export default function RosterBuilder({
   language = "zh", theme = "dark", t, world,
@@ -49,6 +48,9 @@ export default function RosterBuilder({
   const [photos, setPhotos] = useState(() => loadPhotos());
   const [editing, setEditing] = useState(null);   // {id, profile} | {} for new
   const [saved, setSaved] = useState(() => loadFromStorage(STORAGE_KEYS.ROSTERS) || []);
+  // Deleting an authored member throws away work that cannot be recovered, so it
+  // asks first. Holds the member id awaiting confirmation.
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     loadGroupIndex().then((list) => {
@@ -88,26 +90,42 @@ export default function RosterBuilder({
     return cast.find((m) => m.id === id)?.profile?.name || id;
   };
 
-  const cycle = (member) => {
+  /**
+   * Put a member in a named slot, or take her out by naming the slot she is
+   * already in.
+   *
+   * This replaces a tap-to-cycle control (none -> main -> sub -> npc -> none).
+   * Cycling was fewer pixels and worse: the roles were shown as symbols, so the
+   * player could not tell WHAT they were assigning, and removing someone meant
+   * tapping forward through every remaining state to get back to none. Reported
+   * as confusing on the first phone test, which is the only place it shows.
+   */
+  const assign = (member, slot) => {
     setPicks((prev) => {
       const cur = prev[member.id]?.slot || null;
-      const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
       const out = { ...prev };
-      if (!next) { delete out[member.id]; return out; }
+      // Naming the slot she already holds is how you remove her — the control is
+      // a toggle per role, so there is always one tap that undoes one tap.
+      if (cur === slot) { delete out[member.id]; return out; }
       // Exactly one main. Promoting a second demotes the first to sub rather than
-      // dropping her, which is what a player almost always means.
-      if (next === "main") {
+      // dropping her, which is what a player almost always means, and resolveRoster
+      // reads only the first main so a second would otherwise be ignored silently.
+      if (slot === "main") {
         for (const [id, p] of Object.entries(out)) {
           if (p.slot === "main") out[id] = { ...p, slot: "sub" };
         }
       }
       out[member.id] = member.__custom
-        ? { slot: next, src: "custom", lang: cast.find((m) => m.id === member.id)?.lang || language,
+        ? { slot, src: "custom", lang: cast.find((m) => m.id === member.id)?.lang || language,
             profile: cast.find((m) => m.id === member.id)?.profile }
-        : { slot: next, src: "library", groupId: tab };
+        : { slot, src: "library", groupId: tab };
       return out;
     });
   };
+
+  const unassign = (id) => setPicks((prev) => {
+    const out = { ...prev }; delete out[id]; return out;
+  });
 
   // Shaped by rosterFromPicks (customCast.js) rather than here: entry order is
   // prompt order and prompt order is a cache boundary, so that logic is unit
@@ -132,6 +150,7 @@ export default function RosterBuilder({
   };
 
   const deleteMember = (id) => {
+    setConfirmDelete(null);
     const next = removeMember(cast, id);
     if (!saveCustomCast(next)) { notify?.(c.saveFailed, "error"); return; }
     setCast(next);
@@ -245,43 +264,57 @@ export default function RosterBuilder({
               {tab === CUSTOM_TAB ? c.noCustomYet : c.loadingMembers}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            // Two columns, not three: each card now carries three NAMED role
+            // buttons, and the words are what make the control legible. Symbols in
+            // a tighter grid is what the first version did, and a player could not
+            // tell what they were assigning.
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
               {tabMembers.map((m) => {
                 const slot = picks[m.id]?.slot || null;
                 const fromElsewhere = slot && picks[m.id].src === "library"
                   && picks[m.id].groupId !== tab;
                 return (
-                  <div key={m.id} style={{ position: "relative" }}>
-                    <button onClick={() => cycle(m)}
-                      style={{ width: "100%", padding: "8px 4px", borderRadius: 10, cursor: "pointer", border: `1px solid ${slot ? (m.accent || accent) : border}`, background: slot ? (m.accent || accent) + "20" : cardBg, color: textMain, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                      <span style={{ fontSize: 19, lineHeight: 1 }}>
+                  <div key={m.id} style={{ padding: 7, borderRadius: 10, border: `1px solid ${slot ? (m.accent || accent) : border}`, background: slot ? (m.accent || accent) + "14" : cardBg }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                      <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>
                         {photos[m.id]
-                          ? <img src={photos[m.id]} alt="" style={{ width: 26, height: 26, borderRadius: 6, objectFit: "cover", display: "block" }} />
+                          ? <img src={photos[m.id]} alt="" style={{ width: 24, height: 24, borderRadius: 6, objectFit: "cover", display: "block" }} />
                           : (m.emoji || "✨")}
                       </span>
-                      <span style={{ fontSize: 9.5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 11, color: textMain, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {m.name}
                       </span>
-                      <span style={{ fontSize: 10, color: slot ? accent : textFaint, minHeight: 12 }}>
-                        {slot ? MARK[slot] : "◌"}
-                      </span>
-                    </button>
+                    </div>
+                    {/* One button per role. Tapping the active one removes her, so
+                        there is always a single tap that undoes a single tap. */}
+                    <div style={{ display: "flex", gap: 3 }}>
+                      {SLOT_ORDER.map((s) => {
+                        const on = slot === s;
+                        return (
+                          <button key={s} onClick={() => assign(m, s)}
+                            aria-pressed={on}
+                            style={{ flex: 1, padding: "4px 0", borderRadius: 6, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", border: `1px solid ${on ? accent : border}`, background: on ? accent : "transparent", color: on ? (isLight ? "#fff" : "#200c1a") : textDim, fontWeight: on ? 700 : 400 }}>
+                            {c.roles?.[s] || s}
+                          </button>
+                        );
+                      })}
+                    </div>
                     {/* She is in the cast from a DIFFERENT group's tab. Shown
                         because ids are shared across groups and a silent
                         selection here reads as a bug. */}
                     {fromElsewhere && (
-                      <span style={{ position: "absolute", top: 2, right: 3, fontSize: 8, color: textFaint }}>
-                        {picks[m.id].groupId}
-                      </span>
+                      <div style={{ fontSize: 8, color: textFaint, marginTop: 3 }}>
+                        {c.viaGroup} {picks[m.id].groupId}
+                      </div>
                     )}
                     {m.__custom && (
-                      <div style={{ display: "flex", gap: 3, marginTop: 2 }}>
+                      <div style={{ display: "flex", gap: 3, marginTop: 4 }}>
                         <button onClick={() => setEditing(cast.find((x) => x.id === m.id))}
-                          style={{ flex: 1, padding: "2px 0", borderRadius: 5, border: `1px solid ${border}`, background: "transparent", color: textDim, fontSize: 8.5, cursor: "pointer" }}>
+                          style={{ flex: 1, padding: "3px 0", borderRadius: 5, border: `1px solid ${border}`, background: "transparent", color: textDim, fontSize: 9, cursor: "pointer" }}>
                           {c.editShort}
                         </button>
-                        <button onClick={() => deleteMember(m.id)}
-                          style={{ flex: 1, padding: "2px 0", borderRadius: 5, border: "1px solid rgba(180,60,20,.25)", background: "transparent", color: isLight ? "#a03010" : "#f07070", fontSize: 8.5, cursor: "pointer" }}>
+                        <button onClick={() => setConfirmDelete(m.id)}
+                          style={{ flex: 1, padding: "3px 0", borderRadius: 5, border: "1px solid rgba(180,60,20,.25)", background: "transparent", color: isLight ? "#a03010" : "#f07070", fontSize: 9, cursor: "pointer" }}>
                           {c.deleteShort}
                         </button>
                       </div>
@@ -295,12 +328,44 @@ export default function RosterBuilder({
 
         {/* the chosen cast, and the way out */}
         <div style={{ padding: "9px 12px 12px", borderTop: `1px solid ${border}`, flexShrink: 0 }}>
-          <div style={{ fontSize: 10, color: chosen.length ? textDim : textFaint, marginBottom: 8, lineHeight: 1.5, maxHeight: 44, overflowY: "auto" }}>
-            {chosen.length === 0
-              ? c.pickMainHint
-              : ["main", "sub", "npc"].flatMap((slot) => chosen.filter((p) => p.slot === slot)
-                  .map((p) => `${MARK[p.slot]}${nameOf(p.id)}`)).join("  ")}
-          </div>
+          {chosen.length === 0 ? (
+            // The legend only shows while the cast is empty, which is exactly when
+            // the player does not yet know what the three roles mean. Once they
+            // have picked someone it is the cast itself that is worth the space.
+            <div style={{ fontSize: 9.5, color: textFaint, marginBottom: 8, lineHeight: 1.6 }}>
+              {SLOT_ORDER.map((s) => (
+                <div key={s}>
+                  <b style={{ color: textDim }}>{c.roles?.[s]}</b> — {c.roleHints?.[s]}
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Grouped by role and named, with an x per member: removing someone
+            // must not require finding her tab again.
+            <div style={{ marginBottom: 8, maxHeight: 78, overflowY: "auto" }}>
+              {SLOT_ORDER.filter((s) => chosen.some((p) => p.slot === s)).map((s) => (
+                <div key={s} style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 3 }}>
+                  <span style={{ fontSize: 9, color: textFaint, minWidth: 34, flexShrink: 0 }}>
+                    {c.roles?.[s]}
+                  </span>
+                  <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {chosen.filter((p) => p.slot === s).map((p) => (
+                      <button key={p.id} onClick={() => unassign(p.id)}
+                        aria-label={`${c.remove} ${nameOf(p.id)}`}
+                        style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 10, border: `1px solid ${border}`, background: cardBg, color: textDim, fontSize: 9.5, cursor: "pointer" }}>
+                        {nameOf(p.id)}
+                        <span style={{ color: textFaint, fontSize: 10 }}>{"×"}</span>
+                      </button>
+                    ))}
+                  </span>
+                </div>
+              ))}
+              <button onClick={() => setPicks({})}
+                style={{ marginTop: 2, padding: "2px 7px", borderRadius: 9, border: `1px solid ${border}`, background: "transparent", color: textFaint, fontSize: 9, cursor: "pointer" }}>
+                {c.clearCast}
+              </button>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 7 }}>
             <button onClick={saveRoster} disabled={!canStart}
               style={{ padding: "11px 13px", borderRadius: 40, border: `1px solid ${border}`, background: "transparent", color: canStart ? textDim : textFaint, fontSize: 11.5, cursor: canStart ? "pointer" : "default" }}>
@@ -325,6 +390,29 @@ export default function RosterBuilder({
           onCancel={() => setEditing(null)}
           notify={notify}
         />
+      )}
+
+      {/* Deleting an authored member is not undoable and the button sits beside
+          Edit on a small card, so it asks first. It names her, because "are you
+          sure" next to a grid of twelve faces is not a question you can answer. */}
+      {confirmDelete && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.55)" : "rgba(0,0,0,.75)", padding: 24 }}>
+          <div style={{ width: "100%", maxWidth: 300, background: pageBg, border: `1px solid ${border}`, borderRadius: 14, padding: 16 }}>
+            <div style={{ fontSize: 12, color: textMain, lineHeight: 1.6, marginBottom: 14 }}>
+              {c.confirmDelete?.(nameOf(confirmDelete))}
+            </div>
+            <div style={{ display: "flex", gap: 7 }}>
+              <button onClick={() => setConfirmDelete(null)}
+                style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${border}`, background: "transparent", color: textDim, fontSize: 11.5, cursor: "pointer" }}>
+                {c.cancel}
+              </button>
+              <button onClick={() => deleteMember(confirmDelete)}
+                style={{ flex: 1, padding: 9, borderRadius: 9, border: "none", background: isLight ? "#a03010" : "#8a2020", color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                {c.deleteShort}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

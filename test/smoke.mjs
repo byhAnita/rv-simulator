@@ -2949,21 +2949,69 @@ async function layerI() {
       && !/step === 2 && canSave/.test(editorSrc),
     "canSave must not mention the step index");
 
-  // The birth YEAR is stored as a full date because buildSystemPrompt parses the
-  // year off a date string; a bare year would not survive that parse, and a
-  // missing one falls back to 2000-01-01 and flattens the whole cast's
-  // honorifics (the v1.3.6 -> v1.3.7 failure).
-  check("the editor stores a birth year as a parseable date",
-    /set\("birthday", `\$\{digits\}-01-01`\)/.test(editorSrc),
-    "mainAgent parses the year with (m.birthday || \"2000-01-01\").split('-')[0]");
-  const yearToDate = (raw) => {
-    const digits = String(raw).replace(/\D/g, "").slice(0, 4);
-    return digits ? `${digits}-01-01` : "";
+  // --- REGRESSION: the birth year field could not be typed into --------------
+  // Reported from the first phone test. The editor derived the input's value from
+  // `profile.birthday`, so one keystroke stored "1-01-01" and fed
+  // `"1-01-01".slice(0, 4)` — "1-01" — back into a type="number" input, which
+  // cannot render that. The field blanked on every keypress and was unfillable.
+  //
+  // THE BUG WAS IN THE ROUND TRIP, not in either direction alone, and the guard
+  // that was here only checked the write. It asserted the stored FORMAT and never
+  // that the value could be read back — so it passed against completely broken
+  // behaviour. This simulates the typing.
+  const typeYear = (keystrokes) => {
+    let draft = "", birthday = "";
+    for (const raw of keystrokes) {
+      draft = String(raw).replace(/\D/g, "").slice(0, 4);
+      birthday = store.birthdayFromYear(draft);
+    }
+    return { shown: draft, birthday };
   };
-  check("...and the year it writes round-trips through the prompt's own parse",
-    parseInt((yearToDate("1999") || "2000-01-01").split("-")[0]) === 1999
-      && parseInt((yearToDate("") || "2000-01-01").split("-")[0]) === 2000,
-    "an empty year must fall back, not produce NaN");
+  const partials = ["1", "19", "199"].map((k) => typeYear([k]));
+  check("a partially typed year renders as itself, not as a sliced date",
+    partials.every((p, i) => p.shown === ["1", "19", "199"][i]),
+    JSON.stringify(partials.map((p) => p.shown)));
+  check("...and stores no birthday until the year is complete",
+    partials.every((p) => p.birthday === ""),
+    "a two-digit year must not reach the address protocol");
+  check("...and a complete year stores a date the prompt can parse",
+    typeYear(["1", "19", "199", "1999"]).birthday === "1999-01-01"
+      && parseInt("1999-01-01".split("-")[0]) === 1999,
+    JSON.stringify(typeYear(["1", "19", "199", "1999"])));
+  // The read-back direction, which is the half that was broken.
+  check("the year shown for an existing member is the year, not a slice of the date",
+    store.birthYearOf("1999-01-01") === "1999" && store.birthYearOf("1-01-01") === "1"
+      && store.birthYearOf("") === "" && store.birthYearOf(undefined) === "",
+    JSON.stringify([store.birthYearOf("1999-01-01"), store.birthYearOf("1-01-01")]));
+  // An incomplete year leaves the profile invalid, so Save cannot commit one.
+  check("an incomplete year leaves the member unsaveable",
+    store.missingRequired({ name: "X", private_personality: "Y",
+      birthday: store.birthdayFromYear("19") }).includes("birthday"),
+    "the required-field check is what stops a half-typed year being stored");
+  check("a year outside 1980-2012 is flagged but a partial one is not",
+    store.validBirthYear("1999") && !store.validBirthYear("1899")
+      && !store.validBirthYear("19"),
+    "still-typing must not read as invalid");
+  // type="number" refuses any value it cannot parse, which is what made the
+  // partial year impossible to display. The field is text with a numeric keypad.
+  // Comments stripped first. Both this file's mentions of type="number" are in
+  // the comments explaining why it is NOT used, and a check that cannot tell a
+  // comment from code fails on its own documentation — the same trap the
+  // getNpcMembers guard in Layer G calls out.
+  const editorCode = editorSrc
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("the year input is a text field with a numeric keypad, not type=number",
+    /inputMode="numeric"/.test(editorCode) && !/type="number"/.test(editorCode),
+    "iOS shows the same keypad either way; only one of them can render \"19\"");
+  check("the editor renders its own year draft rather than deriving it",
+    /value=\{yearDraft\}/.test(editorSrc) && /const \[yearDraft, setYearDraft\]/.test(editorSrc),
+    "deriving it from profile.birthday is the bug");
+  // A generated card fills birthday directly, so the draft has to be synced or
+  // the player sees a year she cannot edit.
+  check("a generated birthday is pushed into the year draft",
+    /setYearDraft\(birthYearOf\(next\.birthday\)\)/.test(editorSrc),
+    "otherwise the profile holds a year the field does not show");
 
   // A generated value must never overwrite something the player typed, or
   // pressing Generate twice destroys their edits.
@@ -3124,16 +3172,55 @@ async function layerI() {
   // dropping her, because resolveRoster takes idsWith("main")[0] and a second
   // main would simply be ignored — the player would see her pick do nothing.
   check("promoting a second main demotes the first instead of dropping her",
-    /if \(next === "main"\)/.test(builderSrc) && /out\[id\] = \{ \.\.\.p, slot: "sub" \}/.test(builderSrc),
+    /if \(slot === "main"\)/.test(builderSrc) && /out\[id\] = \{ \.\.\.p, slot: "sub" \}/.test(builderSrc),
     "resolveRoster reads only the first main, so two mains lose one silently");
+
+  // --- the slot control, redesigned after the first phone test ---------------
+  // It was tap-to-cycle: none -> main -> sub -> npc -> none, shown as symbols.
+  // Reported as confusing, and rightly — the player could not tell WHAT they were
+  // assigning, and removing someone meant tapping forward through every remaining
+  // state. It is now one named button per role.
+  check("roles are assigned by name, not by cycling through symbols",
+    /const assign = \(member, slot\) =>/.test(builderSrc)
+      && !/const CYCLE =/.test(builderSrc) && !/const MARK =/.test(builderSrc),
+    "a cycle hides both what the next state is and how to get back to none");
+  // The BUTTON's own form, `{c.roles?.[s] || s}`, which the legend and the cast
+  // summary do not share — a bare `c.roles` match passed with the button's label
+  // replaced by a single letter, because the other two still mention it.
+  check("the role buttons are labelled from t.cast.roles",
+    builderSrc.includes("{c.roles?.[s] || s}"),
+    "the words are what make the control legible");
+  check("tapping the role a member already holds removes her",
+    /if \(cur === slot\) \{ delete out\[member\.id\]; return out; \}/.test(builderSrc),
+    "there must always be one tap that undoes one tap");
+  check("the cast summary can remove a member without finding her tab again",
+    /onClick=\{\(\) => unassign\(p\.id\)\}/.test(builderSrc)
+      && /onClick=\{\(\) => setPicks\(\{\}\)\}/.test(builderSrc),
+    "an x per member, plus a clear-all");
+  // The legend is shown only while the cast is empty — which is exactly when the
+  // player does not yet know what main, sub and npc mean.
+  check("the three roles are explained before anything is picked",
+    /c\.roleHints\?\.\[s\]/.test(builderSrc)
+      && /chosen\.length === 0 \? \(/.test(builderSrc),
+    "\"no idea what the player is choosing for\" was the actual report");
+  // Deleting an authored member is not undoable and its button sits beside Edit on
+  // a small card.
+  check("deleting a custom member asks first, and names her",
+    /setConfirmDelete\(m\.id\)/.test(builderSrc)
+      && /c\.confirmDelete\?\.\(nameOf\(confirmDelete\)\)/.test(builderSrc),
+    "\"are you sure\" beside a grid of twelve faces is not an answerable question");
 
   // Roster order is prompt order, and prompt order is a cache boundary: the same
   // cast in a different order is the same game and a total cache miss. Iterating
   // the picks object directly would make the order depend on insertion, so the
   // slots are walked in a fixed sequence.
-  check("the builder emits entries in a fixed slot order, not object key order",
-    /\["main", "sub", "npc"\]\.flatMap/.test(builderSrc),
-    "prompt order is a cache boundary");
+  // The ordering itself is asserted as behaviour above, on rosterFromPicks. This
+  // only pins that the builder delegates to it rather than re-deriving an order
+  // of its own, which would be a second source of truth for a cache boundary.
+  check("the builder delegates roster shaping rather than ordering entries itself",
+    /rosterFromPicks\(picks, world\?\.id/.test(builderSrc)
+      && !/entries:/.test(builderSrc),
+    "prompt order is a cache boundary and belongs in one place");
 
   // Editing a picked member has to refresh the snapshot, or the roster carries
   // her profile as it was before the edit.

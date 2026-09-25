@@ -20,6 +20,7 @@
 import React, { useState } from "react";
 import {
   REQUIRED_FIELDS, missingRequired, sanitizeProfile,
+  birthYearOf, birthdayFromYear, validBirthYear, BIRTH_YEAR_MIN, BIRTH_YEAR_MAX,
 } from "../rag/customCast";
 import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
 import { downscale, PHOTO_MAX_CHARS } from "../utils/imageStore";
@@ -45,9 +46,6 @@ export const STEP_FIELDS = [
 const MULTILINE = new Set([
   "private_personality", "public_image", "queer_texture", "hidden_conflict",
 ]);
-
-const BIRTH_YEAR_MIN = 1980;
-const BIRTH_YEAR_MAX = 2012;
 
 export default function MemberEditor({
   member, isNew = false, language = "zh", theme = "dark", t,
@@ -75,19 +73,25 @@ export default function MemberEditor({
 
   const set = (field, value) => setProfile((p) => ({ ...p, [field]: value }));
 
-  // The form asks for a YEAR and stores a date. §4.4 says "ask for the year at
-  // minimum": a player does not know an original character's exact birthday and
-  // the address protocol only ever reads the year. Month and day are pinned to
-  // 01-01 rather than left blank, because buildSystemPrompt parses the year off
-  // a date string and a bare year would not survive that.
-  const birthYear = String(profile.birthday || "").slice(0, 4);
+  // The form asks for a YEAR and stores a date: a player does not know an
+  // original character's exact birthday, and the address protocol only ever reads
+  // the year. Month and day are pinned to 01-01 because buildSystemPrompt parses
+  // the year off a date string.
+  //
+  // THE DRAFT IS SEPARATE STATE, and that is the fix for a real bug. Deriving the
+  // displayed year from `profile.birthday` meant one keystroke stored "1-01-01"
+  // and fed "1-01" back into the input, which a type="number" field cannot render
+  // — so the box blanked on every keypress and the field was simply unfillable.
+  // The draft holds what the player typed; `birthday` is written only once the
+  // year is complete, which also keeps Save disabled until it is.
+  const [yearDraft, setYearDraft] = useState(() => birthYearOf(member?.profile?.birthday));
   const setBirthYear = (raw) => {
     const digits = String(raw).replace(/\D/g, "").slice(0, 4);
-    if (!digits) { set("birthday", ""); return; }
-    set("birthday", `${digits}-01-01`);
+    setYearDraft(digits);
+    set("birthday", birthdayFromYear(digits));
   };
-  const birthYearValid = !birthYear
-    || (Number(birthYear) >= BIRTH_YEAR_MIN && Number(birthYear) <= BIRTH_YEAR_MAX);
+  // Complete but implausible is worth flagging; still being typed is not.
+  const birthYearValid = yearDraft.length < 4 || validBirthYear(yearDraft);
 
   const runGenerate = async () => {
     if (description.trim().length < MIN_DESCRIPTION_CHARS) {
@@ -112,6 +116,10 @@ export default function MemberEditor({
       setProfile((p) => {
         const next = { ...res.profile, ...p };
         for (const [k, v] of Object.entries(p)) if (!String(v ?? "").trim()) next[k] = res.profile[k] ?? v;
+        // The year input renders its own draft, so a generated birthday has to be
+        // pushed into it too — otherwise the profile holds a year the player
+        // cannot see and cannot correct.
+        setYearDraft(birthYearOf(next.birthday));
         return next;
       });
       setStep(1);
@@ -236,10 +244,18 @@ export default function MemberEditor({
                   {fieldLabel("birthYear")}
                   <span style={{ color: accent, marginLeft: 4 }}>* {c.required}</span>
                 </label>
-                <input value={birthYear} onChange={(e) => setBirthYear(e.target.value)}
-                  type="number" inputMode="numeric" min={BIRTH_YEAR_MIN} max={BIRTH_YEAR_MAX}
+                {/* type="text" with a numeric inputMode, NOT type="number". iOS
+                    shows the same numeric keypad either way, while a number input
+                    refuses any value it cannot parse — which is what made a
+                    partially typed year impossible to display. maxLength also
+                    works here and is ignored on number inputs. */}
+                <input value={yearDraft} onChange={(e) => setBirthYear(e.target.value)}
+                  type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                  placeholder={`${BIRTH_YEAR_MIN}-${BIRTH_YEAR_MAX}`}
                   style={{ ...inputStyle, borderColor: birthYearValid ? inputBorder : "rgba(180,60,20,.5)" }} />
-                <div style={{ fontSize: 9, color: textFaint, marginTop: 3, lineHeight: 1.4 }}>{c.hints?.birthday}</div>
+                <div style={{ fontSize: 9, color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
+                  {birthYearValid ? c.hints?.birthday : c.badYear}
+                </div>
               </div>
 
               {/* photo */}
