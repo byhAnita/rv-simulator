@@ -17,7 +17,7 @@ scheduled for v1.4.2.
 | **3 — World extraction + resolver** | ✅ **done**, on `dev`, unreleased. Four commits: world JSON + `worldLoader`, `buildSystemPrompt` reading it, `rosterResolver`, and the `habit`/`tags` whitelist. Smoke 578 → **630**. **The gate held: goldens byte-identical, `update-golden.mjs` never run.** Found two pieces of dead code — see below. |
 | **4 — Save migration** | ✅ **done**, on `dev`, unreleased. Three commits: the player **birth-year field**, `saveMigrator` (`schema`/`worldId`/`groupId`/`roster`), and the App-side rewiring through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke 630 → **671**. **The gate held**: a pinned v1.3.8 save migrates to the same member set `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte. Goldens untouched. |
 | **5 — Content (`habit`)** | ✅ **done**, on `dev`, unreleased. Two commits: 175 habits across 30 files + the 30 root mirror copies, then the conditional `Habit:` line. **The goldens moved here, on purpose and for the first time since step 1**: 19 insertions, 0 deletions, every one a `Habit:` line. Scope was wider than "27 files" — 57 members × 3 languages. A hand-play bug found while the branch was green rode along (`7fd109c`, a Kakao transcribed into the story), moving them a second time. Smoke 671 → **695**. |
-| 6 — UI | ⬜ **next.** |
+| **6 — UI** | 🟡 **in progress**, on `dev`, unreleased. Six commits: the prompt surviving an incomplete member, the two stores, `cardGenerator`, the three-step member editor, the roster builder + the cover's second door, and the on-device console. Then **three bugs from the first phone test**, all fixed: the birth-year field could not be typed into, the role picker hid what it was assigning, and a cross-group cast was described as the main member's group. Smoke 695 → **849**. **The gate held: goldens byte-identical throughout.** Remaining: correcting a migrated birth year, optionally splitting the classic Setup page, docs. |
 | 7 — Release v1.4.0 | ⬜ |
 
 **Step 1 paid for itself before the first fixture existed.** Writing a snapshot forces the
@@ -188,11 +188,136 @@ seed hashing `birthYear`, reversed member order, a disabled group scan, a remove
 short-circuit, `phaseRef` pinned late, the group not taken from the save, and `SaveOverlay`
 dropping `groupId` or `roster`.
 
-**Next action is step 6 — UI: roster builder, member editor, card generation, photos.**
+**Step 6 is in progress and is the current work.** `dev` and `origin/dev` are at `b8e66b0`, **CI
+green** (run `36136433425`), smoke **849**. Nine commits so far:
 
-Step 6 is a multi-file change, so it gets a written plan first. Two findings below bear on it
-directly: the golden blind spot (custom members are the habit-less branch no fixture contains)
-and §18b (presence data, which the place work has to build anyway).
+| Commit | What |
+| --- | --- |
+| `919449a` | the prompt survives an incomplete member (commit 1) |
+| `d79c04c` | the custom-cast palette and the photo store (commit 2) |
+| `b78b8c5` | `cardGenerator` (commit 3) |
+| `258a818` | the member editor, three steps (commit 4) |
+| `d10f586` | the roster builder + the cover's second door (commit 5) |
+| `5548050` | **tooling** — an on-device console |
+| `ca66510` | **fix** — the birth year could not be typed; the role picker hid what it did |
+| `b8e66b0` | **fix** — a cross-group cast is its own group, not the main member's |
+
+**Remaining in step 6:** correcting a migrated birth year on a loaded save (the item carried from
+step 4, below), optionally splitting the classic Setup page into steps, and docs. The roster
+builder's visual design is **known to be unpolished and deliberately deferred** — Yuhan's call
+after the phone test: "works but doesn't look good, we can improve this later."
+
+### Hand-tested on a phone, which is the only place three of these showed
+
+Step 6's gate is a 390px hand test, and it was done on an iPhone against the Cloudflare branch
+alias — `https://dev.idol-dating-sim.pages.dev/?debug=1`. **Use Cloudflare, not Vercel, for
+branch previews**: its alias is a deterministic `<branch>.<project>.pages.dev`, while Vercel's
+preview hostname embeds a team slug that exists nowhere in this repo and cannot be derived from
+it.
+
+Three bugs came out of that session and none of them could have come out of anything else:
+
+1. **The birth-year field could not be typed into.** The editor derived the input's value from
+   `profile.birthday`, so one keystroke stored `"1-01-01"` and fed `"1-01-01".slice(0, 4)` —
+   `"1-01"` — back into a `type="number"` input, which cannot render that. The box blanked on
+   every keypress. **The bug was in the round trip**, and the guard covering it checked only the
+   write: it asserted the stored *format* and never that the value read back, so it passed against
+   completely broken behaviour. The conversion now lives in `customCast.js` as `birthYearOf` /
+   `birthdayFromYear`, tested in both directions by simulating the keystrokes.
+2. **The role picker hid what it was assigning.** It was tap-to-cycle — none → main → sub → npc →
+   none — shown as ◌ ★ ● ○. Reported as confusing, and rightly: the player could not tell *what*
+   they were choosing, and removing someone meant tapping *forward* through every remaining state.
+   Now one named button per role, tapping the active one removes her, the three roles are
+   explained while the cast is empty, and the cast summary carries an × per member.
+3. **A cross-group cast was described as the main member's group** — see below. The most
+   consequential of the three.
+
+### Found by phone play: the cast is a group, not a collection
+
+Reported cast: Jisoo (BLACKPINK) main, Irene (Red Velvet) and a custom member sub, Mina and Sana
+(TWICE) as NPCs. Round 1 put **Jennie, Rosé and Lisa** in the story and set the company to **YG**.
+
+`resolveRoster` returned the main member's group config, so §4 of the prompt handed over
+`[BLACKPINK Background]` plus full Public / Private / Queer Texture prose for all four BLACKPINK
+members, three of whom were not in the roster. **§6's rule says only members in MEMBER PROFILES
+may appear by name, and §4 was contradicting it two sections earlier with richer detail.** "YG" is
+in no file in this repo — the model inferred the agency from a premise it was handed.
+
+**The fix changes this plan's design, so the plan is corrected rather than annotated.** §4.2's
+roster already carried an optional `name`; it is now load-bearing.
+
+**A cast drawn from more than one source is its own group.** Yuhan's framing, adopted over the
+first attempt, which told the model these people came from different agencies and that any scene
+putting two of them together needed a reason. That version fights the setting: secrecy, dorms,
+schedules, group activities and the phase beats are *all* group machinery, and a cast described as
+five idols from four companies has none of it. As a group it is a premise instead of a constraint,
+and naming the agency is what stops one being invented.
+
+- Default name **`X`**, agency derived as **`X Entertainment`**, editable at Setup. The library
+  already ships a group called `X` (id `x`, a 10-member crossover), so the default collides by
+  name only; it is one string to change if that becomes annoying.
+- **The origin groups are never named.** That is the leak: a model told the cast is BLACKPINK
+  completes the group from its own knowledge. Nothing downstream needs them — a member's profile
+  says who she is, and her real-world affiliation plays no part in the game.
+- **A subset of one group keeps that group's real name**, because it still *is* that group, but the
+  exclusion is stated out loud. `BLACKPINK is a 4-member group` while naming only Jisoo is the
+  same leak in a quieter form.
+- The composed lore does **not** repeat the prose fields. §5 carries them in full for exactly the
+  members present; the single-group lore duplicates them and that is inherited token cost, not a
+  pattern worth extending.
+- **The gate held anyway.** The verbatim single-group lore is used whenever the roster is exactly
+  one whole group — which is what the classic door always produces, since `buildClassicRoster`
+  gives every member a slot — so the composed form is reached only by a cast the old code could
+  not express. All three goldens are byte-identical.
+
+It also closed a crash: an **all-custom cast** returned `groupConfig: null`, and
+`buildSystemPrompt` reads `groupConfig.groupLore` unconditionally, so it threw a `TypeError`
+before round 1. Reachable, because a custom member can be the main.
+
+**The guard that should have caught the lore bug asserted the opposite.** *"lore follows the main
+member's group, not the first group listed"* pinned the bug as intended behaviour. A guard written
+from the implementation rather than from the requirement will do that, and the only defence is to
+ask what a check would look like if the behaviour were wrong.
+
+### Done in step 6: what the commits decided
+
+- **Every optional field in the member profile block is conditional** (commit 1). A member built
+  from §4.4's required tier alone previously rendered four defects in one block: `undefined` twice
+  (emoji, animal) and a trailing space twice (`  Public: `, `  Queer Texture: `). Step 5 had fixed
+  one instance of a class with five more members.
+- **The golden blind spot, measured rather than asserted**: reverting that to unconditional leaves
+  **0 of 3 goldens moved while 8 Layer I checks fail**. All 175 library member records are
+  complete, so the empty branch appears in no snapshot.
+- **Three storage keys, not §4.3's five.** `rv_sim_worlds_custom_v14` and `rv_sim_world` are v1.4.1
+  work; this repo already carries `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` as a standing
+  example of what declaring ahead of the reader costs.
+- **Nine card fields, not §4.5's seven.** `name` and `birthday` are generated too, or the player
+  still hand-fills two required fields and the fast path is pointless. `mbti`, `role`, `name_kr`
+  and `tags` are excluded: for a custom member they reach **no prompt at all**, since
+  `buildGroupLore` renders those only for the primary group's own members.
+- **`world.setting` does not exist yet.** §4.5 names it; the v1.4.0 world shape carries only
+  `name`/`emoji`/`color`. The card prompt falls back to the name and will prefer `setting`
+  automatically once v1.4.1 adds it.
+- **`src/utils.js` and `src/utils/` now both exist**, because §10 specifies
+  `src/utils/imageStore.js`. Vite and esbuild both resolve `from "./utils"` to the file, and
+  `imageStore` names its own import `../utils.js` rather than relying on that. **A
+  `src/utils/index.js` would silently re-point every such import**; smoke asserts none exists.
+- **`speech_style` joined the whitelist and the profile block**, in the `habit`/`tags` order —
+  field first, so content arrives working rather than silently dropped.
+
+### Done in step 6: an on-device console (`5548050`)
+
+Not a plan item, added because step 6's gate is a phone and iOS Safari has no reachable devtools —
+while this project's two most phone-specific failures, `QuotaExceededError` from `saveToStorage`
+and every `LLMError` kind, are both reported through `console.error`.
+
+**The capture is always on; the panel is opt-in** (`?debug=1`, then persisted). A tool you must
+enable *before* the bug is one you use after reproducing it, and some of these need a twenty-round
+game to reach. **Every captured string is key-redacted before entering the buffer**, because the
+buffer exists to be copied off the phone and pasted into a bug report. Eruda is supported at
+`?debug=eruda` but deliberately not the default — it is a third-party script running beside a
+stored API key, it cannot work offline, and it only records from the moment it loads. Full
+reasoning in `docs/TECH_NOTES.md`.
 
 ### Done in step 5
 
@@ -494,17 +619,32 @@ member from the palette can then never break a running save or a saved preset, w
 library profile reaches games in progress. The custom-member store is a *palette*, not a
 dependency.
 
+**`name` is load-bearing, not decorative — corrected in step 6.** A roster drawn from more than one
+source *is its own group*, and `name` is that group's name: the prompt's §4 renders
+`[<name> Background]` with the agency derived as `<name> Entertainment`, defaulting to `X`. Before
+this, §4 used the **main member's group config**, which handed the model a group it was not playing
+— full profiles for three BLACKPINK members who were not in the roster, and an agency it inferred
+from the group name. See *"Found by phone play: the cast is a group, not a collection"* in Progress.
+The origin groups are deliberately absent from the composed lore, and a roster that is exactly one
+whole group still uses that group's own lore verbatim, which is what keeps the goldens fixed.
+
 ### 4.3 New localStorage keys
 
 All go in `STORAGE_KEYS`, per the existing note that inline literals are the wrong pattern.
 
-| Key | Holds |
-| --- | --- |
-| `rv_sim_cast_custom_v14` | `[{id, lang, createdAt, profile}]` — custom member palette |
-| `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds (v1.4.1) |
-| `rv_sim_rosters_v14` | `[{id, name, roster}]` — player-saved rosters |
-| `rv_sim_cast_photos_v14` | `{memberId: dataUrl}` — 256×256 WebP |
-| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) |
+| Key | Holds | State |
+| --- | --- | --- |
+| `rv_sim_cast_custom_v14` | `[{id, lang, createdAt, profile}]` — custom member palette | ✅ step 6 |
+| `rv_sim_rosters_v14` | `[{id, name, createdAt, roster}]` — player-saved rosters | ✅ step 6 |
+| `rv_sim_cast_photos_v14` | `{memberId: dataUrl}` — 256×256 WebP | ✅ step 6 |
+| `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds | ⬜ v1.4.1 |
+| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) | ⬜ v1.4.1 |
+
+**Only the three v1.4.0 keys are declared.** The other two are not added until something reads
+them: `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` have sat unimported in `constants.js` for
+several releases and are documented in CLAUDE.md as "either wire them up or delete them", which is
+the cost of declaring ahead of the reader. `rv_sim_debug` also exists, set by `?debug=1`, and is
+deliberately *not* in `STORAGE_KEYS` — it is read by `debugConsole.js` before React mounts.
 
 ### 4.4 Custom member form
 
@@ -858,48 +998,84 @@ player API keys to leak. IndexedDB is the database here.
 
 ### 14.2 Roster builder
 
+**As shipped in step 6. The sketch below replaces a tap-to-cycle design that was built, hand-tested
+on a phone, and reported as confusing** — the roles were symbols (◌ ★ ● ○), so the player could not
+tell what they were assigning, and removing someone meant tapping *forward* through every remaining
+state to return to none.
+
 ```
 ┌──────────────────────────────┐
-│ ← World: 🎓 Campus           │
+│ ← 🎤 Build a cast            │
 ├──────────────────────────────┤
-│ [RV][TWICE][aespa][IVE]… [★] │  group tabs, ★ = my custom
-│ ┌────┐┌────┐┌────┐┌────┐     │
-│ │🐰  ││🐻  ││🐿️ ││🦊  │     │  tap = cycle slot
-│ │Iren││Seul││Wend││Joy │     │  ◯ none → ★ main → ● sub → ○ npc
-│ │ ★  ││ ●  ││ ○  ││ ◯  │     │
-│ └────┘└────┘└────┘└────┘     │
+│ [RV][TWICE][aespa][IVE]… [✨]│  group tabs, ✨ = my members
+│ ┌─────────────┬─────────────┐│
+│ │ 🐰 Irene    │ 🐻 Seulgi   ││  two columns, so the role
+│ │[Main][Sub][N]│[Main][Sub][N]│  names fit as words
+│ ├─────────────┼─────────────┤│
+│ │ 🐿️ Wendy    │ 🦊 Joy      ││  tapping the ACTIVE role
+│ │[Main][Sub][N]│[Main][Sub][N]│  removes her
+│ └─────────────┴─────────────┘│
 ├──────────────────────────────┤
-│ Cast  ★Irene ●Seulgi ○Wendy  │
-│ [+ Create a member]          │
+│ Main  Irene ×                │  grouped, named, × removes
+│ Sub   Seulgi ×  Sana ×       │
+│ NPC   Wendy ×                │
+│ [Clear cast]                 │
 │ [Save roster]    [Start →]   │
 └──────────────────────────────┘
 ```
 
+Three things the redesign added, each answering a specific complaint:
+
+- **Named buttons, one per role**, two columns so the words fit. The words are what make the
+  control legible; the symbols were the whole problem.
+- **While the cast is empty, the three roles are explained** a line each — Main is the core romance
+  line and there is exactly one, Sub is also romanceable, NPC appears but is not. That is precisely
+  when the player does not know what they mean; once someone is picked, the space becomes the cast.
+- **The cast summary removes members**, so it never means finding her tab again. Plus a clear-all.
+- **Deleting an authored member asks first and names her.** It is not undoable and its button sits
+  beside Edit on a small card.
+
+The visual design is **acknowledged as unpolished and deferred by agreement** after the phone test.
+
 ### 14.3 Member editor
+
+**Three steps, not one scroll — changed during step 6 at Yuhan's request.** Sixteen fields plus a
+photo plus the generate box is unreadable as a single page at 390px: somewhere around field nine you
+lose track of what is still required.
 
 ```
 ┌──────────────────────────────┐
-│ ← New member                 │
+│ ← New member               ✕ │
+│ [1. Who she is][2. Reads][3.]│  step indicator, tappable
 ├──────────────────────────────┤
-│ ✨ Describe her in one line   │
+│ ✨ Describe her in one line   │   STEP 1
 │ ┌──────────────────────────┐ │
 │ │ a reserved cellist who   │ │
 │ │ never sleeps before 3am  │ │
 │ └──────────────────────────┘ │
-│        [ Generate card ]     │
-├──────────────────────────────┤
+│        [ Generate card ]     │   fills steps 2 and 3
 │ Name*        [___________]   │
-│ Born*        [____] (year)   │
-│ Private*     [___________]   │
-│ ─────────────────────────    │
-│ Public image [___________]   │
-│ Queer texture[___________]   │
-│ Speech style [___________]   │
-│ Habit        [___________]   │
-│ ▸ Advanced (9 fields)        │
-│ Photo  [🐰 default] [upload] │
+│ Born*        [1999] 1980-2012│   a YEAR, stored as YYYY-01-01
+│ Photo  [🎻] [upload]         │
+├──────────────────────────────┤
+│  [← Back]  [Next →]  [Save]  │   Save is live from ANY step
 └──────────────────────────────┘
+
+STEP 2  Private* · Public image · Queer texture · Speech style · Habit
+STEP 3  Real name · MBTI · Role · Animal · Hidden conflict   (skippable)
 ```
+
+- **Save goes live the moment the three required fields are filled, from whatever step.** Being made
+  to walk to the end is what makes a wizard worse than the form it replaced, and step 3 is optional
+  fields only. The fast path is: type a line, generate, glance, save.
+- **Generated values merge *under* what the player typed**, so pressing Generate twice cannot
+  destroy their edits.
+- **The year field holds its own draft.** Deriving it from `profile.birthday` is the bug in
+  Progress: it round-tripped through `YYYY-01-01` and sliced *into* the date. It is `type="text"`
+  with `inputMode="numeric"` — iOS gives the same keypad, but a number input refuses any value it
+  cannot parse, which is what made a half-typed year undisplayable.
+- **The caller mints the member id**, because a photo can be picked on step 1 before anything is
+  saved and the photo store is keyed by id.
 
 ### 14.4 Map picker (v1.4.1)
 
@@ -951,7 +1127,7 @@ sequencing rules drive everything:
 | **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |
 | **4** | Save migration: task 6 | A pinned v1.3.8 save migrates and resolves to the *same* member set `getNpcMembers` returns today |
 | **5** | Content: task 5 (`habit` × 27 files) + task 13 (root mirror) | Layer J asserts `habit` reaches the prompt through `loadGroupConfig` |
-| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px; live `playthrough.mjs` on a cross-group roster |
+| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px **(done — found 3 bugs, all fixed)**; live `playthrough.mjs` on a cross-group roster **(not yet run)** |
 | **7** | **Release v1.4.0** | Build + smoke + live playthrough, then the normal release flow |
 
 **Step 1 is the highest-value hour in this plan.** A world/roster extraction that changes the
@@ -978,9 +1154,9 @@ data instead of an inherited figure.
 | 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` | ✅ |
 | 5 | `habit` in all 9 group JSONs × 3 languages, **plus the prompt line that renders it** | `public/groups/**`, `mainAgent.js` | ✅ — 175 strings across 30 files, not 27 |
 | 6 | Save migration + `groupId`/`worldId`/`roster` in the slot | `App.jsx`, `SaveOverlay.jsx` | ✅ |
-| 7 | Roster builder + member editor UI | new `platforms/*` | ⬜ |
-| 8 | `cardGenerator.js` | new | ⬜ |
-| 9 | `imageStore.js` + quota-guarded `saveToStorage` | new + `utils.js` | `saveToStorage` ✅ (v1.3.9) |
+| 7 | Roster builder + member editor UI | new `platforms/*` | ✅ — redesigned after the phone test, see §14.2 |
+| 8 | `cardGenerator.js` | new | ✅ — 9 fields, not 7 |
+| 9 | `imageStore.js` + quota-guarded `saveToStorage` | new + `utils.js` | ✅ — both |
 | 10 | Usage panel | `llmTool.js`, new `platforms/UsagePanel.jsx` | ✅ (v1.3.9) |
 | 11 | Affection clamp | `mainAgent.js` | ✅ (v1.3.9) |
 | 12 | Smoke migration / resolver / static-prompt stability checks | `test/smoke.mjs` | ✅ — Layers **I** and **J**, not J alone |

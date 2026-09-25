@@ -131,7 +131,11 @@ Player choice
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
 | `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground` — the **setting**: identities, paces, phase beats, address forms |
-| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()` — turns "who is in this run" into the `members[]` the prompt consumes |
+| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()`, `composeRosterLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group |
+| `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
+| `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
+| `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
+| `src/tools/debugConsole.js` | the on-device console: always-on key-redacted ring buffer + `?debug=1` panel. See TECH_NOTES |
 | `src/rag/saveMigrator.js` | `migrateSave(save, lang)`, `migrateSaveFields`, `SAVE_SCHEMA` — brings a pre-v1.4.0 save up to `groupId`/`worldId`/`roster`/`birthYear`, reproducing what it already implied |
 | `src/config/constants.js` | Numeric game constants (see below) |
 | `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_PER_1M`, `estimateCallCostUsd` |
@@ -168,6 +172,10 @@ Player choice
 | `rv_sim_fontscale` | inline literal | `1` / `1.25` |
 | `rv_sim_language` | inline literal | `zh` / `en` / `ko` |
 | `rv_sim_group` | inline literal | Selected group id |
+| `rv_sim_cast_custom_v14` | `STORAGE_KEYS.CAST_CUSTOM` | Player-authored member palette, capped at 20 |
+| `rv_sim_rosters_v14` | `STORAGE_KEYS.ROSTERS` | Player-saved rosters, capped at 20 |
+| `rv_sim_cast_photos_v14` | `STORAGE_KEYS.CAST_PHOTOS` | `{memberId: dataUrl}`, 256x256 WebP, capped at 30 |
+| `rv_sim_debug` | inline literal | `"1"`/`"eruda"` — the on-device console, set by `?debug=1`. Read before React mounts, so deliberately not in `STORAGE_KEYS` |
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
 
@@ -851,6 +859,50 @@ applies `override`, splices in inline custom profiles, and returns the same `mem
 "pick a group" path is not a separate code path — `buildClassicRoster` expresses it as a roster.
 One engine, two doors.
 
+### A cast drawn from more than one source is its own group
+
+**Section 4 of the prompt is composed from the roster, never from one group's config.** Getting
+this wrong shipped a bug found by phone play in v1.4.0 step 6: a cast of Jisoo (BLACKPINK), Irene
+(Red Velvet), a custom member, and Mina + Sana (TWICE) was handed `[BLACKPINK Background]` plus
+full Public / Private / Queer Texture prose for **all four** BLACKPINK members — three of whom were
+not in the roster. Round 1 put Jennie, Rosé and Lisa in the story and set the company to YG.
+
+Neither symptom was the model's. **Section 6's rule says only members in MEMBER PROFILES may appear
+by name, and section 4 was contradicting it two sections earlier with richer detail.** "YG" is in no
+file in this repo; it was inferred from the premise the prompt handed over. Where two sections
+disagree, the one with more specific detail wins.
+
+The rules now, all in `rosterResolver.js#composeRosterLore`:
+
+| Roster shape | Section 4 |
+| --- | --- |
+| exactly one whole group | that group's own `groupLore`, **verbatim** — this is what the classic door always produces, and what keeps the goldens fixed |
+| a subset of one group | that group's real name, listing only the members present, plus an explicit "no other member of \<group\> exists in this story" |
+| more than one group, or any custom member | **its own group**: `[<name> Background]`, `<name> is an N-member group under <name> Entertainment`, default name `X`, editable at Setup |
+
+**The cast is a group, not a collection of people from other groups.** The first attempt said they
+came from different agencies and that any scene putting two of them together needed a reason — which
+fights the setting, because secrecy, dorms, schedules, group activities and the phase beats are all
+group machinery. As a group it is a premise instead of a constraint, and naming the agency is what
+stops one being invented.
+
+**Never name the origin groups in composed lore.** That is the leak: a model told the cast is
+BLACKPINK completes the group from its own knowledge. Nothing downstream needs them — a member's
+profile says who she is, and her real-world affiliation plays no part in the game.
+
+Composed lore does **not** repeat the prose fields; section 5 carries them for exactly the members
+present. The single-group lore duplicates them and that is inherited token cost, not a pattern to
+extend.
+
+**An all-custom cast has no group config at all**, and `buildSystemPrompt` reads
+`groupConfig.groupLore` unconditionally, so returning `null` threw before round 1. `resolveRoster`
+synthesises one. Reachable, because a custom member can be the main.
+
+**The guard that should have caught this asserted the opposite** — *"lore follows the main member's
+group, not the first group listed"* pinned the bug as intended behaviour. A guard written from the
+implementation instead of from the requirement does that; the defence is to ask what the check would
+look like if the behaviour were wrong.
+
 Library members stay **by reference** so a fixed profile reaches games in progress; custom
 members are **snapshotted inline** so deleting one from the palette cannot break a running save.
 
@@ -892,7 +944,25 @@ Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `em
 
 **Member ids are not unique across the library, so a shared id carries the same habit in every group.** A physical tic belongs to the person, not the roster: `x` is a crossover roster sharing seven ids, and smoke fails when one copy is edited and its twin forgotten.
 
-**It renders as a `Habit:` line below `Queer Texture:`, and the line is conditional.** A member without one renders *nothing* — never `  Habit: ` with a trailing space. Custom members (step 6) are exactly that case, and a trailing space is invisible to a reviewer while costing the whole ~5,500-token cached prefix; it is the single byte the goldens caught during the step 3 extraction. Note that the goldens **cannot** catch this particular regression, because every library member has a habit, so the empty case never appears in a snapshot — making the line unconditional leaves all three goldens green. The dedicated guard in Layer I is what fails, and it was verified to.
+**EVERY optional field in the member profile block is conditional.** An absent one renders *nothing*
+— never a label with a trailing space, and never the string `undefined`. Only `Age` and `Address` are
+unconditional, because both are computed and can never come out empty.
+
+This generalised in step 6, and it had to: a custom member is allowed to carry only the three fields
+`docs/V140_PLAN.md` §4.4 requires (`name`, `birthday`, `private_personality`), and that rendered
+**four defects in one profile block** — `undefined` twice (emoji, animal) and a trailing space twice
+(`  Public: `, `  Queer Texture: `). Step 5 had fixed one instance of a class with five more members.
+Note `resolveRoster` snapshots a custom profile straight into `members[]`, so it never passes through
+`parseGroupConfig` where the `|| ""` defaults live — and an empty string produces the same trailing
+space as `undefined` anyway, so the condition tests for *content*, not presence.
+
+A trailing space is invisible to a reviewer while costing the whole ~5,500-token cached prefix; it is
+the single byte the goldens caught during the step 3 extraction.
+
+**The goldens cannot catch this class of regression, and that is measured, not assumed.** Reverting
+the conditionals leaves **0 of 3 goldens moved while 8 Layer I checks fail** — all 175 library member
+records are complete, so the empty branch appears in no snapshot. Custom members are the branch no
+fixture can contain. Do not read a green golden as coverage of a case the fixtures cannot hold.
 
 57 members × 3 languages, plus `_template`. All 30 files are **CRLF** — `cat -A` piped through GNU sed shows clean `$` and is lying, because sed strips the CR in text mode.
 
@@ -1191,9 +1261,23 @@ of a step whose whole gate is that they do not move, and it likely lands with pl
 leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
 upstream — and is deleted.
 
-**Steps 3, 4 and 5 are done, pushed and unreleased.** `dev` and `origin/dev` are at `7fd109c`,
-**CI green** (run `36046756985`), 16 commits ahead of `main` and 0 behind. Smoke **578 → 695**.
-None ships a player-visible change on its own, so all three ride with v1.4.0.
+**Steps 3, 4 and 5 are done and step 6 is in progress — all on `dev`, all unreleased.** `dev` and
+`origin/dev` are at `b8e66b0`, **CI green** (run `36136433425`), 0 behind. Smoke **578 → 849**.
+
+**Step 6 is the first of these with player-visible changes**: a second door on the cover leading to
+a roster builder, a three-step member editor with LLM card generation, cast photos, and an
+on-device console behind `?debug=1`. It was **hand-tested on an iPhone against the Cloudflare
+branch alias** — `dev.idol-dating-sim.pages.dev` — which found three bugs nothing offline could:
+the birth-year field could not be typed into, the role picker hid what it was assigning, and a
+cross-group cast was described as the main member's group (see *"A cast drawn from more than one
+source is its own group"*). All three are fixed. **Goldens byte-identical throughout step 6.**
+
+**For branch previews use Cloudflare, not Vercel.** Cloudflare's alias is a deterministic
+`<branch>.<project>.pages.dev`; Vercel's preview hostname embeds a team slug that exists nowhere in
+this repo and cannot be derived from it.
+
+Remaining in step 6: correcting a migrated birth year on a loaded save, optionally splitting the
+classic Setup page, and docs. The roster builder's visual design is unpolished by agreement.
 
 **Step 4 — save migration** (`9d1c6cd`..`73b0995`). Three commits: the **player birth-year
 field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/`roster`), and the `App.jsx` rewiring
@@ -1219,6 +1303,28 @@ strings across 30 files plus the 30 root mirror copies, then the one conditional
 Smoke **671 → 683**. A v1.3.9 hand-play bug found while the branch was green rode along in
 `7fd109c` (a Kakao transcribed into the story — see the KKT note under Social Media System),
 taking smoke to **695** and moving the goldens a second time.
+
+**Step 6 — the custom-cast UI** (`919449a`..`b8e66b0`, nine commits). Smoke **695 → 849**. In order:
+the prompt surviving an incomplete member, the palette + photo store, `cardGenerator`, the member
+editor, the roster builder + second door, the on-device console, then the three phone-test fixes.
+
+Three deviations from `docs/V140_PLAN.md`, each deliberate and recorded there: **three storage keys,
+not five** (custom worlds and world selection are v1.4.1, and this repo already carries two
+constants nobody imports); **nine generated card fields, not seven** (`name` and `birthday` are
+generated too, or the player still hand-fills two required fields; `mbti`/`role`/`name_kr`/`tags`
+reach no prompt for a custom member); and **`world.setting` does not exist yet**, so the card prompt
+falls back to `world.name` and will prefer `setting` once v1.4.1 adds it.
+
+**`src/utils.js` and `src/utils/` now both exist**, because §10 specifies
+`src/utils/imageStore.js`. Vite and esbuild both resolve `from "./utils"` to the file, and
+`imageStore` names its own import `../utils.js` rather than relying on that. **Never add a
+`src/utils/index.js`** — it would silently re-point every such import; smoke asserts none exists.
+
+**Two `src/` bugs in step 6 were found by tests rather than by the build**, both worth remembering:
+`rosterFromPicks` used `SLOTS` without importing it, and an undefined identifier is a *runtime*
+error, so `npm run build` passed on code that threw the moment it ran. And an all-custom cast
+returned `groupConfig: null` into a consumer that dereferences it unconditionally. A green build
+says the module graph resolves, not that any of it executes.
 
 **The goldens moved here — deliberately, and for the first time since step 1.** 19 insertions, 0
 deletions, every one a `Habit:` line, one per member. `update-golden.mjs` was run once and the

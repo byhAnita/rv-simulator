@@ -48,6 +48,34 @@ the literal key. Revoke the key at the provider when you are done with it.
 Layers **E**–**I** are listed in the header comment of `smoke.mjs`; this table
 predates them.
 
+**And the custom cast** (v1.4.0 step 6). The palette's and photo store's quota rules
+are pure functions, tested directly — the half that can lose a player's data must
+not be reachable only by hand. `cardGenerator` is tested against a mocked `fetch`
+for the contract that matters: **every failure yields a blank form**, because a
+dead provider must not be able to block character creation, and that is the path a
+live test would exercise least often.
+
+The UI is checked by **source-string assertions**, the same shape as the Layer G
+key-page guards. Two are worth knowing about:
+
+- **Both `.jsx` files are compiled by smoke.** `App.jsx` imports them now, but for
+  two commits it did not, and the Vite build only compiles what the module graph
+  reaches — so a JSX error or a bad import path would have shipped silently.
+- **Comments are stripped before matching.** A guard asserting the year input is
+  not `type="number"` failed on the comment explaining why it is not, which is the
+  same trap the `getNpcMembers` guard in Layer G calls out.
+
+Three step-6 bugs came from a phone hand test and each has a regression check:
+the birth-year **round trip** (simulated keystroke by keystroke — the guard it
+replaced asserted the stored format and never that the value read back, so it
+passed against completely broken behaviour), the named-role picker, and
+**cross-group lore** (nine checks: no member outside the roster in section 4, the
+origin groups never named, the cast presented as its own group under a named
+agency). Two `src/` bugs in step 6 were caught by tests and **not** by the build —
+an unimported `SLOTS` and a `null` `groupConfig` — because an undefined identifier
+and a dereferenced null are runtime errors, and a green build only says the module
+graph resolves.
+
 **Layer I also covers world and roster loading** (v1.4.0 step 3): that the world
 JSON loads through `loadWorld` in all three languages, that it still declares
 every identity and pace id that can sit in a save, that `parseWorld` throws on a
