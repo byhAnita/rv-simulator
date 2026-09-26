@@ -64,13 +64,19 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const langRules = {
     zh: {
       lang: "Chinese (Simplified)",
-      rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean words (like unnie, xi) may appear rarely with Simplified Chinese translation in parentheses.",
+      // The old wording asked for Korean words "rarely, with a translation in
+      // parentheses" and gave "unnie" as its example — which contradicted
+      // section 6 twice over (it wants 欧尼, no gloss, and frequent enough to
+      // feel Korean) from inside a section headed HIGHEST PRIORITY. It predates
+      // the address protocol and was never revisited. Now it defers instead of
+      // competing.
+      rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in Simplified Chinese.",
       socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
     },
     en: {
       lang: "English",
-      rule: "ALL generated content MUST be in English. Korean words (like unnie, xi) may appear rarely with English translation in parentheses. DO NOT output Chinese characters.",
+      rule: "ALL generated content MUST be in English. DO NOT output Chinese characters. Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in English.",
       socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
     },
@@ -276,7 +282,7 @@ ${memberDetails}
 ║ 6. CAST IDENTITY & ADDRESS               ║
 ╚══════════════════════════════════════════╝
 THE PLAYER: ${playerName} — a young WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
-Identity: ${form.identity}
+${playerName}'s identity: ${form.identity}
 Progression Pace: ${form.pace}
 Main Member: ${mainMember?.name}(${mainMember?.name_kr})
 ${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
@@ -290,6 +296,11 @@ ${identityBg}
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
 - Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}".
+
+-- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
+- ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
+- The members' working life — practice, schedules, comebacks, the dorm, this company — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no practice here to be late for and no place in their schedule, and no member reminds her of one.
+- When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from the group's calendar.
 
 -- REGISTER: blend these, do not look one up --
 Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}. It relaxes toward her given name as they grow close.` : ""}
@@ -324,14 +335,15 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Relationship stages: - Stages: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial.
+- Relationship stages: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial. [Affections] in CURRENT STATE names the current stage for each member; these are the same seven in the same order.
 - Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
 
 ╔══════════════════════════════════════════╗
 ║ 10. STAT SYSTEM                          ║
 ╚══════════════════════════════════════════╝
-Player 4 stats: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood | 📅Round
-LLM decides stat changes +/-1-10 each round, NOT mandatory.
+Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
+📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
+Choose the three yourself, +/-1 to +/-10, and move at least one of them.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -352,7 +364,7 @@ LLM decides stat changes +/-1-10 each round, NOT mandatory.
 }
 
 RULES:
-- scene: A short location description (e.g., "SM Practice Room, 10PM").
+- scene: A short location description (e.g., "Practice room, 10PM"). Do not name a record company here.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false}], NOT a string.
@@ -363,10 +375,8 @@ RULES:
 - summary: ALWAYS required. One short English sentence capturing who appeared and what emotionally shifted.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
-- For Chinese/English: bubble/social content MUST NOT be in Korean.
+- For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
-
-// Change to:
 ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}` : ''}`;
 }
 

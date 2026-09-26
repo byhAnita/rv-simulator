@@ -1923,6 +1923,122 @@ async function layerI() {
   check("dialogue is no longer exempt from the pronoun rule",
     !/members may address the player by name, nickname, or title — that is fine/.test(p));
 
+  // --- the ROLE CONTRACT: the player's identity and the members' are not
+  //     interchangeable. Reported from hand play in both directions at once — a
+  //     Chaebol player's 会长 claimed by Irene ("作为会长，我…") and narrated as a
+  //     third person ("走向会长办公室"), while the player was handed the members'
+  //     practice schedule back.
+  const roleAt = p.indexOf("ROLE CONTRACT");
+  check("section 6 carries a ROLE CONTRACT", roleAt !== -1,
+    "the SPEAKER CONTRACT governs pronouns and names and says nothing about roles");
+  // Beside the speaker contract and before REGISTER: this is a "who is who" rule,
+  // and the two are read together.
+  check("...next to the speaker contract, not in some other section",
+    roleAt > p.indexOf("SPEAKER CONTRACT") && roleAt < p.indexOf("REGISTER:"));
+  const roleBlock = p.slice(roleAt, p.indexOf("REGISTER:"));
+  check("...stating that the player's identity is hers and no member's",
+    /identity above describes HER position in this world and no one else's/.test(roleBlock)
+      && /No member holds it, is described by it, or speaks as if she held it/.test(roleBlock),
+    roleBlock.slice(0, 120));
+  check("...that a role's title names the player alone",
+    /the title names Summer alone/.test(roleBlock),
+    "会长 reaches the prompt only as an address form, so nothing said it NAMES her");
+  check("...and that narration may not send a member off to it as a third person",
+    /third person elsewhere in the building/.test(roleBlock));
+  check("the members' working life is marked as theirs, not the player's",
+    /working life — practice, schedules, comebacks, the dorm, this company — is THEIRS/.test(roleBlock)
+      && /no place in their schedule/.test(roleBlock),
+    roleBlock.slice(0, 200));
+
+  // The load-bearing qualifier. A 练习生 player really is a trainee at this
+  // company and a 韩娱艺人 really has a comeback of her own, so a FLAT denial
+  // would break the writing for 2 of the 8 identities. The denial is scoped to
+  // this group's working day, and conditional on her identity not placing her in
+  // it. An earlier draft of this rule asserted it absolutely, and reading the
+  // golden diff is what caught that.
+  check("...and that denial is conditional, not absolute",
+    /Unless that identity places her inside this group's working day/.test(roleBlock),
+    "a trainee player has practice; the rule must not deny it");
+  // The identity LABEL must not be quoted into the rule: "no member says 'as the
+  // 韩娱艺人, I…'" is false, because a member of a K-pop group is one.
+  check("...and the rule never quotes the identity label back at the model",
+    !roleBlock.includes("韩娱艺人")
+      && (!form().identity || !roleBlock.includes(form().identity)),
+    "an identity a member also satisfies makes the rule read as a falsehood");
+
+  // --- v1.4.0 step 6: a full read of the rendered prompt, and what it found.
+  // Each of these was a statement about the setting that contradicted another
+  // statement, or was debris. None threw an error; all of them reached the model
+  // on every round.
+  check("no editing debris is left in the prompt",
+    !/\/\/ Change to:/.test(p),
+    "`// Change to:` sat at the very end of every prompt ever sent");
+  // The schema's own example named SM, so every cast was handed SM's name
+  // whatever company they are under — the same leak class as the YG bug, except
+  // written into the prompt as an example to follow.
+  check("the scene example names no record company",
+    !/SM Practice Room/.test(p) && /Do not name a record company here/.test(p),
+    "an example is an instruction");
+  // Section 1 is headed HIGHEST PRIORITY and used to ask for Korean "rarely,
+  // with a translation in parentheses", giving "unnie" as the example — which
+  // section 6 spells 欧尼, glosses never, and wants frequent. The highest-priority
+  // section won, which is why this mattered.
+  //
+  // SWEPT OVER ALL THREE LANGUAGES, and that is not padding: `p` is the English
+  // prompt, the contradiction lived in the zh and en rules separately, and the
+  // first version of this guard checked only `p` — so mutating the zh rule left
+  // it green and only the zh golden moved. A per-language rule needs a
+  // per-language check.
+  const langRuleOf = (lang) => prompt(form(), lang).split("\n")
+    .find((l) => /ALL generated content MUST be in/.test(l)) || "";
+  for (const lang of ["zh", "en", "ko"]) {
+    const rule = langRuleOf(lang);
+    check(`[${lang}] the language rule does not compete with the address table`,
+      !/translation in parentheses/.test(rule) && !/may appear rarely/.test(rule),
+      rule.slice(0, 160));
+  }
+  for (const lang of ["zh", "en"]) {
+    check(`[${lang}] ...it defers to section 6 instead`,
+      /follow section 6's table exactly/.test(langRuleOf(lang)),
+      "two rules for one thing means the model picks, and it picked the wrong one");
+  }
+  // ko is deliberately not in that list: its address forms ARE the native
+  // Korean, so its rule never carried a competing instruction to remove.
+  check("[ko] the language rule stays as it was, having nothing to contradict",
+    /DO NOT output Chinese characters/.test(langRuleOf("ko"))
+      && !/section 6's table/.test(langRuleOf("ko")),
+    langRuleOf("ko").slice(0, 120));
+  check("...and section 6 still asks for them often enough to be texture",
+    /Keep them frequent enough to feel Korean/.test(p),
+    "that is the line the old language rule contradicted");
+
+  // Round was listed among the "4 stats" the model may change, beside three it
+  // genuinely may; and section 10 said stat changes were "NOT mandatory" while
+  // the schema RULES demanded at least one non-zero.
+  check("the round counter is not offered as a stat to change",
+    /📅Round is a counter the app keeps/.test(p) && !/Player 4 stats/.test(p),
+    "statChanges carries selfId/secrecy/mood and nothing else");
+  check("...and the stat rule no longer contradicts the schema",
+    !/NOT mandatory/.test(p) && /move at least one of them/.test(p),
+    "section 10 said optional, RULES said at least one non-zero");
+  // A "- Stages:" fragment left from an earlier edit, mid-sentence.
+  check("the relationship-stage line is not doubled up",
+    !/Relationship stages: - Stages:/.test(p));
+  // The tail emits Chinese stage labels in every language (getStageName takes no
+  // language), so an English game reads `Irene:24(有印象)`. Localizing those is a
+  // separate change; until then the prompt at least says the two lists are the
+  // same seven in the same order, which is what lets the model map them.
+  check("...and it tells the model the tail's stage names are these same seven",
+    /\[Affections\] in CURRENT STATE names the current stage/.test(p),
+    "otherwise the model sees stage names it was never given");
+
+  // Ownership: `Identity: 财阀` sat as a bare label in a flat run of
+  // Identity/Pace/Main Member/Sub Members, so the player's occupation was in the
+  // same unowned list as the roster.
+  check("the player's identity line names its owner",
+    /\nSummer's identity: /.test(p) && !/\nIdentity: /.test(p),
+    "an unowned label is one the model may attach to anyone");
+
   // --- register is soft and blended, not a per-stage lookup.
   for (const cue of ["Age gap", "Closeness", "Private Personality"]) {
     check(`register blends ${cue}`, p.includes(cue));
@@ -4021,6 +4137,60 @@ async function layerL() {
     none(g.kktTranscribed(transcribed, {})),
     "that is the sibling check's job, and it must not double-report");
 
+  // --- the ROLE CONTRACT, graded from the prose ----------------------------
+  // The reported line, verbatim: a Chaebol player's own office claimed by Irene.
+  check("a member claiming the player's role is flagged",
+    g.roleClaimedByMember("Irene看着你，说“作为会长，我不能同意。”", "会长")[0]
+      === "role-claimed-by-member:会长",
+    JSON.stringify(g.roleClaimedByMember("Irene看着你，说“作为会长，我不能同意。”", "会长")));
+  check("...in Korean and English too",
+    g.roleClaimedByMember("그녀가 말했다. “회장으로서 저는 반대예요.”", "회장").length === 1
+      && g.roleClaimedByMember('She said, "As the chairman, I cannot allow it."', "chairman").length === 1,
+    "the claim is a self-ascription, and each language marks it differently");
+  // The title is legitimate all over a clean round — as ADDRESS, and in
+  // narration. A grader that flags those gets tuned away within a week.
+  check("...but the title used to ADDRESS the player is not flagged",
+    none(g.roleClaimedByMember("Irene低下头：“会长nim，这边请。”", "会长")),
+    "that is the work override doing exactly what it is for");
+  check("...nor the title in narration",
+    none(g.roleClaimedByMember("她穿过走廊，会长办公室的门是开着的。", "会长")),
+    "narration may name her office; only a member may not claim it");
+  // The false positive dialogue-scoping exists to prevent: narration saying the
+  // PLAYER holds the role is not only legal, it is the setting. Without the
+  // dialogueSpans scope this reads as a claim and fires.
+  check("...nor narration stating that the player holds it",
+    none(g.roleClaimedByMember("你作为会长走进会议室，所有人都站了起来。", "会长")),
+    "she does hold it — that is the premise, not a defect");
+  check("...and no role means no check",
+    none(g.roleClaimedByMember("“作为会长，我不能同意。”", null)),
+    "an identity with no work title cannot have it claimed");
+
+  // The other direction: the player handed the members' working day.
+  check("the player given a practice of her own is flagged",
+    g.playerGivenIdolLife("她提醒你：“明天的练习别迟到。”")[0]?.startsWith("player-given-idol-life:"),
+    JSON.stringify(g.playerGivenIdolLife("她提醒你：“明天的练习别迟到。”")));
+  check("...including the possessive form, in all three languages",
+    g.playerGivenIdolLife("你的回归准备得怎么样？").length === 1
+      && g.playerGivenIdolLife("네 연습은 어땠어?").length === 1
+      && g.playerGivenIdolLife("How was your rehearsal?").length === 1,
+    "a player outside the group has none of these");
+  // A chairman may stand in a practice room; what she may not have is a practice.
+  check("...but visiting the practice room is not flagged",
+    none(g.playerGivenIdolLife("你推开练习室的门，她们正在排练。")),
+    "the place is not the obligation");
+  check("...nor a member's own schedule mentioned near the player",
+    none(g.playerGivenIdolLife("你看着她。她明天还有排练，得早点睡。")),
+    "sentence-scoped on purpose — her schedule is hers");
+  // The false positive the sentence scope exists to prevent: "you" in one
+  // sentence and somebody ELSE's practice call in another. Whole-story matching
+  // reads those as one statement about the player.
+  check("...nor another member being told off in a later sentence",
+    none(g.playerGivenIdolLife("你站在门口看着。她提醒Joy，排练别迟到。")),
+    "two sentences, two subjects — only a scope keeps them apart");
+  check("...and an identity that really has practice is skipped entirely",
+    none(g.playerGivenIdolLife("她提醒你：“明天的练习别迟到。”", { sharesIdolLife: true })),
+    "a 练习生 player has practice at this company; the rule must not fire");
+
   // --- the cross-group leak, graded from the prose -------------------------
   // The phone-reported round: told the cast was BLACKPINK, the model supplied
   // Jennie, Rose and Lisa from its own knowledge and set the company to YG.
@@ -4066,7 +4236,8 @@ async function layerL() {
   // The harness must actually call them, or the layer tests dead code.
   const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");
   for (const fn of ["narratedHonorifics", "nameYaVocative", "sinicizedHonorifics", "selfNameErrors",
-                    "kktTranscribed", "outsideCastNames", "realAgencyNames"]) {
+                    "kktTranscribed", "outsideCastNames", "realAgencyNames",
+                    "roleClaimedByMember", "playerGivenIdolLife"]) {
     check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
   }
 }

@@ -584,6 +584,75 @@ The fix is a per-member **Address** line computed from birth years plus the play
 
 Korean workplace register overrides age where it genuinely would: a **Staff** player is `매니저님` and a **Chaebol** player `회장님` regardless of who was born first, softening toward her name as they get close.
 
+### Whose life is whose — the ROLE CONTRACT
+
+**A fourth failure in this family, reported from hand play and fixed in v1.4.0 step 6.** The player's
+identity and the members' leaked into each other, in both directions at once:
+
+- A **Chaebol** player is the company's chairman, and Irene said *"作为会长，我…"* — claiming the
+  player's office — while narration wrote *"Irene越过你离开走向会长办公室"*, treating 会长 as a third
+  person in a room the 会长 is standing in.
+- The same player was handed the members' working life back: her own trainee practice, and Irene
+  reminding her not to be late for tomorrow's.
+
+**Neither was the model's.** Two things in the prompt caused it, and both are the absence of a
+statement rather than a wrong one:
+
+1. **The role had no owner.** Section 6 listed `Identity: 财阀` as a bare label in a flat run of
+   `Identity:` / `Progression Pace:` / `Main Member:` / `Sub Members:` — so the player's occupation
+   sat in the same unowned list as the roster. It is now `<player>'s identity:`.
+2. **`会长` entered the prompt only as an address form.** `workTitle` supplies `会长nim` / `회장님` as
+   what members *call* her, and nothing said the title *names* her. A floating role noun is one the
+   model may attach to anyone.
+
+And the amount of context on each side is wildly asymmetric: sections 4 and 5 give the members
+thousands of tokens of practice rooms, comebacks, dorms and schedules, against one line for the
+player's job. When the model needs an occupation for anyone, idol is what is available — so the
+player drifts into the group's calendar unless told she is not on it.
+
+**The SPEAKER CONTRACT governed pronouns and names and said nothing about roles**, which is the
+third time a contract in this section has been read, correctly, as exhausting its subject: dialogue
+was once exempt from the pronoun rule, address forms once had no narration/dialogue scope, and now
+roles were not mentioned at all. **When a contract enumerates, the model treats what it omits as
+unconstrained.** Check what a new rule's neighbours *do not* say.
+
+The `ROLE CONTRACT` now sits beside it, and the "unless her identity places her there" clause is
+load-bearing: a **练习生** player really does have practice and a **韩娱艺人** really does have a
+comeback, so the rule cannot be a flat denial. Note also that `练习生` points its work title the
+other way — she uses `선배님` *for* the members — so the contract is written about the identity, never
+about the title's direction.
+
+### Reading the whole rendered prompt, once, found six more
+
+Prompted by the report above: if one setting statement was unclear, others would be. The artifact to
+read is a **golden fixture** — it is the rendered prompt, every substitution already made — and
+reading all 240 lines of one turned up six defects that throw no error and fail no test. None was a
+wrong rule; five were two rules disagreeing, and one was debris.
+
+| Found | Was |
+| --- | --- |
+| **Editing debris in every prompt ever sent** | a bare `// Change to:` line sat between the JSON rules and the memory context |
+| **The schema example named a real agency** | `scene` was exemplified as `"SM Practice Room, 10PM"`, handing every cast SM's name whatever company they are under — the YG leak again, but written in as an example to follow |
+| **Section 1 contradicted section 6 on Korean** | *"Korean words (like unnie, xi) may appear **rarely** with … **translation in parentheses**"* against section 6's exact table, no gloss, and *"frequent enough to feel Korean"*. Section 1 is headed HIGHEST PRIORITY, so it won — and its own example `unnie` is spelled `欧尼` by the table it was overruling. It predates the address protocol. It now defers to section 6 instead of competing |
+| **The round counter was offered as a stat** | *"Player 4 stats: … \| 📅Round"*, beside three the model may actually change |
+| **Section 10 contradicted the schema** | stat changes were *"NOT mandatory"* while `RULES` demanded *"at least 1 field non-zero"* |
+| **A fragment from an earlier edit** | `- Relationship stages: - Stages: 0-15 Stranger…` |
+
+**The pattern in five of the six is a stale rule left beside a newer one.** Nothing in this repo
+fails when two sections disagree; the model simply picks, and it reasonably picks the one marked
+HIGHEST PRIORITY or the one carrying more specific detail — which is the same mechanism that made
+section 4 outrank section 6 in the cross-group bug. **When a rule is added to the prompt, grep for
+what the old one said about the same thing and delete it.** A prompt is not append-only.
+
+Guarded in Layer I, one check per finding, each mutation-verified. The language-rule check **sweeps
+all three languages**, because the first version tested only the English prompt: the contradiction
+lived in the zh and en rules separately, so mutating zh left the guard green and only the zh golden
+moved. A per-language rule needs a per-language check.
+
+Still open from the same read: the stage-label mismatch under Relationship Stages, and section 4's
+*"reference group history, inside jokes … past events"* — sound for a real group, an invitation to
+invent for a composed cross-group cast, whose lore has no history to draw on.
+
 ### Korean address forms are transliterated, never localized
 
 The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. The prompt carries a token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
@@ -824,15 +893,27 @@ Social content is stored in module-level `pendingSocialFeeds`. `popPendingSocial
 
 Defined in `src/config/stageConfig.js`:
 
-| Stage | Score Range |
-| --- | --- |
-| Stranger | 0-15 |
-| Acquaintance | 16-30 |
-| Friend | 31-50 |
-| Close Friend | 51-65 |
-| Crush | 66-80 |
-| Lovers | 81-90 |
-| Trial | 91-100 |
+**Corrected in v1.4.0 step 6 — this table named four stages that exist nowhere in the code.** It
+said Friend / Close Friend / Crush / Lovers for the middle four; `DEFAULT_STAGE_NAMES` has always
+been the Chinese list below, and `buildSystemPrompt` has always sent the English list beside it. The
+names here were invented by the documentation. Found by reading the rendered prompt end to end.
+
+| Score | `DEFAULT_STAGE_NAMES` (what the tail emits) | Section 9 of the prompt |
+| --- | --- | --- |
+| 0-15 | 陌生人 | Stranger |
+| 16-30 | 有印象 | Acquaintance |
+| 31-50 | 产生兴趣 | Interest |
+| 51-65 | 暧昧期 | Flirting |
+| 66-80 | 确认关系 | Confirmed |
+| 81-90 | 热恋期 | Passionate |
+| 91-100 | 考验期 | Trial |
+
+**`getStageName` takes no language, so the dynamic tail emits the Chinese labels in every
+language** — an English game reads `Irene:24(有印象)` while section 9 lists `Acquaintance`. The
+model was given two vocabularies for one scale and no statement that they correspond. Section 9 now
+says they are the same seven in the same order, which is the cheap half of the fix; localizing the
+labels is the other half and is **open** — it touches the UI's stage display as well, so it is not a
+prompt-only change. Note that localizing them **moves every golden** and changes the cached prefix.
 
 Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` also surfaces `proposal_ready`, `breakup_warning`, and `pressure_warning` as `specialEvent`.
 

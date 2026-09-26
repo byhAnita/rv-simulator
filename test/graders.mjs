@@ -128,6 +128,71 @@ export function nameYaVocative(story, cast, lang) {
 // because "ok" or "응" legitimately appear in dialogue.
 const KKT_MIN_VERBATIM = 6;
 
+// The ROLE CONTRACT, graded from the prose. Reported from hand play on a Chaebol
+// player: Irene said "作为会长，我…", claiming the player's own office, and
+// narration wrote "Irene越过你离开走向会长办公室" — sending her to the chairman's
+// office while the chairman stood in the room. See CLAUDE.md, "Whose life is
+// whose".
+//
+// Dialogue only, and only a SELF-ascription. The bare title is legitimate all
+// over a clean round: members address the player as 会长nim constantly, and
+// narration may name her office. What is never legitimate is a member saying she
+// holds it.
+//
+// `playerRole` must be the bare title (会장 / 회장 / 经纪人), not the address form
+// — and the caller must not pass one for 练习생, whose work title points the OTHER
+// way: there the members ARE the seniors and "작为前辈，我…" is correct. mainAgent's
+// `identityAddress` makes the same exception for the same reason.
+export function roleClaimedByMember(story, playerRole) {
+  if (!story || !playerRole) return [];
+  const r = esc(playerRole);
+  const claims = [
+    new RegExp(`(作为|身为|我是|我就是|我这个)\\s*${r}`),
+    new RegExp(`${r}(으로서|로서)`),
+    new RegExp(`(저는|제가|내가)\\s*${r}`),
+    new RegExp(`\\b(as|I am|I'm)\\s+(the\\s+)?${r}\\b`, "i"),
+  ];
+  for (const span of dialogueSpans(story)) {
+    if (claims.some((c) => c.test(span))) return [`role-claimed-by-member:${playerRole}`];
+  }
+  return [];
+}
+
+// The other direction: the player handed the members' working life. A Chaebol
+// player was reminded not to be late for tomorrow's practice, and narrated going
+// to her own trainee session.
+//
+// Skipped entirely when her identity DOES place her in it — a 练习生 has practice
+// at this company and a 韩娱艺人 has a comeback of her own, so for them none of
+// this is a defect. That flag comes from the caller, because only it knows the
+// identity.
+//
+// Two shapes, both needing the player as the possessor. A bare "练习室" is fine:
+// a chairman may visit one. "Your practice" is not.
+export function playerGivenIdolLife(story, { sharesIdolLife = false } = {}) {
+  if (!story || sharesIdolLife) return [];
+  const possessive = [
+    /你的(练习|排练|行程|回归|打歌|练习室时间)/,
+    /(너의|네)\s*(연습|스케줄|컴백)/,
+    /\byour\s+(practice|rehearsal|schedule|comeback)\b/i,
+  ];
+  for (const p of possessive) {
+    const m = story.match(p);
+    if (m) return [`player-given-idol-life:${m[0]}`];
+  }
+  // The reported line carried no possessive: an obligation aimed at "you" in the
+  // same sentence as a practice word. Sentence-scoped so a member's own schedule
+  // two sentences away cannot pull it in.
+  for (const sentence of story.split(/[。！？.!?\n]/)) {
+    if (!/你|너|네가|\byou\b/i.test(sentence)) continue;
+    if (!/(练习|排练|연습|리허설|\bpractice\b|\brehearsal\b)/i.test(sentence)) continue;
+    if (/(迟到|别晚|早点到|准时|记得来|지각|늦지|\blate\b|\bon time\b)/i.test(sentence)) {
+      return [`player-given-idol-life:${sentence.trim().slice(0, 40)}`];
+    }
+  }
+  return [];
+}
+
 // A cross-group cast is its own group, and the origin groups are never named in
 // section 4 — because naming them lets the model complete the group from its own
 // knowledge. That is exactly what happened on the phone: a cast of Jisoo, Irene,

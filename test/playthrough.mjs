@@ -163,7 +163,28 @@ function languageOk(story, lang) {
 // Prose graders live in graders.mjs so smoke can unit-test them; see the
 // header there. esc moved with them.
 import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative,
-         kktTranscribed, outsideCastNames, realAgencyNames } from "./graders.mjs";
+         kktTranscribed, outsideCastNames, realAgencyNames, roleClaimedByMember,
+         playerGivenIdolLife } from "./graders.mjs";
+
+// The ROLE CONTRACT's two graders need to know what the player's identity gives
+// her, which nothing downstream of the world file can work out.
+//
+// `role` is the BARE title, not the address form: a member calling her 会长nim is
+// correct and constant. 练习生 is deliberately absent — its work title points the
+// other way (she calls the members 前辈nim), so a member claiming seniority is
+// right, and mainAgent's `identityAddress` carves out the same exception.
+//
+// `idol` marks the identities whose own working day really does contain practice,
+// a schedule or a comeback, so the second grader must stay silent for them.
+const IDENTITY_ROLE = {
+  "财阀": { role: { zh: "会长", ko: "회장", en: "chairman" }, idol: false },
+  "Staff": { role: { zh: "经纪人", ko: "매니저", en: "manager" }, idol: false },
+  "练习生": { role: null, idol: true },
+  "韩娱艺人": { role: null, idol: true },
+  "粉丝": { role: null, idol: false },
+  "留学生": { role: null, idol: false },
+  "主线成员前女友": { role: null, idol: false },
+};
 // unnie in the three scripts the game can output, with or without a separator.
 // The transliterated forms only. 姐 is deliberately absent: the setting is
 // Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
@@ -246,6 +267,13 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast, ou
       bad.push(...outsideCastNames(story || "", outsiders));
       bad.push(...realAgencyNames(story || ""));
     }
+
+    // The ROLE CONTRACT, from both sides: a member claiming the player's office,
+    // and the player handed the members' working day. An unmapped identity (a
+    // custom one) grades neither rather than guessing.
+    const ident = IDENTITY_ROLE[IDENTITY];
+    if (ident?.role) bad.push(...roleClaimedByMember(story || "", ident.role[lang] || ident.role.en));
+    if (ident) bad.push(...playerGivenIdolLife(story || "", { sharesIdolLife: ident.idol }));
 
     const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);
     if (!delivered) {
