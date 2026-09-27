@@ -5089,6 +5089,17 @@ async function layerL() {
   check("the harness records which slot each member held",
     /report\.roster = members\.map/.test(harness) && /slot: m\.id === mainId/.test(harness),
     "member rotation is a rule about slots");
+  // A --route run that does not record which model answered is uninterpretable: the
+  // route's head moves as models run out of free credits, so two runs with identical
+  // flags can be two different models. Step 7 compared two such runs and read a 43%
+  // output-length drop as a prompt effect.
+  check("the harness records which model served each round",
+    /report\.served\[servedModel\] = \(report\.served\[servedModel\] \|\| 0\) \+ 1;/.test(harness)
+      && /getFreeRouteStatus\?\.\(API_KEY\)\?\.current/.test(harness),
+    "a route run with no served model is an anecdote");
+  check("...and warns when more than one model answered",
+    /more than one model answered/.test(harness),
+    "the rounds are then not directly comparable");
   check("scripts/analyze-prose.mjs reads the transcript",
     existsSync(join(ROOT, "scripts/analyze-prose.mjs"))
       && /transcript\?\.story/.test(readFileSync(join(ROOT, "scripts/analyze-prose.mjs"), "utf8")),

@@ -321,6 +321,23 @@ id — three of the four rules had never reached a model. Smoke asserts the `for
 is built from `IDENTITY` and `PACE`, not from strings: a check on the flag list alone
 would pass while `form.pace` stayed hardcoded.
 
+### `--route` does not control the model, and the report now says which one answered
+
+**Step 7 learned this the expensive way.** A 25-round A/B of a prompt change showed output length
+dropping 43% and rotation getting slightly worse — and the cause was that **one more model had gone out
+of free credits between the two runs**, so the route's head moved and a different model answered. The
+two runs had nothing in common but the flags. The report recorded no served model, so nothing in it said
+so; the only clue was one extra `free_exhausted` line in `captured`.
+
+The harness now records the served model per round and prints `served by: <model> xN`, with a warning
+when more than one answered. **Read that line before comparing two runs.**
+
+And note what it implies for a long night of testing: **each run can spend the head of the route**. By
+the end of step 7's session the route was serving `glm-5.1` — the weakest model on it, and the one this
+repo records as running away to the output cap. A comparison against an earlier run is then measuring
+the route, not the change. For a controlled A/B, either pin a model you have just probed with
+`node test/smoke.mjs --live-free`, or run both arms back to back and check the `served by` lines match.
+
 ### Running several configurations
 
 Sequentially, always. Each invocation rebuilds `test/.out/agent.mjs`, so two harnesses at

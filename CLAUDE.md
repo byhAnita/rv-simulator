@@ -1710,8 +1710,35 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 **Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
 **578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
 
-**Step 7's pre-release review is the last of those commits and it is not a formality — it found
-nineteen defects.** The method was the one that worked in step 6, applied harder: read all three
+### Pick up here — step 7, 2026-09-28
+
+**Everything below is committed on `dev` and NOT pushed.** 20 commits unpushed, 50 ahead of `main`.
+`npm run build` clean, `node test/smoke.mjs` 1083 passed / 0 failed. Nothing is running.
+
+**The one thing genuinely unfinished: the fixes are not validated live.** The rotation fix, the phone
+ownership rule, the scene bound and the summary bound were all made from the 105-round run's evidence,
+and the 25-round validation that followed is **worthless as a comparison** — see `test/README.md`,
+*"`--route` does not control the model"*. The route's head had moved to a weaker model between the two
+runs, so output length fell 43% for reasons that have nothing to do with the prompt. What that run *did*
+show, and which is worth checking on a healthy model:
+
+- **rotation did not visibly improve** — Seulgi still had a 9-round gap, Wendy went 13/25 to 6/25. Either
+  `[Rounds Absent]` is not enough, or the weaker model could not use it. **Unresolved.**
+- **one `kkt-transcribed-in-story` survived the ownership rule**, at round 8: `手机震动了一下，是Irene发来的
+  消息：路上小心` plus the player replying. Read it before concluding anything.
+- a **126-character truncated round was accepted** and rendered with English fallback options — two
+  separate defects, both written up in `docs/PROPOSALS.md` §7.
+
+**So the next step is a controlled re-run**, not more changes: probe the route with
+`node test/smoke.mjs --live-free`, pin a model that answers, and run the same flags as
+`--rounds 25 --lang zh --identity 财阀 --pace 高压舆论向 --subs 2` twice — once on this code, once with
+`[Rounds Absent]` removed — and compare `rotation` from `node scripts/analyze-prose.mjs`. The `served
+by:` line in the report is what makes that comparison mean anything.
+
+**The release itself (`npm run bump 1.4.0` onward) is untouched and awaits Yuhan's go.** `main` is still
+v1.3.9 at `758faa3`.
+
+**Step 7's pre-release review found nineteen defects.** The method was the one that worked in step 6, applied harder: read all three
 rendered goldens end to end rather than the diff, read the prompt *against the code that consumes it*,
 and then run 105 live rounds and read the prose instead of the pass/fail line. Nine of the nineteen were
 invisible to any test that existed, and **seven of those were invisible to the zh fixture** — the

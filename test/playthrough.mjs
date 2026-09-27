@@ -371,7 +371,7 @@ async function runWorker(model) {
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { executeRound, createInitialStats, createEmptyMemory, buildHistoryLedger,
           collapseHistoryIfNeeded, loadGroupConfig, loadWorld, getNpcMembers, markModel, resetSessionSkips,
-          resetFreeRoute, buildSystemPrompt, resolveRoster } = mod;
+          resetFreeRoute, getFreeRouteStatus, buildSystemPrompt, resolveRoster } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
 
   // --- browser globals the app modules expect
@@ -638,6 +638,18 @@ async function runWorker(model) {
       }
       prevLedger = ledgerSent;
 
+      // WHICH MODEL SERVED THIS ROUND. Without it a `--route` run is
+      // uninterpretable, and step 7 learned that the expensive way: an A/B of a
+      // prompt change looked like a 43% drop in output length, and the real cause was
+      // that one more model had gone out of free credits between the two runs, so the
+      // route moved on and a different model answered. Two runs were compared that had
+      // nothing in common but the flags.
+      const servedModel = ROUTE_MODE
+        ? (getFreeRouteStatus?.(API_KEY)?.current || "(unknown)")
+        : model;
+      report.served = report.served || {};
+      report.served[servedModel] = (report.served[servedModel] || 0) + 1;
+
       const story = res.storyContent;
       const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast, outsiders });
       report.rounds.push({
@@ -810,6 +822,17 @@ async function runParent() {
     console.log(`\nmeasured prompt-cache hit rate (round 1+): ` +
       `min ${Math.min(...rates).toFixed(1)}% · median ${rates.sort((a, b) => a - b)[Math.floor(rates.length / 2)].toFixed(1)}% · max ${Math.max(...rates).toFixed(1)}%`);
   }
+  // Which model actually answered. In --route mode this is the difference between a
+  // comparable run and an anecdote: the route's head moves as models run out of free
+  // credits, so two runs a day apart with identical flags can be two different models.
+  const served = {};
+  for (const r of results) for (const [m, n] of Object.entries(r.served || {})) served[m] = (served[m] || 0) + n;
+  const servedList = Object.entries(served).sort((a, b) => b[1] - a[1]);
+  if (servedList.length) {
+    console.log(`\nserved by: ${servedList.map(([m, n]) => `${m} x${n}`).join(" · ")}` +
+      (servedList.length > 1 ? `  ${C.y}(more than one model answered — rounds are not directly comparable)${C.x}` : ""));
+  }
+
   console.log(`\ncache invariant: ${collapses} collapses, ${breaks} prefix breaks ` +
     `${breaks === 0 ? C.g + "(ledger prefix stable outside collapses)" + C.x : C.r + "(BROKEN \u2014 cache hit rate would drop)" + C.x}`);
 

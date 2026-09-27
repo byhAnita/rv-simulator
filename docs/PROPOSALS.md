@@ -329,17 +329,26 @@ not before — written now it would pin today's behaviour as the requirement.
 "D. Custom"]`. Both are English literals. So a Chinese or Korean player whose round fails to parse is
 shown four English buttons.
 
-**Why it is not fixed here.** Neither function knows the language: `parseLLMOutput` is called from
-`executeRound` (which does know) and from `hasUsableStory` (which is a content probe inside the LLM
-client's retry path). Threading `language` through both, or duplicating the i18n option strings into
-`mainAgent.js`, is more surface than the defect deserves without evidence that it fires — and the
-`parseLevel` distribution is exactly what `scripts/analyze-prose.mjs` now reports, so the evidence is
-cheap to get.
+**IT FIRES. Observed 2026-09-27**, round 24 of a zh run: a 126-character story cut off mid-sentence
+(`Irene的最后一条消息停在那里——`) with options `["A. Continue","B. Change topic","C. Stay silent","D. Custom"]`.
+Four English buttons in a Chinese game. So this is no longer hypothetical and should be fixed.
 
-**What would settle it.** The `direct` parse rate across a long run. If level 4 is never reached, this
-is a cosmetic defect on a path players do not travel and can stay written down. If it is reached, the
-right fix is probably that `executeRound` localises the options after parsing, since it is the one
-place that has both the language and the result.
+**And it exposes a second, worse defect beside it.** That round was **truncated**, and it was accepted:
+`MIN_STORY_CHARS` is 40, so `hasUsableStory` passed a 126-character fragment and the round was never
+retried. The `bad_response` machinery exists precisely to stop a truncated answer reaching the player —
+CLAUDE.md says "a truncated response is unusable by construction" — and 40 characters is far below
+anything this game produces (the observed minimum in 130 rounds is ~540, medians 750-1,140). **A
+threshold set to catch an empty answer does not catch a cut-off one.**
+
+**Why neither is fixed here.** Neither `parseLLMOutput` nor `validateAndFixOutput` knows the language:
+they are called from `executeRound` (which does) and from `hasUsableStory` (a content probe inside the
+client's retry path). And raising `MIN_STORY_CHARS` is a judgement about how short is too short, which
+interacts with §2's undecided length band — set it to 300 and a deliberately terse round gets retried.
+
+**What would settle the threshold.** The minimum story length across a run on a *healthy* model, which
+is not what produced this one: the round that triggered it was served by `glm-5.1`, the weakest model on
+the route and the one CLAUDE.md records as having run away to the output cap. Measure on a good model,
+then set the floor well under that minimum but far above 40.
 
 ---
 
