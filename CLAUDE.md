@@ -286,7 +286,7 @@ NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 file used to show had never been sent to any model. Section 8's `2-round cooldown` therefore named a
 cooldown the model was given no information to apply.
 
-Replaced in step 7 by `[Rounds Since Seen]`, which counts every member including the NPCs from
+Replaced in step 7 by `[Rounds Absent]`, which counts every member including the NPCs from
 appearances observed in the prose — see *3-Tier Prompt Structure*. An old save may still carry
 `npcAppearances`; nothing reads it.
 
@@ -572,7 +572,7 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
     [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
     [Stage Changes] 🐰Irene: Stranger→Acquaintance
-    [Rounds Since Seen] 🐰Irene:0 | 🐻Seulgi:4 | 🐥Joy(npc):6
+    [Rounds Absent] 🐰Irene:0 | 🐻Seulgi:4 | 🐥Joy(npc):6
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
@@ -580,7 +580,7 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
 
-**`[Rounds Since Seen]` is the fact that makes section 3's rotation rule applicable.** Section 3 has
+**`[Rounds Absent]` is the fact that makes section 3's rotation rule applicable.** Section 3 has
 always said *"sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member
 disappear for more than 3 rounds"*, and step 7's live runs showed it comprehensively ignored — Seulgi
 absent 9 rounds in one 25-round game, Wendy appearing **once in twenty** in another, and an NPC the
@@ -591,8 +591,12 @@ anyone had been away. `[Affections]` is a score, not a history, and `[NPC Appear
 (see Key Constants). So the tail now counts it:
 
 ```
-[Rounds Since Seen] 🐰Irene:0 | 🐻Seulgi:4 | 🐿️Wendy:never | 🐥Joy(npc):6 | 🐢Yeri(npc):2
+[Rounds Absent] 🐰Irene:0 | 🐻Seulgi:4 | 🐿️Wendy:never | 🐥Joy(npc):6 | 🐢Yeri(npc):2
 ```
+
+The number is **rounds of absence**, so `0` means she was in the previous round and `4` means she has
+missed the last four — the unit section 3's rule is already written in ("more than 3 rounds"). The line
+is omitted entirely on round 1, when every value would read `never`.
 
 Same shape as `[KKT Channels]`: **the tail carries the fact, the static section carries the rule, and
 the rule points at the line.** Duplicating the rule into the tail would be the two-rules-disagreeing
