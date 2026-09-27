@@ -149,9 +149,13 @@ The three plausible answers: state ~1,100 for zh/ko and **fix the cost table to 
 tokens**; state ~800 and accept shorter rounds; or leave the story alone and change nothing but the
 cost table, since the lengths are defensible and only the arithmetic is wrong.
 
-**What is being done now, separately from that choice:** the summary tightened to the number already
-written down, and a ceiling on the story so it stops growing — a cap near today's median changes
-nothing typical and removes the drift, which is the part nothing intended.
+**What is being done now, separately from that choice:** the summary only, tightened to a number
+already written down (`100-150 characters`, ONE sentence) with the reason attached — it is what
+replaces the whole story in the model's memory three rounds later.
+
+**A ceiling on the story is NOT added, on reflection.** It would need a number per language, because
+the three are measured in different units, and choosing those numbers *is* the authorial decision this
+entry exists to defer. Bounding the drift and setting the band are the same act.
 
 ---
 

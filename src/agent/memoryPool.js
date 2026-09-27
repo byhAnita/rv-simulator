@@ -12,8 +12,11 @@ export function createEmptyMemory() {
     history:           [],    // [{round, type:'summary'|'full', text, choice?, summary?}]
     kktMessages:       {},    // {memberId: [{sender, content}]} max KKT_MAX per member
     stageChanges:      [],    // [{memberId, from, to}] last 10
-    memberAppearances: {},    // {memberId: [roundNums]} last 10
-    npcAppearances:    {},    // {memberId: lastRoundNum}
+    // {memberId: [roundNums]} last 10 — EVERY member, NPCs included, and observed
+    // from the prose rather than drawn. `npcAppearances` used to sit beside this as a
+    // second record in a different shape; nothing ever wrote it, so the tail line it
+    // fed was never sent to any model. An old save may still carry the key.
+    memberAppearances: {},
   };
 }
 
@@ -54,7 +57,7 @@ export function collapseHistoryIfNeeded(memory) {
 export function updateMemory(memory, updates) {
   const {
     playerStats, affections, historyEntry,
-    kktMessages, stageChanges, memberAppearances, npcAppearances,
+    kktMessages, stageChanges, memberAppearances,
   } = updates;
 
   if (playerStats) memory.playerStats = playerStats;
@@ -89,10 +92,6 @@ export function updateMemory(memory, updates) {
       memory.memberAppearances[mid] = [...(memory.memberAppearances[mid] || []), ...rounds].slice(-10);
     });
   }
-  if (npcAppearances) {
-    memory.npcAppearances = { ...memory.npcAppearances, ...npcAppearances };
-  }
-
   return memory;
 }
 
@@ -157,14 +156,28 @@ export function buildDynamicTail(memory, members, roundMemberIds = [], language 
     parts.push(`[Stage Changes] ${rc.map(c => `${nameOf(c.memberId)}: ${c.from}→${c.to}`).join(" | ")}`);
   }
 
-  if (memory.npcAppearances && Object.keys(memory.npcAppearances).length > 0) {
-    const npcInfo = Object.entries(memory.npcAppearances)
-      .map(([mid, round]) => {
-        const m = members.find(mb => mb.id === mid);
-        return `${m?.emoji || ""}${m?.name || mid}(last: round ${round})`;
-      })
-      .join(" | ");
-    parts.push(`[NPC Appearances] ${npcInfo}`);
+  // Section 3 asks for rotation — sub members every 2-3 rounds, nobody absent for
+  // more than 3 — and live runs showed it comprehensively ignored: a romanceable
+  // member appearing once in twenty rounds, an NPC the prompt says must appear in the
+  // background appearing never, across three languages and four identities.
+  //
+  // The model was not refusing the rule. Nothing told it how long anyone had been
+  // away: [Affections] is a score, not a history. So this is that fact, counted in
+  // the unit the rule is written in — rounds of ABSENCE, so 0 means she was in the
+  // previous round and 4 means she has missed the last four.
+  //
+  // Omitted entirely on round 1, when every value would read "never".
+  const now = memory.playerStats?.week
+    ?? (memory.history?.length ? memory.history.at(-1).round + 1 : 1);
+  const appearances = memory.memberAppearances || {};
+  if (Object.keys(appearances).length > 0) {
+    const absence = members.map(m => {
+      const seen = appearances[m.id] || [];
+      const npc = roundMemberIds.length > 0 && !roundMemberIds.includes(m.id) ? "(npc)" : "";
+      const value = seen.length ? Math.max(0, now - Math.max(...seen) - 1) : "never";
+      return `${m.emoji || ""}${m.name}${npc}:${value}`;
+    });
+    parts.push(`[Rounds Absent] ${absence.join(" | ")}`);
   }
 
   // KKT is gated on affection, and the model has to be told which channels are

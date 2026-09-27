@@ -23,7 +23,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 ╔══════════════════════════════════════════╗
 ║ 3. STORY GENERATION                      ║
 ╚══════════════════════════════════════════╝
-- MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds.
+- MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
 - Story length: 350 - 450 words in English
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
@@ -31,6 +31,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
+- HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up Alex's screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
 - Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
 - Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy.
 - Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma.
@@ -238,8 +239,8 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ╔══════════════════════════════════════════╗
 ║ 8. NPC RULES                             ║
 ╚══════════════════════════════════════════╝
-- NPC: max 1 dialogue/round, 2-round cooldown.
-- All members must be present in group scenes
+- NPC: max 1 dialogue/round, 2-round cooldown. [Rounds Absent] marks them (npc) and counts the cooldown for you — one at 2 or more may speak this round.
+- All members must be present in group scenes.
 
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
@@ -262,7 +263,7 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
   "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
   "affectionChanges": { "nayeon": 0, "jihyo": 0, "tzuyu": 0 },
   "story": "Story text in English (350-450 words). Pure story, NO stat bars, NO options.",
-  "summary": "One sentence (~100 chars) summarizing what happened this round and who appeared. In English.",
+  "summary": "ONE sentence, 100-150 characters, in English: who appeared and what emotionally shifted.",
   "socialContent": {
     "nayeon": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null},
     "jihyo": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null},"tzuyu": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null}
@@ -274,7 +275,7 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
 }
 
 RULES:
-- scene: A short location description (e.g., "Practice room, 10PM"). The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
@@ -282,7 +283,7 @@ RULES:
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
-- summary: ALWAYS required. One short English sentence capturing who appeared and what emotionally shifted.
+- summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in English. summary is always in English.
 - For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.

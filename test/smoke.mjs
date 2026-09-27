@@ -2491,23 +2491,97 @@ async function layerI() {
       .find((l) => l.startsWith("[Affections]")) || ""),
     "a two- or three-argument caller must keep today's behaviour");
 
-  // The [NPC Appearances] renderer had no coverage at all, which is part of how it
-  // went unnoticed that NOTHING IN src/ EVER WRITES `npcAppearances`: executeRound
-  // copies the object and writes it back unchanged, so it is {} for the life of
-  // every save and this line has never been sent to a model. That is a bug, not a
-  // requirement, so nothing here asserts the emptiness — pinning it would make it
-  // intended behaviour, which is exactly how the cross-group lore bug survived two
-  // steps. What is tested is the renderer, which is correct: when the field carries
-  // data, the line says so. See docs/PROPOSALS.md §5.
-  const withNpc = buildDynamicTail(
-    { ...mem(), npcAppearances: { joy: 2, yeri: 5 } }, members, ["irene"], "en");
-  check("the tail renders [NPC Appearances] when the field carries data",
-    /\[NPC Appearances\][^\n]*Joy\(last: round 2\)/.test(withNpc)
-      && /Yeri\(last: round 5\)/.test(withNpc),
-    (withNpc.split("\n").find((l) => l.startsWith("[NPC Appearances]")) || "(line absent)"));
-  check("...and omits the line entirely when it does not",
-    !buildDynamicTail(mem(), members, ["irene"], "en").includes("[NPC Appearances]"),
-    "an empty label is worse than no label");
+  // --- [Rounds Absent], the fact that makes section 3's rotation rule applicable.
+  // Live runs showed the rule comprehensively ignored across three languages — a
+  // romanceable member appearing once in twenty rounds — because nothing told the
+  // model how long anyone had been away.
+  //
+  // The number is rounds of ABSENCE, the unit the rule is written in: 0 means she was
+  // in the previous round, 4 means she has missed the last four.
+  const rotationMem = {
+    ...mem(),
+    playerStats: { ...mem().playerStats, week: 10 },
+    memberAppearances: { irene: [7, 9], seulgi: [4], joy: [8] },
+  };
+  const rot = buildDynamicTail(rotationMem, members, ["irene", "seulgi"], "en");
+  const rotLine = rot.split("\n").find((l) => l.startsWith("[Rounds Absent]")) || "(absent)";
+  check("[Rounds Absent] counts rounds missed, not the round last seen",
+    /🐰Irene:0\b/.test(rotLine) && /🐻Seulgi:5\b/.test(rotLine), rotLine);
+  check("...marks members outside the round roster as npc",
+    /Joy\(npc\):1\b/.test(rotLine) && !/Irene\(npc\)/.test(rotLine), rotLine);
+  check("...and says never for a member the prose has not named yet",
+    /Wendy(\(npc\))?:never/.test(rotLine), rotLine);
+  // Round 1 has no appearances at all, and a line reading `never` five times is noise.
+  check("the line is omitted before anyone has appeared",
+    !buildDynamicTail(mem(), members, ["irene"], "en").includes("[Rounds Absent]"),
+    "every value would read never");
+  // The replaced mechanism must be gone rather than left beside the new one: two
+  // labels counting the same quantity in different units is how [Stage Changes]
+  // printed an id beside a name.
+  const poolSrc = readFileSync(join(ROOT, "src/agent/memoryPool.js"), "utf8");
+  const agentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+  check("npcAppearances is gone rather than left beside it",
+    !/\[NPC Appearances\]/.test(poolSrc)
+      && !/npcAppearances[,:]/.test(poolSrc.replace(/\/\/[^\n]*/g, ""))
+      && !/npcAppearances/.test(agentSrc.replace(/\/\/[^\n]*/g, "")),
+    "a field nothing writes that feeds a line nothing renders");
+  // Appearances are observed, not drawn. The lottery ran AFTER the LLM call and logged
+  // whoever it picked, so a member the story never mentioned was recorded as present.
+  check("appearances come from the prose, not from pickPrimaryMember",
+    /memberAppearances: Object\.fromEntries\(namedInStory/.test(agentSrc)
+      && !/memberAppearances: \{ \[primaryId\]/.test(agentSrc),
+    "the model chooses who appears; the engine drew a name afterwards");
+  check("...and a name that is a substring of another's cannot claim her appearance",
+    /sort\(\(a, b\) => \(b\.name \|\| ""\)\.length - \(a\.name \|\| ""\)\.length\)/.test(agentSrc)
+      && /scan = scan\.split\(m\.name\)\.join\(" "\)/.test(agentSrc),
+    "longest first, masking each match");
+  // The rule and the fact have to point at each other, or the tail line is a number
+  // with no rule and the rule is a rule with no number.
+  check("section 3's rotation rule points at the line that counts it",
+    /\[Rounds Absent\] in CURRENT STATE counts this for you/.test(p),
+    "a rule the model cannot apply is a rule it will not apply");
+  check("...and section 8's NPC cooldown does too",
+    /\[Rounds Absent\] marks them \(npc\) and counts the cooldown/.test(p),
+    "the cooldown named information the model was never given");
+
+  // --- the phone, the scene and the summary. Each of these moves a golden, and a
+  // golden is not a specification: it records what the code does, not what is
+  // required. The requirement belongs here.
+
+  // Two rounds in 45 still transcribed a Kakao after the schema reorder, and both
+  // routed AROUND the rule rather than ignoring it — one invented "a message through
+  // the company's internal system". So the rule is stated as ownership, and it supplies
+  // the substitute, because a prohibition with nothing behind it leaves the model
+  // needing the beat and finding a loophole.
+  check("the phone is owned by the app, whatever the channel is called",
+    /HER PHONE BELONGS TO THE APP, NOT TO THE STORY/.test(p)
+      && /whatever the channel is called/.test(p)
+      && /Not Kakao, not a company system, not an unnamed message/.test(p),
+    "naming only Kakao is what let a company messaging system through");
+  check("...and the rule offers what to write instead",
+    /she leaves something instead: a note pushed under the door/.test(p),
+    "the model reaches for the beat; give it one it is allowed to have");
+
+  // `scene` is printed as one line of a 30-character box on a 390px phone, and "a
+  // short location description" was answered with 250-character paragraphs and with
+  // the same string five rounds running.
+  check("the scene rule states a shape, not just that it is short",
+    /scene: ONE SHORT PHRASE — a place and a time, nothing else/.test(p)
+      && /printed inside a one-line status box/.test(p),
+    "\"short\" was not a bound");
+  check("...and requires it to move",
+    /never repeat the previous round's scene word for word/.test(p),
+    "five consecutive rounds carried a byte-identical scene");
+
+  // The summary is the collapse target, so it becomes the permanent ledger entry.
+  // zh delivered a median 303 characters of 2-4 sentences against "~100".
+  check("the summary carries a bound and the reason for it",
+    /ONE sentence, 100-150 characters, in English/.test(p)
+      && /replaces the whole story in your memory of this round three rounds from now/.test(p),
+    "a number with no reason behind it was read as a suggestion");
+  check("...and the schema and the RULES agree on that bound",
+    (p.match(/100-150 characters/g) || []).length >= 2,
+    "two statements of one number is how they start disagreeing");
 
   // [Stage Changes] printed the raw member id while [Affections] one line above
   // printed the display name, so the model had to match `irene` to `🐰Irene`. A
