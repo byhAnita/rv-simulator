@@ -1820,10 +1820,55 @@ gaps are documented rather than filled — never back-derive a per-1M price from
 estimate. The player's birth year is still derived from age and is wrong for ~half of players;
 the fix needs a save field, so it waits for step 4.
 
-**64 live rounds across four configurations validate step 6** (2026-09-27, route-served models, zh
-unless noted): Chaebol classic **20/20 clean**; Chaebol + cross-group cast **17/20**; Staff in en
+### 105 live rounds across five configurations, and what they found — step 7
+
+2026-09-27, route-served, one config per invocation (they share `test/.out/agent.mjs`, so two at once
+race on it):
+
+| config | rounds | graded | median completion |
+| --- | --- | --- | --- |
+| zh `财阀` / `高压舆论向` / 1+2 | 25 | 19 clean, 6 flagged | 1,710 |
+| zh `练习生` / `慢热现实向` / 1+2 | 20 | 17 clean, 3 flagged | 1,086 |
+| en `Staff` / `修罗海王向` / TWICE 1+2 | 20 | **20/20 clean** | 1,177 |
+| ko `主线成员前女友` / `浪漫情感向` / 1+1 | 20 | **20/20 clean** | 1,572 |
+| zh `韩娱艺人` / cross-group + custom | 20 | **20/20 clean** | — |
+
+**The architecture held completely: 31 collapses, 0 ledger prefix breaks, 0 static-prompt drifts, and
+`direct` parses on 105 of 105 rounds.** Cache 79.8–86.9%, consistent with Aliyun's measured ~83%. The
+cross-group cast produced **0 outside-cast names and 0 real agencies**, and wrote its scene as
+`首尔某娱乐公司练习室` — declining to name an agency at all, which is exactly what the composed lore is
+for. The newly wired pace rule showed up in the numbers (see the pace note under *Reading it a second
+time*), and the Korean particle fix and rewritten section 1 rule both came back clean.
+
+**Five of the nine flags were the graders, again** — see *a live flag is a hypothesis about the grader
+first* below, now at 9 of 13 in this project's history.
+
+**What the graders could not see is where the findings were**, and that is the whole reason
+`scripts/analyze-prose.mjs` exists. Good news first, since a tool that only reports trouble teaches
+nothing: **repetition is not a problem** (0–3 reused sentences per run, round-to-round 4-gram overlap
+0.2–4.9%, no two rounds opening alike), and **options are not either** (0 leaking a stat or route hint,
+0 rounds whose four options say one thing, in all five configs).
+
+The problems it did find:
+
+1. **Rotation fails in every configuration.** Fixed — see `[Rounds Absent]` under *3-Tier Prompt
+   Structure*.
+2. **A Kakao still reached the prose twice in 45 zh rounds** after the reorder, both times through an
+   invented channel. Fixed — see the ownership rule under *A Kakao is delivered by the app*.
+3. **`scene` as a 250-character paragraph, repeated verbatim for five rounds** (en only). Fixed.
+4. **The summary at 3x its stated length** (zh only; en and ko land near 140 characters). Fixed.
+5. **Output runs 1.4–2.1x the 800 tokens every cost figure in the app is derived from**, in every
+   language, and grows with the round number. **Not fixed** — `docs/PROPOSALS.md` §2.
+6. **Zero negative affection steps in 100 transitions**, and every stat saturating by round ~22. **Not
+   fixed** — `docs/PROPOSALS.md` §1, where it is now the prediction that makes the experiment worth
+   running.
+7. **In English the Korean texture barely appears** — `unnie` twice in 20 rounds, against `欧尼`
+   fifty-one times in 25 Chinese ones. **Not acted on**: this area was tuned from a native speaker's
+   reports, so which forms an English reader wants is Yuhan's call, like the Korean stage names.
+
+**64 live rounds across four configurations validated step 6** (same day, before the step 7 work): Chaebol classic **20/20 clean**; Chaebol + cross-group cast **17/20**; Staff in en
 **12/12**; the ex-girlfriend identity in ko **12/12**. **0 static-prompt drifts and 0 ledger prefix
-breaks across all 64 rounds**, 18 collapses. Cache 81.2–86.9%, consistent with Aliyun's measured ~83%.
+breaks across all 64 rounds**, 18 collapses. Cache 81.2–86.9%.
 
 Of the three flags, **two were a grader bug of the new grader's own** and one was real:
 
@@ -1836,9 +1881,24 @@ Of the three flags, **two were a grader bug of the new grader's own** and one wa
   64 rounds, on the longest prompt of the four. **Not acted on**: the rule is already unconditional
   and stated first, and tuning a prompt on n=1 is how the KKT rule got restructured twice already.
 
-**That makes four grader bugs out of four live flags in this project's history**, which stops being a
-coincidence and becomes the rule: **a live flag is a hypothesis about the grader first and the model
-second.** The stored `storyText` is the evidence, and reading it takes a minute.
+**That makes nine grader bugs out of thirteen live flags in this project's history**, which stopped
+being a coincidence several flags ago and is the rule: **a live flag is a hypothesis about the grader
+first and the model second.** The stored `storyText` is the evidence, and reading it takes a minute.
+
+Step 7 added five more, all read before acting: `real-name-vocative` twice on `"裴珠泫，"她说，叫的是
+自己的名字` — a span that is nothing but a name, with the attribution saying she is naming herself;
+`narrated-honorific` twice on `你喊她的名字，不是Irene欧尼` — narration naming the form in order to
+*reject* it; and, in the new prose analyzer, three "banned substitutes" that were all the ordinary noun
+`姐姐` in narration (`护在身后的姐姐`). Each is fixed and unit-tested against the prose verbatim. The
+analyzer also had two metric bugs of its own — `아:194` from counting a Korean syllable that occurs in
+ordinary words, and a repetition count inflated by normalising names out of short sentences until
+`Irene였다.` and `Seulgi였다.` were the same string. **A tool built to judge the model needs the same
+scepticism as the model.**
+
+The two real ones were both `name-ya-vocative` in zh, and one of those is arguably good writing: Wendy's
+confession is *about* the form — `我对你…已经不是'林夏xi'了…是'林夏呀'` — with the token in quotes as the
+thing being discussed. Left alone, beside the scolding case below: the 呀 rule came from a native
+speaker's report.
 
 **Every live flag before these had also been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 
