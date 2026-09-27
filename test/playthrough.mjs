@@ -525,8 +525,12 @@ async function runWorker(model) {
     // are handed `cast` directly — but the prose analysis does: "no romanceable
     // member disappears for more than 3 rounds" is a rule about slots, and it
     // cannot be checked from a report that records only the player.
+    // name_kr is stored because narration uses it freely, and an analyzer matching the
+    // stage name alone measures which name form the model chose rather than who was in
+    // the scene. That is not hypothetical: it read 20% rotation failure on a run whose
+    // real figure was 0%, because 29 of 75 (round, member) pairs named her only as 涩琪.
     report.roster = members.map((m) => ({
-      id: m.id, name: m.name,
+      id: m.id, name: m.name, name_kr: m.name_kr || null,
       slot: m.id === mainId ? "main" : subIds.includes(m.id) ? "sub" : "npc",
     }));
 

@@ -680,28 +680,22 @@ async function layerF(mod, ALIYUN_FREE_ROUTE) {
     eq("401 -> kind auth", r.error?.kind, "auth");
     eq("401 -> single call, no routing", calls.length, 1);
 
-    // 5. everything exhausted. The round budget caps a single round at
-    //    MAX_MODELS_PER_ROUND attempts, so discovering a fully spent route now
-    //    takes several rounds — that is the trade for never leaving the player
-    //    on a silent spinner while 28 models are tried.
+    // 5. everything exhausted. Every rejection here is instant, so ONE round
+    //    discovers the whole route — and the verdict is therefore true when it
+    //    is finally given, which is the whole point: free_all_exhausted tells
+    //    the player to start paying, so it may not be raised on a route that
+    //    was never walked. See 5c for what that cost before.
     fresh();
     calls = mockFetch(() => FREE_EXHAUSTED);
     r = await run(KEY, { mode: "free" });
     eq("all exhausted -> free_all_exhausted", r.error?.kind, "free_all_exhausted");
-    eq("one round tries at most MAX_MODELS_PER_ROUND models", calls.length, 4);
+    eq("...having tried every model, since none of them cost any waiting", calls.length, R.length);
     eq("free_all_exhausted carries the last skip cause", r.error?.cause?.kind, "free_exhausted");
-    eq("...naming the model it came from", r.error?.cause?.model, R[3]);
-
-    let totalCalls = calls.length, rounds = 1;
-    while (rounds < 20) {
-      calls = mockFetch(() => FREE_EXHAUSTED);
-      r = await run(KEY, { mode: "free" });
-      rounds++;
-      totalCalls += calls.length;
-      if (calls.length === 0) break;
-    }
-    eq("across rounds every model is tried exactly once", totalCalls, R.length + 1); // +1 recovery probe
-    check("marks persist, so the walk shortens each round", rounds <= Math.ceil(R.length / 4) + 2, `took ${rounds} rounds`);
+    eq("...naming the model it came from", r.error?.cause?.model, R.at(-1));
+    calls = mockFetch(() => FREE_EXHAUSTED);
+    r = await run(KEY, { mode: "free" });
+    eq("an empty route then costs one call — the hourly recovery probe", calls.length, 1);
+    eq("...and still reports free_all_exhausted", r.error?.kind, "free_all_exhausted");
 
     // 5b. a mis-parameterised model must stay visible through the walk: without
     // .cause a bad_request looks exactly like "everything is exhausted".
@@ -713,6 +707,46 @@ async function layerF(mod, ALIYUN_FREE_ROUTE) {
     eq("bad_request inside the walk -> still free_all_exhausted to the UI", r.error?.kind, "free_all_exhausted");
     eq("...but .cause exposes the real kind", r.error?.cause?.kind, "bad_request");
     eq("...and the model to fix", r.error?.cause?.model, R[3]);
+    check("...even though 24 spent models were skipped after it", calls.length === R.length, `${calls.length} calls`);
+
+    // 5c. Four spent models at the head of the route must not cost the round.
+    // MAX_MODELS_PER_ROUND bounds how long the player waits; an instant
+    // rejection costs no waiting and earns a lasting mark, so it may not spend
+    // that budget. Measured on the dev key 2026-09-27: five of its six
+    // exhausted models sit in the first five route entries, so the first walk
+    // on a fresh key hash burned all four attempts in 1.6s and told the player
+    // "All free-credit models are used up. Switch to Paid mode to keep
+    // playing." — with 22 healthy models never tried.
+    fresh();
+    calls = mockFetch((m) => (R.indexOf(m) < 4 ? FREE_EXHAUSTED : ok));
+    r = await run(KEY, { mode: "free" });
+    eq("four spent models at the head -> the round is still served", r.content, '{"story":"ok"}');
+    eq("...by the fifth model", calls.join(","), R.slice(0, 5).join(","));
+    eq("...so the player is never told to start paying", r.error, undefined);
+
+    // 5d. ...but a SLOW failure still spends the budget, because waiting is
+    // exactly what the cap exists to bound. bad_response is the slow skip: it
+    // costs MAX_BAD_RETRIES same-model attempts before the walk moves on.
+    fresh();
+    const EMPTY_BODY = { status: 200, body: { choices: [{ message: { content: "" } }] } };
+    calls = mockFetch(() => EMPTY_BODY);
+    r = await run(KEY, { mode: "free" });
+    eq("four slow failures stop the round at four models", new Set(calls).size, 4);
+    eq("...and the kind is the failure that happened, not free_all_exhausted", r.error?.kind, "bad_response");
+
+    // 5e. The first model that can actually make the player wait gets the full
+    // limit. Keying the short leash off the attempt COUNT put the first genuine
+    // candidate on 30s whenever a spent model preceded it — so on this key every
+    // round was decided in 30s by a model the route reached fifth.
+    fresh();
+    const armedTimers = [];
+    const stubbedST = globalThis.setTimeout;
+    globalThis.setTimeout = (fn, ms, ...a) => { if (ms >= 20000) armedTimers.push(ms); return stubbedST(fn, ms, ...a); };
+    calls = mockFetch((m) => (R.indexOf(m) < 2 ? FREE_EXHAUSTED : ok));
+    r = await run(KEY, { mode: "free" });
+    globalThis.setTimeout = stubbedST;
+    eq("two spent models then a healthy one -> served", r.content, '{"story":"ok"}');
+    eq("...and every attempt got the full first-attempt timeout", armedTimers.join(","), "90000,90000,90000");
 
     // 6. model_unavailable expires after 24h
     fresh();
@@ -1543,7 +1577,7 @@ async function layerI() {
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger,
-          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput } =
+          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
 
   // Real group data, loaded the way the app loads it. Reading the JSON straight
@@ -2531,10 +2565,41 @@ async function layerI() {
     /memberAppearances: Object\.fromEntries\(namedInStory/.test(agentSrc)
       && !/memberAppearances: \{ \[primaryId\]/.test(agentSrc),
     "the model chooses who appears; the engine drew a name afterwards");
+  // Behavioural from here down. These were source regexes, and a source regex over this
+  // function passed happily while it reported false absences for a quarter of a 25-round
+  // run — which is exactly the failure mode the regexes were supposed to guard.
+  const RV = [
+    { id: "irene", name: "Irene", name_kr: "裴珠泫" },
+    { id: "seulgi", name: "Seulgi", name_kr: "姜涩琪" },
+    { id: "wendy", name: "Wendy", name_kr: "孙胜完" },
+  ];
   check("...and a name that is a substring of another's cannot claim her appearance",
-    /sort\(\(a, b\) => \(b\.name \|\| ""\)\.length - \(a\.name \|\| ""\)\.length\)/.test(agentSrc)
-      && /scan = scan\.split\(m\.name\)\.join\(" "\)/.test(agentSrc),
-    "longest first, masking each match");
+    JSON.stringify(membersNamedIn("Irene靠在窗边。", [
+      { id: "rene", name: "Rene", name_kr: "" }, ...RV,
+    ])) === JSON.stringify(["irene"]),
+    JSON.stringify(membersNamedIn("Irene靠在窗边。", [{ id: "rene", name: "Rene" }, ...RV])));
+  // The bug this feature shipped with: narration naming her by her real name, which it
+  // may do freely, counted as ABSENT — so the tail told the model "Seulgi:5" about a
+  // member who was in the previous scene. Measured at 29 of 75 (round, member) pairs.
+  check("a member named only by her localized real name still counts as present",
+    JSON.stringify(membersNamedIn("那是涩琪和胜完刻意放轻的脚步声。", RV).sort())
+      === JSON.stringify(["seulgi", "wendy"]),
+    JSON.stringify(membersNamedIn("那是涩琪和胜完刻意放轻的脚步声。", RV)));
+  check("...by her full real name too",
+    JSON.stringify(membersNamedIn("裴珠泫并没有真的睡着。", RV)) === JSON.stringify(["irene"]),
+    JSON.stringify(membersNamedIn("裴珠泫并没有真的睡着。", RV)));
+  check("...and in Korean and English renderings of the same field",
+    membersNamedIn("주현은 창가에 서 있다.", [{ id: "irene", name: "Irene", name_kr: "배주현" }]).length === 1
+      && membersNamedIn("Ju-hyun looked up.", [{ id: "irene", name: "Irene", name_kr: "Bae Ju-hyun" }]).length === 1,
+    "the given-name form is what prose actually writes");
+  check("...while a member the prose never mentions stays absent",
+    membersNamedIn("练习室空无一人。", RV).length === 0,
+    JSON.stringify(membersNamedIn("练习室空无一人。", RV)));
+  // A one-character given name is not used as an alias: too short to be specific, and a
+  // single CJK character occurs inside ordinary words constantly.
+  check("...and a one-character given name is not treated as an alias",
+    membersNamedIn("这件事很难。", [{ id: "x", name: "Zed", name_kr: "难" }]).length === 0,
+    "a single character is not a name match");
   // The rule and the fact have to point at each other, or the tail line is a number
   // with no rule and the rule is a rule with no number.
   check("section 3's rotation rule points at the line that counts it",
@@ -4849,6 +4914,37 @@ async function layerL() {
     g.selfNameErrors("“裴珠泫，你听我说。”她说，用的是自己的名字。", cast).length > 0,
     "a span carrying a message is a vocative whatever the attribution claims");
 
+  // SIXTH false positive, from step 7's pinned 25-round revalidation. The prose
+  // below is that round verbatim: the PLAYER, a 财阀, calls Irene by her legal
+  // name and contrasts it with the stage persona in the same breath. The SPEAKER
+  // CONTRACT scopes the prohibition to a member — "When Irene speaks, 'Irene' and
+  // '裴珠泫' refer to herself" — so this is register-correct writing, and the
+  // grader had no speaker attribution at all. Same blind spot
+  // role-claimed-by-member had, which is why both now read one shared window.
+  const playerUsesRealName =
+    "你直视着她的眼睛，目光如炬，穿透了她层层叠叠的防御：“裴珠泫，我从来不做没把握的投资。"
+    + "如果是麻烦，我会解决；如果是风险，我会承担。你只需要负责做那个耀眼的Irene，剩下的，交给我。”";
+  check("...nor the PLAYER using a member's real name — only a member may not",
+    none(g.selfNameErrors(playerUsesRealName, cast)),
+    JSON.stringify(g.selfNameErrors(playerUsesRealName, cast)));
+  // ...and the bug it was built for must survive that: a member speaking, with her
+  // own name attributed to her, is still wrong however close the player's pronoun.
+  // The tie-break, and the case that decides whether the narrowing is safe: prose
+  // routinely attributes a member's line with the player in the same clause —
+  // "Irene looked at you and said quietly". A second-person pronoun alone must NOT
+  // buy the exemption, or the bug this grader exists for walks straight through it.
+  const memberWithPlayerInWindow = "“裴珠泫，谢谢你的咖啡。”Irene看着你，轻声说。";
+  check("...while a member's line is still flagged even with 你 in the attribution",
+    g.selfNameErrors(memberWithPlayerInWindow, cast).length > 0,
+    "a member attributed by name stays a violation however close the player's pronoun");
+  // The shared window is load-bearing in both directions, so assert the other
+  // grader's behaviour through it too: the player claiming her OWN role is fine,
+  // a member claiming it is not, decided by the same attribution.
+  check("...and the shared window still tells the two speakers apart for roles",
+    none(g.roleClaimedByMember("你抬起头：“作为会长，我有权决定。”", "会长", ["Irene", "Seulgi"]))
+      && g.roleClaimedByMember("Irene抬起头：“作为会长，我有权决定。”", "会长", ["Irene", "Seulgi"]).length > 0,
+    "role attribution survives the shared-window refactor");
+
   // kkt-transcribed-in-story. The prose below is the real round a player
   // reported on DeepSeek Official in zh: the model delivered the Kakao AND
   // wrote it into the story, so she read it twice. The existing grader runs
@@ -5153,6 +5249,21 @@ async function layerL() {
     /longest identical run 5/.test(stuckScenes),
     stuckScenes.split("\n").find((l) => /scenes/.test(l)) || stuckScenes);
 
+  // Section 3's rule is a statement about EVERY round, so a single max cannot test it.
+  // This fixture has a max gap of 6 and breaks the rule in 12.5% of (round, member)
+  // pairs — two different numbers off the same data, which is why both are printed.
+  // The max is what hid step 7's A/B: the arm with [Rounds Absent] had the worse max
+  // and the worse rule rate, and the arm without it had a lower max while breaking the
+  // rule more often per round than the max implied.
+  const rotUnit = runAnalyzer(proseFixture(
+    Array.from({ length: 8 }, (_, i) => ({
+      story: `第${i}轮。Irene在场。` + (i < 2 ? "Seulgi也在场。" : "") + "字".repeat(400),
+      scene: `练习室${i}，深夜`,
+    }))));
+  check("the analyzer measures rotation in the rule's own unit, not only the max",
+    /max gap 6/.test(rotUnit) && /broken in 12\.5% of \(round, member\) pairs/.test(rotUnit),
+    rotUnit.split("\n").filter((l) => /rotation|rule is broken/.test(l)).join(" | "));
+
   // "Not in English" must not mean "contains a byte over 127". An em dash is English
   // punctuation; this exact false positive reported 7 of 25 when 3 was the answer.
   const dashSummary = runAnalyzer(proseFixture(
@@ -5225,6 +5336,21 @@ async function layerL() {
     existsSync(join(ROOT, "test/baselines/zh-chaebol-high-pressure-r25-CONFOUNDED.json"))
       && /do not use as a baseline/i.test(readFileSync(join(ROOT, "test/baselines/README.md"), "utf8")),
     "it has the same flags as the real baseline and a different model served it");
+  // The A/B set is kept for what it DISPROVES: two runs of identical code, 0% and 26.7%.
+  // Both arms of both replicates must stay, or the point of it is gone — one arm alone
+  // reads as a result rather than as the variance that swamped it.
+  {
+    const ab = ["with-absence-1", "with-absence-2", "no-absence-1", "no-absence-2"]
+      .map((n) => `test/baselines/ab-zh-chaebol-r25-${n}.json`);
+    check("...and the A/B set keeps BOTH replicates of BOTH arms",
+      ab.every((p) => existsSync(join(ROOT, p))),
+      ab.filter((p) => !existsSync(join(ROOT, p))).join(", ") || "all present");
+    // Each arm must name the model that served it, or it is not an A/B arm at all.
+    const served = ab.map((p) => JSON.parse(readFileSync(join(ROOT, p), "utf8")).results?.[0]?.served);
+    check("...each naming the model that served it",
+      served.every((s) => s && JSON.stringify(s).includes("qwen3.7-plus-2026-05-26")),
+      JSON.stringify(served));
+  }
 }
 
 // ============================================================ main

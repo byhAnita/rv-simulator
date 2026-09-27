@@ -467,6 +467,49 @@ function backstorySeed(form, mainId) {
 // ============================================================
 // Create Initial Stats
 // ============================================================
+/**
+ * Which members the prose actually named — the fact behind `[Rounds Absent]`.
+ *
+ * Exported and pure so it is unit-tested directly rather than only reachable through
+ * a live round, which is the same reason `addSaveSlot` is exported from utils.js.
+ * Its two bugs were both invisible to a source-regex check.
+ *
+ * This used to be a single fabricated entry for whichever member `pickPrimaryMember`
+ * drew AFTER the round was generated, so the record described a lottery rather than
+ * the game. It then matched `m.name` alone, which reported false ABSENCES — worse than
+ * reporting none. Narration may use a member's real name freely (only address forms are
+ * restricted to dialogue), and Chinese prose does so constantly: one pinned 25-round zh
+ * run had 29 of 75 (round, member) pairs naming her ONLY as 涩琪 or 胜完. Those rounds
+ * told the model "Seulgi:5" about someone who was in the previous scene — a fact
+ * contradicting its own context, which is the one thing a fact in the tail must not do.
+ *
+ * The given-name form counts because that is what prose writes: 孙胜完 shortens to 胜完,
+ * 배주현 to 주현, "Bae Ju-hyun" to "Ju-hyun". Longest alias first, masking each match, so
+ * a name that is a substring of another's cannot claim someone else's appearance.
+ */
+export function membersNamedIn(story, members = []) {
+  let scan = story || "";
+  const found = [];
+  const aliases = (m) => {
+    const kr = m?.name_kr || "";
+    // One syllable of surname in Korean and in its zh/en renderings alike.
+    const given = kr.includes(" ") ? kr.slice(kr.indexOf(" ") + 1) : kr.slice(1);
+    // Two characters minimum for either real-name form. A single CJK character occurs
+    // inside ordinary words constantly — the same reason the prose analyzer stopped
+    // counting a bare 아 as an address form after it reported 194 of them in 20 rounds.
+    return [m?.name, ...[kr, given].filter((s) => s.length >= 2)].filter(Boolean);
+  };
+  const ranked = members
+    .flatMap((m) => aliases(m).map((alias) => ({ id: m.id, alias })))
+    .sort((a, b) => b.alias.length - a.alias.length);
+  for (const { id, alias } of ranked) {
+    if (!scan.includes(alias)) continue;
+    if (!found.includes(id)) found.push(id);
+    scan = scan.split(alias).join(" ");
+  }
+  return found;
+}
+
 export function createInitialStats(mainId, subIds) {
   const multiAff = {};
   subIds.forEach(id => {
@@ -799,23 +842,7 @@ export async function executeRound({
   pendingSocialFeeds = socialFeedsUpdate;
   pendingNotifications = roundNotifs;
 
-  // Who the prose actually named. This used to be a single fabricated entry for
-  // whichever member `pickPrimaryMember` drew AFTER the round was generated, so the
-  // record described a lottery rather than the game — a member the story never
-  // mentioned was logged as present, and the one who carried the scene often was not.
-  //
-  // Longest names first, masking each match as it is found, so a member whose name is
-  // a substring of another's cannot have her absence reset by someone else appearing.
-  const namedInStory = (() => {
-    let scan = parsed.story || "";
-    const found = [];
-    for (const m of [...members].sort((a, b) => (b.name || "").length - (a.name || "").length)) {
-      if (!m.name || !scan.includes(m.name)) continue;
-      found.push(m.id);
-      scan = scan.split(m.name).join(" ");
-    }
-    return found;
-  })();
+  const namedInStory = membersNamedIn(parsed.story || "", members);
 
   // Update memory — append new full-story entry to history ledger
   const updatedMemory = updateMemory(memory, {

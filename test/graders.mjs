@@ -24,6 +24,29 @@ export function dialogueSpans(story) {
   return spans;
 }
 
+// The attribution around a quote — 40 chars before, 30 after — which is where
+// prose says who spoke. Both sides, because a line can be attributed either way
+// round. ONE function because two graders need the same window and the same
+// numbers, and a second copy is how they start disagreeing about who spoke.
+export function attributionWindow(story, span, at = story.indexOf(span)) {
+  if (at < 0) return ["", ""];
+  return [story.slice(Math.max(0, at - 40), at), story.slice(at + span.length, at + span.length + 30)];
+}
+
+const SECOND_PERSON = /你|너|\byou\b/i;
+
+// Whether the PLAYER is the one speaking a line. The SPEAKER CONTRACT guarantees
+// the shape this reads: "In NARRATION the player is always you/your; members are
+// named, or she/her" — so an attribution carrying a second-person pronoun and no
+// member's name is hers. Conservative on purpose: unsure means not the player,
+// which leaves a check firing rather than silently dropping a real defect.
+export function spokenByPlayer(story, span, cast, at = story.indexOf(span)) {
+  const names = (cast?.members || []).map((m) => m.name).filter(Boolean);
+  return attributionWindow(story, span, at).some((w) =>
+    (SECOND_PERSON.test(w) || (cast?.playerName && w.includes(cast.playerName)))
+    && !names.some((n) => w.includes(n)));
+}
+
 // The game is set in South Korea, so Korean address forms stay transliterated
 // in every output language. Rendering 언니 as the Chinese 姐, or as the English
 // "big sister", localizes the setting away — the prompt bans both by name and
@@ -42,9 +65,19 @@ export function sinicizedHonorifics(story, cast, lang) {
   return bad;
 }
 
-// "Irene, thanks for the coffee" — spoken by Irene. The speaker of a line is not
-// recoverable from prose, so this targets the form that is anomalous whoever
-// says it: a member's full real name used as a vocative inside dialogue.
+// "Irene, thanks for the coffee" — spoken by Irene: a member's full real name
+// used as a vocative inside dialogue.
+//
+// "The speaker of a line is not recoverable from prose" is what this comment used
+// to say, and it is false — roleClaimedByMember recovers it from the attribution,
+// and the SIXTH false positive here needed exactly that. Step 7's pinned 25-round
+// run flagged the player, a 财阀, calling Irene by her legal name: `你直视着她的
+// 眼睛…"裴珠泫，我从来不做没把握的投资…你只需要负责做那个耀眼的Irene，剩下的，交给我。"`
+// That is register-correct and deliberate — the line contrasts the real name with
+// the stage persona — and the SPEAKER CONTRACT scopes the prohibition to a member:
+// "When Irene speaks, 'Irene' and '裴珠泫' refer to herself." Nothing forbids the
+// player the real name. Same blind spot role-claimed-by-member had, one grader over:
+// the player speaks inside quotation marks too.
 // Members address each other by stage name, so a real name in the vocative is
 // almost always the model reaching for the only Korean-looking name it has.
 // Narration may use real names freely and is deliberately excluded.
@@ -70,6 +103,8 @@ export function selfNameErrors(story, cast) {
     const re = new RegExp(`(^|[。.!！?？…—])\\s*${esc(m.name_kr)}\\s*[,，!！?？]`);
     const hit = spans.find((s) => re.test(s));
     if (!hit) continue;
+    // The player may call a member by her real name; only a member may not.
+    if (spokenByPlayer(story, hit, cast)) continue;
     // FIFTH false positive, from step 7's 25-round run, twice in one game: a span
     // that is NOTHING BUT the name — `"裴珠泫，"她说，叫的是自己的名字` — is not a
     // vocative at all. There is no message attached to it, so nobody is being
@@ -211,15 +246,13 @@ export function roleClaimedByMember(story, playerRole, memberNames = []) {
     new RegExp(`(저는|제가|내가)\\s*${r}`),
     new RegExp(`\\b(as|I am|I'm)\\s+(the\\s+)?${r}\\b`, "i"),
   ];
-  const secondPerson = /你|너|\byou\b/i;
   for (const re of [/"([^"]*)"/g, /“([^”]*)”/g, /「([^」]*)」/g]) {
     for (const m of story.matchAll(re)) {
       if (!claims.some((c) => c.test(m[1]))) continue;
       // Attribution can sit on either side of the quote, so both are examined.
-      const before = story.slice(Math.max(0, m.index - 40), m.index);
-      const after = story.slice(m.index + m[0].length, m.index + m[0].length + 30);
-      const attributed = [before, after].some((w) =>
-        memberNames.some((n) => n && w.includes(n)) && !secondPerson.test(w));
+      // Same window as spokenByPlayer, from the same helper.
+      const attributed = attributionWindow(story, m[0], m.index).some((w) =>
+        memberNames.some((n) => n && w.includes(n)) && !SECOND_PERSON.test(w));
       if (attributed) return [`role-claimed-by-member:${playerRole}`];
     }
   }

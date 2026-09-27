@@ -19,7 +19,14 @@ const REQUEST_TIMEOUT_THINKING_MS = 180000;
 const RETRY_TIMEOUT_MS = 30000;
 const ROUND_BUDGET_MS = 120000;
 const ROUND_BUDGET_THINKING_MS = 240000;
+// The cap counts only attempts that cost the player waiting time - see the
+// INSTANT_SKIP_KINDS note in callAliyunFreeRoute.
 const MAX_MODELS_PER_ROUND = 4;
+// A model that rejects the request outright answers in well under a second and
+// earns a lasting mark, so walking past it is progress rather than cost. These
+// three are exactly the kinds that come back as an immediate HTTP error:
+// measured 328-1835ms across six exhausted models, 2026-09-27.
+const INSTANT_SKIP_KINDS = ["free_exhausted", "model_unavailable", "bad_request"];
 const MAX_BAD_RETRIES = 2;
 // Same-model retry delays per error kind; kinds not listed fail immediately.
 const RETRY_DELAYS_MS = {
@@ -203,6 +210,16 @@ async function tryRecoveryProbe(base, timeoutMs, onModelSwitch) {
 // Walks the free-credit route. Bounded by MAX_MODELS_PER_ROUND and a wall-clock
 // budget so a key with many spent models cannot leave the player on a silent
 // spinner for minutes.
+//
+// The cap counts SLOW attempts only, and that distinction is load-bearing. It is
+// a proxy for how long the player waits; the wall-clock budget measures that
+// directly. Counting instant rejections against it meant a key whose first four
+// route entries were out of free credit spent its whole budget in 1.6 seconds
+// and then reported free_all_exhausted - "All free-credit models are used up,
+// switch to Paid mode" - with 22 of 28 models untried and healthy. Measured on
+// the dev key 2026-09-27, where five of the six exhausted models happen to sit
+// at the head of the route. The worst possible wrong answer: it tells a player
+// to pay for something they already have.
 async function callAliyunFreeRoute(base, aliyun) {
   const onModelSwitch = aliyun?.onModelSwitch;
   const onRouteStep = aliyun?.onRouteStep;
@@ -211,8 +228,14 @@ async function callAliyunFreeRoute(base, aliyun) {
   const startedAt = Date.now();
 
   let rateLimited = null;
+  // The skip worth reporting, which is not always the last one. A bad_request
+  // means this repo is wrong about that model's parameters, so once one is seen
+  // it is never overwritten - otherwise a full walk buries it behind whichever
+  // spent model happened to come last.
   let lastSkip = null;
+  let lastError = null;
   let attempts = 0;
+  let slowAttempts = 0;
   let consecutiveTimeouts = 0;
 
   const candidates = getFreeCandidates(base.apiKey);
@@ -222,11 +245,13 @@ async function callAliyunFreeRoute(base, aliyun) {
   }
 
   for (const model of candidates) {
-    if (attempts >= MAX_MODELS_PER_ROUND) break;
+    if (slowAttempts >= MAX_MODELS_PER_ROUND) break;
     if (attempts > 0 && Date.now() - startedAt >= budget) break;
     if (attempts > 0) onRouteStep?.({ model, index: attempts });
-    // Only the first model gets the full limit; see RETRY_TIMEOUT_MS.
-    const timeoutMs = attempts === 0 ? firstTimeout : RETRY_TIMEOUT_MS;
+    // Only the first model that can actually make the player wait gets the full
+    // limit; see RETRY_TIMEOUT_MS. Keying this off `attempts` put the first
+    // genuine candidate on a 30s leash whenever a spent model preceded it.
+    const timeoutMs = slowAttempts === 0 ? firstTimeout : RETRY_TIMEOUT_MS;
     attempts++;
     try {
       const content = await callModelWithRetry({ ...base, model, timeoutMs });
@@ -234,6 +259,8 @@ async function callAliyunFreeRoute(base, aliyun) {
       if (previous && previous !== model) onModelSwitch?.({ from: previous, to: model });
       return content;
     } catch (e) {
+      lastError = e;
+      if (!INSTANT_SKIP_KINDS.includes(e.kind)) slowAttempts++;
       if (e.kind === "timeout") {
         consecutiveTimeouts++;
         // A second timeout, at a much shorter limit, is evidence about the
@@ -241,14 +268,14 @@ async function callAliyunFreeRoute(base, aliyun) {
         // not blame this model by marking it.
         if (consecutiveTimeouts >= 2) throw e;
         markModel(base.apiKey, model, "timeout");
-        lastSkip = { model, kind: e.kind, code: e.code, message: e.message };
+        if (lastSkip?.kind !== "bad_request") lastSkip = { model, kind: e.kind, code: e.code, message: e.message };
         console.warn(`[aliyun] ${model} timed out, trying next model on a short leash`);
         continue;
       }
       consecutiveTimeouts = 0;
       if (SKIP_KINDS.includes(e.kind)) {
         markModel(base.apiKey, model, e.kind);
-        lastSkip = { model, kind: e.kind, code: e.code, message: e.message };
+        if (lastSkip?.kind !== "bad_request") lastSkip = { model, kind: e.kind, code: e.code, message: e.message };
         if (e.kind === "bad_request") console.error(`[aliyun] ${model} rejected the request — check its family in getAliyunModelParams: ${e.code} ${e.message}`);
         else console.warn(`[aliyun] ${model}: ${e.kind}, trying next model`);
         continue;
@@ -262,6 +289,13 @@ async function callAliyunFreeRoute(base, aliyun) {
     }
   }
   if (rateLimited) throw rateLimited;
+  // free_all_exhausted tells the player to switch to Paid mode, so it may only be
+  // raised when the route really is empty - every candidate tried. Stopping on a
+  // bound with candidates left is a different fact, and the last failure's own
+  // kind is the true one: after the slow/instant split above, the only ways out
+  // are four slow failures or the wall clock, and both of those are honestly
+  // described by the error that caused them.
+  if (lastError && attempts < candidates.length) throw lastError;
   // Carry why the last model was skipped: a bad_request swallowed by the walk
   // would otherwise be invisible behind a generic "all exhausted".
   const err = new LLMError("free_all_exhausted", { provider: "qwen", message: "All free-credit models are exhausted or unavailable" });

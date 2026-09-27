@@ -139,6 +139,25 @@ function analyze(result, config) {
   const roundNo = rounds.map((r) => r.round);
   const cast = result.roster || [];
   const nameOf = (id) => cast.find((m) => m.id === id)?.name || id;
+  // Every name the prose can call her by. Matching the stage name alone made this
+  // script measure the model's choice of name form instead of who was in the scene:
+  // it reported 20% rotation failure on a run that was actually at 0%, because
+  // narration named both subs only as 涩琪 and 胜完. Same alias rule as
+  // mainAgent.js#namedInStory, which had the identical bug in shipped code — the
+  // difference being that there it fed the model a false absence count.
+  //
+  // A pre-2026-09-27 report carries no name_kr, so it falls back to the stage name
+  // and its rotation rows stay as wrong as when they were generated. That is why
+  // the committed baselines say so beside their numbers rather than being re-stated.
+  const aliasesOf = (m) => {
+    const kr = m?.name_kr || "";
+    const given = kr.includes(" ") ? kr.slice(kr.indexOf(" ") + 1) : kr.slice(1);
+    return [m?.name, ...[kr, given].filter((x) => x.length >= 2)].filter(Boolean);
+  };
+  const namedIn = (story, id) => {
+    const m = cast.find((x) => x.id === id);
+    return aliasesOf(m).some((a) => story.includes(a));
+  };
   const romanceable = cast.filter((m) => m.slot !== "npc").map((m) => m.id);
 
   // --- length against what section 3 asks for
@@ -243,7 +262,7 @@ function analyze(result, config) {
   // --- member rotation, which section 3 states as a rule and nothing checks
   const appearances = {};
   for (const id of cast.map((m) => m.id)) {
-    appearances[id] = T.map((t, i) => (t.story.includes(nameOf(id)) ? i : -1)).filter((i) => i >= 0);
+    appearances[id] = T.map((t, i) => (namedIn(t.story, id) ? i : -1)).filter((i) => i >= 0);
   }
   const gaps = {};
   for (const id of romanceable) {
@@ -253,6 +272,24 @@ function analyze(result, config) {
     if (seenAt.length) worst = Math.max(worst, T.length - 1 - seenAt.at(-1));
     gaps[id] = worst;
   }
+
+  // The rule's own unit, and the reason this exists beside `gaps`: section 3 says
+  // "do not let any romanceable member disappear for more than 3 rounds", which is
+  // a statement about EVERY round, not about the worst one. A single max hid the
+  // whole result of step 7's A/B — one arm held a 13-round hole and the other
+  // scattered short ones, and the max said the scattered arm was better while the
+  // rule was broken in 8% of its rounds against 27% of the other's. Fourth time in
+  // this file that a count which was easy to take stood in for the property.
+  let violPairs = 0, totalPairs = 0;
+  for (let i = 0; i < T.length; i++) {
+    for (const id of romanceable) {
+      const prior = appearances[id].filter((r) => r < i);
+      const absence = prior.length ? i - Math.max(...prior) - 1 : i;
+      totalPairs++;
+      if (absence > 3) violPairs++;
+    }
+  }
+  const rotationViolPct = totalPairs ? +(100 * violPairs / totalPairs).toFixed(1) : 0;
 
   // --- honorifics: is the address protocol visible in the prose at all?
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -361,7 +398,7 @@ function analyze(result, config) {
     scenes, sceneLens, sceneOver, sceneRun, SCENE_BOUND,
     truncated, truncFloor, flags, flaggedRounds,
     allOptions, optionLens, leaky, flatRounds,
-    appearances, gaps, nameOf, romanceable, cast,
+    appearances, gaps, rotationViolPct, nameOf, romanceable, cast,
     forms, bannedHits, bannedExamples, mainAff, deltas, atClamp, negative, signs,
     statMoves, statSeries, STATS, roundNo,
     summaries, nonAscii, namesInSummary, summaryLens, summaryInBand, SUMMARY_BAND,
@@ -394,6 +431,7 @@ function metrics(a) {
     "scene.overBound": a.sceneOver,
     "scene.longestIdenticalRun": a.sceneRun,
     "rotation.worstGap": worstGap,
+    "rotation.rulePct": a.rotationViolPct,
     "rotation.minAppearances": Math.min(a.n, ...a.romanceable.map((id) => a.appearances[id].length)),
     "address.perRound": +(Object.values(a.forms).reduce((x, y) => x + y, 0) / a.n).toFixed(2),
     "address.bannedHits": a.bannedHits,
@@ -469,6 +507,8 @@ for (const file of reports) {
     const rot = a.romanceable.map((id) => `${a.nameOf(id)} ${a.appearances[id].length}/${a.n} (max gap ${a.gaps[id]})`);
     const worstGap = Math.max(0, ...a.romanceable.map((id) => a.gaps[id]));
     console.log(`  ${C.b}rotation${C.x}    ${flag(worstGap > 3, worstGap === 3)}${rot.join(" · ")}${C.x}`);
+    console.log(`              ${flag(a.rotationViolPct > 10, a.rotationViolPct > 0)}the rule is broken in ${a.rotationViolPct}% of (round, member) pairs${C.x}` +
+      ` ${C.d}— the rule's own unit, and not the same story as the max above${C.x}`);
     console.log(`              ${C.d}section 3: sub members need scenes every 2-3 rounds, none absent for more than 3${C.x}`);
     const npcs = a.cast.filter((m) => m.slot === "npc");
     if (npcs.length) {
