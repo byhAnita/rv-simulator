@@ -264,6 +264,44 @@ prose (see 5) and put the absence counts in the dynamic tail. That needs no deci
 rotation should feel mechanical, because it does not steer anything. **If that does not fix it**, the
 choice between wiring and deleting the engine comes back, with better evidence.
 
+### The re-validation could not answer it, and found out why — 2026-09-27
+
+**The third option was never actually tested, because it shipped broken.** `[Rounds Absent]` is
+derived from `membersNamedIn`, which matched a member's **Latin stage name only** — so a round whose
+narration called her 涩琪 recorded her absent. **29 of 75 (round, member) pairs** in one pinned
+25-round zh run. The model was being told someone had been away for five rounds when she was in the
+previous scene, which is not a missing fact and not a fact the model ignored: it is a **false** one.
+Fixed, mutation-verified, and written up in `CLAUDE.md`. Every rotation figure recorded before that
+fix — including all six committed baselines — measured which name form the model chose.
+
+**And the A/B that was meant to settle the design question cannot.** Four 25-round runs, same model
+pinned and recorded, identical flags, one line different:
+
+| | with the line | line removed |
+| --- | --- | --- |
+| section 3 broken, % of (round, member) pairs | **26.7%** and **0%** | **5.3%** and **16%** |
+| reused sentences | 0, 48 | 14, 2 |
+
+Two runs of **identical code** landed on 0% and 26.7%. Variance inside an arm swamps the difference
+between arms, so nothing here supports wiring the engine, deleting it, or keeping the line — and the
+earlier draft of this section, which confidently said the fix made rotation worse, was n=1 and wrong
+to say so.
+
+**What the re-validation does establish**, needing no comparison: rotation is not fixed. Three of four
+runs break section 3 in 5–27% of pairs. That much is safe to state.
+
+**So this proposal stays open, with its terms changed.** Before it can be decided, the harness needs
+either replicates (three or more per arm — each 25-round run costs ~7 minutes and a slice of one
+model's free tier; four of them exhausted `qwen3.7-plus-2026-05-26`) or a lower-variance metric than a
+per-run rate over 75 pairs. **Deciding a taste question off a single run of an LLM is not possible
+here, and that is the most useful thing step 7 learned.**
+
+The third option not yet tried is still worth more than either original branch: **supply the
+substitute, not the requirement.** The prompt *demands* a scene for an absent member and offers no way
+to satisfy it inside a scene that is about someone else — the same shape as the Kakao prohibition that
+got routed around until a substitute was supplied. A sub member can be in a round without it being
+her round: a message relayed, a door held, her name in someone's mouth. The prompt never says so.
+
 ---
 
 ## 5. ~~Observe who appeared instead of drawing it~~ — DONE

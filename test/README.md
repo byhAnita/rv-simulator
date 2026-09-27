@@ -380,6 +380,37 @@ repo records as running away to the output cap. A comparison against an earlier 
 the route, not the change. For a controlled A/B, either pin a model you have just probed with
 `node test/smoke.mjs --live-free`, or run both arms back to back and check the `served by` lines match.
 
+### …and pinning the model is still not enough: one run per arm is not a measurement
+
+**Step 7 then learned the harder half.** With `qwen3.7-plus-2026-05-26` pinned and recorded in every
+arm, flags identical, and exactly one line of code different, a 25-round A/B said the change made
+rotation three times worse. **A replicate of the same arm — same code, same flags, same model — moved
+the metric from 26.7% to 0%, and a repetition count from 0 reused sentences to 48.**
+
+| | run 1 | run 2 |
+| --- | --- | --- |
+| arm with the line: section 3 broken | 26.7% | **0%** |
+| arm with the line: reused sentences | 0 | **48** |
+| arm without it: section 3 broken | 5.3% | 16% |
+
+**Within-arm variance exceeded the between-arm difference on every metric.** The first conclusion was
+noise, and it had already been written into `CLAUDE.md` before the replicate ran.
+
+So, before believing any delta from this harness:
+
+1. **Replicate one arm** and see how far the metric moves on its own. If that spread covers the gap you
+   are reporting, there is no result — say so.
+2. **Sanity-check the instrument on the same data.** The rotation metric matched a member's Latin stage
+   name only, so it was measuring which name form the model chose; it read 20% failure on a run whose
+   real figure was 0%. The same bug was in `mainAgent.js#membersNamedIn`, where it fed the model **false**
+   absence counts. A metric and the feature it judges can share a bug.
+3. **Budget for it.** Four 25-round runs is ~30 minutes and exhausted the pinned model's free tier.
+   Three replicates per arm is the honest minimum for a taste question, and that is a real cost to weigh
+   before promising an answer.
+
+The four arms are committed under `test/baselines/ab-zh-chaebol-r25-*` specifically as the evidence for
+this section.
+
 ### Running several configurations
 
 Sequentially, always. Each invocation rebuilds `test/.out/agent.mjs`, so two harnesses at
