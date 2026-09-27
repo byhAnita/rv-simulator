@@ -7,3 +7,12 @@
 # whole job is detecting unexplained differences is the worst possible place for
 # one, so the line endings are pinned rather than left to local config.
 test/fixtures/*.txt text eol=lf
+
+# The same reasoning, one step further out: test/reports/*.md and test/baselines/*.json
+# are GENERATED artifacts that exist to make a real change visible in a diff. The
+# generators write LF, so without this rule a fresh clone here checks them out as CRLF and
+# regenerating a report shows every line changed while nothing did -- churn in exactly the
+# files whose whole purpose is signal. Pinned for the same reason the goldens are.
+test/reports/*.md      text eol=lf
+test/baselines/*.json  text eol=lf
+test/baselines/*.md    text eol=lf

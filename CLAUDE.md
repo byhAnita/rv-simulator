@@ -1034,9 +1034,32 @@ prompt responds to.
 
 **It also has to move.** The same run repeated a byte-identical `scene` for **five consecutive rounds**
 (9 through 13, all "near midnight… neither of you has broken the hush") on the *harem* pace, which is
-the opposite of standing still. Nothing asked it to change, so the rule now does. zh was unaffected on
-both counts — 23 distinct scenes in 25 rounds, each a short phrase — which is worth knowing when reading
-a single language's run as evidence.
+the opposite of standing still. Nothing asked it to change, so the rule now does.
+
+**"zh was unaffected on both counts" — written here from reading a few zh scenes — was wrong on both
+counts, and the numbers say so.** Corrected once `analyze-prose.mjs` measured scene *length* and
+consecutive-identical *runs* instead of only distinctness:
+
+| baseline run | scenes over a one-line box | longest identical run | worst rotation gap |
+| --- | --- | --- | --- |
+| zh `财阀` / `高压舆论向` r25 | **25 of 25** (median 62 chars, max 148) | 2 | 9 |
+| zh `练习生` / `慢热现实向` r20 | 20 of 20 | **9** | **17** |
+| zh `韩娱艺人` cross-group r20 | 20 of 20 | 4 | 16 |
+| en `Staff` / `修罗海王向` r20 | 20 of 20 | 5 | 14 |
+| ko `主线成员前女友` r20 | 20 of 20 | 2 | 8 |
+
+Every language was affected, and the **worst** repeat was a Chinese run holding one scene for **nine
+consecutive rounds** — worse than the English five this section was written about. "23 distinct scenes
+in 25 rounds" was true and measured the wrong thing: 23 distinct paragraphs are still 23 paragraphs,
+and a distinct-count cannot see either failure. The rotation column is the same story — gaps of 16 and
+17 rounds in runs the graders scored 20/20 clean.
+
+**The mistake is the one this file keeps recording, in a new place: a count that is easy to take
+stood in for the property that mattered.** Reading a few scenes and counting distinct ones felt like
+evidence. It is in `test/reports/2026-09-27-step7-baseline.md` as numbers now, and the post-fix arm
+shows **0 of 25 over bound** with median 12 — directionally strong, though that run is the
+model-confounded one, so treat it as evidence the rule works rather than as a measurement of by how
+much.
 
 **This block is transcribed from a golden fixture, not from memory.** It said 250-350 words against
 the prompt's 350-450, gave `bubble` as an array of bare strings and `weverse` as a string (both of
