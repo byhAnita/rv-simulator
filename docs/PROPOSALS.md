@@ -242,7 +242,30 @@ not before — written now it would pin today's behaviour as the requirement.
 
 ---
 
-## 7. Unify how the two halves of the ledger label a round
+## 7. The option fallbacks are English in every language
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What is true today.** `validateAndFixOutput` pads a short option list with `"D. Custom"`, and
+`parseLLMOutput`'s level-4 fallback returns `["A. Continue", "B. Change topic", "C. Stay silent",
+"D. Custom"]`. Both are English literals. So a Chinese or Korean player whose round fails to parse is
+shown four English buttons.
+
+**Why it is not fixed here.** Neither function knows the language: `parseLLMOutput` is called from
+`executeRound` (which does know) and from `hasUsableStory` (which is a content probe inside the LLM
+client's retry path). Threading `language` through both, or duplicating the i18n option strings into
+`mainAgent.js`, is more surface than the defect deserves without evidence that it fires — and the
+`parseLevel` distribution is exactly what `scripts/analyze-prose.mjs` now reports, so the evidence is
+cheap to get.
+
+**What would settle it.** The `direct` parse rate across a long run. If level 4 is never reached, this
+is a cosmetic defect on a path players do not travel and can stay written down. If it is reached, the
+right fix is probably that `executeRound` localises the options after parsing, since it is the one
+place that has both the language and the result.
+
+---
+
+## 8. Unify how the two halves of the ledger label a round
 
 **Written 2026-09-27, during v1.4.0 step 7.**
 
