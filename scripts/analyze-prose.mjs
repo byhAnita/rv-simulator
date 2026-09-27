@@ -190,9 +190,44 @@ function analyze(result, config) {
   const negative = deltas.filter((d) => d < 0).length;
 
   // --- stat movement: the schema demands at least one non-zero every round.
-  const statSeries = ["selfId", "secrecy", "mood"].map((k) => T.map((t) => t.stats?.[k] ?? 0));
-  const statMoves = ["selfId", "secrecy", "mood"].map((k, i) =>
+  const STATS = ["selfId", "secrecy", "mood"];
+  const statSeries = STATS.map((k) => T.map((t) => t.stats?.[k] ?? 0));
+  const statMoves = STATS.map((k, i) =>
     statSeries[i].slice(1).filter((v, j) => v !== statSeries[i][j]).length);
+
+  // --- how much of the prose is spoken. A dating sim that is all narration reads
+  // flat however good the narration is, and nothing in the prompt asks for dialogue
+  // at all — only that address forms belong inside quotation marks, which presumes
+  // there are some.
+  const spokenChars = (text) => {
+    let n = 0;
+    for (const re of [/"([^"]*)"/g, /“([^”]*)”/g, /「([^」]*)」/g]) {
+      for (const m of text.matchAll(re)) n += m[1].replace(/\s/g, "").length;
+    }
+    return n;
+  };
+  const dialogueShare = T.map((t) => {
+    const total = t.story.replace(/\s/g, "").length || 1;
+    return spokenChars(t.story) / total;
+  });
+  const silentRounds = dialogueShare.filter((r) => r === 0).length;
+
+  // --- how the response parsed. This is the cost side of any schema change: the
+  // 4-level fallback exists because the weaker route models struggle with long
+  // structured output, and asking for the prose EARLIER in the response is exactly
+  // the kind of change that could push one of them off `direct`.
+  const parseLevels = {};
+  for (const r of rounds) parseLevels[r.parseLevel || "?"] = (parseLevels[r.parseLevel || "?"] || 0) + 1;
+
+  // --- is the proposal ending reachable? relationshipEvents.js gates it on
+  // affection >= 95 AND selfId > 95 AND round >= 35 AND not in a love triangle.
+  // selfId starts near 40 and moves +/-1..10, so >95 needs sustained positive
+  // movement across every one of those rounds.
+  const proposalGate = {
+    aff: Math.max(0, ...mainAff),
+    selfId: Math.max(0, ...statSeries[0]),
+    selfIdPerRound: T.length > 1 ? (statSeries[0].at(-1) - statSeries[0][0]) / (T.length - 1) : 0,
+  };
 
   // --- summary field: always English, ~100 chars, names who appeared.
   const summaries = T.map((t) => t.summaryText || "");
@@ -204,8 +239,9 @@ function analyze(result, config) {
     consecutive, repeats, openerPairs, openerWorst, openers,
     scenes, allOptions, optionLens, leaky, flatRounds,
     appearances, gaps, nameOf, romanceable, cast,
-    forms, bannedHits, mainAff, deltas, atClamp, negative, statMoves,
+    forms, bannedHits, mainAff, deltas, atClamp, negative, statMoves, statSeries, STATS,
     summaries, nonAscii, namesInSummary,
+    dialogueShare, silentRounds, parseLevels, proposalGate,
   };
 }
 
@@ -274,7 +310,18 @@ for (const file of reports) {
     console.log(`  ${C.b}pacing${C.x}      main affection ${a.mainAff[0]} → ${a.mainAff.at(-1)} in ${a.n} rounds · ` +
       `median step ${median(a.deltas.map(Math.abs))} · ${flag(a.atClamp > a.n / 3, a.atClamp > 0)}${a.atClamp} at the +/-8 clamp${C.x} · ` +
       `${flag(a.negative === 0 && a.n > 8, false)}${a.negative} negative${C.x}`);
-    console.log(`  ${C.b}stats${C.x}       moved selfId/secrecy/mood on ${a.statMoves.join("/")} of ${a.n - 1} transitions`);
+    console.log(`  ${C.b}stats${C.x}       moved selfId/secrecy/mood on ${a.statMoves.join("/")} of ${a.n - 1} transitions · ` +
+      a.STATS.map((k, i) => `${k} ${a.statSeries[i][0]}→${a.statSeries[i].at(-1)}`).join(" · "));
+    // relationshipEvents.js gates the proposal ending on affection >= 95 AND
+    // selfId > 95 AND round >= 35. If selfId barely moves, that ending is unreachable
+    // however well the run goes.
+    const needed = a.n > 1 ? (96 - a.statSeries[0][0]) / 34 : 0;
+    console.log(`  ${C.b}proposal${C.x}    gate needs aff>=95 & selfId>95 by round 35 · reached aff ${a.proposalGate.aff}, selfId ${a.proposalGate.selfId} · ` +
+      `${flag(a.proposalGate.selfIdPerRound < needed / 2, a.proposalGate.selfIdPerRound < needed)}selfId +${a.proposalGate.selfIdPerRound.toFixed(2)}/round vs +${needed.toFixed(2)} needed${C.x}`);
+    console.log(`  ${C.b}dialogue${C.x}    ${flag(mean(a.dialogueShare) < 0.1, mean(a.dialogueShare) < 0.2)}${(mean(a.dialogueShare) * 100).toFixed(0)}% of prose is spoken${C.x} · ` +
+      `${flag(a.silentRounds > a.n / 4, a.silentRounds > 0)}${a.silentRounds} round(s) with no dialogue at all${C.x}`);
+    console.log(`  ${C.b}parse${C.x}       ${Object.entries(a.parseLevels).map(([k, v]) => `${k}:${v}`).join(" ")} ` +
+      `${flag((a.parseLevels.direct || 0) < a.n, false)}(direct ${a.parseLevels.direct || 0}/${a.n})${C.x}`);
     console.log(`  ${C.b}summary${C.x}     ${flag(a.nonAscii > 0, false)}${a.nonAscii} not in English${C.x} · median ${median(a.summaries.map((s) => s.length))} chars · names a member in ${pct(a.namesInSummary, a.n)}`);
   }
 }

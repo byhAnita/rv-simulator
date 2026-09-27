@@ -200,7 +200,49 @@ half could be split out and done now if `[NPC Appearances]` is wanted in the tai
 
 ---
 
-## 6. Unify how the two halves of the ledger label a round
+## 6. One of the five endings is shadowed by the two above it, and one common state reaches none
+
+**Written 2026-09-27, during v1.4.0 step 7.** Read `src/config/achievements.js` alongside this.
+
+`checkAchievement` runs every round from 30 on, returns the **first** definition whose condition
+holds, and each id fires at most once — so a run accumulates endings as the stats drift rather than
+stopping at one. The conditions, in the order they are tested:
+
+| # | id | condition |
+| --- | --- | --- |
+| 1 | `he_hidden_love` | `secrecy > 60 && topAff > 90` |
+| 2 | `se_public_love` | `secrecy < 60 && topAff > 90` |
+| 3 | `be_exposed_separation` | `secrecy < 45 && topAff < 90` |
+| 4 | `oe_unspoken_waiting` | `selfId < 90 && topAff > 90` |
+| 5 | `be_you_left` | `mood < 85 && topAff < 90` |
+
+**#4 is unreachable except at `secrecy === 60` exactly.** Every state it describes has `topAff > 90`,
+and #1 and #2 between them claim `topAff > 90` for all secrecy **except** the single integer 60. So the
+one ending about loving each other while she has not accepted herself — which reads like the most
+interesting of the five — fires only when secrecy lands on exactly 60 in a round where `selfId < 90`.
+Secrecy is an integer moved by ±1..10 per round, so this is incidental rather than strictly impossible;
+"shadowed" is the accurate word, not "dead".
+
+**And `topAff < 90 && secrecy >= 45 && mood >= 85` matches nothing.** #3 needs secrecy below 45, #5
+needs mood below 85. A player who is discreet, cheerful, and only moderately loved therefore collects
+no ending on that round — and if she stays in that state, none at all. That is not an exotic corner; it
+is what a careful slow-burn run looks like.
+
+**What the fix probably is, and why it is not applied.** Testing #4 before #1 and #2 would make it
+reachable and reads as the intended precedence (unresolved self-identity outranks the
+hidden/public distinction). Widening #3 or #5 — or adding a sixth, "nothing resolved" ending — would
+close the hole. **Both change which ending a player gets, which is authorship, not a bug fix.** The
+five titles and descriptions are written in three languages and carry a clear authorial intent about
+what each one *means*; guessing at the precedence between them is not mine to do.
+
+**What would settle it.** Yuhan deciding. The useful thing a test can add meanwhile: a check that the
+five conditions partition the reachable state space, so that whatever the answer is, no state falls
+through and no ending is shadowed. That guard is worth writing **after** the conditions are decided,
+not before — written now it would pin today's behaviour as the requirement.
+
+---
+
+## 7. Unify how the two halves of the ledger label a round
 
 **Written 2026-09-27, during v1.4.0 step 7.**
 

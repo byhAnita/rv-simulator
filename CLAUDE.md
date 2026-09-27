@@ -1152,6 +1152,19 @@ Stage transitions trigger special events in `relationshipEvents.js`. `executeRou
 
 `src/config/achievements.js`: `he_hidden_love`, `se_public_love`, `be_exposed_separation`, `oe_unspoken_waiting`, `be_you_left`.
 
+They accumulate rather than ending the run: `checkAchievement` runs every round from 30 on, returns
+the **first** definition whose condition holds, and each id fires at most once.
+
+**Four of the five are what a player actually reaches — read `docs/PROPOSALS.md` §6 before changing a
+condition.** `oe_unspoken_waiting` requires `topAff > 90`, and the two conditions tested before it
+claim `topAff > 90` for every secrecy value *except the single integer 60* — so the one ending about
+loving each other while she has not accepted herself is reachable only when secrecy lands exactly
+there. Separately, `topAff < 90 && secrecy >= 45 && mood >= 85` — a discreet, cheerful, moderately
+loved run — matches nothing at all.
+
+Both are fixable in a line, and neither is fixed here: the five titles carry an authorial intent about
+what each ending *means*, so the precedence between them is a decision rather than a bug fix.
+
 ---
 
 ## Page Flow

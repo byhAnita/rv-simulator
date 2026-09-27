@@ -272,3 +272,59 @@ That builder is no longer a function in `mainAgent.js`. The identity backgrounds
 moved into `public/worlds/kpop_idol/<lang>.json` in v1.4.0 and are rendered by
 `renderIdentityBackground` in `worldLoader.js`; `backstorySeed` still supplies
 the index, so the seeding logic and the bug this check guards are unchanged.
+
+---
+
+## What a grader cannot answer — `scripts/analyze-prose.mjs`
+
+A grader reports what went **wrong**. It fires on a wrong honorific, a phantom Kakao,
+a leaked agency name — defects with a yes/no answer — and after a few releases nearly
+all of them come back clean. **"0 issues" reads the same whether the model used `欧尼`
+all game or avoided honorifics altogether**, whether every round opened on a different
+image or recycled one, whether the sub members got the scenes section 3 promises them.
+Most of what makes the writing good or bad lives in that gap.
+
+So `playthrough.mjs` now stores a **transcript of every round** — prose, `scene`, the
+option strings, stat and affection values, the delivered Kakao ids, the summary — and
+`scripts/analyze-prose.mjs` reads them:
+
+| Measured | Why it is not a grader |
+| --- | --- |
+| round-to-round n-gram overlap, sentences reused across rounds, openers that rhyme | repetition breaks no rule; it is just tedious to read |
+| distinct `scene` values | a model stuck in the practice room is following every rule |
+| option length, four options that say one thing, a stat or route hint leaking | only the last of these is forbidden |
+| each romanceable member's appearance count and **longest absence** | section 3 states this as a rule and nothing detected it |
+| how often each address form actually appears | CLAUDE.md wants them "frequent enough to feel Korean"; zero is a silent failure |
+| affection trajectory, median step, rounds at the ±8 clamp, negative steps | pacing is the game's, not the model's |
+| stat trajectories, and whether the proposal gate is even reachable | `relationshipEvents.js` needs `selfId > 95` by round 35 |
+| share of prose inside quotation marks, rounds with no dialogue at all | nothing in the prompt asks for dialogue; it presumes it |
+| `parseLevel` distribution | the cost side of any schema change |
+
+**It prints numbers and no verdicts, deliberately.** There is no threshold at which the
+writing is fine, and a metric that failed a build would be tuned away the first time it
+was inconvenient. Read them.
+
+It earned its place within three rounds of first running: `scene: "SM娱乐大楼顶层会议室"`
+under a rule forbidding company names (the rule was wrong, not the model), and zh prose
+at ~800 characters against a band asking for 350-450 "words".
+
+**Sampling round 0, which is what the report used to keep, is the worst possible choice
+for judging writing.** Round 0 is the only round with no history behind it — the one
+round whose prose cannot repeat itself.
+
+### Every field of `form` that selects a block of the prompt must be a flag
+
+`--identity` exists because pinning `练习生` meant 7 of the 8 identity backgrounds had
+never been played live by anything. `--pace` exists for the same reason, and started
+mattering the moment section 6 began sending the pace's authored **rule** instead of its
+id — three of the four rules had never reached a model. Smoke asserts the `form` literal
+is built from `IDENTITY` and `PACE`, not from strings: a check on the flag list alone
+would pass while `form.pace` stayed hardcoded.
+
+### Running several configurations
+
+Sequentially, always. Each invocation rebuilds `test/.out/agent.mjs`, so two harnesses at
+once race on that one file — which happened on the first attempt at step 7's long run and
+interleaved two configurations' output into one log. Kill by PID, too: `taskkill //IM
+node.exe` takes down anything else you have running, and a `bash` wrapper that survives it
+will simply move on to its next configuration.
