@@ -74,13 +74,33 @@ reason a player would want.
 produced (~750-900 characters), nothing about the output changes and the only gain is that it is
 stated; if it is written lower, every zh round gets shorter and the cost strings need rechecking.
 
-**Why it is not done.** The `en` and `ko` numbers are not measured yet — the long run collects them.
-Setting a band for a language from a guess is what produced this situation.
+**Measured, zh, 25 rounds, 财阀 / 高压舆论向 (2026-09-27):**
 
-**What would settle it.** Median prose length per language from `scripts/analyze-prose.mjs` across
-~20 rounds each. Then set each band around what that language already produces, unless the three are
-wildly unequal in reading time, in which case the question becomes which one is right and that is
-Yuhan's call, not a measurement.
+| | asked | delivered | ratio |
+| --- | --- | --- | --- |
+| `story` | 350-450 "words" | median **1139** chars, range 762-**1994** | ~2.5x |
+| `summary` | "One sentence (~100 chars)" | median **303** chars, range 186-**506**, 2-4 sentences | ~3x |
+
+**Both are worth deciding, and the summary is the sharper one.** The summary is the collapse target,
+so it becomes the permanent cached ledger entry: at 300 characters instead of 100, the ledger is 3x
+the size the *Round-by-Round Cache Trace* in CLAUDE.md is drawn with (~25 tokens per `S` entry). And
+it is the field that most plainly disobeys — "one sentence" is getting three or four.
+
+**It also puts every cost figure in the app out by roughly 2x.** The README derives each per-round
+price from ~800 output tokens. A zh round is ~1139 characters of story plus ~300 of summary plus
+options plus social content — call it 1,400-1,800 tokens. So `MODEL_CONFIGS[*].gameplay`,
+`ALIYUN_PAID_MODELS[*].gameplay` and the whole README cost table are quoting about half of what a
+round actually costs. That is the part of this that is not a matter of taste.
+
+**Not touched here, because the right band is an authorial choice.** ~1,100 characters is about two
+minutes of reading on a 390px screen, and whether that is the game or twice the game is Yuhan's call.
+The three plausible answers are: say ~1100 and fix the cost table to match; say ~800 and accept
+shorter rounds; or leave the story and only tighten the summary, which recovers the ledger size
+without changing a word the player reads.
+
+**What would still help.** The same two medians for `en` and `ko` — the long run collects them — so
+that whatever band is chosen is chosen in each language's own unit rather than in "words", which is
+the unit that produced this.
 
 ---
 
@@ -153,11 +173,29 @@ could easily feel worse — a scene steered to a member the story had no reason 
 mechanical-feeling failure this game's whole prompt design avoids. Deleting it throws away a design
 someone intended. Neither is a decision a test can make.
 
-**What would settle it.** Rotation numbers from the long runs: if no romanceable member is ever absent
-for more than 3 rounds across 20-25 rounds on several identities, the engine is solving a problem the
-prompt already solved, and the answer is delete. If the main member takes most rounds and a sub goes
-missing for five, the answer is wire it — and then the appearances it consults have to become real
-(see 5).
+**Measured, and it answers the question: the prompt does not solve rotation.** 25 rounds, zh, 财阀,
+1 main + 2 subs, counting which members the prose actually names:
+
+| | rounds present | longest absence |
+| --- | --- | --- |
+| Irene (main) | 23 / 25 | 2 |
+| Seulgi (sub) | 9 / 25 | **9** |
+| Wendy (sub) | 13 / 25 | **6** |
+
+Section 3 says *"sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable
+member disappear for more than 3 rounds."* A nine-round absence is not a near miss.
+
+**But the conclusion is not "wire the lottery".** The model is not refusing the rule — it cannot
+*apply* it, because nothing tells it how long anyone has been away. It gets `[Affections]` and
+`[NPC Appearances]` (which never renders), and neither is a count of rounds since a member last
+appeared. A lottery result — "centre this round on Wendy" — would steer the scene from outside the
+story; a **fact** — "Seulgi has not appeared for 4 rounds" — lets the model honour a rule it was
+already given, and is the kind of thing the rest of this prompt is built out of.
+
+So the first thing to try is the third option that was not on the list: derive appearances from the
+prose (see 5) and put the absence counts in the dynamic tail. That needs no decision about whether
+rotation should feel mechanical, because it does not steer anything. **If that does not fix it**, the
+choice between wiring and deleting the engine comes back, with better evidence.
 
 ---
 
