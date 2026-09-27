@@ -1,7 +1,7 @@
 // src/agent/memoryPool.js
 // 1-Tier Stepped Window: single append-only history ledger for KV prefix cache optimization
 
-import { getStageName } from "../config/stageConfig";
+import { stageNameIn } from "../config/stageConfig";
 import { HISTORY_FULL_MAX, HISTORY_PRUNE_BATCH, KKT_MAX, KKT_THRESHOLD } from "../config/constants";
 
 export function createEmptyMemory() {
@@ -112,7 +112,11 @@ export function buildHistoryLedger(memory) {
 
 // Serializes the dynamic tail — changes every round, always cache miss, kept small.
 // Contains: player stats, affections, stage changes, NPC appearances, KKT.
-export function buildDynamicTail(memory, members, roundMemberIds = []) {
+// `language` defaults to zh so an older caller keeps today's behaviour exactly —
+// the stage labels were Chinese for everyone until v1.4.0 step 6, and defaulting
+// to the player's language instead would have silently moved the tail for the
+// tests that call this with three arguments.
+export function buildDynamicTail(memory, members, roundMemberIds = [], language = "zh") {
   const parts = [];
 
   if (memory.playerStats) {
@@ -123,7 +127,7 @@ export function buildDynamicTail(memory, members, roundMemberIds = []) {
   const affMap = memory.affections || {};
   const affLines = members.map(m => {
     const aff = affMap[m.id] || 0;
-    return `${m.emoji}${m.name}:${aff}(${getStageName(aff)})`;
+    return `${m.emoji}${m.name}:${aff}(${stageNameIn(aff, language)})`;
   });
   parts.push(`[Affections] ${affLines.join(" | ")}`);
 

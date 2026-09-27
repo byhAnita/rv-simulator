@@ -35,6 +35,42 @@ export const STORAGE_KEYS = {
   CAST_PHOTOS: "rv_sim_cast_photos_v14",   // {memberId: dataUrl} - 256x256 WebP
 };
 
+// Ten save slots, and the ELEVENTH SAVE IS REFUSED rather than quietly taking
+// the oldest one's place.
+//
+// It used to be `[newSave, ...saves].slice(0, 10)`. Because a slot id is
+// `Date.now()`, no save ever replaces another — every one is a new slot — so a
+// player with ten saves lost her oldest run on the next save, with no warning
+// and no way to get it back. The list simply had a different first entry.
+//
+// That is the same failure `saveToStorage` was given a return value for: silence
+// is the wrong default for the one operation whose whole purpose is durability.
+// A refused save is recoverable in one tap once the player is told; a deleted run
+// is not recoverable at all, so the cap must refuse rather than evict.
+//
+// Pure and exported so the rule is unit-tested rather than reachable only by
+// filling ten slots by hand — the same reason customCast's quota rules are pure.
+export const SAVE_SLOT_MAX = 10;
+
+/**
+ * @returns {{ok: boolean, saves: Array, reason: string|null}}
+ *   `saves` is the list to persist on success, and the UNCHANGED list on
+ *   failure, so a caller that renders the result cannot show a slot that does
+ *   not exist.
+ */
+export function addSaveSlot(saves, newSave, max = SAVE_SLOT_MAX) {
+  const list = Array.isArray(saves) ? saves : [];
+  if (!newSave || newSave.id == null) return { ok: false, saves: list, reason: "no_save" };
+  const rest = list.filter((s) => s && s.id !== newSave.id);
+  // Overwriting an existing slot is allowed at the cap, because it frees the one
+  // it takes. Nothing does that today (ids are timestamps) — it is here so that
+  // adding overwrite later cannot reintroduce the eviction by accident.
+  if (rest.length === list.length && rest.length >= max) {
+    return { ok: false, saves: list, reason: "slots_full" };
+  }
+  return { ok: true, saves: [newSave, ...rest], reason: null };
+}
+
 export const loadFromStorage = (key) => {
   try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : null; } catch { return null; }
 };

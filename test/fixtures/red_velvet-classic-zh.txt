@@ -194,7 +194,7 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Relationship stages: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial. [Affections] in CURRENT STATE names the current stage for each member; these are the same seven in the same order.
+- Relationship stages, in order: 0-15 陌生人, 16-30 有印象, 31-50 产生兴趣, 51-65 暧昧期, 66-80 确认关系, 81-90 热恋期, 91-100 考验期. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
 - Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
 
 ╔══════════════════════════════════════════╗

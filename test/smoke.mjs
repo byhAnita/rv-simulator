@@ -1116,8 +1116,12 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("handleSave checks the saveToStorage result",
     /if \(!saveToStorage\(/.test(saveBody),
     "a save slot must not be rendered before the write is known to have landed");
+  // Matched on `setSaves(` rather than on the argument's name: this guard broke
+  // when the local was renamed from `updated` to `res.saves`, and a guard that
+  // fails on a rename teaches people to loosen it rather than to read it.
   check("SaveOverlay writes before it renders the new slot",
-    saveBody.indexOf("saveToStorage(") < saveBody.indexOf("setSaves(updated)"),
+    saveBody.includes("setSaves(")
+      && saveBody.indexOf("saveToStorage(") < saveBody.indexOf("setSaves("),
     "setSaves ran first, which is what made a failed save invisible");
   check("SaveOverlay surfaces a quota notice", /t\.save\.quota/.test(overlay));
 
@@ -2028,8 +2032,8 @@ async function layerI() {
   // language), so an English game reads `Irene:24(有印象)`. Localizing those is a
   // separate change; until then the prompt at least says the two lists are the
   // same seven in the same order, which is what lets the model map them.
-  check("...and it tells the model the tail's stage names are these same seven",
-    /\[Affections\] in CURRENT STATE names the current stage/.test(p),
+  check("...and it points at the tail that will carry those names",
+    /\[Affections\] in CURRENT STATE gives each member's score and her stage by these exact names/.test(p),
     "otherwise the model sees stage names it was never given");
 
   // Ownership: `Identity: 财阀` sat as a bare label in a flat run of
@@ -2171,6 +2175,34 @@ async function layerI() {
   // A round-1 memory has no affections recorded at all.
   const empty = buildDynamicTail({ affections: {}, kktMessages: {}, history: [] }, members, ["irene"]);
   check("empty affections default every channel to LOCKED", /Irene:LOCKED/.test(empty), empty);
+
+  // The stage label in [Affections] follows the player's language. It used to be
+  // Chinese for everyone, so an English game sent the model 有印象 while section 9
+  // of its own prompt called that stage "Acquaintance".
+  check("[Affections] names the stage in the player's language",
+    /Irene:42\(Interest\)/.test(buildDynamicTail(mem(), members, ["irene"], "en"))
+      && /Irene:42\(관심\)/.test(buildDynamicTail(mem(), members, ["irene"], "ko")),
+    buildDynamicTail(mem(), members, ["irene"], "en"));
+  check("...and defaults to Chinese, so a three-argument caller is unchanged",
+    /Irene:42\(产生兴趣\)/.test(buildDynamicTail(mem(), members, ["irene"])),
+    buildDynamicTail(mem(), members, ["irene"]));
+  // buildDynamicTail taking a language means nothing if executeRound never hands
+  // it one — the whole localization would then be reachable only from a test.
+  check("executeRound passes the player's language to the dynamic tail",
+    /buildDynamicTail\(memory, members, roundMemberIds, language\)/
+      .test(readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8")),
+    "a defaulted parameter nobody supplies is dead code");
+  // The prompt and the tail must agree, and this is the only check that ties the
+  // two together: section 9 prints stageNamesFor(language), the tail emits it.
+  // stageConfig has no Vite-only globals, so it imports directly.
+  const stageCfg = await import("../src/config/stageConfig.js");
+  for (const lang of ["zh", "en", "ko"]) {
+    const names = stageCfg.stageNamesFor(lang);
+    const line = prompt(form(), lang).split("\n")
+      .find((l) => l.startsWith("- Relationship stages")) || "";
+    check(`[${lang}] section 9 lists exactly the names the tail will emit`,
+      names.every((n) => line.includes(n)), line.slice(0, 150));
+  }
 
   // -------------------------------------------------- edited story delivery
   // Reproduces the real sequence: three full rounds, player edits the newest
@@ -2541,6 +2573,46 @@ async function layerI() {
   check("the cast's display name follows its lore",
     xr.groupConfig.group.name === "X", String(xr.groupConfig.group.name));
 
+  // --- section 4's PREAMBLE, not just its lore ------------------------------
+  // The preamble said "reference group history, inside jokes, shared memories, and
+  // past events" for every roster. Sound for a real group, whose lore carries a
+  // dated History block — but a composed cast has no history at all, so the same
+  // sentence is an instruction to invent one, and the nearest history the model
+  // knows belongs to the real groups the members came from. That is the leak the
+  // composed lore exists to close, asked for in the preamble.
+  check("a composed roster is marked as such, for section 4's preamble",
+    xr.groupConfig.loreComposed === true, String(xr.groupConfig.loreComposed));
+  const xPrompt = buildSystemPrompt(
+    form({ mainMember: "nayeon", subMembers: ["irene"] }), xr.members, xr.mainId, xr.subIds,
+    xr.groupConfig, "", "qwen", "en", worldFor.en);
+  check("...and its preamble does not ask for a history it does not have",
+    !/reference group history/.test(xPrompt)
+      && /It has NO published history/.test(xPrompt),
+    xPrompt.split("\n").find((l) => l.includes("published history")) || "(preamble not found)");
+  check("...and it forbids borrowing a real group's past outright",
+    /Never borrow a real group's history, discography or agency/.test(xPrompt),
+    "inventing a past is fine; importing BLACKPINK's is the bug");
+
+  // The classic door must keep the original preamble verbatim — that is what the
+  // goldens pin, and it is the whole basis of "one engine, two doors".
+  const twiceForWhole = await fromDisk(() => loader.loadGroupConfig("twice", "en"));
+  const wholeRoster = loader.buildClassicRoster(
+    "twice", "nayeon", ["jihyo"], twiceForWhole.members.map((m) => m.id));
+  const wholeGroup = await fromDisk(() => loader.resolveRoster(wholeRoster, "en"));
+  check("a whole single group is NOT marked composed",
+    wholeGroup.groupConfig.loreComposed === false, String(wholeGroup.groupConfig.loreComposed));
+  const wholePrompt = buildSystemPrompt(
+    form({ mainMember: "nayeon", subMembers: ["jihyo"] }), wholeGroup.members, wholeGroup.mainId,
+    wholeGroup.subIds, wholeGroup.groupConfig, "", "qwen", "en", worldFor.en);
+  check("...and keeps the established-world preamble, word for word",
+    wholePrompt.includes("This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.")
+      && !/published history/.test(wholePrompt),
+    "the classic door's section 4 is what the goldens pin");
+
+  // The all-custom branch is checked further down, where its fixture already
+  // lives — it synthesises the config rather than spreading a real one, so
+  // loreComposed is set in a second place and needs its own assertion there.
+
   // A player-supplied name replaces the default everywhere, agency included.
   const named = await fromDisk(() => loader.resolveRoster({ ...cross, name: "Aurora" }, "en"));
   check("a named cast uses that name for the group and derives the agency from it",
@@ -2583,6 +2655,16 @@ async function layerI() {
     allCustom.groupConfig !== null && typeof allCustom.groupConfig.groupLore === "string"
       && allCustom.groupConfig.groupLore.includes("Li Fei"),
     JSON.stringify(allCustom.groupConfig?.group));
+  // This branch synthesises the config, so `loreComposed` is set in a second
+  // place — and a cast with no real group behind it is the one where asking for
+  // "group history, inside jokes, past events" is most obviously an invitation to
+  // borrow somebody else's.
+  check("...and is marked composed, so section 4 asks for no history it lacks",
+    allCustom.groupConfig.loreComposed === true
+      && /It has NO published history/.test(buildSystemPrompt(
+        form({ mainMember: "c_9", subMembers: [] }), allCustom.members, allCustom.mainId,
+        allCustom.subIds, allCustom.groupConfig, "", "qwen", "en", worldFor.en)),
+    String(allCustom.groupConfig.loreComposed));
 
   // An override edits the copy, never the library.
   const overridden = await fromDisk(() => loader.resolveRoster({
@@ -2856,12 +2938,77 @@ async function layerI() {
       contents: [
         'export * from "./src/rag/customCast.js";',
         'export * from "./src/utils/imageStore.js";',
+        'export * from "./src/utils.js";',
+        'export * from "./src/config/stageConfig.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
     bundle: true, format: "esm", platform: "neutral", outfile: storeBundle, logLevel: "silent",
   });
   const store = await import("file://" + storeBundle.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  // --- save slots refuse, they do not evict (reported bug) -----------------
+  // `[newSave, ...saves].slice(0, 10)` dropped the OLDEST slot on the eleventh
+  // save. Because a slot id is Date.now(), no save ever replaced another, so a
+  // player with ten saves lost a whole run every time she saved — silently, with
+  // the list simply showing a different first entry. Pure and exported so the
+  // rule is tested rather than reachable only by filling ten slots by hand.
+  const slot = (id) => ({ id, name: `save ${id}`, messages: [] });
+  const tenFull = Array.from({ length: store.SAVE_SLOT_MAX }, (_, i) => slot(1000 - i));
+  check("the save-slot cap is ten", store.SAVE_SLOT_MAX === 10, String(store.SAVE_SLOT_MAX));
+  const refused = store.addSaveSlot(tenFull, slot(2000));
+  check("the eleventh save is REFUSED, not absorbed",
+    refused.ok === false && refused.reason === "slots_full", JSON.stringify(refused.reason));
+  // THE regression. Eviction and refusal both return a ten-item list, so length
+  // proves nothing — what matters is that every id that was there still is.
+  check("...and not one existing save is dropped to make room",
+    JSON.stringify(refused.saves.map((s) => s.id)) === JSON.stringify(tenFull.map((s) => s.id)),
+    "the oldest run used to disappear here");
+  check("...and the list handed back is the very same one, so no phantom slot renders",
+    refused.saves === tenFull,
+    "SaveOverlay renders this array; a copy with the new save in it is the old bug");
+  const added = store.addSaveSlot(tenFull.slice(0, 9), slot(2000));
+  check("under the cap a save is added, newest first",
+    added.ok && added.saves.length === 10 && added.saves[0].id === 2000,
+    JSON.stringify(added.saves.map((s) => s.id).slice(0, 3)));
+  // Overwrite frees the slot it takes, so it stays legal at the cap. Nothing does
+  // this today; it is here so adding it later cannot bring the eviction back.
+  const over = store.addSaveSlot(tenFull, { ...slot(1000), name: "overwritten" });
+  check("...and overwriting an existing slot is still allowed when full",
+    over.ok && over.saves.length === 10 && over.saves[0].name === "overwritten",
+    JSON.stringify(over.reason));
+  check("...while a malformed save is refused rather than stored",
+    store.addSaveSlot(tenFull.slice(0, 2), null).ok === false
+      && store.addSaveSlot(tenFull.slice(0, 2), { name: "no id" }).ok === false,
+    "an id is what delete and overwrite match on");
+  // A list written before the cap existed could hold more than ten. Trimming it
+  // here would be the very loss being fixed, so the check is on the IDS: a
+  // truncation keeps the same length once the new save is prepended, which is how
+  // a length-only assertion passes against it.
+  // 900, not 999: tenFull already contains 999, and a duplicate id let a
+  // truncating mutation drop one copy while the check still found the other.
+  const overLong = [...tenFull, slot(900)];
+  const kept = store.addSaveSlot(overLong, slot(2000));
+  check("...and a list longer than the cap is never truncated",
+    overLong.every((s) => kept.saves.some((k) => k.id === s.id)),
+    `lost ${overLong.filter((s) => !kept.saves.some((k) => k.id === s.id)).map((s) => s.id).join(",")}`);
+
+  // Comments stripped first. Without that this fails on the comment explaining
+  // that the slice was REMOVED — the same trap the member-editor's type="number"
+  // guard and the getNpcMembers guard both document. Third time in this repo, so
+  // treat it as the default when a guard asserts the ABSENCE of something.
+  const saveSrc = readFileSync(join(ROOT, "src/platforms/SaveOverlay.jsx"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  check("SaveOverlay no longer slices the list to the cap",
+    !/slice\(0,\s*10\)/.test(saveSrc) && /addSaveSlot\(saves, newSave\)/.test(saveSrc),
+    "the slice WAS the bug");
+  check("...and the save button is disabled at capacity",
+    /disabled=\{atCapacity\}/.test(saveSrc) && /saves\.length >= SAVE_SLOT_MAX/.test(saveSrc),
+    "only when slots are free is saving active");
+  check("...with a persistent notice, not a toast",
+    /t\.save\.slotsFull/.test(saveSrc) && /t\.save\.slotCount/.test(saveSrc),
+    "the player has to be told what to delete or export");
+
 
   // `src/utils.js` and `src/utils/` both exist now. Every `from "./utils"` in
   // src/ must still reach the FILE — a src/utils/index.js would silently
@@ -4137,33 +4284,87 @@ async function layerL() {
     none(g.kktTranscribed(transcribed, {})),
     "that is the sibling check's job, and it must not double-report");
 
+  // --- stage names are per language now ------------------------------------
+  // getStageName took no language, so buildDynamicTail emitted 有印象 to an
+  // English player's model while section 9 of the prompt listed "Acquaintance" —
+  // two vocabularies for one scale, and the UI showed the Chinese one too.
+  const sc = await import("../src/config/stageConfig.js");
+  for (const lang of ["zh", "en", "ko"]) {
+    check(`[${lang}] the stage scale has all seven names`,
+      sc.stageNamesFor(lang).length === 7
+        && sc.stageNamesFor(lang).every((n) => typeof n === "string" && n.length > 0),
+      JSON.stringify(sc.stageNamesFor(lang)));
+  }
+  check("zh stage names are unchanged, so existing saves' prompts do not move",
+    JSON.stringify(sc.stageNamesFor("zh"))
+      === JSON.stringify(["陌生人", "有印象", "产生兴趣", "暧昧期", "确认关系", "热恋期", "考验期"]),
+    JSON.stringify(sc.stageNamesFor("zh")));
+  // Wrapped, because returning undefined here makes `[0]` throw and a throw
+  // takes the whole suite down instead of failing one check — the same trap a
+  // corrupt-input guard hit earlier in this step.
+  let fallbackErr = null;
+  try {
+    fallbackErr = (sc.stageNamesFor("fr")?.[0] === "陌生人"
+      && sc.stageNamesFor(undefined)?.[0] === "陌生人") ? null : "did not fall back to zh";
+  } catch (e) { fallbackErr = `threw: ${e.message}`; }
+  check("...and an unknown language falls back to zh rather than to undefined",
+    fallbackErr === null, fallbackErr || "");
+  check("the score bands are derived from the thresholds, not typed beside them",
+    JSON.stringify(sc.STAGE_BANDS)
+      === JSON.stringify(["0-15", "16-30", "31-50", "51-65", "66-80", "81-90", "91-100"]),
+    JSON.stringify(sc.STAGE_BANDS));
+
   // --- the ROLE CONTRACT, graded from the prose ----------------------------
   // The reported line, verbatim: a Chaebol player's own office claimed by Irene.
+  const castNames = ["Irene", "Jisoo", "Sana", "Mina"];
+  const claimed = (s, role = "会长") => g.roleClaimedByMember(s, role, castNames);
   check("a member claiming the player's role is flagged",
-    g.roleClaimedByMember("Irene看着你，说“作为会长，我不能同意。”", "会长")[0]
-      === "role-claimed-by-member:会长",
-    JSON.stringify(g.roleClaimedByMember("Irene看着你，说“作为会长，我不能同意。”", "会长")));
+    claimed("Irene转过身说：“作为会长，我不能同意。”")[0] === "role-claimed-by-member:会长",
+    JSON.stringify(claimed("Irene转过身说：“作为会长，我不能同意。”")));
   check("...in Korean and English too",
-    g.roleClaimedByMember("그녀가 말했다. “회장으로서 저는 반대예요.”", "회장").length === 1
-      && g.roleClaimedByMember('She said, "As the chairman, I cannot allow it."', "chairman").length === 1,
+    g.roleClaimedByMember("Irene이 말했다. “회장으로서 저는 반대예요.”", "회장", castNames).length === 1
+      && g.roleClaimedByMember('Irene said, "As the chairman, I cannot allow it."', "chairman", castNames).length === 1,
     "the claim is a self-ascription, and each language marks it differently");
+  check("...and when the attribution follows the quote instead",
+    claimed("“作为会长，我不能同意。”Irene放下了杯子。").length === 1,
+    "attribution sits on either side; both windows are read");
   // The title is legitimate all over a clean round — as ADDRESS, and in
   // narration. A grader that flags those gets tuned away within a week.
   check("...but the title used to ADDRESS the player is not flagged",
-    none(g.roleClaimedByMember("Irene低下头：“会长nim，这边请。”", "会长")),
+    none(claimed("Irene低下头：“会长nim，这边请。”")),
     "that is the work override doing exactly what it is for");
   check("...nor the title in narration",
-    none(g.roleClaimedByMember("她穿过走廊，会长办公室的门是开着的。", "会长")),
+    none(claimed("她穿过走廊，会长办公室的门是开着的。")),
     "narration may name her office; only a member may not claim it");
-  // The false positive dialogue-scoping exists to prevent: narration saying the
-  // PLAYER holds the role is not only legal, it is the setting. Without the
-  // dialogueSpans scope this reads as a claim and fires.
   check("...nor narration stating that the player holds it",
-    none(g.roleClaimedByMember("你作为会长走进会议室，所有人都站了起来。", "会长")),
+    none(claimed("你作为会长走进会议室，所有人都站了起来。")),
     "she does hold it — that is the premise, not a defect");
-  check("...and no role means no check",
-    none(g.roleClaimedByMember("“作为会长，我不能同意。”", null)),
-    "an identity with no work title cannot have it claimed");
+
+  // THE TWO REAL FALSE POSITIVES, verbatim from the 20-round Chaebol playthrough
+  // that produced them. The player speaks inside quotes as much as any member
+  // does, and she is the one who actually holds the title — so an unattributed
+  // self-ascription beside a 你 is hers and correct. The first version of this
+  // grader read every quote as a member's and flagged both.
+  // Quotes CLOSED. The first draft of these two pasted the prose mid-quote, so
+  // the span matcher never saw a paired span and they passed against every
+  // mutation — including one that removed speaker identification altogether.
+  // A test whose input never reaches the code under test is worse than no test:
+  // it reports coverage that does not exist.
+  check("...and not the player's own line, mid-narration",
+    none(claimed("你的声音不高，却精准地穿透了周围的杂音，“公司的艺人需要最好的状态来消化新企划，而我作为会长，有权决定用什么方式让我的团队保持这种状态。”")),
+    "flagged live on a round that was correct");
+  check("...nor her line when a member is mentioned as its OBJECT",
+    none(claimed("你直视着她的眼睛，选择顺着那条裂开的缝隙继续往前走，“作为会长，我需要为整个团队负责。”")),
+    "她的眼睛 is what she is looking at, not who is speaking");
+  // And the member name being present near the quote is not enough on its own —
+  // it has to be present WITHOUT the player in the same window.
+  check("...nor her line in a paragraph that also names a member",
+    none(claimed("Sana把下巴搁在Irene肩上。你抬起头说：“作为会长，我需要为整个团队负责。”")),
+    "the window carrying 你 is hers, whoever else is in the scene");
+  check("...and no role, or no cast to attribute to, means no check",
+    none(g.roleClaimedByMember("“作为会长，我不能同意。”", null, castNames))
+      && none(g.roleClaimedByMember("Irene说“作为会长，我不能同意。”", "会长", [])),
+    "the speaker cannot be identified without the cast");
 
   // The other direction: the player handed the members' working day.
   check("the player given a practice of her own is flagged",

@@ -143,8 +143,26 @@ const KKT_MIN_VERBATIM = 6;
 // — and the caller must not pass one for 练习생, whose work title points the OTHER
 // way: there the members ARE the seniors and "작为前辈，我…" is correct. mainAgent's
 // `identityAddress` makes the same exception for the same reason.
-export function roleClaimedByMember(story, playerRole) {
-  if (!story || !playerRole) return [];
+// THE PLAYER SPEAKS INSIDE QUOTES TOO, and the first version of this grader did
+// not know that. It read every dialogue span as a member's, so on a 20-round
+// Chaebol playthrough it fired twice on the player's own correct lines:
+//
+//   你的声音不高…"…而我作为会长，有权决定用什么方式让我的团队保持这种状态。"
+//   你直视着她的眼睛…"作为会长，我需要为整个团队负责。"
+//
+// She IS the 会长; those are the premise working. That makes four grader bugs out
+// of four live flags this project has ever produced — read a flag as a hypothesis.
+//
+// So the speaker has to be identified, and `memberNames` is required for that.
+// Precision first: flag only when a member is named beside the quote and the
+// player's second-person pronoun is absent from the same window. Narration calls
+// the player 你/you and nothing else, so its presence means she is in the frame
+// and the line is probably hers. That trades a missed "她看着你说「作为会长，我…」"
+// for never firing on a correct round, which is the right way round — a grader
+// that cries wolf gets tuned away, and this one is checking a rule that is
+// usually satisfied.
+export function roleClaimedByMember(story, playerRole, memberNames = []) {
+  if (!story || !playerRole || !memberNames.length) return [];
   const r = esc(playerRole);
   const claims = [
     new RegExp(`(作为|身为|我是|我就是|我这个)\\s*${r}`),
@@ -152,8 +170,17 @@ export function roleClaimedByMember(story, playerRole) {
     new RegExp(`(저는|제가|내가)\\s*${r}`),
     new RegExp(`\\b(as|I am|I'm)\\s+(the\\s+)?${r}\\b`, "i"),
   ];
-  for (const span of dialogueSpans(story)) {
-    if (claims.some((c) => c.test(span))) return [`role-claimed-by-member:${playerRole}`];
+  const secondPerson = /你|너|\byou\b/i;
+  for (const re of [/"([^"]*)"/g, /“([^”]*)”/g, /「([^」]*)」/g]) {
+    for (const m of story.matchAll(re)) {
+      if (!claims.some((c) => c.test(m[1]))) continue;
+      // Attribution can sit on either side of the quote, so both are examined.
+      const before = story.slice(Math.max(0, m.index - 40), m.index);
+      const after = story.slice(m.index + m[0].length, m.index + m[0].length + 30);
+      const attributed = [before, after].some((w) =>
+        memberNames.some((n) => n && w.includes(n)) && !secondPerson.test(w));
+      if (attributed) return [`role-claimed-by-member:${playerRole}`];
+    }
   }
   return [];
 }

@@ -179,6 +179,31 @@ Player choice
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
 
+### The tenth save is the last one, and the eleventh is refused
+
+**`[newSave, ...saves].slice(0, 10)` deleted the player's oldest run, silently.** Reported from hand
+play in v1.4.0 step 6. A slot id is `Date.now()`, so **no save has ever replaced another** — every
+one is a new slot — and the eleventh therefore pushed the first off the end. The list looked normal;
+it just had a different last entry, and a run was gone for good.
+
+This is the same failure `saveToStorage` was given a return value for, one level up: silence is the
+wrong default for the one operation whose whole purpose is durability. The difference is the remedy.
+**A refused save costs one tap once the player is told; an evicted save cannot be recovered at all** —
+so the cap refuses.
+
+- **`addSaveSlot(saves, newSave)` in `src/utils.js`** is the rule, pure and exported so it is tested
+  rather than reachable only by filling ten slots by hand. It returns `{ok, saves, reason}` and on
+  refusal hands back **the same array object**, so a caller that renders the result cannot show a
+  slot that does not exist.
+- **Nothing is ever truncated**, including a legacy list that somehow holds more than ten: trimming
+  it would be the very loss being fixed. The guard asserts on **ids**, not length — eviction and
+  refusal both yield ten items, so a length check passes against the bug.
+- **Overwriting an existing slot stays legal at the cap**, because it frees the slot it takes.
+  Nothing does that today; it is there so adding overwrite later cannot bring the eviction back.
+- The UI shows **`n / 10` at all times** and disables Save at the cap with a persistent notice naming
+  both ways out — delete a slot, or export the story from Settings. The cap used to be invisible
+  until it destroyed something.
+
 ### `saveToStorage` returns a boolean, and save slots must check it
 
 It used to be `try { … } catch {}`. A `QuotaExceededError` was therefore
@@ -649,9 +674,23 @@ all three languages**, because the first version tested only the English prompt:
 lived in the zh and en rules separately, so mutating zh left the guard green and only the zh golden
 moved. A per-language rule needs a per-language check.
 
-Still open from the same read: the stage-label mismatch under Relationship Stages, and section 4's
-*"reference group history, inside jokes … past events"* — sound for a real group, an invitation to
-invent for a composed cross-group cast, whose lore has no history to draw on.
+**Both of that read's open items are now closed.** The stage labels are localized (see Relationship
+Stages), and section 4's preamble is conditional on `groupConfig.loreComposed`:
+
+| Roster | Preamble |
+| --- | --- |
+| a real group | *"This is the established world-setting. Draw from it freely — reference group history…"* — **verbatim**, which is what the goldens pin |
+| composed, or all-custom | *"It has NO published history… build their shared past as the story goes… Never borrow a real group's history, discography or agency"* |
+
+Asking a composed cast for "group history, inside jokes and past events" is asking the model to
+invent one, and **the nearest history it knows belongs to the real groups the members came from** —
+the leak the composed lore exists to close, requested in the preamble two lines above the lore that
+closes it. `loreComposed` is set in **two** places in `resolveRoster` (the spread branch and the
+synthesised all-custom branch), and each has its own guard, because the all-custom branch is where
+the request is most obviously wrong and it does not share a line of code with the other.
+
+**The classic door's preamble is unchanged, word for word** — smoke asserts the whole sentence, so
+"one engine, two doors" still holds at section 4.
 
 ### Korean address forms are transliterated, never localized
 
@@ -908,12 +947,25 @@ names here were invented by the documentation. Found by reading the rendered pro
 | 81-90 | 热恋期 | Passionate |
 | 91-100 | 考验期 | Trial |
 
-**`getStageName` takes no language, so the dynamic tail emits the Chinese labels in every
-language** — an English game reads `Irene:24(有印象)` while section 9 lists `Acquaintance`. The
-model was given two vocabularies for one scale and no statement that they correspond. Section 9 now
-says they are the same seven in the same order, which is the cheap half of the fix; localizing the
-labels is the other half and is **open** — it touches the UI's stage display as well, so it is not a
-prompt-only change. Note that localizing them **moves every golden** and changes the cached prefix.
+**Localized in v1.4.0 step 6.** `getStageName` took no language, so the dynamic tail emitted the
+Chinese labels to every player's model — an English game sent `Irene:24(有印象)` while section 9 of
+its own prompt listed `Acquaintance`, two vocabularies for one scale with nothing saying they
+corresponded. The UI had it in the open too: an English game showed Chinese stage labels under every
+member.
+
+`STAGE_NAMES` is now keyed by language and `stageNameIn(aff, language)` is what every call site uses.
+Three things make it safe:
+
+- **zh is byte-identical**, so no existing save's prompt moves.
+- The tail is the **always-miss** message, so localizing it costs no cached prefix. Section 9 does
+  move — it now prints `stageNamesFor(language)` — and that moved all three goldens deliberately.
+- **`STAGE_BANDS` is derived from `DEFAULT_STAGE_THRESHOLDS`**, not typed beside them, so section 9
+  cannot describe a scale the code does not implement. Smoke ties the two together: the prompt's list
+  must be exactly the names the tail will emit, per language.
+
+The Korean set (`남남 / 안면 / 관심 / 썸 / 연인 / 열애 / 시험기`) is a judgement call worth a native
+reader's eye — `썸` for the ambiguous stage is the idiomatic choice but `관심`/`연인` are plainer than
+the Chinese originals.
 
 Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` also surfaces `proposal_ready`, `breakup_warning`, and `pressure_warning` as `specialEvent`.
 
@@ -1474,7 +1526,27 @@ gaps are documented rather than filled — never back-derive a per-1M price from
 estimate. The player's birth year is still derived from age and is wrong for ~half of players;
 the fix needs a save field, so it waits for step 4.
 
-**Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
+**64 live rounds across four configurations validate step 6** (2026-09-27, route-served models, zh
+unless noted): Chaebol classic **20/20 clean**; Chaebol + cross-group cast **17/20**; Staff in en
+**12/12**; the ex-girlfriend identity in ko **12/12**. **0 static-prompt drifts and 0 ledger prefix
+breaks across all 64 rounds**, 18 collapses. Cache 81.2–86.9%, consistent with Aliyun's measured ~83%.
+
+Of the three flags, **two were a grader bug of the new grader's own** and one was real:
+
+- **`role-claimed-by-member` fired twice on the player's own correct lines.** `你的声音不高…"而我作为
+  会长，有权决定…"` — she *is* the 会长. **The player speaks inside quotation marks too**, and the
+  grader read every dialogue span as a member's. It now identifies the speaker from the attribution
+  window and stays silent unless a member is named there without the player's `你` beside them.
+- **One real `kkt-transcribed-in-story`**: a round delivered Jisoo's Kakao *and* wrote it into the
+  prose, phone-screen buzz included — all three explicitly forbidden in section 7. One occurrence in
+  64 rounds, on the longest prompt of the four. **Not acted on**: the rule is already unconditional
+  and stated first, and tuning a prompt on n=1 is how the KKT rule got restructured twice already.
+
+**That makes four grader bugs out of four live flags in this project's history**, which stops being a
+coincidence and becomes the rule: **a live flag is a hypothesis about the grader first and the model
+second.** The stored `storyText` is the evidence, and reading it takes a minute.
+
+**Every live flag before these had also been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 
 **Open, and deliberately not acted on: `real-name-vocative` on a member scolding another member.** One round in a `留学生` run flagged `real-name-vocative:seulgi` on `"姜涩琪，闭嘴。"` — Irene snapping Seulgi's full legal name at her, blushing, after Seulgi let slip that Irene had wanted to come. Full-name address as a rebuke is a real Korean register, and the rest of the round is exactly right (`林夏xi`, `欧尼` both correct). The grader's premise — *members address each other by stage name* — is right in general and has this exception.
 

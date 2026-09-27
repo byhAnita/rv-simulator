@@ -272,7 +272,12 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast, ou
     // and the player handed the members' working day. An unmapped identity (a
     // custom one) grades neither rather than guessing.
     const ident = IDENTITY_ROLE[IDENTITY];
-    if (ident?.role) bad.push(...roleClaimedByMember(story || "", ident.role[lang] || ident.role.en));
+    // The cast's names are what let the grader tell who is speaking: the player
+    // speaks inside quotes too, and she is the one who holds the title.
+    if (ident?.role) {
+      bad.push(...roleClaimedByMember(story || "", ident.role[lang] || ident.role.en,
+        cast.members.flatMap((m) => [m.name, m.name_kr]).filter(Boolean)));
+    }
     if (ident) bad.push(...playerGivenIdolLife(story || "", { sharesIdolLife: ident.idol }));
 
     const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);

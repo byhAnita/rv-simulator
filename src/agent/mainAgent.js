@@ -3,7 +3,7 @@
 import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 import { pickPrimaryMember } from "./probabilityEngine";
-import { getStageIdx, getStageName } from "../config/stageConfig";
+import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/stageConfig";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
@@ -269,7 +269,9 @@ ${phaseLines}
 ╔══════════════════════════════════════════╗
 ║ 4. GROUP BACKGROUND                      ║
 ╚══════════════════════════════════════════╝
-This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.
+${groupConfig.loreComposed
+  ? `This cast is its own group and everything known about it is written below. It has NO published history, so there is none to reference: build their shared past as the story goes — who joined when, what they have already been through together — and keep it consistent once you have written it. Never borrow a real group's history, discography or agency, and never add a member who is not in MEMBER PROFILES.`
+  : `This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.`}
 ${groupConfig.groupLore}
 
 ╔══════════════════════════════════════════╗
@@ -335,7 +337,7 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Relationship stages: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial. [Affections] in CURRENT STATE names the current stage for each member; these are the same seven in the same order.
+- Relationship stages, in order: ${stageNamesFor(language).map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
 - Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
 
 ╔══════════════════════════════════════════╗
@@ -621,7 +623,7 @@ export async function executeRound({
   // Tier 3 (dynamic) — stats, affections, KKT: always cache miss, kept small
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
-  const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds);
+  const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
 
   // Step 1.5: Init round variables
   let roundNotifs = [];
@@ -681,7 +683,7 @@ export async function executeRound({
     const pv = prevAff[id] || 0, cv = currentAff[id] || 0;
     if (getStageIdx(cv) > getStageIdx(pv)) {
       const m = members.find(mb => mb.id === id);
-      stageChanges.push({ memberId: id, memberName: m?.name, from: getStageName(pv), to: getStageName(cv) });
+      stageChanges.push({ memberId: id, memberName: m?.name, from: stageNameIn(pv, language), to: stageNameIn(cv, language) });
     }
   });
 

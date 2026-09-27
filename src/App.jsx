@@ -1,5 +1,5 @@
 import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial } from "./agent/mainAgent";
-import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
+import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
@@ -887,7 +887,7 @@ export default function App() {
 
   const openSocialPlatform = (platform, memberId = null) => setOverlay({ type: platform, memberId: memberId || form.mainMember });
   const getAffection = (mid) => mid === form.mainMember ? (stats?.affection || 0) : (stats?.multiAff?.[mid] || 0);
-  const getStage = (aff) => ({ label: getStageName(aff), color: getStageColor(aff) });
+  const getStage = (aff) => ({ label: stageNameIn(aff, language), color: getStageColor(aff) });
   const quickOptions = currentOptions.map((opt, i) => {
     const letter = String.fromCharCode(65 + i);
     const text = opt.replace(/^[ABCD][.、．]\s*/, '');
@@ -1414,7 +1414,7 @@ export default function App() {
               return (
                 <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: th.topBarStatText, position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}>
                   <span style={{ fontSize: 10 }}>{m.emoji}</span><span style={{ fontSize: 8 }}>{aff}</span>
-                  {hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({getStageName(aff)})</div>}
+                  {hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({stageNameIn(aff, language)})</div>}
                 </div>
               );
             })}

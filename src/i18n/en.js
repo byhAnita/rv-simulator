@@ -145,6 +145,8 @@ const en = {
     loaded: "✅ Save loaded",
     saved: "💾 Saved!",
     quotaFull: "⚠️ Not saved — browser storage is full. Delete an old save below, then try again.",
+    slotCount: (n, max) => `${n} / ${max} slots used`,
+    slotsFull: (max) => `All ${max} save slots are in use. Nothing is being overwritten — saving is off until you free one. Delete a save below, or export the story from Settings first if you want to keep it.`,
     quotaRetry: "⚠️ Not saved — browser storage is full and there are no saves to remove. Free up this site's data in your browser, or export your story from Settings instead.",
   },
   notif: {

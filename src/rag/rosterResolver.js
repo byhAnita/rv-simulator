@@ -229,11 +229,17 @@ export async function resolveRoster(roster, language = "zh") {
   // member can be the main.
   // The display name follows the lore: a cast that reads as its own group is
   // named as one everywhere, not called BLACKPINK on the setup screen.
+  // `loreComposed` tells buildSystemPrompt which section-4 preamble to print.
+  // A real group's lore carries a dated History block and the preamble tells the
+  // model to draw on it; a composed cast has no history at all, so the same
+  // sentence ("reference group history … past events") is an instruction to
+  // invent one — and the nearest history it knows belongs to the real groups the
+  // members came from, which is the leak the composed lore exists to close.
   const groupConfig = primary
-    ? { ...primary, groupLore,
+    ? { ...primary, groupLore, loreComposed: Boolean(composed),
         group: composed ? { ...primary.group, name: composed.name } : primary.group }
     : { group: { name: composed?.name || castName, fandom: "", socialPlatforms: ["bubble", "instagram", "weverse"], privateChat: "kakaotalk" },
-        members: [], groupLore };
+        members: [], groupLore, loreComposed: true };
 
   return {
     members,
