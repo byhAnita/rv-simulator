@@ -494,6 +494,22 @@ export default function App() {
   const handleModelSelect = (id) => { setSelectedModel(id); saveToStorage(STORAGE_KEYS.SELECTED_MODEL, id); showNotif("Switched to " + MODEL_CONFIGS[id]?.name); };
   const handleAliyunModeSelect = (mode) => { setAliyunMode(mode); saveToStorage(STORAGE_KEYS.ALIYUN_MODE, mode); };
   const handleAliyunPaidModelSelect = (id) => { setAliyunPaidModel(id); saveToStorage(STORAGE_KEYS.ALIYUN_PAID_MODEL, id); };
+  // The form as `executeRound` must receive it. `form.identity` holds a stored id,
+  // and "H" is the escape hatch meaning "the player typed her own" — so the id has
+  // to be resolved before the prompt sees it.
+  //
+  // This is ONE function because it used to be four copies of one expression, and
+  // the fourth had drifted: the epilogue call site omitted the "H" branch, so a
+  // player who wrote her own identity reached the ending — the single round the whole
+  // run builds toward — with the literal placeholder "[自定义]" where her words
+  // should be. Smoke now counts executeRound call sites against uses of this helper.
+  const formForRound = () => ({
+    ...form,
+    identity: form.identity === "H"
+      ? (form.customIdentity || "Custom")
+      : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity),
+  });
+
   const aliyunOptions = () => selectedModel === "qwen"
     ? {
       mode: aliyunMode, paidModel: aliyunPaidModel,
@@ -637,7 +653,7 @@ export default function App() {
       preRoundSnapshotRef.current = { stats: { ...initialStats }, memory: JSON.parse(JSON.stringify(mem)), kktUnlocked: {}, kktMessages: {}, triggeredAchievements: new Set(), playerChoice: "Game start" };
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: formForRound(),
         members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
         aliyun: aliyunOptions(), timeSpeed,
       });
@@ -752,7 +768,7 @@ export default function App() {
       preRoundSnapshotRef.current = { stats: { ...statsRef.current }, memory: JSON.parse(JSON.stringify(memoryRef.current)), kktUnlocked: { ...kktUnlocked }, kktMessages: JSON.parse(JSON.stringify(kktMessages)), triggeredAchievements: new Set(triggeredAchievements), playerChoice: cleanText };
       const result = await executeRound({
         playerChoice: text, stats: statsRef.current, memory: memoryRef.current,
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
         aliyun: aliyunOptions(), timeSpeed,
@@ -853,7 +869,7 @@ export default function App() {
     try {
       const result = await executeRound({
         playerChoice: snap.playerChoice, stats: snap.stats, memory: JSON.parse(JSON.stringify(snap.memory)),
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, world, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
         aliyun: aliyunOptions(), timeSpeed,
@@ -1795,7 +1811,7 @@ export default function App() {
                     const epilogue = await executeRound({
                       playerChoice: `Generate an epilogue: ${specialEvent.title}. A short story set after this event. 150 words in a warm, literary style. Return ONLY valid JSON.`,
                       stats: statsRef.current, memory: memoryRef.current,
-                      form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
+                      form: formForRound(),
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
                       groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
                       aliyun: aliyunOptions(),

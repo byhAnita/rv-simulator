@@ -115,7 +115,92 @@ patchy, ask for it explicitly and re-measure before considering the token cost o
 
 ---
 
-## 4. Unify how the two halves of the ledger label a round
+## 4. Decide what the member probability engine is for — wire it or delete it
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What is true today.** `probabilityEngine.js` computes a weighted probability per romanceable member
+— `affection 40% + balance 30% + recency 20% + random 10%`, with a 0.3 floor for anyone absent four
+rounds and a 0.7 cap otherwise — and `pickPrimaryMember` draws one. CLAUDE.md documents the formula
+and calls it the Member Probability Engine.
+
+**It is a closed loop.** `pickPrimaryMember` is called at `mainAgent.js:756`, which is **after** the
+LLM call. Its result `primaryId` has exactly one use: writing `memberAppearances: {[primaryId]:
+[roundNum]}`. And `memberAppearances` has exactly one reader: the recency term of
+`calculateProbability`. Nothing about the engine reaches the prompt, the UI, the save's meaning, or
+the player. It is a lottery that records its own results so it can consult them next time.
+
+Worse, the record is fiction. The **model** decides who appears in a round; the engine draws a name
+afterwards and writes down that she appeared. A member the story never mentioned is logged as having
+been there, and a member who carried the whole scene may not be. So the recency term — which v1.3.1
+fixed a real bug in, and which smoke Layer D guards with a pinned `Math.random` — is computed over
+data that does not describe the game.
+
+**Two ways out, and they are opposite.**
+
+*Delete it.* Removes ~65 lines, one documented "technique" that does nothing, a `Math.random` in the
+round path, and a CLAUDE.md section describing behaviour the game does not have. Rotation would then
+rest entirely where it already rests: section 3's instruction to the model.
+
+*Wire it.* Move the draw **before** the LLM call and put the result in the dynamic tail — "centre this
+round on Wendy". That is presumably what it was always for, and it would make rotation mechanical
+rather than a request. Section 3 already asks for rotation in words; the measured evidence is that the
+model complies in short runs, but a 25-round game is where a main member starts to crowd everyone out,
+and `scripts/analyze-prose.mjs` reports each member's max absence gap so the question is answerable.
+
+**Why it is not done either way.** Wiring it changes the writing in a way a player would feel, and it
+could easily feel worse — a scene steered to a member the story had no reason to reach is the
+mechanical-feeling failure this game's whole prompt design avoids. Deleting it throws away a design
+someone intended. Neither is a decision a test can make.
+
+**What would settle it.** Rotation numbers from the long runs: if no romanceable member is ever absent
+for more than 3 rounds across 20-25 rounds on several identities, the engine is solving a problem the
+prompt already solved, and the answer is delete. If the main member takes most rounds and a sub goes
+missing for five, the answer is wire it — and then the appearances it consults have to become real
+(see 5).
+
+---
+
+## 5. Observe who appeared instead of drawing it — and make `[NPC Appearances]` exist
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What.** Derive both appearance records from the story text rather than from a lottery or from
+nothing: a member appeared this round if the prose names her.
+
+**Why, for NPCs, this is a plain bug rather than a design question.** `mainAgent.js` does
+`const npcAppearances = { ...memory.npcAppearances };` and writes it back **unchanged**. Nothing ever
+adds an entry, so the object is `{}` for the life of every save. Therefore:
+
+- The `[NPC Appearances] Joy(last: round 2)` line in the dynamic tail **never renders** — its guard is
+  `Object.keys(...).length > 0`. CLAUDE.md documents it as a live line and shows that exact example.
+- Section 8's `NPC: max 1 dialogue/round, 2-round cooldown` refers to information the model is never
+  given, so the cooldown half of that rule has never been enforceable.
+
+This is the third piece of NPC machinery that turns out to be inert: `NPC_APPEARANCE_CHANCE` and
+`NPC_COOLDOWN_ROUNDS` are already documented as imported by nothing.
+
+**The fix is small and the detector already exists.** `scripts/analyze-prose.mjs` measures rotation by
+checking which member names occur in each round's prose, and names in this library are distinctive
+enough that a substring test is reliable. The same test in `executeRound` would make both records
+describe what happened.
+
+**What it would cost.** A scan of the story per cast member, once per round. `[NPC Appearances]` would
+start rendering, which adds a line to the always-miss tail and moves nothing cached. It would also
+make `calculateProbability`'s recency term real for the first time — which is a change in behaviour,
+not just in bookkeeping, and smoke Layer D's pinned-random guard would need rereading.
+
+**Why it is not done.** It is entangled with 4. If the engine is deleted, `memberAppearances` has no
+reader at all and deriving it honestly is work for nobody; only the NPC half is worth fixing. If the
+engine is wired, both halves matter and the appearance data must be real first. So this should land
+**with** whichever way 4 is decided, not before it.
+
+**What would settle it.** Nothing to measure — this one waits on a decision, not on evidence. The NPC
+half could be split out and done now if `[NPC Appearances]` is wanted in the tail regardless.
+
+---
+
+## 6. Unify how the two halves of the ledger label a round
 
 **Written 2026-09-27, during v1.4.0 step 7.**
 

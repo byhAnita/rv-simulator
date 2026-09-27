@@ -2444,6 +2444,24 @@ async function layerI() {
       .find((l) => l.startsWith("[Affections]")) || ""),
     "a two- or three-argument caller must keep today's behaviour");
 
+  // The [NPC Appearances] renderer had no coverage at all, which is part of how it
+  // went unnoticed that NOTHING IN src/ EVER WRITES `npcAppearances`: executeRound
+  // copies the object and writes it back unchanged, so it is {} for the life of
+  // every save and this line has never been sent to a model. That is a bug, not a
+  // requirement, so nothing here asserts the emptiness — pinning it would make it
+  // intended behaviour, which is exactly how the cross-group lore bug survived two
+  // steps. What is tested is the renderer, which is correct: when the field carries
+  // data, the line says so. See docs/PROPOSALS.md §5.
+  const withNpc = buildDynamicTail(
+    { ...mem(), npcAppearances: { joy: 2, yeri: 5 } }, members, ["irene"], "en");
+  check("the tail renders [NPC Appearances] when the field carries data",
+    /\[NPC Appearances\][^\n]*Joy\(last: round 2\)/.test(withNpc)
+      && /Yeri\(last: round 5\)/.test(withNpc),
+    (withNpc.split("\n").find((l) => l.startsWith("[NPC Appearances]")) || "(line absent)"));
+  check("...and omits the line entirely when it does not",
+    !buildDynamicTail(mem(), members, ["irene"], "en").includes("[NPC Appearances]"),
+    "an empty label is worse than no label");
+
   // [Stage Changes] printed the raw member id while [Affections] one line above
   // printed the display name, so the model had to match `irene` to `🐰Irene`. A
   // custom member's id is a timestamp, which matches nothing at all.
@@ -2727,6 +2745,74 @@ async function layerI() {
     check(`[${lang}] the resolver changes nothing in this world's backgrounds`,
       worlds[lang].identities.every((i) =>
         rkp(i.background) === i.background), "");
+  }
+
+  // --------------------------------------------- what App.jsx actually forwards
+  // `executeRound` does not receive `form.identity`. App.jsx rewrites it first:
+  //
+  //   identity: form.identity === "H" ? (form.customIdentity || "Custom")
+  //                                   : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity)
+  //
+  // That reads as a mapping from id to label and is currently an identity function,
+  // because every entry in IDENTITIES has `label` equal to `id`. Localizing those
+  // labels is the obvious next thing anyone would do — `src/i18n/*.js` already
+  // carries an `identities` table for exactly that — and it would silently empty the
+  // identity BACKGROUND and the WORK TITLE out of every real game, because
+  // `getIdentity(world, "Chaebol")` finds nothing. **No existing test would notice:**
+  // the goldens, the harness and every check in this file pass the raw id, which is
+  // the one thing the app does not pass.
+  //
+  // So the requirement is not "label equals id". It is: whatever App.jsx forwards
+  // must be an id the world declares.
+  const setupSrc = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+  const identityList = (setupSrc.match(/const IDENTITIES = \[[\s\S]*?\n\];/) || [""])[0];
+  const forwarded = [...identityList.matchAll(/\{\s*id:\s*"([^"]+)",\s*label:\s*"([^"]+)"\s*\}/g)]
+    .map(([, id, label]) => ({ id, label }));
+  check("App.jsx declares every identity the world does, plus H",
+    forwarded.length === SAVED_IDENTITY_IDS.length + 1
+      && SAVED_IDENTITY_IDS.every((id) => forwarded.some((f) => f.id === id))
+      && forwarded.some((f) => f.id === "H"),
+    forwarded.map((f) => f.id).join(", ") || "IDENTITIES literal not found — the anchor moved");
+  const unresolvable = forwarded.filter((f) => f.id !== "H")
+    .filter((f) => !worlds.zh.identities.some((w) => w.id === f.label));
+  check("what App.jsx forwards as the identity is an id the world can resolve",
+    forwarded.length > 0 && unresolvable.length === 0,
+    unresolvable.map((f) => `${f.id} -> "${f.label}", which no world identity is called`).join(" | "));
+  // Counted, and counted against the number of call sites. This was four copies of
+  // one expression, and the count is what found that the fourth had drifted: the
+  // epilogue omitted the `"H"` branch, so a player who wrote her own identity
+  // reached the ending with the literal placeholder `[自定义]` in section 6. A
+  // presence test passes while three of four copies are wrong; a mutation proved it.
+  const roundCalls = (setupSrc.match(/await executeRound\(\{/g) || []).length;
+  const helperUses = (setupSrc.match(/form: formForRound\(\),/g) || []).length;
+  check("every executeRound call site builds its form the same one way",
+    roundCalls >= 4 && helperUses === roundCalls,
+    `${roundCalls} executeRound calls, ${helperUses} using formForRound()`);
+  // The helper BODY, extracted first. A single unbounded `[\s\S]*?` across the whole
+  // file reaches the Setup page's own `form.identity === "H"` render condition, so
+  // the check passed against a helper that had stopped resolving it — the third time
+  // an over-wide pattern in this suite has matched something other than its subject.
+  const helperBody = (setupSrc.match(/const formForRound = \(\) => \(\{[\s\S]*?\n  \}\);/) || [""])[0];
+  check("...and that one way resolves the custom-identity escape hatch",
+    helperBody.includes('form.identity === "H"') && helperBody.includes("form.customIdentity"),
+    helperBody.replace(/\s+/g, " ").slice(0, 160) || "formForRound not found — the anchor moved");
+
+  // The same shape one field over: PACES is a fourth copy of the pace list, and a
+  // pace the world does not declare now renders as the bare id instead of the rule
+  // section 6 is supposed to send.
+  const appPaces = ((setupSrc.match(/const PACES = \[([^\]]*)\]/) || [, ""])[1]
+    .match(/"([^"]+)"/g) || []).map((s) => s.replace(/"/g, ""));
+  check("every pace Setup offers is one the world declares",
+    appPaces.length > 0 && appPaces.every((p) => SAVED_PACE_IDS.includes(p)),
+    appPaces.filter((p) => !SAVED_PACE_IDS.includes(p)).join(", ") || appPaces.join(", "));
+  // The Setup picker renders t.paces[i] against PACES[i], so the two are coupled by
+  // POSITION — a language with a shorter list silently mislabels the rest.
+  for (const lang of ["zh", "en", "ko"]) {
+    const uiPaces = ((readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8")
+      .match(/^\s*paces:\s*\[([^\]]*)\]/m) || [, ""])[1].match(/"([^"]+)"/g) || []).length;
+    check(`[${lang}] the pace labels line up with the pace ids by position`,
+      uiPaces === appPaces.length,
+      `${uiPaces} labels for ${appPaces.length} paces`);
   }
 
   // "H" is the custom-identity escape hatch: the player types their own text,

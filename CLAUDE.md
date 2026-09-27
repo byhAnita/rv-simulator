@@ -277,7 +277,18 @@ NPC_APPEARANCE_CHANCE        = 0.3  // DEAD - not imported anywhere
 NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 ```
 
-`NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` are **not referenced by any module**. NPC appearance is governed entirely by prompt rules in `buildSystemPrompt` plus the `[NPC Appearances]` block in the dynamic tail. Either wire them up or delete them — do not document them as live behavior.
+`NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` are **not referenced by any module**. Either wire them up or delete them — do not document them as live behavior.
+
+**Nor is the `[NPC Appearances]` block a third mechanism — step 7 found it never renders at all.**
+`executeRound` does `const npcAppearances = { ...memory.npcAppearances };` and writes it back
+**unchanged**; nothing anywhere adds an entry, so the object is `{}` for the life of every save and
+`buildDynamicTail`'s `Object.keys(...).length > 0` guard is never satisfied. The example line at
+*3-Tier Prompt Structure* has therefore never been sent to any model.
+
+The consequence for the prompt: section 8's `NPC: max 1 dialogue/round, 2-round cooldown` names a
+cooldown the model is given no information to apply. **So NPC appearance is governed by section 8's
+first clause and nothing else.** `docs/PROPOSALS.md` §5 covers deriving both appearance records from
+the prose, which is what would make the line and the rule real.
 
 ---
 
@@ -561,7 +572,7 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
     [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
     [Stage Changes] 🐰Irene: Stranger→Acquaintance
-    [NPC Appearances] Joy(last: round 2)
+    [NPC Appearances] Joy(last: round 2)        <- never renders; see Key Constants
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
@@ -1005,6 +1016,22 @@ weight = affection(40%) + balance(30%) + recency(20%) + random(10%)
 * `pickPrimaryMember(...)` — weighted draw over `allTargetIds`, returning the single member who drives this round; the result feeds `memberAppearances`
 
 **Scope correction:** the engine does **not** select which members appear in the prompt. In `executeRound`, `roundMemberIds = allTargetIds` (main + all subs), so KKT injection covers every target member. The engine's only live output is `primaryId`.
+
+**And `primaryId` is a closed loop — found in step 7 and not yet decided.** `pickPrimaryMember` runs
+at `mainAgent.js:756`, **after** the LLM call, and its result is used for exactly one thing: writing
+`memberAppearances: {[primaryId]: [roundNum]}`. The only reader of `memberAppearances` is the recency
+term of `calculateProbability`. So nothing about this engine reaches the prompt, the UI, the save's
+meaning or the player: it is a lottery that records its own results so it can consult them next time.
+
+The record is also fiction. The **model** decides who appears in a round; the engine draws a name
+afterwards and logs that she appeared. A member the prose never mentioned is recorded as present, and
+the one who carried the scene may not be — so the recency term below is computed over data that does
+not describe the game.
+
+Do not read the formula above as game behaviour. Whether to wire it into the prompt (a "centre this
+round on Wendy" hint in the tail, drawn *before* the call) or delete it is written up in
+`docs/PROPOSALS.md` §4, with §5 for the appearance data it would need. It is a taste decision about
+whether rotation should be mechanical, not something a test can settle.
 
 The recency window's reference round comes from the tail of `memory.history`. It previously read `memory.storyRounds` — a v11 field removed in v13 — which pinned `lastRound` to `0`, degenerated the filter to `r >= -3` (every recorded appearance counted as recent), and left both the recency penalty and the "absent 4+ rounds" floor effectively dead. Fixed in v1.3.1; `test/smoke.mjs` Layer D guards it with pinned `Math.random`, and that guard is verified to fail against the old implementation.
 
@@ -1867,6 +1894,26 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 15 places instead of 12. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the fifteen. See **Version strings** under Branch & Deploy Workflow.
 
    **`App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx`, so a bump edited in only one place leaves the two disagreeing depending on which path renders. Worth collapsing into one source before the next release.
+
+2. **`executeRound` never receives `form.identity` — it receives `formForRound()`.** The stored id is
+   rewritten on the way in, because `"H"` means "the player typed her own identity" and the prompt has
+   to see her words rather than the escape hatch. That rewrite was **four copies of one expression**,
+   and in step 7 the fourth turned out to have drifted: the **epilogue** call site omitted the `"H"`
+   branch entirely, so a player who wrote her own identity reached the ending — the single round the
+   whole run builds toward — with the literal placeholder `[自定义]` in section 6 where her words
+   belong. It is one function now, and smoke counts `executeRound` call sites against uses of it.
+
+   **The trap beside it is worse and is still there.** `IDENTITIES` in `App.jsx` gives every entry a
+   `label` equal to its `id`, so `IDENTITIES.find(...).label` is an identity function today.
+   Localizing those labels is the obvious next thing anyone would do — `src/i18n/*.js` already carries
+   an `identities` table for exactly that — and it would silently empty the identity **background** and
+   the **work title** out of every real game, because `getIdentity(world, "Chaebol")` finds nothing.
+   **No test written before step 7 would have noticed**: the goldens, the live harness and every check
+   in `smoke.mjs` pass the raw id, which is the one thing the app does not pass. The guard is therefore
+   written as *what App.jsx forwards must be an id the world declares*, not as "label equals id".
+
+   `PACES` and `STAR_LEVELS` are the same shape one field over — a fourth copy of a list the world
+   file owns, coupled to `t.paces` **by position**. Both are now checked against the world.
 
 ### Cost strings must track README
 
