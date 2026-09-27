@@ -99,6 +99,42 @@ const IDENTITY = arg("identity", "练习生");
 const PACE = arg("pace", "浪漫情感向");
 const WORKER = arg("worker", null);
 
+// WHICH PROVIDER SERVES THE ROUNDS. This was hardcoded to the Aliyun free route
+// — `selectedModel: "qwen"`, `aliyun: { mode: "free" }` — so the harness could
+// exercise exactly ONE of the four providers in MODEL_CONFIGS, and could not run
+// at all on a key for any of the other three. A DeepSeek key produced
+// `free_all_exhausted` on round 0, which reads as "your credits are gone" rather
+// than "this harness cannot talk to your provider".
+//
+// That is the same shape as the hardcoded `identity` and `pace` this file already
+// records: a field selecting a whole code path, pinned to one value, so the other
+// values were never played live. Three of the four providers still have not been.
+//
+// Defaults to MODEL_ID from .env.local, so the harness follows the key that is
+// actually configured instead of assuming Aliyun. Resolved below the env block,
+// which is where MODEL_ID is read.
+//
+// Spellings that name a MODEL where a provider id is wanted. Deliberately short:
+// `resolveProvider` checks MODEL_CONFIGS itself first, so this only covers names
+// that are neither a provider id nor that provider's current model string.
+const PROVIDER_ALIASES = {
+  "aliyun": "qwen",
+  "deepseek-v4-flash": "deepseek",   // retired upstream, still in .env.local comments
+  "gpt-5.6-luna": "gpt4omini",
+};
+
+// Derived from MODEL_CONFIGS rather than listed by hand: the thing that keeps
+// going wrong in this repo is a list a human has to remember to update.
+function resolveProvider(spec, MODEL_CONFIGS) {
+  const s = String(spec || "").trim();
+  if (MODEL_CONFIGS[s]) return s;
+  if (PROVIDER_ALIASES[s]) return PROVIDER_ALIASES[s];
+  const byModel = Object.keys(MODEL_CONFIGS).find((id) => MODEL_CONFIGS[id].model === s);
+  // Anything else is an Aliyun route model string (`qwen3.7-plus`, `glm-5.3`),
+  // which names the Aliyun provider and is pinned through the route.
+  return byModel || "qwen";
+}
+
 // --cast plays a ROSTER instead of a group, which is the only way to exercise
 // the second door live. Until v1.4.0 step 6 this harness could express exactly
 // one shape — one whole group — so the composed-lore path that step 6 added had
@@ -132,6 +168,9 @@ function loadEnvLocal() {
 }
 const env = loadEnvLocal();
 const API_KEY = env.YURIAGENT_API_KEY || env.API_KEY || process.env.YURIAGENT_API_KEY || process.env.API_KEY || "";
+// See the PROVIDER note in the args block: --provider wins, then .env.local's
+// MODEL_ID, then Aliyun.
+const PROVIDER_ARG = arg("provider", env.MODEL_ID || "qwen");
 
 // ------------------------------------------------------- build test bundle
 // src/ uses extensionless imports, which plain Node ESM will not resolve.
@@ -373,6 +412,12 @@ async function runWorker(model) {
           collapseHistoryIfNeeded, loadGroupConfig, loadWorld, getNpcMembers, markModel, resetSessionSkips,
           resetFreeRoute, getFreeRouteStatus, buildSystemPrompt, resolveRoster } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
+  const PROVIDER = resolveProvider(PROVIDER_ARG, cfgMod.MODEL_CONFIGS);
+  // Only Aliyun has a free route to walk or pin. Every other provider serves one
+  // model per key, so there is nothing to aim at and `aliyun` must be null —
+  // passing a mode would send the round through the router with a key it cannot
+  // authenticate.
+  const ROUTED = PROVIDER === "qwen";
 
   // --- browser globals the app modules expect
   const store = new Map();
@@ -542,7 +587,7 @@ async function runWorker(model) {
     // this model rather than stopping at its first bad round.
     // ROUTE_MODE leaves the route alone to exercise the real walk instead.
     const aimAtModel = () => {
-      if (ROUTE_MODE) return;
+      if (ROUTE_MODE || !ROUTED) return;
       resetSessionSkips?.();
       resetFreeRoute?.(API_KEY);
       for (const other of ALIYUN_FREE_ROUTE) if (other !== model) markModel(API_KEY, other, "model_unavailable");
@@ -596,9 +641,9 @@ async function runWorker(model) {
         try {
           res = await executeRound({
             playerChoice: `${choice}. option ${choice}`, stats, memory, form, members,
-            mainId, subIds, groupConfig, world, apiKey: API_KEY, selectedModel: "qwen",
+            mainId, subIds, groupConfig, world, apiKey: API_KEY, selectedModel: PROVIDER,
             kktUnlocked, language: LANG, reasoningEnabled: REASONING,
-            aliyun: { mode: "free" }, timeSpeed: "default",
+            aliyun: ROUTED ? { mode: "free" } : null, timeSpeed: "default",
           });
           lastErr = null;
           break;
@@ -716,14 +761,26 @@ const C = { g: "\x1b[32m", r: "\x1b[31m", y: "\x1b[33m", d: "\x1b[2m", b: "\x1b[
 
 async function runParent() {
   if (!API_KEY) { console.error("No API_KEY in .env.local"); process.exit(1); }
-  if (!API_KEY.startsWith("sk-ws-")) console.log(`${C.y}warning${C.x} key is not an sk-ws- general key; free mode may not work`);
 
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { ALIYUN_FREE_ROUTE, getAliyunModelFamily } = cfgMod;
+  const PROVIDER = resolveProvider(PROVIDER_ARG, cfgMod.MODEL_CONFIGS);
+
+  // Only meaningful for Aliyun: `sk-ws-` is what its free route needs. Printed
+  // unconditionally, it told a correctly-configured DeepSeek run that its key was
+  // wrong — a false warning, which is worse than none, because the next thing the
+  // run said was `free_all_exhausted` and the two together named the wrong cause.
+  if (PROVIDER === "qwen" && !API_KEY.startsWith("sk-ws-")) {
+    console.log(`${C.y}warning${C.x} key is not an sk-ws- general key; free mode may not work`);
+  }
 
   const modelsArg = arg("models", "sample");
   let models;
-  if (ROUTE_MODE) models = ["(route)"];
+  // A non-Aliyun provider serves one model per key: there is no route to sample,
+  // walk or pin, so `--models` and `--route` have nothing to select and the run is
+  // one game on that provider's own model.
+  if (PROVIDER !== "qwen") models = [cfgMod.MODEL_CONFIGS[PROVIDER].model];
+  else if (ROUTE_MODE) models = ["(route)"];
   else if (modelsArg === "all") models = [...ALIYUN_FREE_ROUTE];
   else if (modelsArg === "sample") {
     // One model per family: the widest parameter coverage for the fewest calls.
@@ -734,7 +791,7 @@ async function runParent() {
     });
   } else models = modelsArg.split(",").map(s => s.trim()).filter(Boolean);
 
-  console.log(`${C.b}Playthrough harness${C.x} — ${models.length} model(s) x ${ROUNDS} rounds · ${GROUP} · lang ${LANG} · thinking ${REASONING ? "ON" : "off"} · jobs ${JOBS}`);
+  console.log(`${C.b}Playthrough harness${C.x} — ${models.length} model(s) x ${ROUNDS} rounds · ${GROUP} · lang ${LANG} · thinking ${REASONING ? "ON" : "off"} · jobs ${JOBS} · provider ${PROVIDER}`);
   console.log(`${C.d}building bundle…${C.x}`);
   await buildBundle();
 

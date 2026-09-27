@@ -5319,6 +5319,44 @@ async function layerL() {
     paceIds.every((id) => harness.includes(id)),
     `undocumented: ${paceIds.filter((id) => !harness.includes(id)).join(", ")}`);
 
+  // THE PROVIDER IS THE THIRD FIELD OF THIS SHAPE, and it was the worst of them.
+  // `selectedModel: "qwen"` and `aliyun: { mode: "free" }` were hardcoded into the
+  // executeRound call, so the harness could exercise exactly ONE of the four
+  // providers in MODEL_CONFIGS — and on a key for any other it died at round 0
+  // with `free_all_exhausted`, which names the player's credits rather than the
+  // harness. Identity and pace taught this twice already; the guards for those two
+  // are directly above.
+  //
+  // Asserted on the CALL, not on the flag: adding `--provider` while leaving
+  // `selectedModel: "qwen"` in place would pass a flag check, which is exactly the
+  // trap the form-literal check above was written to avoid.
+  const roundCall = (harness.match(/await executeRound\(\{[\s\S]*?\n          \}\);/) || [""])[0];
+  check("the harness sends the round to the configured provider, not a hardcoded one",
+    roundCall.length > 0
+      && /selectedModel: PROVIDER/.test(roundCall)
+      && !/selectedModel: "qwen"/.test(roundCall),
+    roundCall.slice(0, 200) || "executeRound call not found — the anchor moved");
+  check("...and only Aliyun is handed a free-route mode",
+    /aliyun: ROUTED \? \{ mode: "free" \} : null/.test(roundCall),
+    "a non-Aliyun key sent through the router cannot authenticate");
+  check("--provider defaults to the key actually configured in .env.local",
+    /const PROVIDER_ARG = arg\("provider", env\.MODEL_ID \|\| "qwen"\)/.test(harness),
+    "the harness must follow MODEL_ID rather than assuming Aliyun");
+  // Derived from MODEL_CONFIGS, not a second hand-maintained list of providers —
+  // the thing that keeps going wrong in this repo is a list a human has to
+  // remember to update, so the resolver consults the config instead.
+  check("the provider resolver reads MODEL_CONFIGS rather than listing providers",
+    /function resolveProvider/.test(harness)
+      && /if \(MODEL_CONFIGS\[s\]\) return s;/.test(harness)
+      && /Object\.keys\(MODEL_CONFIGS\)\.find/.test(harness),
+    "a hand-listed provider table is the list someone forgets to update");
+  // The false warning: it fired on every non-Aliyun key, so a correctly configured
+  // DeepSeek run was told its key was wrong one line before it failed for an
+  // unrelated reason. Two true-sounding lines naming the wrong cause.
+  check("the sk-ws- key warning is scoped to the provider it describes",
+    /PROVIDER === "qwen" && !API_KEY\.startsWith\("sk-ws-"\)/.test(harness),
+    "a false warning is worse than none");
+
   // Prose is kept for every round, not a head of the first. A grader reports only
   // what went wrong, so the transcript is the only record of whether a positive
   // instruction was followed — and round 0 is the worst round to sample, being the
