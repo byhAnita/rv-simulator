@@ -985,8 +985,18 @@ async function layerG(mod, MODEL_CONFIGS) {
   // Error notices are UI feedback; they must not become story or save content.
   check("every llmErrorNotice message is tagged error:true",
     !/content: llmErrorNotice\(e\) \}/.test(app) && /llmErrorNotice\(e\), error: true/.test(app));
+  // Counted against the call sites, not tested for presence in one of them. This was
+  // two copies of the same filter — clipboard/TXT here, PDF inside exportPdf — and the
+  // PDF copy had drifted: it filtered only `!m.hidden`, so it carried error notices
+  // into the exported story, numbered its rounds off a different filter, and missed the
+  // `╚` fix. The old guard read the other copy and could see none of it.
   check("story export skips tagged error messages",
-    /extractStoryText[\s\S]{0,200}!m\.error/.test(app));
+    /const storyRounds = \(\) => messages[\s\S]{0,200}!m\.error/.test(app),
+    "the one definition both exports use must drop error notices");
+  const exportUses = (app.match(/storyRounds\(\)/g) || []).length;
+  check("...and both exports go through that one definition",
+    exportUses >= 2 && !/messages\s*\n?\s*\.filter\(m => m\.role === "assistant" && !m\.hidden\)\s*\n?\s*\.map/.test(app),
+    `${exportUses} call sites — clipboard/TXT and PDF`);
 
   // The stats box the player reads every round. Two defects, both of the same shape
   // as the blank line in section 6 of the prompt: an absent value rendered as an

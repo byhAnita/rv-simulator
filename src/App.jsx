@@ -540,19 +540,33 @@ export default function App() {
   // story or a save slot — they are UI feedback, not narrative.
   const storyMessages = (list) => list.filter(m => !m.error);
 
+  // The exportable story, once. This was TWO copies of the same filter — one here for
+  // clipboard and TXT, one inside exportPdf — and they had already drifted apart:
+  //
+  //   - the PDF copy filtered only `!m.hidden`, so it carried error notices into the
+  //     exported story, which the comment three lines above says never happens;
+  //   - and it numbered its rounds off a different filter, so a run containing one
+  //     error notice numbered the same round differently in TXT and in PDF;
+  //   - and the `╚` fix below reached one of the two.
+  //
+  // The guard in smoke.mjs was written against this copy and could not see any of it.
+  //
+  // `╚` as well as `╔`: the box is one paragraph only while it contains no blank line,
+  // and a solo run's box contained one for as long as the sub-member line was rendered
+  // empty — so the bottom border survived into every exported round. That is fixed at
+  // the source in buildStatsBox; this stays because the filter is the thing that
+  // breaks silently when the box format moves.
+  const storyRounds = () => messages
+    .filter(m => m.role === "assistant" && !m.hidden && !m.error)
+    .map((m, i) => ({
+      n: i + 1,
+      text: m.content.split("\n\n")
+        .filter(p => !p.startsWith("╔") && !p.startsWith("╚") && !/^[A-D]\.\s/.test(p))
+        .join("\n\n").trim(),
+    }));
+
   const extractStoryText = () =>
-    messages.filter(m => m.role === "assistant" && !m.hidden && !m.error)
-      .map((m, i) => {
-        // `╚` as well as `╔`: the box is one paragraph only while it contains no
-        // blank line, and a solo run's box contained one for as long as the sub-member
-        // line was rendered empty — so the bottom border survived into every exported
-        // round. That is fixed at the source in buildStatsBox; this stays because the
-        // filter is the thing that breaks silently when the box format moves.
-        const story = m.content.split("\n\n")
-          .filter(p => !p.startsWith("╔") && !p.startsWith("╚") && !/^[A-D]\.\s/.test(p))
-          .join("\n\n").trim();
-        return `=== Round ${i + 1} ===\n${story}`;
-      }).join("\n\n---\n\n");
+    storyRounds().map(r => `=== Round ${r.n} ===\n${r.text}`).join("\n\n---\n\n");
 
   const exportClipboard = async () => {
     try { await navigator.clipboard.writeText(extractStoryText()); showNotif("Copied to clipboard"); }
@@ -580,14 +594,7 @@ export default function App() {
     const headBg     = isLight ? "linear-gradient(135deg,#5c3820,#3a2210)" : "linear-gradient(135deg,#1e0820,#2d0a2e)";
     const font = "'Georgia','Noto Serif SC',serif";
 
-    const rounds = messages
-      .filter(m => m.role === "assistant" && !m.hidden)
-      .map((m, i) => {
-        const text = m.content.split("\n\n")
-          .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
-          .join("\n\n").trim();
-        return { n: i + 1, text };
-      });
+    const rounds = storyRounds();
 
     const cards = rounds.map(r => `
       <div class="card">
