@@ -1794,8 +1794,24 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 
 ### Pick up here — step 7, 2026-09-28
 
-**Everything below is committed and pushed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
-**1112 passed / 0 failed**. Nothing is running.
+**Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
+**1138 passed / 0 failed**. Nothing is running. Goldens untouched throughout — nothing since the
+re-validation is prompt-facing.
+
+**Waiting on Yuhan: hand-test the new cast picker on `dev.idol-dating-sim.pages.dev`, then the
+v1.4.0 release.** The picker was rebuilt role-first on his design — see *The cast picker is organised
+by role, not by member*. Cloudflare's branch alias is deterministic, which is why it and not Vercel
+is the preview to use.
+
+**The sanity run is done, on DeepSeek, and it is the first live exercise of the fixed
+`membersNamedIn`:** 8/8 clean rounds on `deepseek-flash`, median 5,459ms, `direct` parse 8/8, **89.6%
+cache**, 2 collapses with **0 prefix breaks**, **0 static-prompt drifts**. Rotation reads Irene 8/8
+(max gap 0) and Seulgi 5/8 (max gap 2) — **compliant with section 3, and the first honest rotation
+measurement this project has taken**. It is n=1 on 8 rounds in one config, so it settles *nothing*
+about `[Rounds Absent]`; it establishes that the fixed code runs and reports sane numbers.
+
+**The router fix from `56cc684` is still live-untested**, and cannot be tested without an Aliyun
+`sk-ws-` key — `callAliyunFreeRoute` is Aliyun-only and `.env.local` currently holds a DeepSeek key.
 
 **The controlled re-validation is done — 100 live rounds, four 25-round arms, one model pinned and
 recorded in every arm.** It found two bugs and could not answer the question it was run to answer.
@@ -1820,7 +1836,13 @@ recorded in every arm.** It found two bugs and could not answer the question it 
 - a **126-character truncated round was accepted** and rendered with English fallback options — two
   separate defects, both written up in `docs/PROPOSALS.md` §7.
 - `qwen3.7-plus-2026-05-26` is **out of free credits** as of today; 100 rounds exhausted it. Re-probe
-  with `node test/smoke.mjs --live-free` before pinning anything.
+  with `node test/smoke.mjs --live-free` before pinning anything — and note `--live-free` needs an
+  Aliyun `sk-ws-` key and fails every probe with `auth` on any other, which is correct behaviour and
+  reads alarmingly.
+- **three of the four providers have still never played a live round.** The harness could not reach
+  them until step 7; `--provider gemini` and `--provider gpt4omini` are now one command each, and
+  open question 3 (`reasoning_effort:'none'` on OpenAI, Gemini with thinking off) has been waiting on
+  exactly that.
 
 **The release itself (`npm run bump 1.4.0` onward) is untouched and awaits Yuhan's go.** `main` is still
 v1.3.9 at `758faa3`. The open decision blocking nothing but worth his eye: whether v1.4.0 ships
@@ -1870,8 +1892,98 @@ classic single-group control ran 6/6 clean at 85.6%. Section 4 read `[X Backgrou
 across four configurations validate step 6"* under Project Status for the numbers and for the two
 grader bugs it exposed.
 
-Remaining in step 6, both optional: splitting the classic Setup page, and the roster builder's visual
-design (unpolished by agreement). **Neither blocks the release**, which is step 7.
+Remaining in step 6, optional: splitting the classic Setup page. **It does not block the release**,
+which is step 7. The roster builder's design was the other open item and is now done — see below.
+
+### The cast picker is organised by role, not by member
+
+**Reworked on Yuhan's design, step 7.** The builder listed every member in the library and hung
+three small role buttons off each card. Two things were wrong, and the second is why this was a
+restructure rather than a restyle:
+
+- **It did not match the decision.** A player picks her main, then optionally some subs, then
+  optionally some background faces. She never walks the library asking "what is Yeri for".
+- **It could not be tapped.** Up to twenty-seven adjacent ~18px targets at 390px, each assigning a
+  **different** role — so a mis-tap assigned the wrong part rather than missing.
+
+Note the first version was tap-to-cycle on symbols, replaced after a phone test by those three
+*named* buttons. **The second attempt fixed legibility and left the structure wrong**, which is why
+the lesson is recorded here and not in the commit alone.
+
+Now three sections — main, subs, NPCs — each showing its members as chips with an `x`, and a `+`
+opening `MemberPicker.jsx` for that slot. Four rules the shape encodes:
+
+- **The sheet's behaviour follows the slot's cardinality.** One main, so choosing her closes it;
+  subs and NPCs are "as many as you like", so it stays open and counts.
+- **A member holds exactly one slot, so tapping her elsewhere MOVES her**, and the picker names the
+  role she currently holds. Ids key every per-member map in the save, so one member in two slots
+  would merge her own state; the alternatives are a silent no-op or a duplicate.
+- **Chip order comes from `rosterFromPicks`**, not from the picks object — within-slot order reaches
+  the prompt and prompt order is a cache boundary, so two answers to "what order" is one too many.
+- **Each section explains its role whether or not it is filled.** The old legend showed only while
+  the whole cast was empty, so it had vanished by the time the player reached the NPC decision.
+
+**Five defects went with it, and two are repeats of lessons already in this file:**
+
+| Found | Was |
+| --- | --- |
+| **The player's font scale never reached these screens** | threaded into the story, the options, Bubble and Kakao — and into neither cast screen, which were also the smallest type in the app. A player who asked for larger text got it everywhere else |
+| **Type below the readable floor** | 8px for a line the player has to read (which group a shared member came from), 9 and 9.5 elsewhere, against 11-13 in the rest of the app. `castTheme.js` now holds the floor and every size passes through `scaleFont` |
+| **The raw group id was shown to the player** | `red_velvet`, `gnz` — where every other surface shows the display name. **The `[Stage Changes]` defect one layer up**, and a custom member's id is a timestamp |
+| **The 20-member cap was invisible until hit** | exactly what the save slots taught (*"The tenth save is the last one"*), one screen over. It now reads `n / 20` at all times |
+| **`pickMainHint` described a control deleted two redesigns ago** | in all three languages. **The i18n form of "a prompt is not append-only"** |
+
+**`castTheme.js` exists because the palette was three copies of the same fifteen literals**, one per
+cast screen. That is the convention the older overlays set and it is wrong here: these three are one
+flow the player walks in a single sitting, so a token edited in the builder and forgotten in the
+sheet makes the sheet look like a different app. Same argument as `extractStoryText`, where two
+copies had drifted and the guard had been written against the one that was still correct.
+
+**`displayNameIn` shows the name the player recognises, and must never reach the prompt.** zh sees
+`裴珠泫`, ko `배주현`, en `Irene` — en's `name_kr` is a romanized legal name ("Bae Ju-hyun"), longer
+than the stage name and not what an English reader knows her as, so en keeps `name`. Same split as
+the zh address-form table and for the same reason: what the audience reads, not consistency. The
+prompt is unaffected and guarded: `name` is the cast's canonical identity everywhere the model can
+see it, and `membersNamedIn` reads it back out of the prose to decide who appeared.
+
+**Saving a roster asks what to call it, and the label must never land on `roster.name`.** Those two
+fields look interchangeable and are not: `roster.name` is the composed **group** name, which
+`rosterResolver` renders into section 4 as *"\<name\> is an N-member group under \<name\>
+Entertainment"* — so a cast saved as "my Irene run" would have debuted under that name in the story.
+`savedRosterEntry` is a function with a test for exactly that reason.
+
+**`assignSlot` and `savedRosterEntry` are exported pure functions**, the `addSaveSlot` pattern: five
+guards that matched the component's *source* now test behaviour, and they went red the moment the
+logic moved — which is what a regex over an implementation does. Five more encoding the old layout
+were replaced by guards written from the same requirement.
+
+### …and it could only ever test one of the four providers — the third time
+
+**Found running the step 7 sanity check against a DeepSeek key.** `playthrough.mjs` hardcoded
+`selectedModel: "qwen"` and `aliyun: { mode: "free" }` into its `executeRound` call, so it could
+exercise exactly one of the four providers in `MODEL_CONFIGS`. On a key for any of the other three it
+died at round 0 with `free_all_exhausted` — which names the **player's credits**, not the harness —
+one line after warning that the key was not an `sk-ws-` one. **Two true-sounding lines naming the
+wrong cause**, which is worse than a bare failure.
+
+**This is the third field of the same shape in this one file**, and the shape is now unmistakable:
+
+| Field | Was pinned to | What that cost |
+| --- | --- | --- |
+| `identity` | `练习生` | 7 of 8 backgrounds never played live; a bug in one survived every run ever made |
+| `pace` | `浪漫情感向` | three quarters of the coverage, the moment section 6 began sending the pace's authored rule |
+| **provider** | **`qwen`** | **three of four providers have still never played a live round** |
+
+`--provider` now defaults to `MODEL_ID` from `.env.local`, so the harness follows the key that is
+actually configured rather than assuming Aliyun; `resolveProvider` consults `MODEL_CONFIGS` instead
+of carrying a second hand-maintained provider table; only Aliyun is handed a free-route mode, and
+route pinning is skipped for everyone else. **The guards assert on the `executeRound` call, not on
+the flag list** — adding `--provider` while leaving `selectedModel: "qwen"` in place would pass a
+flag check, which is the trap the form-literal guard beside it already exists to avoid.
+
+**Generalise it: every field of `executeRound` that selects a whole code path needs a flag, and the
+guard belongs on the call rather than on the flag.** That is now three instances; assume there is a
+fourth and go looking rather than waiting for it to cost a release.
 
 ### `playthrough.mjs` had been dead since step 3, and that is the second time
 
