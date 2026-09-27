@@ -145,7 +145,12 @@ function analyze(result, config) {
   };
   const seen = new Map();
   T.forEach((t, i) => {
-    for (const s of uniq(sentences(t.story).map(normalise))) {
+    // Length is checked AFTER normalising, not before. Removing the names shortens a
+    // sentence, so `Irene였다.` and `Seulgi였다.` both became `§였다.` — five characters
+    // — and got reported as a reused sentence across three rounds. "It was Irene" and
+    // "it was Seulgi" are not a repetition; they are two different sentences that
+    // happen to share a predicate. That accounted for most of the Korean run's count.
+    for (const s of uniq(sentences(t.story).map(normalise)).filter((s) => s.length >= 10)) {
       if (!seen.has(s)) seen.set(s, []);
       seen.get(s).push(i);
     }

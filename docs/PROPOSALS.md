@@ -27,11 +27,25 @@ prose — `kktMessages` sat immediately before `story`, the message was the fres
 and the model wrote the scene around it. That one is fixed by moving `story` ahead of the social
 fields; the argument applies unchanged to the numbers.
 
-**What it might buy.** Deltas that track what actually happened in the round rather than a plausible
-guess. The symptom to look for is monotony: the same +3 every round regardless of whether she was
-warm or evasive, and stats that move in only one direction. `scripts/analyze-prose.mjs` already
-reports `median step`, how many rounds sit at the ±8 clamp, how many deltas are negative, and how
-often each of the three stats moves at all.
+**The symptom is measured and it is total. Across 85 rounds — four identities, four paces, three
+languages — there are ZERO negative affection steps.** 81 transitions, every one of them up or flat.
+And every run saturates: in the 25-round configuration `selfId` went 29→100, `secrecy` 100→11, `mood`
+72→100 and affection 15→100, so by round 22 the game had nothing left to move. The other three
+configurations differ only in how far they got.
+
+Section 9 asks for *"60% sweet, 30% realistic pressure, 10% youthful regret"* and the schema permits
+`+/-1 to +/-10`. Neither is reaching the numbers.
+
+**This is the strongest reason to try the reorder, and it makes the experiment predictive rather than
+aesthetic.** A model that must emit `affectionChanges` **before** writing the scene cannot make the
+number follow the scene — it can only guess a plausible one, and the plausible guess in a dating sim is
+always upward. If that is the mechanism, moving the numbers after the story should produce the first
+negative deltas this project has ever recorded. If they still never appear, the cause is elsewhere and
+the prompt needs to say that a round can cost her something — which is a question about how the game
+should feel, and Yuhan's.
+
+`scripts/analyze-prose.mjs` reports `median step`, rounds at the ±8 clamp, negative count, and each
+stat's trajectory, so the comparison is one command.
 
 **What it would cost.** All three goldens move. It is the second reorder in one release, and each one
 asks a model to restructure a long response — the 4-level parser exists because the weaker route
