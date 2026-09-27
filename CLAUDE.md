@@ -1415,8 +1415,8 @@ of a step whose whole gate is that they do not move, and it likely lands with pl
 leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
 upstream — and is deleted.
 
-**Steps 3, 4 and 5 are done and step 6 is in progress — all on `dev`, all unreleased.** Smoke
-**578 → 868**.
+**Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
+**578 → 949**. `dev` is 31 commits ahead of `main`, 0 behind.
 
 **Step 6 is the first of these with player-visible changes**: a second door on the cover leading to
 a roster builder, a three-step member editor with LLM card generation, cast photos, an on-device
@@ -1424,7 +1424,19 @@ console behind `?debug=1`, and the birth-year correction a migrated save needs. 
 branch alias** — `dev.idol-dating-sim.pages.dev` — which found three bugs nothing offline could:
 the birth-year field could not be typed into, the role picker hid what it was assigning, and a
 cross-group cast was described as the main member's group (see *"A cast drawn from more than one
-source is its own group"*). All three are fixed. **Goldens byte-identical throughout step 6.**
+source is its own group"*). All three are fixed.
+
+**Hand play then found three more, after the offline suite and the live gate were both green** — and
+they are the more instructive half of step 6, because none of them was findable by any check written
+in advance: the player's identity and the members' leaking into each other (*"Whose life is whose"*),
+**save slots silently deleting the oldest run past ten** (*"The tenth save is the last one"*), and,
+from reading the whole rendered prompt on Yuhan's prompting, six stale or contradictory setting
+statements (*"Reading the whole rendered prompt, once, found six more"*). The save bug is the worst
+of everything step 6 turned up: it destroyed player data rather than misdescribing it.
+
+**The goldens moved three times in step 6, each deliberately and each diff read** — the ROLE
+CONTRACT, the six prompt-review fixes, and section 9's localized stage names. They were
+byte-identical through the first eleven commits, which is what the step's own gate asked for.
 
 **For branch previews use Cloudflare, not Vercel.** Cloudflare's alias is a deterministic
 `<branch>.<project>.pages.dev`; Vercel's preview hostname embeds a team slug that exists nowhere in
@@ -1437,8 +1449,12 @@ agencies, **0** static-prompt drifts, 3 collapses with **0** ledger prefix break
 classic single-group control ran 6/6 clean at 85.6%. Section 4 read `[X Background] / X is a
 5-member group under X Entertainment`, naming none of the four origin groups.
 
-Remaining in step 6: optionally splitting the classic Setup page, and the roster builder's visual
-design (unpolished by agreement).
+**A second, wider run after the later fixes: 64 rounds, four configurations** — see *"64 live rounds
+across four configurations validate step 6"* under Project Status for the numbers and for the two
+grader bugs it exposed.
+
+Remaining in step 6, both optional: splitting the classic Setup page, and the roster builder's visual
+design (unpolished by agreement). **Neither blocks the release**, which is step 7.
 
 ### `playthrough.mjs` had been dead since step 3, and that is the second time
 
@@ -1486,10 +1502,12 @@ Smoke **671 → 683**. A v1.3.9 hand-play bug found while the branch was green r
 `7fd109c` (a Kakao transcribed into the story — see the KKT note under Social Media System),
 taking smoke to **695** and moving the goldens a second time.
 
-**Step 6 — the custom-cast UI** (`919449a`.., eleven commits). Smoke **695 → 868**. In order:
-the prompt surviving an incomplete member, the palette + photo store, `cardGenerator`, the member
-editor, the roster builder + second door, the on-device console, the three phone-test fixes, docs,
-then the birth-year correction (`correctBirthYear` — see *"So the player is given the year back"*).
+**Step 6 — the custom-cast UI** (`919449a`..`d731db1`, fourteen commits). Smoke **695 → 949**. In
+order: the prompt surviving an incomplete member, the palette + photo store, `cardGenerator`, the
+member editor, the roster builder + second door, the on-device console, the three phone-test fixes,
+docs, the birth-year correction (*"So the player is given the year back"*), the harness revival plus
+`--cast` and the live gate, the ROLE CONTRACT with the six prompt-review fixes, and the save-slot
+cap with per-language stage names and section 4's per-roster preamble.
 
 Three deviations from `docs/V140_PLAN.md`, each deliberate and recorded there: **three storage keys,
 not five** (custom worlds and world selection are v1.4.1, and this repo already carries two

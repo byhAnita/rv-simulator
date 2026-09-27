@@ -218,7 +218,7 @@ seed hashing `birthYear`, reversed member order, a disabled group scan, a remove
 short-circuit, `phaseRef` pinned late, the group not taken from the save, and `SaveOverlay`
 dropping `groupId` or `roster`.
 
-**Step 6 is in progress and is the current work.** Smoke **868**. Eleven commits so far:
+**Step 6 is complete apart from two optional items. Smoke 695 → 949.** Fourteen commits:
 
 | Commit | What |
 | --- | --- |
@@ -232,11 +232,15 @@ dropping `groupId` or `roster`.
 | `b8e66b0` | **fix** — a cross-group cast is its own group, not the main member's |
 | `081fc86` | **docs** — step 6 recorded, and this document corrected where phone play moved the design |
 | `2eca085` | correcting a migrated birth year (commit 6) — see *"Done in step 6"* above |
-| _pending_ | the live gate: `--cast` on the harness, and the harness revived — see below |
+| `06d1dc9` | **test** — `playthrough.mjs` revived and taught `--cast`; the live gate met |
+| `f04c523` | **fix** — the player's identity is hers, and six stale rules removed from the prompt |
+| `d731db1` | **fix** — save slots refuse instead of evicting; stage names and section 4 per roster |
 
-**The live gate is met.** The reported roster played **10/10 clean rounds** in zh — 0 outside-cast
-names, 0 real agencies, 0 static-prompt drifts, 3 collapses with 0 prefix breaks, 81.2% cache —
-against a 6/6 clean classic control at 85.6%.
+**The live gate is met, and then some — 64 rounds across four configurations** (2026-09-27):
+Chaebol classic **20/20 clean**, Chaebol + cross-group cast 17/20, Staff in **en** 12/12, the
+ex-girlfriend identity in **ko** 12/12. **0 static-prompt drifts and 0 ledger prefix breaks across
+all 64**, 18 collapses, cache 81.2–86.9%. Of the three flags, two were the new grader misreading the
+player's own dialogue and one was a real KKT transcription left alone at n=1 — see CLAUDE.md.
 
 Getting there needed the harness taught to express a roster at all (`--cast
 blackpink:jisoo,red_velvet:irene,custom:李飞,twice:mina@npc,twice:sana@npc`) and, first,
@@ -245,9 +249,21 @@ but not the `/worlds/` step 3 introduced. So steps 3, 4, 5 and 6 were every one 
 with zero live rounds. The new guard derives the trees from `src/` rather than listing them; see
 CLAUDE.md, *"`playthrough.mjs` had been dead since step 3"*.
 
-**Remaining in step 6:** optionally splitting the classic Setup page into steps. The roster
-builder's visual design is **known to be unpolished and deliberately deferred** — Yuhan's call
-after the phone test: "works but doesn't look good, we can improve this later."
+**Remaining in step 6, both optional and neither blocking a release:** splitting the classic Setup
+page into steps, and the roster builder's visual design — **known to be unpolished and deliberately
+deferred**, Yuhan's call after the phone test: "works but doesn't look good, we can improve this
+later."
+
+**Three more player-reported bugs were fixed after the gate, all from hand play, none findable
+offline:** a Chaebol player's identity leaking onto a member and the members' practice schedule onto
+her (`f04c523`), and **save slots silently deleting the oldest run past ten** (`d731db1`) — the worst
+of the three, because it destroyed player data rather than misdescribing it. Reviewing the whole
+rendered prompt on Yuhan's suggestion found six more stale or contradictory statements in the same
+commit; see CLAUDE.md, *"Reading the whole rendered prompt, once, found six more"*.
+
+**Next: step 7, release v1.4.0.** Nothing in step 6 is known-broken. The release itself still needs
+the version bump, the README "What's New" section, and the merge-and-deploy sequence in CLAUDE.md's
+**Release** flow.
 
 ### Hand-tested on a phone, which is the only place three of these showed
 
