@@ -987,6 +987,43 @@ async function layerG(mod, MODEL_CONFIGS) {
     !/content: llmErrorNotice\(e\) \}/.test(app) && /llmErrorNotice\(e\), error: true/.test(app));
   check("story export skips tagged error messages",
     /extractStoryText[\s\S]{0,200}!m\.error/.test(app));
+
+  // The stats box the player reads every round. Two defects, both of the same shape
+  // as the blank line in section 6 of the prompt: an absent value rendered as an
+  // empty line rather than as nothing.
+  //
+  // A solo run has no sub members, and the empty string in their place put a BLANK
+  // LINE inside the box — which split the box into two `\n\n` paragraphs, and the
+  // export filter only dropped paragraphs beginning with `╔`. So every exported
+  // round of a solo game carried a stray `╚══════════════════════════════╝`.
+  const boxBody = app.slice(app.indexOf("function buildStatsBox"), app.indexOf("function buildStatsBox") + 1400);
+  check("the stats box drops absent lines instead of rendering them empty",
+    /\]\.filter\(Boolean\)\.join\("\\n"\)/.test(boxBody) && !/subLines \|\| ""/.test(boxBody),
+    "an empty sub-member line splits the box in two and leaks its border into exports");
+  check("...and the export filter drops the box's closing border too",
+    /!p\.startsWith\("╚"\)/.test(app),
+    "the filter is what breaks silently when the box format moves");
+  // `chapter` is an internal token — start/develop/climax/resolve — and it was
+  // printed raw beside four fields that all carry a localized label, so a Chinese
+  // player read `🎭: [start]` every round.
+  check("the chapter is localized rather than printed as its internal token",
+    /t\.stats\.chapters\?\.\[stats\.chapter\]/.test(boxBody),
+    (boxBody.split("\n").find((l) => l.includes("🎭")) || "").trim());
+  for (const lang of ["zh", "en", "ko"]) {
+    const src = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8");
+    const chapters = (src.match(/chapters:\s*\{([^}]*)\}/) || [, ""])[1];
+    check(`[${lang}] every chapter getChapterByRound can return has a label`,
+      ["start", "develop", "climax", "resolve"].every((c) => new RegExp(`\\b${c}:`).test(chapters)),
+      chapters.trim() || "no chapters table");
+  }
+  // The four tokens are the function's whole range; a fifth added there needs a label
+  // in three files, and would otherwise render raw exactly as the others used to.
+  const chapterFn = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8")
+    .match(/function getChapterByRound[\s\S]*?\n\}/)[0];
+  check("getChapterByRound returns only the four the i18n tables cover",
+    [...chapterFn.matchAll(/return "([a-z]+)"/g)].map((m) => m[1]).sort().join(",")
+      === "climax,develop,resolve,start",
+    [...chapterFn.matchAll(/return "([a-z]+)"/g)].map((m) => m[1]).join(","));
   check("save slots skip tagged error messages", /messages=\{storyMessages\(messages\)\}/.test(app));
 
   // The story edit writes to memory as well as the screen, or the model's

@@ -257,10 +257,19 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
     `💗 ${mainMember?.emoji}${mainMember?.name}: ${stats.affection}/100`,
     `🌈${t.stats.selfId.label}: ${stats.selfId} | 🔒${t.stats.secrecy.label}: ${stats.secrecy}`,
     `💫${t.stats.mood.label}: ${stats.mood} | 📅${t.stats.week.label} ${stats.week} | 📍${stats.scene}`,
-    `🎭: [${stats.chapter || "start"}]`,
-    subLines || "",
+    // `chapter` is an internal token — start / develop / climax / resolve — and it
+    // was rendered raw, so a Chinese player read `🎭: [start]` in the box she sees
+    // every single round, beside four fields that all carry a localized label.
+    `🎭: [${t.stats.chapters?.[stats.chapter] || t.stats.chapters?.start || stats.chapter || "start"}]`,
+    subLines,
     "╚══════════════════════════════╝",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
+  // `filter(Boolean)` is load-bearing twice over. A solo run has no sub members, and
+  // the empty string left in its place put a BLANK LINE inside the box — which split
+  // the box into two `\n\n` paragraphs, and `extractStoryText` only drops paragraphs
+  // beginning with `╔`. So every exported round of a solo game carried a stray
+  // `╚══════════════════════════════╝`. Same class as the blank line in section 6
+  // of the prompt: an absent value rendered as an empty line rather than as nothing.
 }
 
 // The player's birth year, its bounds and its one validator now live in
@@ -534,8 +543,13 @@ export default function App() {
   const extractStoryText = () =>
     messages.filter(m => m.role === "assistant" && !m.hidden && !m.error)
       .map((m, i) => {
+        // `╚` as well as `╔`: the box is one paragraph only while it contains no
+        // blank line, and a solo run's box contained one for as long as the sub-member
+        // line was rendered empty — so the bottom border survived into every exported
+        // round. That is fixed at the source in buildStatsBox; this stays because the
+        // filter is the thing that breaks silently when the box format moves.
         const story = m.content.split("\n\n")
-          .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
+          .filter(p => !p.startsWith("╔") && !p.startsWith("╚") && !/^[A-D]\.\s/.test(p))
           .join("\n\n").trim();
         return `=== Round ${i + 1} ===\n${story}`;
       }).join("\n\n---\n\n");

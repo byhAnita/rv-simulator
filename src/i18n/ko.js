@@ -176,6 +176,7 @@ const ko = {
     secrecy: { icon: "🔒", label: "비밀 유지" },
     mood: { icon: "💫", label: "기분" },
     week: { icon: "📅", label: "라운드" },
+    chapters: { start: "첫 만남", develop: "가까워지는", climax: "압박", resolve: "선택" },
   },
   achievement: { continue: "계속하기" },
   common: { error: "❌ 오류:", startFailed: "시작 실패:", enterKey: "API 키를 입력하세요", pleaseSelectMember: "메인 멤버를 선택하세요", pleaseSetKey: "API 키를 설정하세요" },

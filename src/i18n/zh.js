@@ -176,6 +176,7 @@ const zh = {
     secrecy: { icon: "🔒", label: "保密度" },
     mood: { icon: "💫", label: "心情" },
     week: { icon: "📅", label: "回合" },
+    chapters: { start: "初识", develop: "渐近", climax: "压力", resolve: "抉择" },
   },
   achievement: { continue: "继续游戏" },
   common: { error: "❌ 出错:", startFailed: "启动失败:", enterKey: "请输入 API Key", pleaseSelectMember: "请选择主线成员", pleaseSetKey: "请设置 API Key" },

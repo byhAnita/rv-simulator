@@ -176,6 +176,7 @@ const en = {
     secrecy: { icon: "🔒", label: "Secrecy" },
     mood: { icon: "💫", label: "Mood" },
     week: { icon: "📅", label: "Round" },
+    chapters: { start: "First Meetings", develop: "Growing Closer", climax: "Pressure", resolve: "Consequences" },
   },
   achievement: { continue: "Continue" },
   common: { error: "❌ Error:", startFailed: "Start failed:", enterKey: "Please enter API Key", pleaseSelectMember: "Please select main member", pleaseSetKey: "Please set API Key" },
