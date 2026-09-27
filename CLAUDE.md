@@ -279,16 +279,16 @@ NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 
 `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` are **not referenced by any module**. Either wire them up or delete them — do not document them as live behavior.
 
-**Nor is the `[NPC Appearances]` block a third mechanism — step 7 found it never renders at all.**
-`executeRound` does `const npcAppearances = { ...memory.npcAppearances };` and writes it back
-**unchanged**; nothing anywhere adds an entry, so the object is `{}` for the life of every save and
-`buildDynamicTail`'s `Object.keys(...).length > 0` guard is never satisfied. The example line at
-*3-Tier Prompt Structure* has therefore never been sent to any model.
+**`npcAppearances` and the `[NPC Appearances]` block were a third such mechanism, and are gone.**
+`executeRound` did `const npcAppearances = { ...memory.npcAppearances };` and wrote it back
+**unchanged** — nothing anywhere added an entry, so the object was `{}` for the life of every save,
+`buildDynamicTail`'s `Object.keys(...).length > 0` guard was never satisfied, and the example line this
+file used to show had never been sent to any model. Section 8's `2-round cooldown` therefore named a
+cooldown the model was given no information to apply.
 
-The consequence for the prompt: section 8's `NPC: max 1 dialogue/round, 2-round cooldown` names a
-cooldown the model is given no information to apply. **So NPC appearance is governed by section 8's
-first clause and nothing else.** `docs/PROPOSALS.md` §5 covers deriving both appearance records from
-the prose, which is what would make the line and the rule real.
+Replaced in step 7 by `[Rounds Since Seen]`, which counts every member including the NPCs from
+appearances observed in the prose — see *3-Tier Prompt Structure*. An old save may still carry
+`npcAppearances`; nothing reads it.
 
 ---
 
@@ -572,13 +572,44 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
     [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
     [Stage Changes] 🐰Irene: Stranger→Acquaintance
-    [NPC Appearances] Joy(last: round 2)        <- never renders; see Key Constants
+    [Rounds Since Seen] 🐰Irene:0 | 🐻Seulgi:4 | 🐥Joy(npc):6
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
   + optional "[Pacing] slow|fast ..." line from Time Speed
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
+
+**`[Rounds Since Seen]` is the fact that makes section 3's rotation rule applicable.** Section 3 has
+always said *"sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member
+disappear for more than 3 rounds"*, and step 7's live runs showed it comprehensively ignored — Seulgi
+absent 9 rounds in one 25-round game, Wendy appearing **once in twenty** in another, and an NPC the
+prompt says must appear in the background appearing never.
+
+**The model was not refusing the rule; it could not apply it.** Nothing in the prompt said how long
+anyone had been away. `[Affections]` is a score, not a history, and `[NPC Appearances]` never rendered
+(see Key Constants). So the tail now counts it:
+
+```
+[Rounds Since Seen] 🐰Irene:0 | 🐻Seulgi:4 | 🐿️Wendy:never | 🐥Joy(npc):6 | 🐢Yeri(npc):2
+```
+
+Same shape as `[KKT Channels]`: **the tail carries the fact, the static section carries the rule, and
+the rule points at the line.** Duplicating the rule into the tail would be the two-rules-disagreeing
+failure this prompt keeps hitting.
+
+**One line covers everyone, and it replaces `[NPC Appearances]` rather than reviving it.** That block
+rendered a different unit (`Joy(last: round 2)`) for a rule about the same thing, from a field nothing
+ever wrote — so it is gone, along with `npcAppearances` itself. Two labels counting the same quantity
+in two units is how the `[Stage Changes]` id-vs-name mismatch happened one line up. An old save may
+still carry `npcAppearances`; it is simply ignored.
+
+**Appearances are observed, not drawn.** `executeRound` derives them from the prose — a member appeared
+if the story names her — which is what finally makes `memberAppearances` describe the game. The lottery
+in `probabilityEngine.js` used to write a single fabricated entry per round for whichever member it drew
+*after* the round was generated; see `docs/PROPOSALS.md` §4 for what is left to decide about the engine
+itself. Longer names are matched and masked first, so a member whose name is a substring of another's
+cannot have her absence reset by someone else appearing.
 
 **Every line in the tail names a member the way every other line does.** `[Stage Changes]` used to
 print the raw member id beside an `[Affections]` line printing `🐰Irene`, so the model had to match
