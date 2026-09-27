@@ -442,6 +442,47 @@ never know you want a log until after the thing has happened.
 
 ---
 
+### Korean particle pairs resolved at render time — v1.4.0
+
+**What it is.** The Korean world file writes a particle as the pair Korean conventionally writes it
+as — `은/는`, `이/가`, `을/를`, `과/와`, `으로/로` — and `resolveKoreanParticles` picks one after the
+surrounding words have been substituted in. For a Hangul word the choice is exact, computed from the
+syllable's own encoding: the final consonant is `(code - 0xAC00) % 28`, and 0 means it ends in a
+vowel. For a Latin word it deliberately does **not** choose, and renders `은(는)`.
+
+**What it replaced.** One hardcoded form per site, which is the only thing an author *can* write when
+the word in front of the particle is a template variable. `{name}` is whichever member the player
+picked and `{keepsake}` is one of four, so `ko.json` said `{name}는` — right for Joy, wrong for Irene
+(아이린**은**) — and `{reason}로`, giving `미숙함로`. One site had given up and shipped the template
+itself: every Korean ex-girlfriend prompt contained a literal `편지을/를`.
+
+**Why not just hardcode the common case.** Because there is no common case: the split across the four
+keepsakes is 3–1, and across the group library roughly half the stage names go each way. And why not
+guess from the Latin name's last letter — Irene reads 아이린 and ends in a consonant though its last
+letter is a vowel; Winter reads 윈터 and ends in a vowel though its last letter is not. A rule that
+is wrong half the time in a *prompt* is worse than no rule, because an example is an instruction.
+
+**What it bought.** Not measured against writing quality, and it should not be — this is a
+correctness fix in the class of the `Alex--ya` double hyphen: 12 particle sites across the 7 Korean
+identity backgrounds, previously wrong for roughly half of all casts, now right for every Hangul word
+and honest about every Latin one. 17 unit cases plus 5 mutations in smoke Layer I.
+
+**What it costs.** One pass of five `replaceAll`s per game (not per round — this is inside the static
+prompt), and an authoring rule: a new Korean sentence must write the pair, not a form. A guard fails
+the suite when a placeholder in `ko.json` is followed by a bare particle, so the rule is enforced
+rather than remembered. `은(는)` in a Latin case is visibly a form-filling artifact; that is the
+honest rendering of a fact the data does not carry, but it is not beautiful.
+
+**Where it lives.** `src/rag/worldLoader.js` — `PARTICLE_PAIRS`, `finalSound`,
+`resolveKoreanParticles`, called last in `renderIdentityBackground`. Data in
+`public/worlds/kpop_idol/ko.json`.
+
+**Short form.** A Korean particle depends on the sound of the word before it, and that word is a
+variable, so the file writes both and the code picks — exactly where it can know, and visibly not
+where it cannot.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

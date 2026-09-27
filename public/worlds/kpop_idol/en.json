@@ -8,6 +8,7 @@
   "identities": [
     {
       "id": "练习生",
+      "name": "Trainee",
       "background": "[Identity: Trainee] You are a trainee junior of {name}, and naturally met through training at the company practice room. Typical events: Asking {name} for vocal and dance tips; {name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside {name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy.",
       "workTitle": {
         "form": "sunbae-nim",
@@ -16,6 +17,7 @@
     },
     {
       "id": "Staff",
+      "name": "Staff",
       "background": "[Identity: Staff] You are {name}'s new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after {name} backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching {name} off guard and feeling touched; Driving {name} home late at night after schedules, being there for her vulnerable moments; Checking in on {name} backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct.",
       "workTitle": {
         "form": "Manager-nim",
@@ -24,18 +26,22 @@
     },
     {
       "id": "韩娱艺人",
+      "name": "K-pop Artist",
       "background": "[Identity: K-pop Artist] You are a K-pop idol from another company, with opportunities to collaborate with {name}. Typical events: Rehearsing a collaboration stage together in private, growing familiar and in sync; Performing together on Music Bank, your interactions getting screenshotted and wildly analyzed by CP fans; Your variety show appearances together being edited into romantic compilations that circulate widely. Advantage: Equal status, collaboration opportunities. Disadvantage: Extremely high public attention, any interaction dissected by CP fans and solo stans from both sides."
     },
     {
       "id": "粉丝",
+      "name": "Fan",
       "background": "[Identity: Fan] You are {name}'s fan, and during fan events she seems to give you special treatment beyond what other fans receive. Typical events: You grab a front-row spot at a music show, and {name}'s gaze seems to linger on you a second longer; At a fansign, {name} notices and brings up your new hairstyle/outfit/style change; You post an ordinary message on {name}'s Bubble, and she picks up your topic to chat with the fans; During a fan event two-shot Polaroid, {name} leans in and puts her hand on your shoulder. Advantage: Deep knowledge of {name}. Disadvantage: Highly sensitive identity, exposure means fandom trial."
     },
     {
       "id": "留学生",
+      "name": "Student",
       "background": "[Identity: International Student] You are an international student in Korea who met {name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference."
     },
     {
       "id": "财阀",
+      "name": "Chaebol",
       "background": "[Identity: Chaebol] You are the new young female chairwoman of {name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with {name}'s group, where {name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around {name}; Feeling for {name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap.",
       "workTitle": {
         "form": "Chairwoman-nim",
@@ -44,6 +50,7 @@
     },
     {
       "id": "主线成员前女友",
+      "name": "Ex-Girlfriend",
       "background": "[Special Identity: Main Member's Ex-Girlfriend]\n- You and {name} were lovers back in your school days, breaking up years ago due to {reason}\n- You still keep {keepsake} to this day\n- Now reunited through a work transfer: awkwardness, complex feelings, unspoken words. Early interactions involve deliberate distance, averted eyes, polite but distant\n- Other members may or may not know about your past. As the game progresses, you may reconcile or go your separate ways",
       "variants": {
         "reason": [
@@ -68,7 +75,7 @@
     },
     {
       "id": "浪漫情感向",
-      "rule": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage. "
+      "rule": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage."
     },
     {
       "id": "高压舆论向",
@@ -76,7 +83,7 @@
     },
     {
       "id": "修罗海王向",
-      "rule": "[Pace: Harem Route] Light comedic. Love triangle scences probability doubled. Members compete more openly for your attention."
+      "rule": "[Pace: Harem Route] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
     }
   ],
   "phases": [
@@ -109,7 +116,7 @@
       "ssi": "ssi",
       "sep": "-"
     },
-    "guide": "  언니 -> \"unnie\" (e.g. \"Irene-unnie\")  — NEVER \"big sister\", \"sis\" or \"miss\"\n  씨 -> \"-ssi\" (e.g. \"Ju-hyun-ssi\")    님 -> \"-nim\" (e.g. \"Manager-nim\")\n  야/아 -> \"-ya\"/\"-ah\" (e.g. \"Yerim-ah\") — warm and close, or a flash of irritation\n  선배 -> \"sunbae\"    존댓말 vs 반말: show it in how formal the phrasing feels"
+    "guide": "  언니 -> \"unnie\" (e.g. \"Irene-unnie\") — NEVER \"big sister\", \"sis\" or \"miss\"\n  씨 -> \"-ssi\" (e.g. \"Ju-hyun-ssi\")\n  님 -> \"-nim\" (e.g. \"Manager-nim\")\n  야/아 -> \"-ya\"/\"-ah\" (e.g. \"Yerim-ah\") — warm and close, or a flash of irritation\n  선배 -> \"sunbae\"\n  존댓말 vs 반말 — show the difference in how formal the phrasing feels"
   },
   "npcArchetypes": [
     "manager",

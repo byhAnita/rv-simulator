@@ -7,7 +7,7 @@ import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
-import { getIdentity, renderIdentityBackground } from "../rag/worldLoader";
+import { getIdentity, getPaceRule, renderIdentityBackground } from "../rag/worldLoader";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -82,7 +82,13 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     },
     ko: {
       lang: "Korean",
-      rule: "ALL generated content MUST be in Korean (한국어). DO NOT output English characters. DO NOT output Chinese characters.",
+      // "DO NOT output English characters" forbade the one thing this prompt
+      // requires: every member's name in MEMBER PROFILES is her Latin stage name,
+      // and section 6's own narration example is "Joy는 창가에 서 있다". Section 1
+      // is headed HIGHEST PRIORITY, so the two could only be resolved one way.
+      // Same shape as the zh Korean-gloss contradiction fixed in step 6 — a rule
+      // written before the data it constrains.
+      rule: "ALL generated content MUST be in Korean (한국어). DO NOT output Chinese characters. Member names are the one exception: spell each member exactly as MEMBER PROFILES spells her — her Latin stage name — and never transcribe it into Hangul or swap in her real name.",
       storyRule: "Story text must be in Korean.",
       socialRule: "Social media content must be in Korean.",
     },
@@ -93,6 +99,23 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // see backstorySeed below, and "buildSystemPrompt must be a pure function of
   // the save" in CLAUDE.md.
   const identityBg = renderIdentityBackground(world, form.identity, mainMember?.name, backstorySeed(form, mainId));
+
+  // The identity and the pace both reached the model as their raw ids, which are
+  // authored in Chinese for every language — so an English player's prompt said
+  // `Alex's identity: 财阀` and `Progression Pace: 高压舆论向`, an internal key in a
+  // language she does not read, while Setup showed her "Chaebol" and "High
+  // Pressure Scandal". Two vocabularies for one thing, and the model got the one
+  // nobody can read: exactly the stage-label bug from step 6, one section up.
+  //
+  // `name` fixes the identity. The pace needs no name field, because its authored
+  // rule already opens with a self-describing "[Pace: High Pressure]" — and
+  // sending the rule closes a live feature gap as well: `paceRules` was built into
+  // a local and never referenced, so "secrecy changes doubled" and "love triangle
+  // scenes probability doubled" were things the player could select and the model
+  // could not know. Both fall back to the id, so a world file without either still
+  // renders something true.
+  const identityName = getIdentity(world, form.identity)?.name || form.identity;
+  const paceLine = getPaceRule(world, form.pace) || `Progression Pace: ${form.pace}`;
 
   // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
   // 1995 idol are not peers even though they may be months apart. Direction is
@@ -126,6 +149,21 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const playerAge = GAME_YEAR - playerBirthYear;
   const playerName = form.name || "Player";
 
+  // Every line here is conditional on having content, for the same reason the
+  // member profile block is: a solo run has no sub members and rendered a blank
+  // line mid-list, a custom main member has no `name_kr` and rendered `Kim()`,
+  // and a custom identity has no background and rendered a second blank line.
+  const castLines = [
+    `${playerName}'s identity: ${identityName}`,
+    paceLine,
+    `Main Member: ${mainMember?.name}${mainMember?.name_kr ? `(${mainMember.name_kr})` : ""}`,
+    subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : "",
+    npcList.length > 0
+      ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)`
+      : "",
+    identityBg,
+  ].filter(Boolean).join("\n");
+
   // The setting is South Korea, so Korean address forms are transliterated into
   // whatever language the story is written in — never swapped for a native
   // equivalent. Rendering 언니 as the Chinese 姐 reads as a Chinese family
@@ -152,6 +190,16 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // is dropped rather than rendered as a duplicate of the plain name.
   const casually = (name) => tk.ya ? `, or "${call(name, tk.ya)}" once close` : "";
 
+  // The narration example in the SPEAKER CONTRACT, one clause per language. The ko
+  // frame is possessive on purpose: the natural "<name>는 창가에 서 있다" hardcodes a
+  // topic particle whose form depends on how the name is PRONOUNCED — 는 after Joy
+  // but 은 after Irene (아이린) — and an example is an instruction, so a wrong one
+  // teaches the error. `의` is invariant after every name, Latin or Hangul, and the
+  // sentence still does the one job it has: naming her by stage name alone.
+  const stoodByTheWindow = language === "zh" ? "正站在窗边"
+    : language === "ko" ? "의 시선이 창가로 향했다"
+    : " was standing by the window";
+
   // Round-phase beats and the archetypes an unnamed supporting role may be.
   // Both are English rule text in every language file, so the three world files
   // must agree on them - smoke Layer I asserts they do.
@@ -167,10 +215,14 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // the Hangul the prompt shows alongside it.
   const WORK_TITLE = getIdentity(world, form.identity)?.workTitle || null;
   const workTitle = WORK_TITLE ? `"${WORK_TITLE.form}" (${WORK_TITLE.kr})` : null;
+  // The two branches point the title in OPPOSITE directions — a trainee uses it
+  // FOR the members, everyone else is called it BY them — so the "it relaxes as
+  // they grow close" clause has to live inside each branch. Shared, it read "It
+  // relaxes toward her given name", which named the wrong person in one of the two.
   const identityAddress = !workTitle ? null
     : form.identity === "练习生"
-      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work`
-      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages`;
+      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work, relaxing toward a member's plain stage name as that member grows close to her`
+      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages, relaxing toward "${playerName}" as they grow close`;
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
@@ -224,11 +276,8 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Habit", m.habit)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
-  // JSON schema
-  //const mainSocial = `"${mainId}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`;
-  //const subSocials = subIds.map(id => `"${id}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`).join(",\n    ");
-  //const kktFields = allTargetIds.map(id => `"${id}": ["msg"]`).join(",\n    ");
-  // change to brief schema version
+  // JSON schema. Written without the spaces a formatter would add: the schema is
+  // ~8 lines of the cached prefix and reads the same to the model either way.
   const mainSocial = `"${mainId}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`;
   const subSocials = subIds.map(id => `"${id}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`).join(",");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
@@ -246,7 +295,7 @@ ${lr.socialRule}
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text, code fences, explanations, verification checks, or natural language outside JSON.
-Every key (statChanges, affectionChanges, socialContent, kktMessages, story, summary, options) must appear EXACTLY ONCE.
+Every key (scene, statChanges, affectionChanges, socialContent, kktMessages, story, summary, options) must appear EXACTLY ONCE.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.
 story value = ONE continuous text, no JSON syntax inside it.
@@ -262,7 +311,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
-- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: ${archetypeList}. 
+- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: ${archetypeList}.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 ${phaseLines}
 
@@ -283,13 +332,8 @@ ${memberDetails}
 ╔══════════════════════════════════════════╗
 ║ 6. CAST IDENTITY & ADDRESS               ║
 ╚══════════════════════════════════════════╝
-THE PLAYER: ${playerName} — a young WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
-${playerName}'s identity: ${form.identity}
-Progression Pace: ${form.pace}
-Main Member: ${mainMember?.name}(${mainMember?.name_kr})
-${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
-${npcList.length > 0 ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)` : ""}
-${identityBg}
+THE PLAYER: ${playerName} — a WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
+${castLines}
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -297,7 +341,7 @@ ${identityBg}
 - A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
@@ -305,7 +349,7 @@ ${identityBg}
 - When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from the group's calendar.
 
 -- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}. It relaxes toward her given name as they grow close.` : ""}
+Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}.` : ""}
 How much of that formality she actually speaks is a blend of three things, none of which decides alone:
   1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
   2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
@@ -345,7 +389,7 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ╚══════════════════════════════════════════╝
 Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
 📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
-Choose the three yourself, +/-1 to +/-10, and move at least one of them.
+Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -661,7 +705,6 @@ export async function executeRound({
     scene: parsed.scene || stats.scene,
     chapter: getChapterByRound(stats.week + 1),
   };
-  // ... rest stays exactly the same ...
 
   if (parsed.affectionChanges) {
     newStats.multiAff = { ...stats.multiAff };

@@ -125,7 +125,19 @@ export function buildDynamicTail(memory, members, roundMemberIds = [], language 
   }
 
   const affMap = memory.affections || {};
-  const affLines = members.map(m => {
+  const nameOf = (mid) => {
+    const m = members.find(mb => mb.id === mid);
+    return `${m?.emoji || ""}${m?.name || mid}`;
+  };
+  // Only romanceable members have a score. Listing the NPCs too printed every one
+  // of them as `0(Stranger)` for the whole game — telling the model in round 30
+  // that the main member's groupmate, who has been in most scenes, is a stranger.
+  // An empty roundMemberIds means an older caller that passed no round roster, so
+  // it keeps the old behaviour of listing everyone.
+  const scored = roundMemberIds.length > 0
+    ? members.filter(m => roundMemberIds.includes(m.id))
+    : members;
+  const affLines = scored.map(m => {
     const aff = affMap[m.id] || 0;
     return `${m.emoji}${m.name}:${aff}(${stageNameIn(aff, language)})`;
   });
@@ -133,7 +145,10 @@ export function buildDynamicTail(memory, members, roundMemberIds = [], language 
 
   if (memory.stageChanges?.length > 0) {
     const rc = memory.stageChanges.slice(-3);
-    parts.push(`[Stage Changes] ${rc.map(c => `${c.memberId}: ${c.from}→${c.to}`).join(" | ")}`);
+    // By display name, like every other line in this block. It used to print the
+    // raw member id, so the model had to match `irene` to `🐰Irene` one line above
+    // — and a custom member's id is a timestamp, which matches nothing at all.
+    parts.push(`[Stage Changes] ${rc.map(c => `${nameOf(c.memberId)}: ${c.from}→${c.to}`).join(" | ")}`);
   }
 
   if (memory.npcAppearances && Object.keys(memory.npcAppearances).length > 0) {

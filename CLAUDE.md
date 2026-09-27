@@ -130,7 +130,7 @@ Player choice
 | `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
-| `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground` — the **setting**: identities, paces, phase beats, address forms |
+| `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: identities, paces, phase beats, address forms |
 | `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()`, `composeRosterLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group |
 | `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
@@ -530,10 +530,10 @@ Message 2 - user (HISTORY LEDGER, append-only):
   (falls back to "[HISTORY]\n(no history yet)" on round 1)
 
 Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
-  "[CURRENT STATE]\n" + buildDynamicTail(memory, members, roundMemberIds) ->
+  "[CURRENT STATE]\n" + buildDynamicTail(memory, members, roundMemberIds, language) ->
     [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
-    [Affections] Irene:24(Acquaintance) | Seulgi:12(Stranger)
-    [Stage Changes] irene: Stranger->Acquaintance
+    [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
+    [Stage Changes] 🐰Irene: Stranger→Acquaintance
     [NPC Appearances] Joy(last: round 2)
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
@@ -541,6 +541,16 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
   + optional "[Pacing] slow|fast ..." line from Time Speed
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
+
+**Every line in the tail names a member the way every other line does.** `[Stage Changes]` used to
+print the raw member id beside an `[Affections]` line printing `🐰Irene`, so the model had to match
+`irene` to a name one line above — and a custom member's id is a timestamp, which matches nothing at
+all. It falls back to the id only for a member the roster no longer contains.
+
+**`[Affections]` lists only `roundMemberIds`** — main plus subs, the members who actually have a
+score. Listing the whole roster printed every NPC as `0(Stranger)` for the entire game, which told
+the model in round 30 that the main member's groupmate, present in most scenes, is a stranger. An
+empty `roundMemberIds` still lists everyone, so a two- or three-argument caller is unchanged.
 
 **KKT injection rule**: only inject KKT history for `roundMemberIds` whose **current** affection is at or above `KKT_THRESHOLD`, and only in the dynamic tail — never in the ledger. Affection can fall, and the stored messages do not disappear when it does; re-checking the threshold at build time is what stops a member who dropped back below 30 from silently keeping her channel open in the prompt.
 
@@ -691,6 +701,67 @@ the request is most obviously wrong and it does not share a line of code with th
 
 **The classic door's preamble is unchanged, word for word** — smoke asserts the whole sentence, so
 "one engine, two doors" still holds at section 4.
+
+### Reading it a second time found nine more, and seven were invisible to zh
+
+Same method on the same artifact, at the start of step 7: read all 240 rendered lines of each of the
+three goldens rather than the diff. **Reading only the zh fixture would have found two of the nine** —
+seven of them are defects a Chinese game cannot express, because zh is the language the data is
+authored in and every other language is a translation of it.
+
+| Found | Was | Who saw it |
+| --- | --- | --- |
+| **The player's pace never reached the model** | `Progression Pace: 高压舆论向` — the bare stored id, in every language, while the authored rule that says *"secrecy changes doubled"* was referenced by nothing | everyone |
+| **…and the label was an internal key** | so an English player's prompt carried a Chinese id she cannot read, while Setup showed her "High Pressure Scandal" | en, ko |
+| **The identity had both defects** | `Alex's identity: 财阀` | en, ko |
+| **Section 1 forbade the members' own names** | `DO NOT output English characters` in the ko rule — and every member in MEMBER PROFILES is named by her **Latin** stage name. Section 1 is HIGHEST PRIORITY, so the two could only resolve one way | ko |
+| **The ko narration example taught a grammar error** | `"<name>는 창가에 서 있다"` — a topic particle chosen by how the name is *pronounced*, so right for Joy and wrong for Irene (아이린**은**) | ko |
+| **Korean particles after every interpolated word** | `Irene가`, `미숙함로`, and a literal unresolved `편지을/를` | ko |
+| **The key enumeration listed 7 of 8 keys** | `scene` was required by the schema and absent from the list that guards it | everyone |
+| **Three empty-value renders in section 6** | a solo run printed a blank line where sub members go; a custom main printed `Kim()`; a custom identity printed a second blank line | ko fixture (subs), no fixture (the others) |
+| **"a young WLW woman"** | hardcoded, against a field that accepts ages 18 to 80 | everyone |
+
+Plus two wordings that were merely unclear — *"Choose the three yourself"* (choose *which* three?)
+and a shared *"It relaxes toward her given name"* clause on a Work override whose two branches point
+the title in **opposite** directions, so it named the wrong person in one of them — and, in the
+world data, a trailing space in one pace rule and `scences` in another.
+
+**The lesson is about which fixture you read, not about reading one.** `zh` is where the content is
+authored; `en` and `ko` are where a translation can disagree with the code that consumes it. The
+first read covered six defects and they were all visible in zh, so nothing suggested the other two
+fixtures carried a different *kind* of defect. They do: every one of the seven above is a statement
+that is true of the Chinese data and false of a translation of it. **Read the non-authoring
+language's fixture, and read it for agreement with the code rather than for typos.**
+
+Guarded in Layer I, one check per finding, all 27 mutations verified RED.
+
+### Korean particles cannot be authored, because the word in front of them is a variable
+
+`{name}` is whichever member the player picked and `{keepsake}` is one of four, so `ko.json` could
+not write one form — and what it wrote instead was wrong for about half of all casts. It is the same
+shape as the `Alex--ya` double hyphen: a defect that breaks no test, throws no error, and is only
+visible to someone who reads the language.
+
+So the world file writes the pair in its conventional order (`은/는`, `이/가`, `을/를`, `과/와`,
+`으로/로`) and **`resolveKoreanParticles` in `worldLoader.js` picks**, running last in
+`renderIdentityBackground` because every word in front of a particle has just been substituted in.
+Three rules:
+
+- **Hangul decides exactly.** A syllable encodes its own final consonant: `(code - 0xAC00) % 28`,
+  where 0 means it ends in a vowel. So `미숙함으로`, `편지를`, `사진을` are not guesses.
+- **ㄹ is the one exception** and it is in the set: 서울**로**, never 서울으로. Jongseong index 8.
+- **A Latin name is left as `은(는)`, deliberately.** Guessing from the last letter is worse than not
+  trying — Irene reads 아이린 and ends in a consonant though its last letter is a vowel; Winter reads
+  윈터 and ends in a vowel though its last letter is not. The parenthetical dual is exactly what
+  Korean writes when the noun is a variable, and it is never wrong.
+
+**It is inert on zh and en**, which carry no pairs, and smoke asserts that — a resolver that could
+rewrite a language it was not written for is worse than none.
+
+The one remaining hardcoded particle was in `mainAgent.js`, not the data: the SPEAKER CONTRACT's ko
+narration example. That one is fixed by **changing the frame rather than resolving it** — `의 시선이
+창가로 향했다` needs no name-dependent particle at all, and an example carrying `은(는)` would teach
+the model to write the parenthetical into prose.
 
 ### Korean address forms are transliterated, never localized
 
@@ -843,17 +914,24 @@ Regenerating to make a red suite green, without reading the diff, converts the o
   "affectionChanges": { "<mainId>": 0, "<subId>": 0 },
   "socialContent": {
     "<memberId>": {
-      "bubble": ["msg1", "msg2"],
-      "instagram": { "imageDesc": "...", "caption": "..." },
-      "weverse": "post text"
+      "bubble": [{ "content": "msg", "hasPhoto": false }],
+      "instagram": { "caption": "...", "likes": 800000 },
+      "weverse": { "content": "...", "likes": 2000, "comments": 100 }
     }
   },
   "kktMessages": { "<memberId>": ["message text"] },
-  "story": "250-350 words in player's UI language. Pure narrative, no stat bars, no options.",
+  "story": "350-450 words in player's UI language. Pure narrative, no stat bars, no options.",
   "summary": "One English sentence ~100 chars - who appeared and what emotionally shifted.",
-  "options": ["A. ...", "B. ...", "C. ...", "D. Custom"]
+  "options": ["A. ...", "B. ...", "C. ...", "D. ..."]
 }
 ```
+
+**This block is transcribed from a golden fixture, not from memory.** It said 250-350 words against
+the prompt's 350-450, gave `bubble` as an array of bare strings and `weverse` as a string (both of
+which `validateAndFixOutput` *repairs* rather than requests), and named the fourth option
+`"D. Custom"` — which is the placeholder `validateAndFixOutput` pads a short list with, never
+something the model is asked for. The custom-input row is the app's, beside the four options. When
+this drifts, read `test/fixtures/*.txt` and copy.
 
 ### JSON Parsing Pipeline (4-level fallback)
 
@@ -1068,6 +1146,15 @@ with `loadWorld()`, exactly as they already load the group config.
 
 **`parseWorld` validates and throws; it does not whitelist-copy.** See the `birthday` note below
 for why that distinction is not pedantic.
+
+**An identity carries a `name` as well as an `id`, and the pace carries only a rule.** The `id` is a
+*stored* value sitting in every save on every device, so it can never be renamed — which is why it is
+Chinese in all three languages and why the prompt must not print it. `name` is what section 6 prints,
+authored per language, and **smoke asserts it equals the Setup label in `src/i18n/<lang>.js`**, since
+it is a second copy of that string and both sides render something plausible when they drift. A pace
+needs no `name`: its `rule` already opens with a self-describing `[Pace: High Pressure]`, and the rule
+is what the model actually needs. Both fall back to the id, so a world file lacking either still
+renders something true rather than a blank line.
 
 Read `docs/TECH_NOTES.md`, *"World data as a fetched document"*, before changing the world shape,
 and `docs/V140_PLAN.md` §2 and §4 for the full design.
@@ -1404,19 +1491,18 @@ justifying a release: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
 (gzip 116.59 → 109.97) because the identity prose is now fetched per language instead of shipped
 to every player in all three.
 
-**Step 3 uncovered two blocks of dead code, and one is a real feature gap.** `paceRules` was
-built into a local and never referenced, so the player's pace reaches the model **only as a bare
-id** on the `Progression Pace:` line — `浪漫情感向` and nothing else. The authored text it was
-supposed to send says things like *"secrecy changes doubled"* and *"love triangle probability
-doubled"* that the model currently has no way to know. The strings are preserved in the world
-file; wiring them in is a **deliberate prompt change that moves the goldens**, so it was kept out
-of a step whose whole gate is that they do not move, and it likely lands with plot mode
-(`docs/V140_PLAN.md` §19), whose design assumed `pace` did more than it does. The second, a
-leftover local resolving `"H"` to `form.customIdentity`, was inert — `App.jsx` already resolves it
-upstream — and is deleted.
+**Step 3 uncovered two blocks of dead code, and one was a real feature gap — closed in step 7.**
+`paceRules` was built into a local and never referenced, so the player's pace reached the model
+**only as a bare id** on the `Progression Pace:` line — `浪漫情感向` and nothing else, while the
+authored text it was supposed to send says things like *"secrecy changes doubled"* and *"love
+triangle scenes probability doubled"*. Step 3 kept the wiring out because it moves the goldens and
+that step's whole gate was that they do not move; step 7's prompt read found the same gap from the
+other end (an English player's prompt carried an unreadable Chinese id) and `getPaceRule` is now
+what section 6 prints. The second block, a leftover local resolving `"H"` to `form.customIdentity`,
+was inert — `App.jsx` already resolves it upstream — and is deleted.
 
 **Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
-**578 → 949**. `dev` is 31 commits ahead of `main`, 0 behind.
+**578 → 1019**. `dev` is 31 commits ahead of `main`, 0 behind.
 
 **Step 6 is the first of these with player-visible changes**: a second door on the cover leading to
 a roster builder, a three-step member editor with LLM card generation, cast photos, an on-device

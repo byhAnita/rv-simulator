@@ -2007,11 +2007,32 @@ async function layerI() {
       "two rules for one thing means the model picks, and it picked the wrong one");
   }
   // ko is deliberately not in that list: its address forms ARE the native
-  // Korean, so its rule never carried a competing instruction to remove.
-  check("[ko] the language rule stays as it was, having nothing to contradict",
+  // Korean, so it has no transliteration table to defer to.
+  check("[ko] the language rule has no address table to defer to",
     /DO NOT output Chinese characters/.test(langRuleOf("ko"))
       && !/section 6's table/.test(langRuleOf("ko")),
     langRuleOf("ko").slice(0, 120));
+  // It carried a different contradiction instead, found in the second read: "DO
+  // NOT output English characters" forbade the one thing the prompt requires,
+  // since every member in MEMBER PROFILES is named by her LATIN stage name and
+  // section 6's own ko narration example is "Joy는 창가에 서 있다". Section 1 is
+  // headed HIGHEST PRIORITY, so the two could only resolve one way.
+  check("[ko] the language rule does not forbid the members' own Latin names",
+    !/DO NOT output English/.test(langRuleOf("ko"))
+      && /MEMBER PROFILES spells her/.test(langRuleOf("ko")),
+    langRuleOf("ko").slice(0, 200));
+  const koPrompt = prompt(form(), "ko");
+  check("[ko] ...which is the spelling section 6 then demonstrates",
+    /In narration a member is her stage name alone: "Irene/.test(koPrompt)
+      && /\bIrene\(/.test(koPrompt),
+    "an example in Latin under a rule banning Latin");
+  // That example used to read "<name>는 창가에 서 있다" — a topic particle chosen by
+  // the name's PRONUNCIATION, so it was right for Joy and wrong for Irene (아이린은).
+  // An example is an instruction, and this one taught the error in the same section
+  // that was fixing a different one.
+  check("[ko] the narration example carries no name-dependent particle",
+    !/Irene는 |Irene은 |Irene이 |Irene가 /.test(koPrompt),
+    (koPrompt.split("\n").find((l) => l.includes("stage name alone")) || "").slice(-90));
   check("...and section 6 still asks for them often enough to be texture",
     /Keep them frequent enough to feel Korean/.test(p),
     "that is the line the old language rule contradicted");
@@ -2023,15 +2044,14 @@ async function layerI() {
     /📅Round is a counter the app keeps/.test(p) && !/Player 4 stats/.test(p),
     "statChanges carries selfId/secrecy/mood and nothing else");
   check("...and the stat rule no longer contradicts the schema",
-    !/NOT mandatory/.test(p) && /move at least one of them/.test(p),
+    !/NOT mandatory/.test(p) && /move at least one\b/.test(p),
     "section 10 said optional, RULES said at least one non-zero");
   // A "- Stages:" fragment left from an earlier edit, mid-sentence.
   check("the relationship-stage line is not doubled up",
     !/Relationship stages: - Stages:/.test(p));
-  // The tail emits Chinese stage labels in every language (getStageName takes no
-  // language), so an English game reads `Irene:24(有印象)`. Localizing those is a
-  // separate change; until then the prompt at least says the two lists are the
-  // same seven in the same order, which is what lets the model map them.
+  // Section 9 and the tail have to name the same seven stages in the same order,
+  // or the model is handed two vocabularies for one scale. Both are localized as
+  // of step 6; this is the line that ties them together.
   check("...and it points at the tail that will carry those names",
     /\[Affections\] in CURRENT STATE gives each member's score and her stage by these exact names/.test(p),
     "otherwise the model sees stage names it was never given");
@@ -2042,6 +2062,133 @@ async function layerI() {
   check("the player's identity line names its owner",
     /\nSummer's identity: /.test(p) && !/\nIdentity: /.test(p),
     "an unowned label is one the model may attach to anyone");
+
+  // --- v1.4.0 step 7: a SECOND full read of the rendered prompt, on the same
+  // reasoning as the first — if one setting statement was unclear, others are.
+  // Each of these throws no error and fails no other test.
+
+  // The key enumeration listed 7 of the 8 keys the schema requires. A contract
+  // that enumerates is read as exhausting its subject, which is the third time
+  // that has bitten here (dialogue once exempt from the pronoun rule, address
+  // forms once had no narration scope, roles were once not mentioned at all).
+  check("the EXACTLY-ONCE key list covers every key in the schema",
+    /Every key \(scene, statChanges, affectionChanges, socialContent, kktMessages, story, summary, options\)/.test(p),
+    "scene was required by the schema and absent from the list that guards it");
+
+  // Invisible to a reviewer and worth the whole ~5,500-token cached prefix. This
+  // one is the wart the goldens caught during the step 3 extraction and that the
+  // extraction then reproduced faithfully, because its gate was that nothing move.
+  check("no prompt line ends in a space",
+    p.split("\n").every((l) => !/ $/.test(l)),
+    p.split("\n").filter((l) => / $/.test(l)).join(" | ").slice(0, 160));
+
+  // `a young WLW woman` against a field that accepts 18 to 80: a player born 1950
+  // was described to the model as a young woman of 76.
+  check("the player is not described as young regardless of her age",
+    /THE PLAYER: Summer — a WLW woman, age /.test(p) && !/young WLW/.test(p),
+    "PLAYER_BIRTH_YEAR_MIN is GAME_YEAR - 80");
+
+  // The pace was a bare Chinese id in every language, and its authored rule —
+  // "secrecy changes doubled", "love triangle scenes probability doubled" — was
+  // built into a local in the pre-step-3 code and referenced by nothing. So the
+  // player could choose a pace and the model could not know she had.
+  for (const lang of ["zh", "en", "ko"]) {
+    for (const pace of ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"]) {
+      const withPace = prompt(form({ pace }), lang);
+      check(`[${lang}] pace ${pace} reaches the model as its rule`,
+        /\[Pace: (Slow Burn|Romantic|High Pressure|Harem Route)\]/.test(withPace)
+          && !withPace.includes(`Progression Pace: ${pace}`),
+        (withPace.split("\n").find((l) => l.includes("Pace")) || "no pace line").slice(0, 100));
+    }
+  }
+  // An unknown pace — a save from a world that has been re-authored — still has to
+  // render something true rather than nothing.
+  check("an unrecognized pace falls back to naming itself",
+    prompt(form({ pace: "no-such-pace" })).includes("Progression Pace: no-such-pace"),
+    "a silent empty line would be worse than an untranslated one");
+
+  // The identity had the same defect and the same cause: `Alex's identity: 财阀`
+  // in an English prompt, an internal key in a language she does not read, while
+  // Setup showed her "Chaebol".
+  const IDENTITY_NAMES = {
+    zh: { 财阀: "财阀会长", Staff: "助理", 主线成员前女友: "主线成员前女友" },
+    en: { 财阀: "Chaebol", Staff: "Staff", 主线成员前女友: "Ex-Girlfriend" },
+    ko: { 财阀: "재벌", Staff: "직원", 主线成员前女友: "전 여자친구" },
+  };
+  for (const [lang, expected] of Object.entries(IDENTITY_NAMES)) {
+    for (const [id, name] of Object.entries(expected)) {
+      check(`[${lang}] identity ${id} reaches the model as "${name}"`,
+        prompt(form({ identity: id }), lang).includes(`'s identity: ${name}`),
+        (prompt(form({ identity: id }), lang).split("\n")
+          .find((l) => l.includes("'s identity:")) || "").slice(0, 80));
+    }
+  }
+  // The names are a second copy of what Setup already shows. Tie them together or
+  // they drift, and the drift is invisible: both sides render something plausible.
+  for (const lang of ["zh", "en", "ko"]) {
+    const uiLabels = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8")
+      .match(/identities:\s*\{([\s\S]*?)\n  \}/)?.[1] || "";
+    const fromUi = Object.fromEntries([...uiLabels.matchAll(/"([^"]+)":\s*"([^"]+)"/g)]
+      .map((m) => [m[1], m[2]]));
+    const mismatched = worldFor[lang].identities
+      .filter((i) => fromUi[i.id] !== i.name)
+      .map((i) => `${i.id}: world "${i.name}" vs UI "${fromUi[i.id]}"`);
+    check(`[${lang}] every world identity name matches the Setup label`,
+      worldFor[lang].identities.length > 0 && mismatched.length === 0,
+      mismatched.join(" | "));
+  }
+
+  // A custom identity resolves to no world entry at all, and must still print.
+  check("a custom identity prints the player's own words",
+    prompt(form({ identity: "a florist two streets over" }))
+      .includes("'s identity: a florist two streets over"),
+    "form.identity is free text once App.jsx resolves H");
+
+  // Section 6's cast block had three ways to render an empty line or an empty
+  // pair of brackets, and every one of them is reachable: a solo run has no subs,
+  // an all-romanceable roster has no NPCs, a custom main member has no name_kr,
+  // and a custom identity has no background. Same class as the member profile
+  // block in step 6 — and the goldens cannot catch it, since the library never
+  // produces these.
+  const castBlockOf = (text) => text.split("-- SPEAKER CONTRACT")[0]
+    .split("6. CAST IDENTITY & ADDRESS")[1] || "";
+  const soloPrompt = buildSystemPrompt(form(), members, "irene", [], GROUP, "", "qwen", "en", worldFor.en);
+  check("a roster with no sub members renders no blank line for them",
+    !/\n\n/.test(castBlockOf(soloPrompt).replace(/^[\s\S]*?═╝\n/, "").trimEnd())
+      && !soloPrompt.includes("Sub Members:"),
+    JSON.stringify(castBlockOf(soloPrompt).slice(-400)));
+  const allRomanceable = buildSystemPrompt(
+    form(), members.slice(0, 2), "irene", [members[1].id], GROUP, "", "qwen", "en", worldFor.en);
+  check("...nor a roster with no NPC members",
+    !/\n\n/.test(castBlockOf(allRomanceable).replace(/^[\s\S]*?═╝\n/, "").trimEnd())
+      && !allRomanceable.includes("NPC Members:"),
+    JSON.stringify(castBlockOf(allRomanceable).slice(-300)));
+  const bareMain = [{ id: "c_1", name: "Haru", birthday: "1997-03-02",
+                      private_personality: "quiet, watchful" }, members[1]];
+  const barePrompt = buildSystemPrompt(
+    form({ identity: "a florist" }), bareMain, "c_1", [], GROUP, "", "qwen", "en", worldFor.en);
+  check("a custom main member with no Korean name renders no empty brackets",
+    barePrompt.includes("Main Member: Haru\n") && !/Main Member: Haru\(\)/.test(barePrompt),
+    (barePrompt.split("\n").find((l) => l.startsWith("Main Member:")) || ""));
+  check("...and a custom identity with no background renders no blank line",
+    !/\n\n/.test(castBlockOf(barePrompt).replace(/^[\s\S]*?═╝\n/, "").trimEnd()),
+    JSON.stringify(castBlockOf(barePrompt).slice(-300)));
+
+  // The work override points the title in opposite directions for a trainee and
+  // for everyone else, so the shared "it relaxes toward her given name" clause
+  // named the wrong person in one of the two.
+  const overrideOf = (identity) => prompt(form({ identity })).split("\n")
+    .find((l) => l.startsWith("Work override:")) || "";
+  check("the staff work override relaxes toward the PLAYER's name",
+    /relaxing toward "Summer" as they grow close/.test(overrideOf("Staff")),
+    overrideOf("Staff"));
+  check("the trainee work override relaxes toward the MEMBER's name",
+    /relaxing toward a member's plain stage name/.test(overrideOf("练习生"))
+      && !/toward "Summer"/.test(overrideOf("练习生")),
+    overrideOf("练习生"));
+  check("...and neither leaves the ambiguous shared clause behind",
+    !/It relaxes toward her given name/.test(p + overrideOf("Staff") + overrideOf("练习生")),
+    "whose given name was never stated");
 
   // --- register is soft and blended, not a per-stage lookup.
   for (const cue of ["Age gap", "Closeness", "Private Personality"]) {
@@ -2192,6 +2339,38 @@ async function layerI() {
     /buildDynamicTail\(memory, members, roundMemberIds, language\)/
       .test(readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8")),
     "a defaulted parameter nobody supplies is dead code");
+
+  // --- v1.4.0 step 7: the tail's two unclear lines.
+  //
+  // [Affections] listed every member, but only main and subs have a score — so
+  // every NPC read `0(Stranger)` for the whole game, telling the model in round 30
+  // that the main member's groupmate, who has been in most scenes, is a stranger.
+  // `members` here is the full roster; ["irene"] is the round roster.
+  const npcFree = buildDynamicTail(mem(), members, ["irene"], "en");
+  check("[Affections] lists only the members who have a score",
+    /\[Affections\][^\n]*Irene:42/.test(npcFree)
+      && !/\[Affections\][^\n]*Yeri/.test(npcFree),
+    (npcFree.split("\n").find((l) => l.startsWith("[Affections]")) || ""));
+  check("...and still lists everyone when no round roster is given",
+    /Yeri/.test(buildDynamicTail(mem(), members, [], "en").split("\n")
+      .find((l) => l.startsWith("[Affections]")) || ""),
+    "a two- or three-argument caller must keep today's behaviour");
+
+  // [Stage Changes] printed the raw member id while [Affections] one line above
+  // printed the display name, so the model had to match `irene` to `🐰Irene`. A
+  // custom member's id is a timestamp, which matches nothing at all.
+  const staged = buildDynamicTail(
+    { ...mem(), stageChanges: [{ memberId: "irene", from: "Stranger", to: "Acquaintance" }] },
+    members, ["irene"], "en");
+  check("[Stage Changes] names the member the way every other line does",
+    /\[Stage Changes\] 🐰Irene: Stranger→Acquaintance/.test(staged),
+    (staged.split("\n").find((l) => l.startsWith("[Stage Changes]")) || ""));
+  check("...and falls back to the id for a member no longer in the roster",
+    /\[Stage Changes\] gone:/.test(buildDynamicTail(
+      { ...mem(), stageChanges: [{ memberId: "gone", from: "a", to: "b" }] },
+      members, ["irene"], "en")),
+    "a save can name a member the roster has dropped");
+
   // The prompt and the tail must agree, and this is the only check that ties the
   // two together: section 9 prints stageNamesFor(language), the tail emits it.
   // stageConfig has no Vite-only globals, so it imports directly.
@@ -2382,6 +2561,84 @@ async function layerI() {
       worlds[lang].identities.filter((i) => !(i.background?.length > 40)).map((i) => i.id).join(", "));
     check(`[${lang}] every pace carries a rule`,
       worlds[lang].paces.every((p) => typeof p.rule === "string" && p.rule.length > 20), "");
+    check(`[${lang}] every identity carries the name the prompt prints`,
+      worlds[lang].identities.every((i) => typeof i.name === "string" && i.name.length > 0),
+      worlds[lang].identities.filter((i) => !i.name).map((i) => i.id).join(", "));
+    // Every pace rule is sent verbatim now, so a trailing space in one is a
+    // trailing space in the prompt — worth the whole cached prefix.
+    check(`[${lang}] no pace rule carries stray whitespace`,
+      worlds[lang].paces.every((p) => p.rule === p.rule.trim()),
+      worlds[lang].paces.filter((p) => p.rule !== p.rule.trim()).map((p) => p.id).join(", "));
+  }
+  // The rules are English instruction text, like phases: identical in all three
+  // files, so a fix applied to one has to be applied to all three.
+  check("the pace rules are identical across zh/en/ko",
+    new Set(["zh", "en", "ko"].map((l) => JSON.stringify(worlds[l].paces))).size === 1,
+    "a rule fixed in one language only is a rule fixed for a third of players");
+
+  // ---------------------------------------------------- Korean particles
+  // A Korean particle is chosen by the sound the word in front of it ends in, and
+  // the word in front of it here is interpolated — the member the player picked,
+  // or one of four keepsakes. So ko.json could not write one form, and what it
+  // wrote instead reached the model as broken Korean: `Joy는` (right) beside
+  // `Irene는` (wrong, 아이린은), `미숙함로` (wrong, 미숙함으로), and a literal
+  // `편지을/를` — an unresolved template in every Korean ex-girlfriend prompt.
+  const rkp = loader.resolveKoreanParticles;
+  const PARTICLE_CASES = [
+    // Hangul decides exactly: the jongseong is arithmetic.
+    ["어린 시절의 미숙함으로/로 인해", "어린 시절의 미숙함으로 인해"],
+    ["가족의 압력으로/로 인해", "가족의 압력으로 인해"],
+    ["그녀가 쓴 편지을/를", "그녀가 쓴 편지를"],
+    ["함께 찍은 사진을/를", "함께 찍은 사진을"],
+    ["그녀가 준 팔찌을/를", "그녀가 준 팔찌를"],
+    ["사진이/가 있다", "사진이 있다"],
+    ["팔찌이/가 있다", "팔찌가 있다"],
+    // ㄹ is the one jongseong that takes 로, not 으로.
+    ["서울으로/로 갔다", "서울로 갔다"],
+    ["서울은/는 크다", "서울은 크다"],
+    // A Latin name does not carry the answer and guessing is worse than not
+    // trying: Irene reads 아이린 and ends in a consonant though its last letter is
+    // a vowel; Winter reads 윈터 and ends in a vowel though its last letter is not.
+    // The parenthetical dual is what Korean writes for a variable noun.
+    ["Irene은/는 왔다", "Irene은(는) 왔다"],
+    ["Joy이/가 왔다", "Joy이(가) 왔다"],
+    ["Winter과/와 함께", "Winter과(와) 함께"],
+    // Inert on text with no pair at all, which is every zh and en world file.
+    ["这里没有韩语助词", "这里没有韩语助词"],
+    ["nothing to resolve here", "nothing to resolve here"],
+  ];
+  for (const [input, expected] of PARTICLE_CASES) {
+    check(`particle: ${input} -> ${expected}`, rkp(input) === expected, rkp(input));
+  }
+
+  // The resolver means nothing unless the rendered background goes through it.
+  const koBg = (id, seed = 0) =>
+    loader.renderIdentityBackground(worlds.ko, id, "Irene", seed);
+  check("[ko] the rendered identity background has no unresolved particle pair",
+    worlds.ko.identities.every((i) => !/[은이을과]\/[는가를와]|으로\/로/.test(koBg(i.id))),
+    worlds.ko.identities.filter((i) => /\//.test(koBg(i.id))).map((i) => i.id).join(", "));
+  check("[ko] ...and none of the four keepsakes leaves a wrong one",
+    [0, 1 << 16, 2 << 16, 3 << 16].every((seed) => {
+      const bg = koBg("主线成员前女友", seed);
+      return /(편지를|사진을|팔찌를|CD을\(를\)) 간직/.test(bg) && !bg.includes("을/를");
+    }),
+    [0, 1 << 16, 2 << 16, 3 << 16]
+      .map((s) => (koBg("主线成员前女友", s).match(/아직도 (.+?) 간직/) || [])[1]).join(" | "));
+  check("[ko] ...and every breakup reason takes 으로, not 로",
+    [0, 1, 2, 3].every((seed) => /으로 인해/.test(koBg("主线成员前女友", seed))),
+    [0, 1, 2, 3].map((s) => (koBg("主线成员前女友", s).match(/몇 년 전 (.+?) 인해/) || [])[1]).join(" | "));
+  // Every site in the file has to be written as a pair, or the resolver never sees
+  // it and the bare particle ships as it did before.
+  const bareParticle = /\{(?:name|reason|keepsake)\}(?:은|는|이|가|을|를|과|와|로)(?![/(])/;
+  check("[ko] no placeholder in the world file is followed by a bare particle",
+    worlds.ko.identities.every((i) => !bareParticle.test(i.background)),
+    worlds.ko.identities.filter((i) => bareParticle.test(i.background)).map((i) => i.id).join(", "));
+  // zh and en carry no pairs, so the resolver must be a no-op on them — proof it
+  // cannot corrupt a language it was not written for.
+  for (const lang of ["zh", "en"]) {
+    check(`[${lang}] the resolver changes nothing in this world's backgrounds`,
+      worlds[lang].identities.every((i) =>
+        rkp(i.background) === i.background), "");
   }
 
   // "H" is the custom-identity escape hatch: the player types their own text,

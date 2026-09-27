@@ -89,6 +89,62 @@ export const getIdentity = (world, id) =>
 export const getPaceRule = (world, id) =>
   world?.paces?.find((p) => p.id === id)?.rule || "";
 
+// ------------------------------------------------------------------
+// Korean particles
+// ------------------------------------------------------------------
+// A Korean particle is chosen by the sound the preceding word ENDS in, and the
+// word here is interpolated — `{name}` is whichever member the player picked, and
+// the ex-girlfriend keepsake is one of four. So the author could not write one
+// form: ko.json said `{name}는`, which is right for Joy and wrong for Irene, and
+// `{keepsake}을/를`, which put a literal slash in every Korean prompt. Two of the
+// ko backgrounds also carried `{reason}로`, giving `미숙함로` — plainly wrong.
+//
+// So the world file writes the pair in its conventional order and this resolves
+// it. Consonant-final takes the FIRST form, vowel-final the SECOND — which is the
+// order Korean writes them in anyway (은/는, 이/가, 을/를, 과/와).
+const PARTICLE_PAIRS = ["은/는", "이/가", "을/를", "과/와", "으로/로"];
+
+// A Hangul syllable encodes its own final consonant arithmetically: the jongseong
+// index is (code - 0xAC00) % 28, and 0 means the syllable ends in a vowel. So for
+// `{reason}` and `{keepsake}`, which are Korean, the answer is exact.
+//
+// A Latin word does NOT carry the answer, and guessing from its last letter is
+// wrong often enough to be worse than not trying: Irene reads 아이린 and ends in a
+// consonant while its last letter is a vowel, Winter reads 윈터 and ends in a vowel
+// while its last letter is not. Member names are Latin stage names by design, so
+// those resolve to the parenthetical dual form `은(는)` — which is exactly what
+// Korean writes when the noun is a variable, and is never wrong.
+const RIEUL = 8;   // the one jongseong that takes 로, not 으로 (서울로)
+
+function finalSound(text) {
+  const ch = (text || "").trimEnd().slice(-1);
+  const code = ch.charCodeAt(0);
+  if (!(code >= 0xac00 && code <= 0xd7a3)) return "unknown";
+  const jongseong = (code - 0xac00) % 28;
+  if (jongseong === 0) return "vowel";
+  return jongseong === RIEUL ? "rieul" : "consonant";
+}
+
+/**
+ * Replace every `은/는`-style particle pair with the form the preceding word takes,
+ * or with `은(는)` where the preceding word is not Hangul and cannot decide.
+ * Inert on text containing no pair, which is every non-Korean world file.
+ */
+export function resolveKoreanParticles(text) {
+  let out = text;
+  for (const pair of PARTICLE_PAIRS) {
+    const [afterConsonant, afterVowel] = pair.split("/");
+    out = out.replaceAll(pair, (_match, index, whole) => {
+      const sound = finalSound(whole.slice(0, index));
+      if (sound === "unknown") return `${afterConsonant}(${afterVowel})`;
+      // ㄹ takes the vowel form of 으로/로 and the consonant form of everything else.
+      if (sound === "rieul") return pair === "으로/로" ? afterVowel : afterConsonant;
+      return sound === "consonant" ? afterConsonant : afterVowel;
+    });
+  }
+  return out;
+}
+
 /**
  * Render an identity's background text.
  *
@@ -113,5 +169,7 @@ export function renderIdentityBackground(world, identityId, mainMemberName, seed
       out = out.replaceAll("{keepsake}", v.keepsake[(seed >>> 16) % v.keepsake.length]);
     }
   }
-  return out;
+  // Last, because a particle is chosen by the word in front of it and every word
+  // in front of one here was just substituted in.
+  return resolveKoreanParticles(out);
 }
