@@ -28,6 +28,8 @@
 //   node scripts/analyze-prose.mjs                     # the newest report
 //   node scripts/analyze-prose.mjs test/.out/playthrough-*.json
 //   node scripts/analyze-prose.mjs --full              # print every repeated line
+//   node scripts/analyze-prose.mjs --baseline test/baselines/zh-chaebol-high-pressure-r25.json
+//   node scripts/analyze-prose.mjs --report test/reports/2026-09-28-rotation.md
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,8 +40,22 @@ const FULL = process.argv.includes("--full");
 
 const C = { b: "\x1b[1m", d: "\x1b[2m", r: "\x1b[31m", y: "\x1b[33m", g: "\x1b[32m", x: "\x1b[0m" };
 
-const files = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+// `--report` and `--baseline` take a value, so positional arguments cannot simply be
+// "everything not starting with --" any more: that read the value as a report to analyze.
+const argv = process.argv.slice(2);
+const valueOf = (name) => {
+  const i = argv.indexOf(`--${name}`);
+  return i >= 0 ? argv[i + 1] : null;
+};
+const VALUED = ["report", "baseline"];
+const takenValues = new Set(VALUED.map(valueOf).filter(Boolean));
+const REPORT_TO = valueOf("report");
+const BASELINE = valueOf("baseline");
+
+const files = argv.filter((x) => !x.startsWith("--") && !takenValues.has(x));
 const reports = files.length ? files : [newestReport()];
+// Every analyzed result's comparable metrics, for --report and --baseline.
+const collected = [];
 
 function newestReport() {
   const names = readdirSync(OUT).filter((n) => /^playthrough-\d+\.json$/.test(n)).sort();
@@ -171,8 +187,43 @@ function analyze(result, config) {
     }
   }
 
-  // --- scene variety
+  // --- scene variety, and scene SHAPE, which are different questions
   const scenes = T.map((t) => t.scene).filter(Boolean);
+  // The prompt asks for "a place and a time, nothing else", and that is a layout
+  // requirement: it is printed as one line of a 30-character box on a 390px phone.
+  // A distinct-count cannot see the failure — 25 distinct scenes can be 25 sensory
+  // paragraphs, which is exactly what the English run produced at 250 characters each.
+  const sceneLens = scenes.map((s) => proseLength(s, lang));
+  const SCENE_BOUND = lang === "en" ? 8 : 20;
+  const sceneOver = sceneLens.filter((n) => n > SCENE_BOUND).length;
+  // And a distinct-count hides standing still, too: a run that repeated a byte-identical
+  // scene for five consecutive rounds still reports 21 distinct out of 25. The longest
+  // run of identical neighbours is what the "change it when the story moves" rule is about.
+  let sceneRun = scenes.length ? 1 : 0;
+  for (let i = 1, cur = 1; i < scenes.length; i++) {
+    cur = scenes[i] === scenes[i - 1] ? cur + 1 : 1;
+    sceneRun = Math.max(sceneRun, cur);
+  }
+
+  // --- rounds that came back far too short to use. `bad_response` retries anything
+  // under MIN_STORY_CHARS (40), which is a floor against a DEAD round rather than a
+  // bound on a usable one — a 126-character round passed that gate, rendered with
+  // English fallback options, and was counted clean by every grader.
+  const truncFloor = Math.round(asked[0] / 3);
+  const truncated = lengths.map((n, i) => (n < truncFloor ? roundNo[i] : -1)).filter((r) => r >= 0);
+
+  // --- what the live graders flagged, rolled up by kind. The detail after the colon
+  // is the member or form, which is noise at this level; the kind is what says whether
+  // a fix landed. Read the stored story before believing any of them — nine of the
+  // first thirteen flags in this project were bugs in the grader, not in the model.
+  const flags = {};
+  for (const r of result.rounds || []) {
+    for (const b of r.bad || []) {
+      const kind = String(b).split(":")[0];
+      flags[kind] = (flags[kind] || 0) + 1;
+    }
+  }
+  const flaggedRounds = (result.rounds || []).filter((r) => (r.bad || []).length).map((r) => r.round);
 
   // --- option quality
   const allOptions = T.flatMap((t) => t.options || []);
@@ -239,6 +290,11 @@ function analyze(result, config) {
   const deltas = mainAff.slice(1).map((v, i) => v - mainAff[i]);
   const atClamp = deltas.filter((d) => Math.abs(d) >= 8).length;
   const negative = deltas.filter((d) => d < 0).length;
+  // The full sign split, not just the negative count. 0 negatives reads the same whether
+  // the model moved affection up every round or left it flat half the time, and those are
+  // opposite problems: one is a relationship with no setbacks, the other is a stat the
+  // model has stopped driving. `docs/PROPOSALS.md` §1 turns on this distinction.
+  const signs = { up: deltas.filter((d) => d > 0).length, flat: deltas.filter((d) => d === 0).length, down: negative };
 
   // --- stat movement: the schema demands at least one non-zero every round.
   const STATS = ["selfId", "secrecy", "mood"];
@@ -282,17 +338,76 @@ function analyze(result, config) {
 
   // --- summary field: always English, ~100 chars, names who appeared.
   const summaries = T.map((t) => t.summaryText || "");
-  const nonAscii = summaries.filter((s) => /[^\x00-\x7F]/.test(s)).length;
+  // "Not in English" is NOT "contains a byte over 127". The first version of this tested
+  // exactly that and reported 7 of 25 in a zh run: four were an ordinary em dash, which is
+  // English punctuation, and the other three were the player's own name 林夏 written in its
+  // native script inside an otherwise English sentence — a proper noun, not a language
+  // failure. So this matches CJK and Hangul only, and is named for what it measures rather
+  // than for the conclusion it was being read as. Third metric bug in this file's history
+  // and the third with the same cause: a character class wider than the concept.
+  const cjk = (s) => /[぀-ヿ㐀-䶿一-鿿가-힯]/.test(s);
+  const nonAscii = summaries.filter(cjk).length;
   const namesInSummary = summaries.filter((s) => names.some((n) => n && s.includes(n))).length;
+  // Its length is a memory budget, not a style note: this string replaces the round's
+  // entire story in the model's context three rounds later, so an over-long one costs
+  // cache on every later round and a short one loses the round. The prompt asks 100-150.
+  const SUMMARY_BAND = [100, 150];
+  const summaryLens = summaries.map((s) => s.length);
+  const summaryInBand = summaryLens.filter((n) => n >= SUMMARY_BAND[0] && n <= SUMMARY_BAND[1]).length;
 
   return {
     lang, n: T.length, lengths, inBand, asked,
     consecutive, repeats, openerPairs, openerWorst, openers,
-    scenes, allOptions, optionLens, leaky, flatRounds,
+    scenes, sceneLens, sceneOver, sceneRun, SCENE_BOUND,
+    truncated, truncFloor, flags, flaggedRounds,
+    allOptions, optionLens, leaky, flatRounds,
     appearances, gaps, nameOf, romanceable, cast,
-    forms, bannedHits, bannedExamples, mainAff, deltas, atClamp, negative, statMoves, statSeries, STATS, roundNo,
-    summaries, nonAscii, namesInSummary,
+    forms, bannedHits, bannedExamples, mainAff, deltas, atClamp, negative, signs,
+    statMoves, statSeries, STATS, roundNo,
+    summaries, nonAscii, namesInSummary, summaryLens, summaryInBand, SUMMARY_BAND,
     dialogueShare, silentRounds, parseLevels, proposalGate,
+  };
+}
+
+// ---------------------------------------------------------------- comparable metrics
+//
+// A flat object of scalars, so a run can be DIFFED against a saved one instead of read.
+// This exists because the step 7 validation was compared by hand against numbers quoted
+// in prose in CLAUDE.md, and the comparison turned out to be worthless for a reason no
+// amount of careful reading would have surfaced — the served model had changed. A diff
+// of two files makes both the movement and the confound visible in one screen.
+//
+// Only scalars belong here. Anything needing judgement (which sentences repeated, which
+// flags were real) stays in the printed report, because a number cannot carry that.
+function metrics(a) {
+  const worstGap = Math.max(0, ...a.romanceable.map((id) => a.gaps[id]));
+  return {
+    rounds: a.n,
+    "story.median": median(a.lengths),
+    "story.inBand": a.inBand,
+    "story.truncated": a.truncated.length,
+    "repeat.meanOverlapPct": +(mean(a.consecutive) * 100).toFixed(1),
+    "repeat.reusedSentences": a.repeats.length,
+    "repeat.openerPairs": a.openerPairs,
+    "scene.distinct": uniq(a.scenes).length,
+    "scene.medianLen": median(a.sceneLens),
+    "scene.overBound": a.sceneOver,
+    "scene.longestIdenticalRun": a.sceneRun,
+    "rotation.worstGap": worstGap,
+    "rotation.minAppearances": Math.min(a.n, ...a.romanceable.map((id) => a.appearances[id].length)),
+    "address.perRound": +(Object.values(a.forms).reduce((x, y) => x + y, 0) / a.n).toFixed(2),
+    "address.bannedHits": a.bannedHits,
+    "aff.up": a.signs.up,
+    "aff.flat": a.signs.flat,
+    "aff.down": a.signs.down,
+    "aff.atClamp": a.atClamp,
+    "summary.medianLen": median(a.summaryLens),
+    "summary.inBand": a.summaryInBand,
+    "summary.cjk": a.nonAscii,
+    "dialogue.sharePct": +(mean(a.dialogueShare) * 100).toFixed(0),
+    "dialogue.silentRounds": a.silentRounds,
+    "parse.direct": a.parseLevels.direct || 0,
+    "flags.total": Object.values(a.flags).reduce((x, y) => x + y, 0),
   };
 }
 
@@ -319,6 +434,10 @@ for (const file of reports) {
     // length
     console.log(`  ${C.b}length${C.x}      median ${median(a.lengths)} ${a.lang === "en" ? "words" : "chars"} · range ${Math.min(...a.lengths)}-${Math.max(...a.lengths)} · ` +
       `${flag(a.inBand / a.n < 0.5, a.inBand / a.n < 0.8)}${a.inBand}/${a.n} inside the ${a.asked[0]}-${a.asked[1]} the prompt asks for${C.x}`);
+    if (a.truncated.length) {
+      console.log(`              ${C.r}${a.truncated.length} round(s) under ${a.truncFloor} — r${a.truncated.join(",")}${C.x} ` +
+        `${C.d}(MIN_STORY_CHARS is 40, so these passed every gate)${C.x}`);
+    }
 
     // repetition
     const cm = mean(a.consecutive);
@@ -334,7 +453,11 @@ for (const file of reports) {
 
     // scenes
     const us = uniq(a.scenes);
-    console.log(`  ${C.b}scenes${C.x}      ${flag(us.length < a.n / 3, us.length < a.n / 2)}${us.length} distinct across ${a.scenes.length} rounds${C.x} — ${us.slice(0, 6).map((s) => s.slice(0, 18)).join(" / ")}${us.length > 6 ? " …" : ""}`);
+    console.log(`  ${C.b}scenes${C.x}      ${flag(us.length < a.n / 3, us.length < a.n / 2)}${us.length} distinct across ${a.scenes.length} rounds${C.x} · ` +
+      `median ${median(a.sceneLens)} ${a.lang === "en" ? "words" : "chars"} · ` +
+      `${flag(a.sceneOver > a.n / 2, a.sceneOver > 0)}${a.sceneOver} over the ${a.SCENE_BOUND} a one-line box fits${C.x} · ` +
+      `${flag(a.sceneRun >= 3, a.sceneRun === 2)}longest identical run ${a.sceneRun}${C.x}`);
+    console.log(`              ${C.d}${us.slice(0, 4).map((s) => s.slice(0, 22)).join(" / ")}${us.length > 4 ? " …" : ""}${C.x}`);
 
     // options
     console.log(`  ${C.b}options${C.x}     median ${median(a.optionLens)} ${a.lang === "en" ? "words" : "chars"} · ` +
@@ -360,7 +483,7 @@ for (const file of reports) {
     // pacing
     console.log(`  ${C.b}pacing${C.x}      main affection ${a.mainAff[0]} → ${a.mainAff.at(-1)} in ${a.n} rounds · ` +
       `median step ${median(a.deltas.map(Math.abs))} · ${flag(a.atClamp > a.n / 3, a.atClamp > 0)}${a.atClamp} at the +/-8 clamp${C.x} · ` +
-      `${flag(a.negative === 0 && a.n > 8, false)}${a.negative} negative${C.x}`);
+      `steps ${C.g}+${a.signs.up}${C.x}/${C.d}=${a.signs.flat}${C.x}/${flag(a.signs.down === 0 && a.n > 8, false)}-${a.signs.down}${C.x}`);
     console.log(`  ${C.b}stats${C.x}       moved selfId/secrecy/mood on ${a.statMoves.join("/")} of ${a.n - 1} transitions · ` +
       a.STATS.map((k, i) => `${k} ${a.statSeries[i][0]}→${a.statSeries[i].at(-1)}`).join(" · "));
     // relationshipEvents.js gates the proposal ending on affection >= 95 AND
@@ -373,7 +496,110 @@ for (const file of reports) {
       `${flag(a.silentRounds > a.n / 4, a.silentRounds > 0)}${a.silentRounds} round(s) with no dialogue at all${C.x}`);
     console.log(`  ${C.b}parse${C.x}       ${Object.entries(a.parseLevels).map(([k, v]) => `${k}:${v}`).join(" ")} ` +
       `${flag((a.parseLevels.direct || 0) < a.n, false)}(direct ${a.parseLevels.direct || 0}/${a.n})${C.x}`);
-    console.log(`  ${C.b}summary${C.x}     ${flag(a.nonAscii > 0, false)}${a.nonAscii} not in English${C.x} · median ${median(a.summaries.map((s) => s.length))} chars · names a member in ${pct(a.namesInSummary, a.n)}`);
+    console.log(`  ${C.b}summary${C.x}     ${flag(a.nonAscii > 0, false)}${a.nonAscii} with CJK/Hangul${C.x} · median ${median(a.summaryLens)} chars · ` +
+      `${flag(a.summaryInBand / a.n < 0.4, a.summaryInBand / a.n < 0.7)}${a.summaryInBand}/${a.n} inside ${a.SUMMARY_BAND[0]}-${a.SUMMARY_BAND[1]}${C.x} · names a member in ${pct(a.namesInSummary, a.n)}`);
+
+    // What the live graders said, as one line. The detail is deliberately dropped: the
+    // kind is what says whether a fix landed, and the stored story is what says whether
+    // the flag was real.
+    const flagTotal = Object.values(a.flags).reduce((x, y) => x + y, 0);
+    console.log(`  ${C.b}flags${C.x}       ${flag(flagTotal > a.n / 4, flagTotal > 0)}${flagTotal} across ${a.flaggedRounds.length} round(s)${C.x}` +
+      (flagTotal ? ` — ${Object.entries(a.flags).map(([k, v]) => `${k}:${v}`).join(" ")} ${C.d}(r${a.flaggedRounds.join(",")} — read the story before believing any)${C.x}` : ""));
+
+    collected.push({ file, model: result.model, config, m: metrics(a) });
   }
 }
+// ---------------------------------------------------------------- baseline diff
+//
+// The A/B, as a script. `--baseline test/baselines/<run>.json` prints this run's metrics
+// beside a saved run's, so what moved is visible without re-reading either transcript.
+//
+// It prints the SERVED MODEL of both arms first and without being asked, because that is
+// the line that decides whether the rest of the table means anything: the step 7 validation
+// compared cleanly-moving numbers across two DIFFERENT models and the comparison was
+// worthless. `--route` does not pin a model.
+if (BASELINE) {
+  const base = JSON.parse(readFileSync(BASELINE, "utf8"));
+  const baseResult = (base.results || [])[0];
+  const baseA = baseResult && analyze(baseResult, base.config);
+  const now = collected[0];
+
+  console.log(`\n${C.b}diff vs ${BASELINE.replace(ROOT, ".")}${C.x}`);
+  if (!baseA || !now) {
+    console.log(`  ${C.r}cannot compare — ${!baseA ? "baseline has no transcript" : "this run produced no metrics"}${C.x}`);
+  } else {
+    const servedOf = (rep, res) => {
+      const s = rep.served || res?.served;
+      if (!s) return `${C.y}not recorded${C.x}`;
+      const names = Object.entries(s).map(([m, n]) => `${m}${n > 1 ? ` x${n}` : ""}`);
+      return names.length > 1 ? `${C.r}${names.join(" + ")} — MIXED${C.x}` : names[0];
+    };
+    console.log(`  ${C.b}served${C.x}   baseline: ${servedOf(base, baseResult)}`);
+    console.log(`           this run: ${servedOf(JSON.parse(readFileSync(now.file, "utf8")), null)}`);
+    console.log(`  ${C.d}If those differ, every row below is confounded and measures the model, not the change.${C.x}`);
+
+    const cfgLine = (c) => `${c.LANG}/${c.IDENTITY}/${c.PACE || "?"}/r${c.ROUNDS}/subs${c.SUBS}`;
+    const sameCfg = cfgLine(base.config) === cfgLine(now.config);
+    console.log(`  ${C.b}config${C.x}   ${sameCfg ? `${C.g}identical${C.x}` : `${C.r}DIFFERENT — ${cfgLine(base.config)} vs ${cfgLine(now.config)}${C.x}`}`);
+
+    const bm = metrics(baseA), nm = now.m;
+    console.log(`\n  ${"metric".padEnd(30)} ${"base".padStart(8)} ${"now".padStart(8)}   delta`);
+    for (const k of Object.keys(nm)) {
+      const b = bm[k], n = nm[k];
+      if (b === undefined) continue;
+      const d = +(n - b).toFixed(2);
+      const mark = d === 0 ? `${C.d}=${C.x}` : `${d > 0 ? "+" : ""}${d}`;
+      console.log(`  ${k.padEnd(30)} ${String(b).padStart(8)} ${String(n).padStart(8)}   ${mark}`);
+    }
+    console.log(`\n  ${C.d}A delta is not a result. It is the thing to go and read the prose about.${C.x}`);
+  }
+}
+
+// ---------------------------------------------------------------- committed report
+//
+// `--report test/reports/<name>.md` writes the metrics as Markdown so a run's numbers can
+// be COMMITTED. `test/.out/` is gitignored, so until this existed every measurement this
+// project made lived in one untracked directory on one machine, and a comparison depended
+// on numbers quoted in prose in CLAUDE.md that nothing kept in step with the runs.
+//
+// It writes numbers and the flagged round ids, and deliberately not a verdict: the same
+// reason the terminal output has none. A committed file is exactly where a threshold would
+// harden into one.
+if (REPORT_TO) {
+  const rows = collected;
+  const lines = [
+    `# Playthrough metrics`,
+    ``,
+    `Generated by \`node scripts/analyze-prose.mjs --report ${REPORT_TO.replace(ROOT, ".")}\` on ${new Date().toISOString().slice(0, 10)}.`,
+    `Numbers only, no verdicts — see \`scripts/analyze-prose.mjs\` for what each measures and why.`,
+    ``,
+  ];
+  for (const { file, model, config, m } of rows) {
+    const rep = JSON.parse(readFileSync(file, "utf8"));
+    const served = rep.served ? Object.entries(rep.served).map(([k, v]) => `${k} x${v}`).join(", ") : "not recorded";
+    lines.push(
+      // The filename is in the heading, not only in the source line below it: two runs of
+      // the SAME config is the normal shape of an A/B, and a heading built from the config
+      // alone renders both arms identically.
+      `## ${file.replace(/^.*[\\/]/, "").replace(/\.json$/, "")}`,
+      ``,
+      `${config.LANG} / ${config.IDENTITY} / ${config.PACE || "?"} / ${config.ROUNDS} rounds`,
+      ``,
+      `- source: \`${file.replace(ROOT, ".")}\``,
+      `- model requested: \`${model}\``,
+      `- **served by: ${served}**`,
+      `- cast: ${config.GROUP || "?"}${config.CAST ? ` / ${config.CAST}` : ""}, ${config.SUBS} sub(s)`,
+      ``,
+      `| metric | value |`,
+      `| --- | --- |`,
+      ...Object.entries(m).map(([k, v]) => `| \`${k}\` | ${v} |`),
+      ``,
+    );
+  }
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  mkdirSync(dirname(resolve(REPORT_TO)), { recursive: true });
+  writeFileSync(resolve(REPORT_TO), lines.join("\n"), "utf8");
+  console.log(`\n${C.g}wrote ${REPORT_TO}${C.x} ${C.d}— commit it; that is the point${C.x}`);
+}
+
 console.log(`\n${C.d}No metric here fails a build. Read them; the questions they answer have no right answer.${C.x}`);

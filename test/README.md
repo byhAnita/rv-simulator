@@ -291,7 +291,7 @@ option strings, stat and affection values, the delivered Kakao ids, the summary 
 | Measured | Why it is not a grader |
 | --- | --- |
 | round-to-round n-gram overlap, sentences reused across rounds, openers that rhyme | repetition breaks no rule; it is just tedious to read |
-| distinct `scene` values | a model stuck in the practice room is following every rule |
+| distinct `scene` values, **scene length**, and the **longest run of identical neighbours** | a model stuck in the practice room is following every rule — and see below, distinctness alone measures the wrong thing |
 | option length, four options that say one thing, a stat or route hint leaking | only the last of these is forbidden |
 | each romanceable member's appearance count and **longest absence** | section 3 states this as a rule and nothing detected it |
 | how often each address form actually appears | CLAUDE.md wants them "frequent enough to feel Korean"; zero is a silent failure |
@@ -299,10 +299,52 @@ option strings, stat and affection values, the delivered Kakao ids, the summary 
 | stat trajectories, and whether the proposal gate is even reachable | `relationshipEvents.js` needs `selfId > 95` by round 35 |
 | share of prose inside quotation marks, rounds with no dialogue at all | nothing in the prompt asks for dialogue; it presumes it |
 | `parseLevel` distribution | the cost side of any schema change |
+| rounds far under the asked length | `MIN_STORY_CHARS` (40) is a floor against a *dead* round, not a bound on a usable one — a 126-char round passed every gate |
+| the grader flags rolled up by kind | otherwise the only way to know whether a fix landed is to open the JSON and read `rounds[].bad` by hand |
 
 **It prints numbers and no verdicts, deliberately.** There is no threshold at which the
 writing is fine, and a metric that failed a build would be tuned away the first time it
 was inconvenient. Read them.
+
+### A count that is easy to take is not the property you care about
+
+`distinct scene values` was in this table from the start, and it **hid the two scene defects it
+looks like it would catch.** 23 distinct scenes in 25 rounds reads as variety; they were 23
+paragraphs of a median 62 characters in a one-line box. And a run holding one scene for nine
+consecutive rounds still reports 12 distinct out of 20.
+
+So the analyzer now measures **length against the bound the box imposes** and the **longest run of
+identical neighbours**, and `CLAUDE.md`'s claim that "zh was unaffected on both counts" turned out
+to be wrong on both — written from reading a few scenes, which felt like evidence. The table under
+*"It also has to move"* in `CLAUDE.md` has the corrected numbers for all five configurations.
+
+When adding a metric, ask what it would read if the thing you care about were broken. If the answer
+is "about the same", it is the wrong metric.
+
+### Committed metrics and `--baseline` — the A/B as a script
+
+`test/.out/` is gitignored, so until v1.4.0 step 7 **every measurement this project had ever made
+lived in one untracked directory on one machine** — 59 reports, and a comparison that depended on
+numbers quoted in prose in `CLAUDE.md` that nothing kept in step with the runs.
+
+```bash
+node scripts/analyze-prose.mjs --report test/reports/2026-09-28-rotation.md
+node scripts/analyze-prose.mjs --baseline test/baselines/zh-chaebol-high-pressure-r25.json
+```
+
+- **`test/baselines/`** holds the runs later work is compared against, **tracked**. Raw reports stay
+  in `test/.out/` and stay ignored; promote one only when something will be measured against it. See
+  `test/baselines/README.md` — including why the confounded validation run is kept and labelled.
+- **`--report`** writes the scalar metrics as Markdown, to be committed. Numbers and flagged round
+  ids, no verdict — a committed file is exactly where a threshold would harden into one. The heading
+  is the run's **filename**, because two runs of the same config is the normal shape of an A/B and a
+  heading built from the config renders both arms identically.
+- **`--baseline`** prints this run's metrics beside a saved run's. It prints the **served model of
+  both arms first, unasked**, because that is the line deciding whether any other row means
+  anything, and it says so when the configs differ.
+
+**A delta is not a result.** It is the thing to go and read the prose about — the same reason nothing
+here fails a build.
 
 It earned its place within three rounds of first running: `scene: "SM娱乐大楼顶层会议室"`
 under a rule forbidding company names (the rule was wrong, not the model), and zh prose

@@ -26,7 +26,7 @@
 //   K  offline  usage meter + cost estimate
 //   L  offline  live-harness prose graders
 
-import { readFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -5104,6 +5104,127 @@ async function layerL() {
     existsSync(join(ROOT, "scripts/analyze-prose.mjs"))
       && /transcript\?\.story/.test(readFileSync(join(ROOT, "scripts/analyze-prose.mjs"), "utf8")),
     "a transcript nothing reads is a bigger report file and nothing else");
+
+  // ---- the analyzer's metrics, run against a SYNTHETIC report rather than grepped
+  //
+  // These are behavioural on purpose. Every other check on this tool has been a regex over
+  // its own source, and that is the weak shape: it passes as long as a line exists, whatever
+  // the line computes. The analyzer has now had three metric bugs (`아:194`, a repetition
+  // count inflated by normalising names out of short sentences, and "not in English" matching
+  // an em dash), and not one of them would have been caught by asserting that the code
+  // mentions the metric. So build a report whose right answers are known by construction and
+  // assert the numbers.
+  const proseFixture = (rounds) => ({
+    config: { LANG: "zh", GROUP: "red_velvet", IDENTITY: "财阀", PACE: "高压舆论向", ROUNDS: rounds.length, SUBS: 1 },
+    results: [{
+      model: "(fixture)",
+      roster: [{ id: "irene", name: "Irene", slot: "main" }, { id: "seulgi", name: "Seulgi", slot: "sub" }],
+      rounds: rounds.map((r, i) => ({ round: i + 1, parseLevel: "direct", bad: r.bad || [], transcript: {
+        story: r.story, scene: r.scene, options: ["A. a", "B. b", "C. c", "D. d"],
+        stats: { selfId: 40, secrecy: 100, mood: 70 },
+        affections: { main: 10 + i },
+        summaryText: r.summary ?? "x".repeat(120),
+      } })),
+    }],
+  });
+  const runAnalyzer = (fixture, extraArgs = []) => {
+    const path = join(OUT, "smoke-prose-fixture.json");
+    mkdirSync(OUT, { recursive: true });
+    writeFileSync(path, JSON.stringify(fixture), "utf8");
+    // eslint-disable-next-line no-control-regex
+    return execFileSync(process.execPath, [join(ROOT, "scripts/analyze-prose.mjs"), path, ...extraArgs],
+      { cwd: ROOT, stdio: "pipe", encoding: "utf8" }).replace(/\x1b\[[0-9;]*m/g, "");
+  };
+
+  // A scene can be distinct every round and still be a paragraph. 20 distinct scenes of
+  // 250 characters is what the English run actually produced, and the distinct-count
+  // reported it as perfect variety.
+  const longScenes = runAnalyzer(proseFixture(
+    Array.from({ length: 6 }, (_, i) => ({ story: `第${i}轮。` + "字".repeat(400), scene: `场景${i}，` + "很长的描述".repeat(12) }))));
+  check("the analyzer measures scene LENGTH, not only distinctness",
+    /6 over the 20 a one-line box fits/.test(longScenes),
+    longScenes.split("\n").find((l) => /scenes/.test(l)) || longScenes);
+
+  // And the mirror: a byte-identical scene held for five rounds is 2 distinct out of 6,
+  // which still reads as "some variety" rather than as standing still.
+  const stuckScenes = runAnalyzer(proseFixture(
+    Array.from({ length: 6 }, (_, i) => ({ story: `第${i}轮。` + "字".repeat(400), scene: i === 0 ? "练习室，上午" : "练习室，深夜" }))));
+  check("...and the longest run of identical scenes",
+    /longest identical run 5/.test(stuckScenes),
+    stuckScenes.split("\n").find((l) => /scenes/.test(l)) || stuckScenes);
+
+  // "Not in English" must not mean "contains a byte over 127". An em dash is English
+  // punctuation; this exact false positive reported 7 of 25 when 3 was the answer.
+  const dashSummary = runAnalyzer(proseFixture(
+    Array.from({ length: 4 }, (_, i) => ({
+      story: `第${i}轮。` + "字".repeat(400), scene: "练习室，深夜",
+      summary: i < 2 ? `Irene and the player talk — quietly, ${"a".repeat(80)}` : `Irene and 林夏 talk ${"a".repeat(90)}`,
+    }))));
+  check("an em dash in a summary is not counted as non-English",
+    /2 with CJK\/Hangul/.test(dashSummary),
+    dashSummary.split("\n").find((l) => /summary/.test(l)) || dashSummary);
+
+  // A round far under the asked length passed every gate in step 7, because
+  // MIN_STORY_CHARS (40) is a floor against a dead round, not a bound on a usable one.
+  const truncated = runAnalyzer(proseFixture([
+    { story: "字".repeat(400), scene: "练习室，深夜" },
+    { story: "字".repeat(60), scene: "走廊，清晨" },
+    { story: "字".repeat(400), scene: "录音室，下午" },
+  ]));
+  check("the analyzer flags a round far under the asked length",
+    /1 round\(s\) under 117 — r2/.test(truncated),
+    truncated.split("\n").find((l) => /under/.test(l)) || truncated);
+
+  // The grader flags, rolled up by kind. Without this the only way to know whether a fix
+  // landed is to open the JSON and read `rounds[].bad` by hand.
+  const flagged = runAnalyzer(proseFixture([
+    { story: "字".repeat(400), scene: "练习室，深夜", bad: ["narrated-honorific:欧尼"] },
+    { story: "字".repeat(400), scene: "走廊，清晨", bad: ["narrated-honorific:前辈", "name-ya-vocative"] },
+    { story: "字".repeat(400), scene: "录音室，下午" },
+  ]));
+  check("the analyzer rolls the grader flags up by kind",
+    /narrated-honorific:2/.test(flagged) && /name-ya-vocative:1/.test(flagged)
+      && /3 across 2 round\(s\)/.test(flagged),
+    flagged.split("\n").find((l) => /flags/.test(l)) || flagged);
+
+  // --report has to write a file, and the heading has to distinguish two runs of the SAME
+  // config — which is the normal shape of an A/B, and was rendered identically at first.
+  const reportPath = join(OUT, "smoke-prose-report.md");
+  runAnalyzer(proseFixture([{ story: "字".repeat(400), scene: "练习室，深夜" }]), ["--report", reportPath]);
+  const written = existsSync(reportPath) ? readFileSync(reportPath, "utf8") : "";
+  check("--report writes a committable Markdown table",
+    /\| `scene\.overBound` \| \d+ \|/.test(written) && /\| `rotation\.worstGap` \| \d+ \|/.test(written),
+    written.slice(0, 200) || "no report written");
+  check("...headed by the run's filename, so an A/B's two arms differ",
+    /^## smoke-prose-fixture$/m.test(written),
+    (written.match(/^## .*/m) || ["no heading"])[0]);
+  // The served model belongs in the report unasked: it is what decides whether any other
+  // row can be compared at all.
+  check("...and naming the served model even when it is absent",
+    /served by: not recorded/.test(written),
+    (written.match(/served by.*/) || ["absent"])[0]);
+
+  // --baseline must refuse to imply a comparison it cannot support. Both arms here have no
+  // served model, and the diff has to say so rather than printing a clean table.
+  const diffOut = runAnalyzer(proseFixture([{ story: "字".repeat(400), scene: "练习室，深夜" }]),
+    ["--baseline", join(ROOT, "test/baselines/zh-chaebol-high-pressure-r25.json")]);
+  check("--baseline prints the served model of both arms before the numbers",
+    /served\s+baseline: not recorded/.test(diffOut) && diffOut.indexOf("served") < diffOut.indexOf("metric"),
+    diffOut.split("\n").filter((l) => /served|metric/.test(l)).slice(0, 4).join(" | "));
+  check("...and says when the two configs are not the same",
+    /config\s+DIFFERENT/.test(diffOut),
+    diffOut.split("\n").find((l) => /config/.test(l)) || diffOut);
+
+  // The baselines themselves are tracked, because test/.out is gitignored and every
+  // measurement this project has made lived only there.
+  check("test/baselines holds the step 7 comparison set, tracked",
+    existsSync(join(ROOT, "test/baselines/zh-chaebol-high-pressure-r25.json"))
+      && existsSync(join(ROOT, "test/baselines/README.md")),
+    "a baseline in a gitignored directory is one `git clean -xfd` from gone");
+  check("...and the confounded run is labelled as one",
+    existsSync(join(ROOT, "test/baselines/zh-chaebol-high-pressure-r25-CONFOUNDED.json"))
+      && /do not use as a baseline/i.test(readFileSync(join(ROOT, "test/baselines/README.md"), "utf8")),
+    "it has the same flags as the real baseline and a different model served it");
 }
 
 // ============================================================ main

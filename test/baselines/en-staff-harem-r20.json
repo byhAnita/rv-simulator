@@ -1,0 +1,989 @@
+{
+  "config": {
+    "models": [
+      "(route)"
+    ],
+    "ROUNDS": 20,
+    "LANG": "en",
+    "GROUP": "twice",
+    "IDENTITY": "Staff",
+    "PACE": "修罗海王向",
+    "SUBS": 2,
+    "REASONING": false,
+    "ROUTE_MODE": true,
+    "CAST": null,
+    "CAST_NAME": "X"
+  },
+  "results": [
+    {
+      "model": "(route)",
+      "identity": "Staff",
+      "pace": "修罗海王向",
+      "rounds": [
+        {
+          "round": 0,
+          "ms": 23591,
+          "parseLevel": "direct",
+          "chars": 3015,
+          "summary": 141,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 8626,
+          "cached": 0,
+          "completion": 1210,
+          "reasoning": null,
+          "transcript": {
+            "story": "The hallway smells faintly of lemon floor cleaner and old wood, a strange mix for a building full of restless energy. Your arms are wrapped around a cardboard tray of iced milk teas, the condensation already soaking little rings into the cardboard. You were told to deliver these to practice room B before the group returns from their break. The door is partway open, and you hesitate, adjusting your grip. Through the gap, you hear a burst of laughter — not the polished, camera-ready kind, but the raw, wheezing sound of people who have known each other too long to care.\n\nYou nudge the door with your shoulder. It swings back, and for a second, no one notices you. Nayeon is sitting cross-legged on the floor, still catching her breath from whatever joke just landed, one hand pressed to her chest, the other clutching a half-empty water bottle. Her hair is tied up in a messy knot, and without the stage lighting, she looks smaller, softer, a little younger. When she finally spots you, her eyes go wide, and she bolts upright so fast she nearly knocks over the speaker behind her.\n\n\"Ah, Manager-nim!\" she says, voice still a little hoarse from laughing. She clears her throat, clearly embarrassed. \"How long have you been standing there?\"\n\nBefore you can answer, Momo appears at your elbow, drawn by the unmistakable scent of sugar and tea. \"Is that for us?\" she asks, accent soft, eyes glued to the tray. She reaches out with both hands, her fingers brushing yours as she takes the drinks from you. \"Oh. Cold. Thank you, Manager-nim.\"\n\nJeongyeon is slower to approach, still straightening the edges of a towel someone left draped over a chair. She looks at you for a long moment, then at Nayeon, then back to the tray. \"You didn't have to,\" she says quietly, but there's a warmth in it that makes the words feel less like refusal and more like care.\n\nNayeon's ears are pink. She's not looking at you directly, but every few seconds her gaze flickers up and away, as if she's studying your face without wanting to be caught. \"The timing is terrible,\" she mutters, pushing a stray strand of hair behind her ear. \"We were just—\" She gestures vaguely at the room, the abandoned snacks, the unmade choreography. \"—not being professional.\"\n\nYou catch the faint scent of her perfume now, something floral and light, mixing with the tea and the floor cleaner. It's a strange intimacy, this unguarded version of a woman whose face is usually printed on billboards. She laughs again, more softly this time, and the sound lands somewhere just under your ribs.\n\n\"If you tell anyone we were doing that weird voice thing,\" Nayeon says, pointing a finger at you with mock severity, \"I'll deny everything.\"\n\nBehind you, Sana has materialized from the hallway, resting her chin on Jeongyeon's shoulder and watching the exchange with open, delighted curiosity. Nobody says anything about how loud your heartbeat is. Outside, the late afternoon sun slants through the frosted windows, turning the whole room a pale, watery gold.",
+            "scene": "JYP Entertainment building, 3rd floor hallway near practice rooms, early afternoon",
+            "options": [
+              "A. Smile and say you were happy to do it, then offer to bring snacks next time too.",
+              "B. Tease Nayeon gently about the 'weird voice thing' and ask for a demonstration.",
+              "C. Stay quiet and help tidy the practice room, letting the moment settle naturally.",
+              "D. Ask Jeongyeon quietly if there's anything else the group needs from you today."
+            ],
+            "stats": {
+              "selfId": 27,
+              "secrecy": 100,
+              "mood": 58
+            },
+            "affections": {
+              "main": 16,
+              "jeongyeon": 12,
+              "momo": 8
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "nayeon",
+                "memberName": "Nayeon",
+                "from": "Stranger",
+                "to": "Acquaintance"
+              }
+            ],
+            "kktDelivered": [],
+            "summaryText": "Summer delivered milk tea to the practice room and caught Nayeon mid-laugh, earning a flustered thanks and a first real moment of connection."
+          }
+        },
+        {
+          "round": 1,
+          "ms": 18082,
+          "parseLevel": "direct",
+          "chars": 2338,
+          "summary": 156,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9362,
+          "cached": 8192,
+          "completion": 1053,
+          "reasoning": null,
+          "transcript": {
+            "story": "You did not leave right away. The room settled around you like a held breath, the kind that comes after laughter fades but warmth still lingers. Momo had already claimed a corner of the floor, legs stretched out, one straw wrapper twisted into a tiny bow between her fingers. She kept glancing at you over the rim of her drink, then immediately looking down as if the floor had become fascinating. Every few seconds, her lips curved into a small, private smile she could not seem to control. \"Summer,\" she tried the name once, very softly, as if testing how it felt, then immediately bit her lip and busied herself with a napkin. The familiarity startled you more than it should have. Jeongyeon hovered near the wall, arms folded, but her posture had shifted. She watched Momo with the long-suffering affection of someone used to managing her members' impulses, then turned that gaze toward you. \"Ignore her,\" she said, but the corner of her mouth twitched. \"She gets like this when she's happy. It's better to let her finish.\" Her voice was low and even, the kind of voice that made a busy room feel slower. You noticed she had picked up the stray towel again and was refolding it without looking at her hands, a small, unconscious ritual. Across the room, Nayeon had not stopped moving. She circled the water cooler, straightened a stack of foam rollers that no one had touched, and laughed a little too brightly at something Sana murmured in her ear. But her eyes kept finding you the way sunlight finds a mirror, quick and glancing, then gone. When she finally crossed the room, she stopped just close enough that you could see the faint line on her wrist where the microphone strap had been earlier. \"Manager-nim,\" she said, then paused, tilting her head. \"You can sit, you know. You don't have to stand there like a security guard.\" She smiled, but her ears were still pink. \"Unless standing is part of your strategy.\" Sana, curled on the bench behind her, propped her chin in her hand and watched the two of you with open delight, not even pretending to look away. Through the frosted window, the light had begun to turn orange, and the whole room smelled like sugar and cool tea. You felt the odd, weightless sensation of being let in on something private, not because you had asked, but because someone had decided you were safe.",
+            "scene": "JYP Entertainment building, practice room B, late afternoon after the milk tea delivery",
+            "options": [
+              "A. Sit down next to Nayeon and say you'll stay as long as she doesn't make you laugh.",
+              "B. Ask Jeongyeon if she wants help folding towels, just to see her reaction.",
+              "C. Sit near Momo and ask what she's making with the straw wrapper.",
+              "D. Make a quiet joke about not telling anyone their secret, and watch Sana's face."
+            ],
+            "stats": {
+              "selfId": 28,
+              "secrecy": 99,
+              "mood": 61
+            },
+            "affections": {
+              "main": 18,
+              "jeongyeon": 13,
+              "momo": 9
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [],
+            "summaryText": "Summer stays after delivering tea, and the room softens around her as Nayeon, Momo, and Jeongyeon each show small unguarded moments of curiosity and warmth."
+          }
+        },
+        {
+          "round": 2,
+          "ms": 16182,
+          "parseLevel": "direct",
+          "chars": 2231,
+          "summary": 146,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9886,
+          "cached": 8192,
+          "completion": 981,
+          "reasoning": null,
+          "transcript": {
+            "story": "You stayed. The sentence itself is simple, but the weight of it settled into the room like dust in a sunbeam, slow and golden. Momo had finished her drink in record time and was now sitting with her legs folded beneath her, watching you with an openness so complete it felt almost dangerous. When you met her eyes, she did not look away this time. Instead, she smiled—wide and unguarded—and patted the empty space beside her on the floor. 'Here,' she said softly, her Japanese accent smoothing the edge off the word. 'I saved you a spot.' You crossed the room with a strange self-consciousness, the kind that made you aware of every step, every breath, every place your body met the air. Jeongyeon shifted slightly as you passed, and for a moment you thought she might say something, but she only handed you a napkin she had folded into a neat square. 'For the condensation,' she murmured, not quite looking at you. 'The cups sweat a lot in this weather.' Her fingers brushed yours briefly, cool and dry, and then she returned to her position by the wall, though her arms were no longer crossed. Nayeon watched all of this from the water cooler with an expression you couldn't fully read. Her smile was still there, but it had thinned slightly at the edges, like sunshine through a passing cloud. She uncapped a bottle, took a small sip, and then walked over with the casual grace of someone who did not want to seem hurried. 'So,' she said, settling onto the bench behind you with one leg tucked under her, 'you're staying. That's good. It would have been awkward if you just ran away after seeing us like this.' She laughed, but it was softer now, more real. The orange light from the window caught the side of her face, tracing the curve of her cheek, the small mole near her lip. 'Next time I'll try to be more impressive,' she added, tilting her head. 'This is not my best material.' From the corner, Sana let out a delighted little hum, the sound of someone watching a drama reach its best scene. The practice room, with its scuffed floor and mirrored walls, had begun to feel less like a place of work and more like a small, temporary world—one where the boundaries between manager and managed were already starting to blur.",
+            "scene": "JYP Entertainment building, practice room B, late afternoon light deepening toward dusk",
+            "options": [
+              "A. Sit beside Momo and ask her about the choreography she was practicing earlier.",
+              "B. Follow Jeongyeon's gaze and ask if she needs help tidying up the room.",
+              "C. Turn to Nayeon on the bench and admit you'd like to stay until the end of their practice.",
+              "D. Quietly take in the room, letting the members set the pace for the rest of the evening."
+            ],
+            "stats": {
+              "selfId": 31,
+              "secrecy": 98,
+              "mood": 63
+            },
+            "affections": {
+              "main": 21,
+              "jeongyeon": 15,
+              "momo": 13
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [],
+            "summaryText": "You chose to stay; Momo invited you to sit beside her, Jeongyeon offered quiet care, and Nayeon's playful front softened into something more real."
+          }
+        },
+        {
+          "round": 3,
+          "ms": 14965,
+          "parseLevel": "direct",
+          "chars": 2011,
+          "summary": 142,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 8790,
+          "cached": 8192,
+          "completion": 970,
+          "reasoning": null,
+          "transcript": {
+            "story": "The practice room B light turns amber, then the amber thins into long shadows that climb the mirrored wall. Momo has already claimed the spot beside you, her shoulder brushing yours when she shifts to show you a video of a dance cover on her phone. The screen is bright and her hair smells faintly of lemon shampoo. She laughs at something on the screen, eyes curving, and then looks at you with the purest expression of surprise, as if she has just remembered you are real and not another member of the group.\n\nAcross the room, Jeongyeon is wiping the back of a folding chair with a paper towel. She does it without looking up, her short hair tucked behind one ear, and when she walks over, it is only to slide the chair toward you. \"The floor's cold,\" she says. Her voice is low and practical. There is no smile, but her eyes stay on you a beat longer than necessary, checking that you are comfortable in a way that resembles no one else in the room.\n\nNayeon has been watching from the mirror. She is the center of the room even when she is still, and now she turns, arms crossed, chin lifted with that bright, dangerous playfulness. The bunny smile appears. \"Yah, Manager-nim,\" she calls, her tone dancing between teasing and invitation. \"If you're going to steal my members, you should at least bring snacks next time.\"\n\nMomo giggles into your sleeve. Jeongyeon makes a small sound of exhaustion but doesn't argue. The room feels looser than it did an hour ago, as if the practice has ended and something softer has taken its place. Nayeon walks over with the confidence of someone used to being looked at, but when she stops in front of you, there is a flicker of shyness beneath the performance. She reaches out and flicks a stray thread from your jacket sleeve, a tiny, unnecessary touch. \"Next time,\" she says more quietly, \"I'll pick the drink.\"\n\nThe word hangs in the air. Not because it means anything, but because of the way she says it. As if next time is already a place you both know how to find.",
+            "scene": "JYP Entertainment building, practice room B, late afternoon light deepening toward dusk",
+            "options": [
+              "A. \"Next time, Nayeon-unnie. But don't blame me if it's cold by the time I get here.\"",
+              "B. \"Jeongyeon-unnie, you didn't have to find me a chair. Thank you.\"",
+              "C. \"Momo-unnie, show me that dance again — the part where your feet move so fast they blur.\"",
+              "D. \"I should head to the dressing room. Late schedules tomorrow.\""
+            ],
+            "stats": {
+              "selfId": 34,
+              "secrecy": 97,
+              "mood": 67
+            },
+            "affections": {
+              "main": 24,
+              "jeongyeon": 17,
+              "momo": 15
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "jeongyeon",
+                "memberName": "Jeongyeon",
+                "from": "Stranger",
+                "to": "Acquaintance"
+              }
+            ],
+            "kktDelivered": [],
+            "summaryText": "The practice room settles into an easy intimacy as Nayeon teasingly claims your attention, while Momo and Jeongyeon show their own quiet care."
+          }
+        },
+        {
+          "round": 4,
+          "ms": 18433,
+          "parseLevel": "direct",
+          "chars": 2703,
+          "summary": 97,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9273,
+          "cached": 8192,
+          "completion": 1135,
+          "reasoning": null,
+          "transcript": {
+            "story": "The practice room settles into a rhythm of winding down. Sneakers squeak against the floor, water bottles are gathered, and someone turns off the bluetooth speaker with a soft click that leaves the room abruptly quiet. You are still sitting on the floor where Momo anchored you, your back against the cool mirror, and the warmth of her shoulder has not quite left your sleeve.\n\nNayeon's words still hang between you, the promise of a next time thickening the air. She does not look at you now. She is stretching near the door, one arm crossed over her chest, but her reflection in the mirror keeps finding you. Every time you glance up, her eyes are already there, bright and unreadable as light on water.\n\nMomo, still beside you, has abandoned the dance video and is now holding her phone screen out to show you a picture of snacks, her finger tapping the image with the gravity of a major decision. \"This one,\" she says, her Japanese-accented Korean soft and round, \"the strawberry one. Better than it looks.\" Her face is so earnest that it takes you a second to realize she is continuing the conversation you half-forgot. She wants your opinion. Actually wants it.\n\nJeongyeon appears at your other side, holding two paper cups. She does not announce herself. She simply lowers herself with a quiet sigh and places one cup into your hands. The cardboard is the exact right warmth. \"It's just water,\" she says, \"but it's warm. You were sitting on the cold floor.\" She sits beside you, not close enough to touch, but close enough that the sleeve of her hoodie just grazes your arm. Her eyes are fixed on the far wall, but there is a looseness in her shoulders that feels like permission.\n\nAcross the room, Nayeon stops stretching. She watches the three of you for a long beat, then walks over with her bag slung over one shoulder. \"What's this, a picnic?\" she asks, but her voice has lost its edge. She sits down directly in front of you, cross-legged and close enough that her knees almost brush yours. \"Manager-nim is popular tonight.\"\n\nMomo giggles, hiding her face against her phone. Jeongyeon takes a slow sip of water and says nothing. Nayeon's smile is small and private, not the camera one. \"Next time,\" she says again, softer, \"sit next to me first.\"\n\nYou realize she means it. The room has emptied around you. Somewhere down the hall, the others are calling for Nayeon, but she does not move. She waits, the way someone waits for an answer they already half-know. The amber light is nearly gone now, leaving only the blue glow of phone screens and the pale wash of the hallway through the door. In that half-dark, Nayeon looks like something from a dream you had once and forgot to write down.",
+            "scene": "Practice room B, the last of the late-afternoon light draining from the mirrors as the members begin to pack their bags, the smell of lemon shampoo and worn dance shoes still hanging in the air.",
+            "options": [
+              "A. Lean forward and tell Nayeon, 'Maybe I already decided where I'm sitting next time.'",
+              "B. Thank Jeongyeon quietly for the water and let the warmth anchor you to the moment.",
+              "C. Ask Momo which snack she'd really buy, and let her soft enthusiasm draw you into her world.",
+              "D. Say nothing and let the half-dark hold all of you, waiting to see who moves first."
+            ],
+            "stats": {
+              "selfId": 35,
+              "secrecy": 97,
+              "mood": 70
+            },
+            "affections": {
+              "main": 26,
+              "jeongyeon": 18,
+              "momo": 17
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "momo",
+                "memberName": "Momo",
+                "from": "Stranger",
+                "to": "Acquaintance"
+              }
+            ],
+            "kktDelivered": [],
+            "summaryText": "Practice ends and Nayeon quietly stakes a claim, asking Summer to sit beside her first next time."
+          }
+        },
+        {
+          "round": 5,
+          "ms": 21705,
+          "parseLevel": "direct",
+          "chars": 3409,
+          "summary": 111,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9931,
+          "cached": 8192,
+          "completion": 1289,
+          "reasoning": null,
+          "transcript": {
+            "story": "The hallway calls Nayeon's name again, farther now, a thin echo swallowed by the building's deep evening hush. Still, she doesn't rise. She watches you with that unreadable brightness, lips parted on the edge of something she hasn't decided to say. Her knee shifts, a fraction closer, and the leather of her practice bag creaks as she resettles it beside her hip.\n\nBeside you, Jeongyeon takes another slow sip from her paper cup. She doesn't look at you, but the line of her jaw softens when she speaks. \"They'll come looking for her,\" she murmurs, quiet enough that only you and Momo can hear. Her words carry no warning, just a practical observation, the tone of someone who has spent years reading the rhythm of this group. Then she glances at you, and there is something careful in her expression, something like she's memorizing the shape of this moment before it breaks.\n\nMomo, still warm against your side, has abandoned her phone entirely now. Her head tilts, bangs sliding across her forehead, and she studies your face with that disarming, open curiosity of hers. \"You look different when you're thinking,\" she says, so simply it catches you off guard. She doesn't explain. She just smiles, small and real, and nudges her shoulder against yours as if to confirm you are still solid, still here.\n\n\"Yah,\" Nayeon says, and the single syllable pulls all of you back. Her bunny smile returns, but it's softer now, less performance and more invitation. \"I asked you first. Sit next to me first. Why are you all making it into a strategy meeting?\"\n\nJeongyeon exhales through her nose, almost a laugh. \"Because you're being obvious, unnie.\"\n\nThe word lands like a small stone in still water. Nayeon's ears go faintly pink, though her chin lifts higher, defiant. \"I'm the center. I'm supposed to be obvious.\"\n\nMomo giggles into your shoulder, and the vibration travels down your arm like a secret. \"It's true,\" she whispers, \"she practiced that line.\"\n\nNayeon gasps, leaning forward to swat at Momo's knee, but her hand never lands. It hovers there, close enough that you can feel the warmth radiating from her palm. When her eyes find yours again, the playfulness drains away, replaced by something quieter, more vulnerable. The room has gone nearly dark now, only the blue emergency light painting her features in pale strokes.\n\n\"Stay a little longer,\" she says, and it isn't a request. It's an admission. \"Just until the others leave.\"\n\nJeongyeon shifts, gathering her cup and rising with an unreadable expression. \"I'll tell them you're stretching,\" she says, already moving toward the door. But before she goes, she pauses at the threshold, looking back once over her shoulder. Her gaze finds yours, steady and unguarded, and she gives the smallest nod, like a promise she doesn't have words for yet.\n\nMomo lingers a beat longer, her fingers brushing the edge of your sleeve. \"Don't let her win too easily,\" she whispers, grinning, and then she scrambles up and follows Jeongyeon out, leaving a trail of lemon-scented air behind her.\n\nThe door clicks shut. You and Nayeon are alone, the mirror throwing back two silhouettes in the blue dark. She exhales, and her shoulders drop, the center's armor slipping just enough to reveal the exhausted girl beneath. She doesn't speak. She just waits, close enough now that your knees touch, and the whole room contracts to the space between her breath and yours.",
+            "scene": "Practice room B, emptied now except for the three of them and the last amber light draining from the mirrors, the air cooling around the ghost of earlier exertion.",
+            "options": [
+              "A. Stay where you are and let the silence settle, meeting her eyes in the mirror.",
+              "B. Reach out and brush a strand of hair from her face, closing the last distance.",
+              "C. Say you should probably go too, but make it sound like you'd rather not.",
+              "D. Ask her what she's thinking, directly and without looking away."
+            ],
+            "stats": {
+              "selfId": 39,
+              "secrecy": 95,
+              "mood": 76
+            },
+            "affections": {
+              "main": 31,
+              "jeongyeon": 21,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "nayeon",
+                "memberName": "Nayeon",
+                "from": "Acquaintance",
+                "to": "Interest"
+              }
+            ],
+            "kktDelivered": [],
+            "summaryText": "The others leave one by one, and Nayeon finally asks you to stay alone with her in the darkening practice room."
+          }
+        },
+        {
+          "round": 6,
+          "ms": 18869,
+          "parseLevel": "direct",
+          "chars": 2457,
+          "summary": 152,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 8922,
+          "cached": 8192,
+          "completion": 1154,
+          "reasoning": null,
+          "transcript": {
+            "story": "The door clicks shut behind the last of them, and suddenly the only sounds are the low hum of the air conditioning and the steady rhythm of your own breathing. Across the polished floor, Nayeon stands with her back to the mirrored wall, arms loose at her sides, her practice shirt still damp at the collar from hours of work. The last amber light catches the curve of her jaw, the tired softness around her eyes. She has not moved to leave. Neither have you.\n\n\"You're still here,\" she says, and it is not a question. Her voice is quieter than you have ever heard it, stripped of the bright, teasing lilt she wears in front of the others. She tilts her head, and a loose strand of hair falls across her cheek. \"I thought you'd go with them.\"\n\nYou say something about making sure everything is turned off, about it being part of the job, but she just shakes her head slowly, a small, knowing smile tugging at one corner of her mouth.\n\n\"Liar,\" she murmurs, and the word is almost affectionate. She pushes off the wall and crosses the short distance between you, her sneakers squeaking faintly on the polished wood. She stops close enough that you can smell the faint citrus of her shampoo under the day's sweat. \"You stayed for me. Don't pretend you didn't.\"\n\nHer eyes search your face, bright even in the dimness, and you realize with a start that she is asking for the truth — not playfully, not as a joke, but with a raw, unguarded sincerity that makes the room feel even smaller. The building settles around you, a faint creak somewhere far off, like the whole place exhaling.\n\n\"It's okay,\" she says before you can answer, and her hand lifts, then hesitates, hovering just short of your wrist. She lets it fall. \"I wanted you to stay. Just for a little longer. Is that strange?\"\n\nHer honesty lands between you like something fragile. You can see the effort it costs her — the way her fingers curl and uncurl, the way her breath comes a little too fast. The confident center of TWICE looks, for one unguarded second, simply like a woman who has spent all day pretending and is finally too tired to keep it up.\n\nOutside, a car passes in the street below, its headlights sweeping briefly across the ceiling before vanishing. The room plunges back into shadow, and in that darkness you hear her exhale, long and slow. When the light steadies again, she is watching you with something new in her expression — not just curiosity now, but a quiet, dangerous hope.",
+            "scene": "Practice room B, now almost completely dark except for the amber emergency light above the door and the faint blue glow of a forgotten phone screen on the floor. The mirrors hold the last ghosts of the day's rehearsals. Outside, the building has gone quiet.",
+            "options": [
+              "A. Tell her the truth — you stayed because you didn't want to leave her.",
+              "B. Smile softly and tell her it's not strange at all, then ask if she wants water.",
+              "C. Step a little closer and ask what she's hoping for.",
+              "D. Deflect gently, saying it's just part of the job, and watch how she reacts."
+            ],
+            "stats": {
+              "selfId": 41,
+              "secrecy": 94,
+              "mood": 80
+            },
+            "affections": {
+              "main": 35,
+              "jeongyeon": 21,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Alone after practice in the darkening room, Nayeon drops her bright front and admits she wanted Summer to stay, deepening the private pull between them."
+          }
+        },
+        {
+          "round": 7,
+          "ms": 20674,
+          "parseLevel": "direct",
+          "chars": 2878,
+          "summary": 137,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9539,
+          "cached": 8192,
+          "completion": 1331,
+          "reasoning": null,
+          "transcript": {
+            "story": "The dark settles around you both like a held breath. Somewhere in the silence, a phone on the floor pulses once with a blue glow, then dims. Nayeon doesn't look at it. She is still watching you, and the honesty in her face is so open now that it feels like standing too close to a flame.\n\n\"You don't have to answer,\" she says, and her voice is barely above a whisper. \"I just—tonight, I didn't want to be the first one to leave.\"\n\nHer words curl around the quiet. You can see the faint sheen of sweat still on her collarbone, the way her practice shirt clings to her shoulders. She reaches up and tucks that loose strand of hair behind her ear, and the gesture is so ordinary, so unguarded, that it makes your chest ache.\n\n\"I'm not good at this,\" she admits. A small, self-conscious laugh escapes her. \"Usually I'm the one who teases. I don't... I don't say things like this.\"\n\nShe takes the last step closer, and now there is almost no space left. The citrus from her hair drifts over you, clean and warm. Her hand rises again, and this time she lets it rest, feather-light, on your sleeve near the wrist. Her fingertips are trembling, just a little.\n\n\"Stay,\" she says, and it is not a question. \"Just until the building closes. Just... be here with me.\"\n\nThe amber light above the door flickers once, throwing her shadow across the mirrored wall. In the glass, you see the two of you reflected together, close enough to share the same breath. She follows your gaze and smiles—tired, real, a little sad.\n\n\"Pretty, right?\" she murmurs, nodding at the mirror. \"Us, I mean.\"\n\nA car passes below again, but neither of you looks away. The room is cool, but the air between you has gone warm. You can feel the minute tremble in her hand through the fabric of your sleeve, the quiet courage it takes for her to hold on.\n\n\"I should probably let you go,\" she says, but she doesn't move, and her thumb traces one small, slow circle against your arm. \"Manager-nim probably has a curfew for staff too, right?\"\n\nYou shake your head, and she laughs, soft and grateful. The sound is the only music the room has known all night.\n\n\"Then stay,\" she repeats. \"Five more minutes. That's all I'm asking.\"\n\nFive minutes stretch into the dark like taffy. The city outside grows quieter. Now and then her hand tightens slightly, as if checking you are still there, and each time you are. When she finally steps back, the loss of warmth is immediate and sharp.\n\n\"Thank you, Summer,\" she says, and your name sounds new in her mouth. \"For staying. For not pretending.\"\n\nShe picks up the forgotten phone from the floor—it has Sana's case, you notice, a tiny hamster charm dangling from it—and holds it out to you. \"I think someone left this. You can return it tomorrow.\"\n\nAs you take it, her fingers brush yours, and she doesn't pull away. Her smile is small, private, and it follows you all the way home.",
+            "scene": "Practice room B, now almost completely dark except for the amber emergency light above the door and the faint blue glow of a forgotten phone screen on the floor. The mirrors hold the last ghosts of the day's rehearsals. Outside, the building has gone quiet.",
+            "options": [
+              "A. Reply to Nayeon that you're home safe and that tonight meant something to you too.",
+              "B. Send a light tease: 'Five minutes turned into thirty. You're a bad influence, Nayeon-unnie.'",
+              "C. Don't text back yet. Sit with the feeling of her hand on your sleeve a little longer.",
+              "D. Return Sana's phone tomorrow first thing, before you go to find Nayeon."
+            ],
+            "stats": {
+              "selfId": 43,
+              "secrecy": 93,
+              "mood": 84
+            },
+            "affections": {
+              "main": 39,
+              "jeongyeon": 21,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon admits she didn't want to be alone and asks Summer to stay with her in the dark practice room, sharing a quiet, vulnerable moment."
+          }
+        },
+        {
+          "round": 8,
+          "ms": 19314,
+          "parseLevel": "direct",
+          "chars": 2908,
+          "summary": 150,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 10280,
+          "cached": 9216,
+          "completion": 1137,
+          "reasoning": null,
+          "transcript": {
+            "story": "The blue light of the forgotten phone fades again, and for a long moment neither of you moves. Nayeon's fingers are still curled around your hand from when she passed you the phone, and she hasn't pulled away. Her palm is warm, a little damp, and her grip is lighter than you expected from someone who commands a stage the way she does.\n\n\"You're not leaving,\" she says, and this time it isn't a request. There is a faint tremor in the words, like she's surprised at her own boldness. \"Good.\"\n\nThe emergency light above the door casts a thin amber thread across the floor, catching the fine hairs on her arm. She turns your hand over slowly, as if studying something delicate, and her thumb traces a small, uncertain line across your knuckles. The touch is so careful it makes your breath catch.\n\n\"I keep thinking about what I said,\" she murmurs, not meeting your eyes. Her voice drops lower, almost swallowed by the hum of the air conditioning. \"About not being good at this.\"\n\nShe lifts her gaze then, and the raw honesty there is startling. This is not the playful unnie who teases from the center of the group, nor the polished idol who knows exactly how to smile for a camera. This is Nayeon with her guard down, her mouth soft, her shoulders slightly hunched as if expecting the floor to open.\n\n\"I'm the oldest,\" she says slowly. \"I'm supposed to be the one who takes care of everyone. Teasing is easy. Playing around is easy. But this...\" She gestures vaguely at the small space between you, her fingers flexing. \"This scares me a little.\"\n\nThe building shudders faintly, some far-off elevator or closing door. You feel the vibration through the floor, through her hand still resting on yours. She laughs, quiet and self-conscious, and the sound is so small it barely reaches the mirrors.\n\n\"You're going to think I'm strange,\" she says. \"We've only known each other a little while, and I'm already—\"\n\nShe stops, biting her lower lip. The words hang unspoken, but you can feel their weight in the warm darkness. Her other hand rises, almost involuntarily, and her fingertips brush the edge of your collar, straightening a fold that doesn't need straightening. It is such a Jeongyeon thing to do, this fussing, but on Nayeon it reads as tenderness.\n\n\"I just don't want you to go yet,\" she finishes. \"Five more minutes. Then I'll really let you leave.\"\n\nYou don't check the time. Outside, the city has gone so quiet you can hear the distant tick of a crosswalk signal. The amber light pulses once, twice, steady as a heartbeat.\n\n\"Summer,\" she says, and again your name sounds different in her mouth, like she's learning its shape. \"Thank you. For not laughing at me.\"\n\nHer hand tightens on yours, just for a second, then releases. She steps back with visible effort, smoothing her damp practice shirt, and offers you a smile that is equal parts brave and uncertain. \"Go on. Before I ask for another five.\"",
+            "scene": "The practice room has gone still and close, lit only by the amber emergency light above the door. The air smells faintly of citrus and clean sweat.",
+            "options": [
+              "A. Text her back immediately, telling her you got home safe and that you're still thinking about the practice room.",
+              "B. Wait a little while before replying, then send something casual about tomorrow's schedule.",
+              "C. Reply with just a photo of your front door, nothing else, letting the quiet speak.",
+              "D. Don't text back tonight. Let the moment settle, and talk to her in person tomorrow."
+            ],
+            "stats": {
+              "selfId": 45,
+              "secrecy": 91,
+              "mood": 87
+            },
+            "affections": {
+              "main": 43,
+              "jeongyeon": 21,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon opens up about how much this new vulnerability scares her, and the two of you share a tender, lingering moment alone in the dark practice room."
+          }
+        },
+        {
+          "round": 9,
+          "ms": 15658,
+          "parseLevel": "direct",
+          "chars": 2118,
+          "summary": 152,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9132,
+          "cached": 8192,
+          "completion": 976,
+          "reasoning": null,
+          "transcript": {
+            "story": "The silence after Nayeon's confession settles like dust in the amber light. Neither of you moves toward the door. Her hand rests on the bench between you, close enough that the warmth of her skin registers even through the still air. Somewhere down the hall, a door closes with a soft thud, and the sound makes her flinch—just enough that her fingers twitch toward yours before she catches herself.\n\n\"You don't have to go yet,\" she says, and her voice is smaller than you've ever heard it. \"I know it's late. I know you probably have other places to be.\" She laughs, but it's a fragile, self-conscious sound. \"I sound desperate, don't I?\"\n\nYou shake your head, and something in her face shifts—relief, maybe, or gratitude. The emergency light catches the gloss in her eyes, and for a moment she looks less like the center of TWICE and more like Im Na-yeon, a woman who has been holding herself together for too long. The citrus smell of the room mingles with the faint floral note of her shampoo, and you breathe it in without meaning to.\n\n\"I keep thinking about what you said earlier,\" she murmurs, finally turning to face you fully. Her knee bumps yours, and she doesn't pull away. \"About being allowed to want something just for myself.\" She worries the hem of her sleeve between her fingers. \"I don't know if I know how to do that anymore.\"\n\nYou tell her that wanting something doesn't require permission, and the words hang in the air between you, warm and certain. Nayeon's lips part, then close again. She looks at you the way someone looks at a door they're afraid to open.\n\n\"Stay a little longer,\" she says, and it isn't a question. Her hand moves, finally, and her fingertips brush the back of your wrist—featherlight, tentative, nothing like the bright, claiming Nayeon of an hour ago. \"Just until I feel like I can breathe again.\"\n\nThe emergency light hums faintly above you. Outside, the city has gone quiet. You turn your hand over on the bench, palm up, an invitation she doesn't take—not yet. But she leaves her fingers resting on your pulse, and you feel every heartbeat echo in the space between you.",
+            "scene": "Practice room, near midnight. The amber emergency light still glows above the door, and the room feels suspended in a hush that neither of you has broken.",
+            "options": [
+              "A. \"I'll stay as long as you need, Nayeon-unnie. I meant what I said too.\"",
+              "B. \"You can breathe around me. You don't have to be anyone but yourself here.\"",
+              "C. \"Should I turn on a light? Or is this... okay?\"",
+              "D. \"What are you afraid will happen if you let yourself want something?\""
+            ],
+            "stats": {
+              "selfId": 47,
+              "secrecy": 90,
+              "mood": 90
+            },
+            "affections": {
+              "main": 47,
+              "jeongyeon": 21,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon asks Summer to stay a little longer, and the intimacy between them deepens as she admits she doesn't know how to want something just for herself."
+          }
+        },
+        {
+          "round": 10,
+          "ms": 21030,
+          "parseLevel": "direct",
+          "chars": 2752,
+          "summary": 147,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9629,
+          "cached": 8192,
+          "completion": 1296,
+          "reasoning": null,
+          "transcript": {
+            "story": "The stillness stretches, fragile as glass, until Nayeon shifts on the bench. Her fingers, still resting against your pulse, curl slightly—not holding, just remembering the shape of the moment. She exhales, a long, unsteady breath that seems to release something she's been guarding since the practice mirrored walls first went dark.\n\n\"You always do that,\" she says quietly, her voice carrying an edge of wonder. \"You just... stay. You don't look at your phone. You don't check the time. You make it feel like I'm not being unreasonable.\"\n\nYou tell her she isn't unreasonable, that the ceiling could fall and you'd still be sitting here, and the corners of her mouth twitch upward—a real smile, small but unhidden. For once, there is no performance in it. The amber light softens the angles of her face, and you notice the faint shadow beneath her eyes, the tiny crease between her brows that never quite smooths away.\n\n\"Can I ask you something selfish?\" Her thumb traces an absent circle against your wrist, sending warmth spiraling up your arm. You nod before she even finishes, and she laughs—soft, breathless. \"Don't agree before you hear it. What if I asked you to run away with me? Just for a night. No staff, no schedule, no members. Just... somewhere quiet.\"\n\nShe watches you, the question hanging in the close air. Her knee is still pressed to yours, and the contact feels like a secret shared between two people who've forgotten how to want simple things. The room smells of lemon cleaner and worn practice mats, and beneath it, the faint, sweet trace of her perfume, warm from her skin.\n\n\"I know it's impossible,\" she continues, and now her voice drops to almost a whisper, conspiratorial and raw. \"But when I'm with you, I keep thinking about impossible things. Like going to a convenience store at 2am. Like eating ramyun on a bench where nobody knows my face. Like holding someone's hand just because I want to.\"\n\nHer gaze drops to where her fingers still rest on your pulse. Slowly, deliberately, she turns her palm upward, mirroring the invitation you offered earlier. Her hand lies open on the bench between you, trembling faintly, and the sight of it—the bravest small thing in the world—makes your chest ache.\n\n\"I'd ask you to come with me,\" she says, voice barely audible now. \"If I ever got the chance. I'd ask you first.\" A pause. \"Is that okay? That I'd ask you first?\"\n\nThe emergency light buzzes once, a tiny mechanical sigh. Outside, a distant siren rises and fades. Still, neither of you moves toward the door. You look at her open hand, then back at her face, and for the first time since you walked into this room with milk tea and a schedule, Nayeon looks at you like you are the only thing she has ever chosen for herself.",
+            "scene": "Practice room, near midnight. The amber emergency light still glows above the door, and the room feels suspended in a hush that neither of you has broken.",
+            "options": [
+              "A. Turn your hand over and gently lace your fingers with hers.",
+              "B. Tell her you'd go anywhere she asked—no hesitation.",
+              "C. Ask what she imagines when she thinks of that quiet place.",
+              "D. Brush a stray strand of hair from her face and promise she's not alone."
+            ],
+            "stats": {
+              "selfId": 51,
+              "secrecy": 92,
+              "mood": 96
+            },
+            "affections": {
+              "main": 54,
+              "jeongyeon": 22,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "nayeon",
+                "memberName": "Nayeon",
+                "from": "Interest",
+                "to": "Flirting"
+              }
+            ],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Late at night in the practice room, Nayeon confesses she'd run away with you first—an impossible, tender moment that tightens the bond between you."
+          }
+        },
+        {
+          "round": 11,
+          "ms": 17596,
+          "parseLevel": "direct",
+          "chars": 2677,
+          "summary": 126,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 10254,
+          "cached": 9216,
+          "completion": 1126,
+          "reasoning": null,
+          "transcript": {
+            "story": "Your hand settles over hers on the bench, and Nayeon goes very still. For a long moment neither of you breathes, and then her fingers turn beneath yours, threading together with a slow deliberation that feels like a confession in itself. Her palm is warm and slightly damp, and she grips you as if you are the only solid thing in a room slowly dissolving into shadow.\n\nThe emergency light above the door flickers once, twice, then steadies. In that tiny stutter of darkness, Nayeon leans closer, her shoulder pressing against yours, and the faint scent of her perfume—something floral and clean, like jasmine after rain—fills the space between you. She does not speak, but her thumb moves over your knuckles in a rhythm that might be her heartbeat, or yours.\n\n'I don't want to go home,' she whispers finally, and her voice is so raw that it scrapes against the silence. 'I know I should. I know tomorrow will be brutal. But I keep thinking—if I walk out that door, tonight becomes just another memory. And I don't want it to be just a memory.'\n\nYou tell her it doesn't have to be, and she turns her face toward you, close enough that you can see the tiny mole near her eye, the way her lashes cast feathery shadows on her cheeks. She searches your face with an intensity that feels almost desperate, as if she's trying to memorize the exact shape of this moment before it slips away.\n\n'You make me feel brave,' she says, and there is wonder in it, and fear. 'That's what scares me most. Not the company, not the rumors, not the fans. You make me feel like I could actually reach for something real, and that's terrifying. Because I've spent ten years learning not to reach.'\n\nHer grip tightens, and you feel the fine tremor running through her arm. The practice room, with its mirrored walls and worn mats and lingering smell of lemon cleaner, has never felt so small, so freighted with unspoken things. In the mirrors, you catch a glimpse of the two of you—two women on a bench, hands intertwined, heads bent close, looking for all the world like a secret already in motion.\n\n'If I asked you tomorrow,' she begins, then stops. Swallows. Starts again. 'If I texted you tomorrow and said I wanted to see you—not as my manager, not as staff, just as Summer—would you come?'\n\nHer eyes are bright with the threat of tears, or maybe just the amber light. The city beyond the window has gone silent, holding its breath. You answer without hesitation, and Nayeon closes her eyes, a single tear escaping down her cheek. She doesn't wipe it away. She lets you see it.\n\n'I'll hold you to that,' she says, and her smile is wrecked and beautiful. 'I'll really hold you to that, Summer-ya.'",
+            "scene": "Practice room, near midnight. The amber emergency light still glows above the door, and the room feels suspended in a hush that neither of you has broken.",
+            "options": [
+              "A. Text her back: 'I'll be there. Just as me.'",
+              "B. Call her, because her voice will say what text can't.",
+              "C. Spend the night thinking about what it means to be 'just Summer' to her.",
+              "D. Go to sleep and let tomorrow decide."
+            ],
+            "stats": {
+              "selfId": 54,
+              "secrecy": 90,
+              "mood": 100
+            },
+            "affections": {
+              "main": 59,
+              "jeongyeon": 22,
+              "momo": 21
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon weeps quietly as Summer's hand covers hers, and she asks if Summer would come to her tomorrow as herself, not as staff."
+          }
+        },
+        {
+          "round": 12,
+          "ms": 16384,
+          "parseLevel": "direct",
+          "chars": 2026,
+          "summary": 125,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9220,
+          "cached": 8192,
+          "completion": 956,
+          "reasoning": null,
+          "transcript": {
+            "story": "The silence has a texture, like dust settling after a long day. Nayeon's hand stays under yours, warm and unsteady, her fingers curling faintly against your palm. The emergency light paints one side of her face amber, the other lost in shadow, and she looks at you the way someone looks at a door they thought had already closed.\n\n\"Summer-ya,\" she says, and her voice is hoarse in a way that has nothing to do with singing. \"If I tell you something stupid, will you promise not to treat me like a patient?\"\n\nShe shifts on the floor, knees drawn up, and you feel the minute tremor that runs through her arm. The room smells of old wood and the faint citrus of the cleaning spray Jihyo had used earlier, a trace that now feels like something from another world. Through the wall, the air conditioner clicks off, and the quiet afterward is so complete you can hear the distant hum of a vending machine somewhere down the hall.\n\n\"I keep thinking,\" Nayeon goes on, her gaze fixed on the floor between your crossed legs, \"that no one's ever seen me like this. Not the members, not my family. Just you. And that should scare me, right?\" She lets out a small, breathy laugh. \"It does. But you're still here, and your hand is still... it's not running away, so maybe I don't need to be scared yet.\"\n\nOutside, a car passes in the street below, its headlights sweeping briefly across the high windows and gone. Nayeon's fingers tighten around yours, and then she lifts her head, her eyes wet but steady. \"You said you'd come tomorrow as yourself, not as staff. I'm holding you to that. I want to know what it feels like when you're not on the clock.\"\n\nShe doesn't ask you to answer. She just rests her forehead against your shoulder, the crown of her head pressing just under your jaw, and your free hand moves without thinking to smooth the loose strands of hair at her temple. Somewhere below, the building's night guard makes his rounds, keys clinking softly. The midnight hush returns, and inside it, the two of you breathe together.",
+            "scene": "Practice room, near midnight. The amber emergency light still glows above the door, and the room feels suspended in a hush that neither of you has broken.",
+            "options": [
+              "A. Stay a little longer, letting her weight rest against you until the room no longer feels so large.",
+              "B. Gently pull back and walk her to the door, promising tomorrow won't feel like work.",
+              "C. Admit you don't know how to be just Summer around her yet, and ask what that would look like.",
+              "D. Brush the hair from her face and tell her you've never been anything but yourself with her."
+            ],
+            "stats": {
+              "selfId": 57,
+              "secrecy": 88,
+              "mood": 100
+            },
+            "affections": {
+              "main": 63,
+              "jeongyeon": 22,
+              "momo": 22
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "In the near-midnight hush, Nayeon leans on Summer and asks her to come tomorrow as herself, deepening their fragile intimacy."
+          }
+        },
+        {
+          "round": 13,
+          "ms": 18980,
+          "parseLevel": "direct",
+          "chars": 2537,
+          "summary": 130,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9692,
+          "cached": 8192,
+          "completion": 1176,
+          "reasoning": null,
+          "transcript": {
+            "story": "The dark has weight, but it is not heavy. It presses in like a held breath, and inside it, Nayeon is warm against you—her forehead still tucked under your jaw, her breath slowing into the rise and fall of someone finally allowing herself to rest. The vending machine down the hall hums, stops, then hums again, a green pulse in the corridor you cannot see.\n\nYou want to say something, but the exact words have not been invented. So you do what you know, the way you have done every time she has fallen apart too close to the edge of a schedule: you anchor her. Your hand stays in her hair, your thumb tracing a slow line from temple to ear, and she makes a sound—not a word, just the soft exhalation of someone letting go of a weight she has carried all day.\n\n“You're good at this,” she mumbles into your collarbone. “Being here. Not leaving.”\n\n“I'm just sitting,” you reply quietly, and the smile comes before you can stop it.\n\n“That's the thing.” Nayeon shifts, just enough to look up at you, and the amber light catches the shine still pooled along her lower lashes. “Anyone can sit. You make it feel like staying.”\n\nFor a moment there is only the sound of her breathing and the faraway clink of the janitor's keys. Somewhere in the building, a timer switches off a bank of lights, and the darkness deepens by one degree. Nayeon's thumb rubs over your knuckles, slow and absent, and then she straightens with a sigh so soft it barely reaches you.\n\n“Okay.” She presses her palms to her thighs, steeling herself. “If I stay here any longer, I'll say something I can't take back. And you—” she glances at you, and despite everything, a hint of her usual mischief surfaces, “—you'd let me, wouldn't you? You'd sit there and let me ruin my reputation on a practice room floor.”\n\nThe words are light, but her eyes are serious. She stands, and the motion tugs at your joined hands until you rise with her. The room tilts around you, close and amber-lit, and for a second you cannot tell if the closeness is the room or the two of you failing to step apart.\n\n“Tomorrow,” she says, and this time it is not a question. “You'll come as Summer. Not Manager-nim. I'll wait by the west entrance.” She squeezes your hand once, hard, then lets go before either of you can overthink it. “And don't bring anything. Just yourself.”\n\nShe walks to the door ahead of you, pausing with her fingers on the handle, and looks back over one shoulder. Her face is still tear-streaked and bare, and she has never looked more like herself. “Good night, Summer-ya.”",
+            "scene": "Practice room, near midnight. The amber emergency light still glows above the door, and the room feels suspended in a hush that neither of you has broken.",
+            "options": [
+              "A. Text her back: 'Only if you promise to be Nayeon, not Nayeon the idol.'",
+              "B. Text her back: 'I'll be there. And I won't bring anything but myself.'",
+              "C. Text her back: 'West entrance. Got it. Try to sleep.'",
+              "D. Don't text. Save the words for when you see her tomorrow."
+            ],
+            "stats": {
+              "selfId": 61,
+              "secrecy": 86,
+              "mood": 100
+            },
+            "affections": {
+              "main": 67,
+              "jeongyeon": 23,
+              "momo": 23
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "nayeon",
+                "memberName": "Nayeon",
+                "from": "Flirting",
+                "to": "Confirmed"
+              }
+            ],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon and Summer share an intimate moment in the practice room, solidifying their plan to meet tomorrow as themselves, not staff."
+          }
+        },
+        {
+          "round": 14,
+          "ms": 19975,
+          "parseLevel": "direct",
+          "chars": 2523,
+          "summary": 168,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 10324,
+          "cached": 9216,
+          "completion": 1210,
+          "reasoning": null,
+          "transcript": {
+            "story": "The west entrance is deserted at noon, the way she promised it would be. You arrive neither early nor late, and find her already there, leaning against the shaded wall with her phone loose in one hand and a paper cup in the other. She is not in stage clothes or practice wear—just a soft cream cardigan over jeans, hair half-tucked under a baseball cap, and when she sees you, she pushes off the wall with a smile that starts small and then, against her obvious effort to play it cool, spreads all the way across her face.\n\n“You came,” she says, and the words are warm, almost disbelieving, as if some part of her had been braced for you not to.\n\nShe holds out the cup. “For you. I said don't bring anything, but I didn't say I wouldn't.” It is iced tea, still cold, the straw still sealed. Her fingers brush yours during the exchange, and she lets them linger a second longer than necessary before tucking both hands into her cardigan pockets and rocking once on her heels.\n\n“So,” Nayeon says, glancing down the street where the sidewalk empties into a bright, ordinary afternoon, “this is me. Not centered by a stage lamp, not ten minutes before hair and makeup. Just… me.” She lifts the brim of her cap so you can see her eyes—bare, a little tired, but clear. “I don't know what people do when they're not working. That's embarrassing to admit, right? But I wanted today to be real.”\n\nYou fall into step beside her, passing under the awning and into the open air. The city breathes around you: the low rumble of traffic, the clatter of a delivery bike, the faint smell of something sweet from a nearby bakery. Nayeon walks close enough that your shoulders nearly brush, and every few steps she glances at you as if to confirm you are still there.\n\n“Don't look at me like that,” she says after a while, but there is no real protest in it. “You're looking at me like I'm someone you chose to find. It makes me want to hold your hand in the middle of the street.” She says it lightly, but her cheeks flush, and she turns her face toward a passing bus to hide it.\n\nAt the corner, she stops and turns to you fully. The sun catches the softness of her face, the small mole near her lip, the way her unguarded happiness makes her look younger than her years. “Okay. Today, Nayeon is happy. That's the first real thing. Now tell me something real about you, Summer. Just one thing. And then buy me something to eat—I left my wallet in the practice room.” Her laugh is bright and sudden, and it rings down the street like a bell.",
+            "scene": "West entrance of the JYP building, noon. Sunlight slants hard across the steps, and the city noise feels far away here, like sound arriving through water.",
+            "options": [
+              "A. Tell her something true about you—the realest thing you can offer—and let the weight of it settle between you.",
+              "B. Reach for her hand first and ask where she wants to go now that the day belongs to both of you.",
+              "C. Tease her gently about forgetting her wallet and promise to buy her anything she wants, just to see her smile again.",
+              "D. Suggest going back to the practice room to get her wallet, keeping the moment carefree a little longer."
+            ],
+            "stats": {
+              "selfId": 64,
+              "secrecy": 82,
+              "mood": 100
+            },
+            "affections": {
+              "main": 72,
+              "jeongyeon": 23,
+              "momo": 23
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon and Summer meet off the clock at noon, and their first real day outside work begins with iced tea, shared honesty, and a growing intimacy that feels like a date."
+          }
+        },
+        {
+          "round": 15,
+          "ms": 20854,
+          "parseLevel": "direct",
+          "chars": 2697,
+          "summary": 143,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9345,
+          "cached": 8192,
+          "completion": 1335,
+          "reasoning": null,
+          "transcript": {
+            "story": "The iced tea sweats in your hand, condensation slipping cold over your knuckles as you spot Nayeon already waiting at the west entrance. She's traded practice clothes for a white sundress and a denim jacket too thin for the air conditioning inside, and she's pretending to study her phone with the intensity of someone who has forgotten how to read. The noon light catches the fine baby hairs at her temple, turning them to copper thread.\n\nWhen she looks up, the smile comes faster than she means it to—a bare, unguarded thing that makes the space between you feel smaller than it is. \"Summer-ya,\" she says, and there's a waver in it, like the word is new in her mouth. \"You came.\"\n\n\"I said I would.\"\n\n\"People say lots of things.\" She falls into step beside you, close enough that the hem of her dress brushes your arm. The city noise softens around you both, replaced by the rhythm of your shoes on pavement and the distant chime of a convenience store door. She doesn't ask where you're going. She's already decided that anywhere counts, as long as it's away from the building behind you.\n\nAt the first crosswalk, her hand drifts toward yours and stops, hovering in the hot air like a question she can't bring herself to finish. You watch her fingers curl back, tuck into the pocket of her jacket. \"Sorry,\" she murmurs, not looking at you. \"Old habit. I keep reaching for things I shouldn't.\"\n\nThe light changes. She steps off the curb before you can answer, and for a moment she's just a girl in a sundress walking into the sun, her shadow long and thin on the asphalt. Then she glances back, and her eyes are bright with something that isn't the glare. \"Are you hungry? I know a place. It's small, but the lady who runs it doesn't care who I am. We can sit for a while.\"\n\nShe says it like an offering, like a confession folded into a lunch invitation. There's no camera here, no manager, no schedule pulling at her sleeve. Just the two of you, suspended in the slow thick heat of noon, pretending this is an ordinary day, knowing it isn't.\n\n\"I'd like that,\" she adds, softer now, almost to herself. \"A whole hour. Maybe two. No one looking for me. No one needing me to be TWICE.\"\n\nShe takes a breath, squares her shoulders the way she does before a stage, and then—deliberately, carefully—reaches for your hand. Her fingers are cold from the iced tea in her other palm, and they fit against yours like they've been waiting for permission. She doesn't look at you. She looks straight ahead, at the green light and the long sidewalk, and holds on.\n\n\"This is okay, right?\" she asks, and her voice is small in a way that has nothing to do with volume. \"For today, just for today, this is allowed?\"",
+            "scene": "West entrance of the JYP building, noon. Sunlight slants hard across the steps, and the city noise feels far away here, like sound arriving through water.",
+            "options": [
+              "A. Hold her hand tighter and tell her it's allowed for as long as she wants.",
+              "B. Tease her gently about how long she waited at the crosswalk before reaching for you.",
+              "C. Ask about the restaurant she loves, wanting to know this small piece of her private world.",
+              "D. Stay quiet and let the hand-holding speak, walking beside her in comfortable warmth."
+            ],
+            "stats": {
+              "selfId": 66,
+              "secrecy": 79,
+              "mood": 100
+            },
+            "affections": {
+              "main": 77,
+              "jeongyeon": 24,
+              "momo": 24
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon and Summer begin their first off-the-clock day together, sharing iced tea and an unguarded walk, and Nayeon finally holds Summer's hand."
+          }
+        },
+        {
+          "round": 16,
+          "ms": 24475,
+          "parseLevel": "direct",
+          "chars": 2790,
+          "summary": 124,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 10011,
+          "cached": 8192,
+          "completion": 1391,
+          "reasoning": null,
+          "transcript": {
+            "story": "The restaurant is smaller than you imagined, four tables pressed against walls the color of weak broth, and the air is thick with the smell of sesame oil and gochugaru. Nayeon sits across from you with her sundress pooled in her lap, her denim jacket draped over the chair back like she's ready to leave at any second. She isn't ready. You can tell by the way she keeps touching the edge of the menu without opening it, her thumbnail tracing the laminated corner in slow circles.\n\nThe owner calls out a greeting without looking up from the stove, and Nayeon's shoulders loosen incrementally. \"She won't ask for a photo,\" Nayeon says, leaning in like it's a secret. \"Sometimes she calls me 'maknae-ya' even though I'm the oldest in the group. I think she's confused me with someone else for ten years and I've never corrected her.\" A smile flickers at the corner of her mouth. \"It's nice, actually. Being nobody for a little while.\"\n\nThe food arrives in stone bowls still hissing with heat. She orders for both of you without asking — soon tofu extra spicy, a mild one for herself — and then looks almost shy when she admits, \"I remember what you ordered from the practice room runs. You always ask for more chili. Even when your eyes water.\"\n\nYou laugh, and she watches you like she's trying to memorize the sound. The fluorescent light hums overhead, yellow and unflattering, but she said it already: you're the prettiest thing in the room. The words hang between you, not spoken here, but carried in the way she nudges your foot under the table and leaves it there, ankle warm against your ankle.\n\n\"Eat slowly,\" she says, but she's the one not eating, stirring her soup until it's more paste than broth. \"If we stay here long enough, maybe the afternoon won't end. I keep thinking about what happens when you drop me off and go back to being staff. I know I'm not supposed to say that. There are rules. But today isn't a schedule. Today is mine.\"\n\nShe says it with a quiet ferocity, like she's staking a claim on the hours themselves. Then, softer: \"Could we not talk about the company? For one meal. Could we talk about you instead? What you wanted to be when you were young. What makes you laugh when no one's watching.\"\n\nHer knee presses against yours under the table, a steady, grounding pressure. She waits, and for once, the silence isn't heavy. It's open, like an invitation. The fan in the corner clatters with every rotation, and through the window, the street blurs with heat and passing umbrellas. Somewhere back at the JYP building, a schedule is waiting. But here, in a tiny restaurant with bad lighting, Nayeon rests her chin in her hand and looks at you like you are the only schedule that matters.\n\n\"Tell me,\" she says. \"I want to know all of it. Even the ordinary parts.\"",
+            "scene": "A tiny sundubu restaurant tucked off a side street with bad fluorescent lighting and steam-fogged windows; the two of you are at a table in the corner.",
+            "options": [
+              "A. Tell her about your childhood dream, the small ordinary one that still follows you.",
+              "B. Admit she's making it hard not to check your phone, because you keep hoping the messages are from her.",
+              "C. Ask her what she wanted to be when she was young, before TWICE, before the company.",
+              "D. Let the silence stretch, and reach for her hand across the table first this time."
+            ],
+            "stats": {
+              "selfId": 71,
+              "secrecy": 71,
+              "mood": 100
+            },
+            "affections": {
+              "main": 84,
+              "jeongyeon": 24,
+              "momo": 24
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "nayeon",
+                "memberName": "Nayeon",
+                "from": "Confirmed",
+                "to": "Passionate"
+              }
+            ],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon and Summer share a slow, intimate lunch in a tiny restaurant, where Nayeon asks to know the ordinary parts of Summer."
+          }
+        },
+        {
+          "round": 17,
+          "ms": 24025,
+          "parseLevel": "direct",
+          "chars": 3054,
+          "summary": 116,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 10696,
+          "cached": 9216,
+          "completion": 1343,
+          "reasoning": null,
+          "transcript": {
+            "story": "The ceiling fan ticks like a metronome, and outside, the light has shifted from white to gold, turning the steam on the window into a thin veil. Service is over for a while; the owner has retreated to a stool behind the counter, thumbing through a newspaper, clearly in no hurry to bring the bill. Nayeon hasn't touched her soup in ten minutes. Instead, she has both elbows on the table and her chin in her hands, watching you with a concentration that should be too much and isn't.\n\n\"You talk with your hands when you're telling a story,\" she says, tracking the sweep of your fingers like it's a stage move she needs to learn. \"You didn't do that the first week. You were so careful. I thought you were afraid of me.\"\n\n\"I wasn't afraid. I was employed.\"\n\nShe laughs, bright and sudden, and it settles over you like the warm air from the kitchen. \"And now?\"\n\n\"Now I'm here, and you're not signing my check.\"\n\n\"I'd sign it anyway.\" Her foot finds yours again under the table, deliberate this time. \"I'd sign it and give you a raise and then I'd keep you here an extra hour just because I can.\"\n\nShe smiles like she means it, and there's a looseness to her now that you've never seen inside the practice room. The eldest's sharp edges have gone soft; she is all bare shoulders and unclipped hair and a sundress strap that keeps slipping off her left shoulder no matter how many times she hooks it back. The noise of the street outside has thickened—schoolkids, a bicycle bell, a man hawking melons—but inside, the world is just this sticky table, the salt-and-pepper shakers shaped like fat cats, and the small country of space between your knees.\n\n\"I keep thinking about tomorrow,\" she admits, and the smile thins. Not gone, but complicated. \"You'll drive me to the salon, and I'll call you Manager-nim in front of the stylists, and I'll be so polite you'll think today was a fever dream. But it wasn't. Was it?\"\n\nShe doesn't wait for an answer. She reaches across the table and touches the back of your wrist, a featherlight drag of her index finger over your pulse. The contact is so quick and so careful that it could pass for an accident. It doesn't. Her eyes flick up to yours, dark and steady, and the question hangs there without sound: are we pretending, or are we not?\n\n\"The ajumma thinks we're on a date,\" she says. Her voice is almost a whisper now. \"She put the good metal chopsticks on our table. She only does that for couples.\"\n\nOutside, the streetlights buzz on one by one, filling the window with a soft orange glow. Nayeon pulls her hand back and folds it in her lap, but she doesn't look away. Her lips part, then close. Then, quietly, with a courage that makes her whole body very still, she says, \"If I asked you to do this again—not as staff, not as a schedule—would you say yes?\"\n\nThe fan keeps clattering. The owner turns a newspaper page. Somewhere down the street, a melon vendor sings the last of his stock into the evening. And Nayeon waits, the bravest girl in the city, asking the only question that has ever mattered to her.",
+            "scene": "The same corner table in the tiny sundubu restaurant, and the street is waning gold outside; the ceiling fan still clatters, and the two untouched bowls have gone lukewarm.",
+            "options": [
+              "A. Reach across the table and take her hand. 'Ask me tomorrow. I'll say yes in front of everyone.'",
+              "B. Nod slowly, heart hammering. 'Yes. But not here. Somewhere nobody can find us.'",
+              "C. Smile and shake your head. 'You'd get tired of me. I'm very ordinary.'",
+              "D. Deflect with a joke. 'If you keep buying my lunch, I'll say yes to anything.'"
+            ],
+            "stats": {
+              "selfId": 74,
+              "secrecy": 67,
+              "mood": 100
+            },
+            "affections": {
+              "main": 89,
+              "jeongyeon": 24,
+              "momo": 24
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "In the sundubu restaurant, Nayeon asks if Summer would meet her again like this—not as staff, but as something more."
+          }
+        },
+        {
+          "round": 18,
+          "ms": 20256,
+          "parseLevel": "direct",
+          "chars": 2309,
+          "summary": 128,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 9510,
+          "cached": 8192,
+          "completion": 1177,
+          "reasoning": null,
+          "transcript": {
+            "story": "The restaurant settles into that strange hour when dinner rush has passed but closing hasn't begun. The ajumma stacks plates behind the counter with careful, unhurried clinks. Outside, the last sunlight has gone, and the street lamps are starting to hum. At the corner table, your spoons are still, the tofu broth long cooled. You chose to stay.\n\nNayeon's foot finds yours under the table again, a little insistent now, and then she slides her ankle along the line of your calf and leaves it there. She's not looking at you; she's aiming her gaze out the window at nothing, like she can hide the proof of her own wanting by refusing to witness it.\n\n\"I should go,\" she says, but she doesn't move. Her voice is that low, thready thing it always becomes when she's dropped the performance. \"My manager will send a search party. They'll think you kidnapped me.\"\n\nShe smiles, but it's the kind of smile that could tip either way. You tell her she can leave whenever she's ready. Her eyes flick to you then, quick and dark.\n\n\"I know,\" she whispers. \"That's the problem. I'm ready. I've been ready for three hours. I just keep finding reasons to stay.\"\n\nHer hand is on the table, palm up, as if she's forgotten she put it there. You watch her fingers twitch slightly, and you think about all the times you've seen her on stage, a bright impossible star. This Nayeon is smaller. Realer. Her nail polish is chipped at the edge of her thumb.\n\n\"The day didn't go the way I planned,\" she says. \"I told myself I'd be distant. Professional. Then you laughed at my joke and I forgot every rule I made.\"\n\nShe shifts, and her knee presses warm against yours and stays. The closeness is deliberate now, and so is the silence. From the counter, the ajumma clears her throat and very pointedly turns away.\n\nNayeon leans in, close enough that you can smell the faint sweetness of her perfume mixed with the earthiness of the soon tofu. \"What do we do now?\" she asks. \"Because I keep thinking about the walk to the car. And then the car. And then tomorrow, when you'll be Manager-nim again and I'll have to pretend this afternoon didn't happen.\"\n\nShe doesn't say it like a threat. She says it like she's already tired.\n\n\"Tell me,\" she says, and her voice is almost pleading, \"that I'm not the only one who doesn't want to go back.\"",
+            "scene": "The tiny sundubu restaurant, now almost empty. The ceiling fan still clatters and the last daylight has gone amber to ash. Nayeon's bowl is untouched, your spoon has left a small ring on the paper napkin, and the ajumma is pretending not to watch you both.",
+            "options": [
+              "A. Reach across the table and take her hand without answering.",
+              "B. Tell her honestly that you don't want to go back either.",
+              "C. Deflect with a nervous laugh and say the ajumma is watching.",
+              "D. Kiss her forehead, then stand and offer to walk her to the car."
+            ],
+            "stats": {
+              "selfId": 74,
+              "secrecy": 65,
+              "mood": 100
+            },
+            "affections": {
+              "main": 94,
+              "jeongyeon": 24,
+              "momo": 24
+            },
+            "primary": "nayeon",
+            "stageChanges": [
+              {
+                "memberId": "nayeon",
+                "memberName": "Nayeon",
+                "from": "Passionate",
+                "to": "Trial"
+              }
+            ],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Over lukewarm soup and fading daylight, Nayeon admits she doesn't want the day to end and asks Summer to admit she feels it too."
+          }
+        },
+        {
+          "round": 19,
+          "ms": 22258,
+          "parseLevel": "direct",
+          "chars": 2776,
+          "summary": 137,
+          "options": 4,
+          "social": 3,
+          "kkt": 3,
+          "bad": [],
+          "finish": "stop",
+          "prompt": 10105,
+          "cached": 8192,
+          "completion": 1299,
+          "reasoning": null,
+          "transcript": {
+            "story": "The question hangs between you like a held breath, and for a moment neither of you moves. The ceiling fan rattles on its tired axis, pushing warm air down onto the back of your neck. Outside, the street lamps have fully woken now, spilling pale orange across the wet pavement where an earlier rain left shallow mirrors. The ajumma has given up pretending; she wipes the same glass for the fourth time, her back to you both, her shoulders saying she has seen this exact scene a hundred times and will not interrupt it.\n\nYou reach across the table and lay your hand over hers. Her fingers are cold despite the heat of the room, and they curl around yours instantly, like they'd been waiting for permission. \"You're not the only one,\" you say quietly. \"I stopped being able to pretend at the joke. Maybe before that.\"\n\nNayeon's eyes shutter closed, just for a second. When they open again they are wet and bright, and she gives a laugh that's too soft to be anything but relief. \"God,\" she breathes. \"I was so ready for you to say I was being foolish. I had a whole speech prepared about how I'm an idol and this is impossible and I should apologize and leave first.\" She shifts her hand so your fingers lace together on the paper napkin. \"I memorized it. In the bathroom. While you were gone.\"\n\n\"And instead?\"\n\n\"Instead I paid the bill and ran out of reasons.\" She tilts her head, and the last of the evening's amber light catches the edge of her jaw, soft as a brushstroke. \"So now I'm just sitting here, holding your hand in a restaurant that smells like soon tofu, and I am not sorry. At all.\"\n\nYou should be cautious. You are her staff, her Manager-nim, and the boundaries of that role were supposed to be the arms keeping you both safe. But her knee is still pressed against yours, and the weight of her hand is real, and the woman across from you isn't a stage sun or a center position. She's just Nayeon, with chipped nail polish and a sundress that still carries the afternoon, asking you to be the one thing she can't arrange with a schedule.\n\nThe door chimes as the ajumma finally flips the hand-painted sign from OPEN to CLOSED. The sound is a small, metallic finality. Nayeon doesn't look away from you.\n\n\"Walk me to the car,\" she says, not as a question. \"And when we get there, don't open the door for me. Not like staff. Open it because you don't want the day to end either.\"\n\nYou stand, and your chair scrapes against the floor, too loud in the hush. Her hand stays in yours as she rises, as she collects her small white bag, as you both move toward the door. The ajumma says nothing, but when you glance back she gives one short nod, the kind of acknowledgment that has no words but carries no judgment.\n\nThe bell rings again as the door swings shut behind you.",
+            "scene": "The tiny sundubu restaurant, now almost empty. The ceiling fan still clatters and the last daylight has gone amber to ash. Nayeon's bowl is untouched, your spoon has left a small ring on the paper napkin, and the ajumma is pretending not to watch you both.",
+            "options": [
+              "A. Pull her close beside the car and hold her for a long moment before letting go.",
+              "B. Open the passenger door for her, the way she asked, and tell her you'll see her tomorrow before the world comes back.",
+              "C. Suggest a short walk around the block first, just a few more minutes before the night ends.",
+              "D. Kiss the back of her hand by the car and watch her face in the streetlight, letting the silence answer for you."
+            ],
+            "stats": {
+              "selfId": 77,
+              "secrecy": 63,
+              "mood": 100
+            },
+            "affections": {
+              "main": 97,
+              "jeongyeon": 24,
+              "momo": 24
+            },
+            "primary": "nayeon",
+            "stageChanges": [],
+            "kktDelivered": [
+              "nayeon"
+            ],
+            "summaryText": "Nayeon admits she prepared a speech to pull away, but instead holds Summer's hand and asks her to walk her to the car as more than staff."
+          }
+        }
+      ],
+      "notes": [],
+      "collapses": 6,
+      "prefixBreaks": [],
+      "systemDrift": [],
+      "group": {
+        "id": "twice",
+        "members": 9,
+        "mainId": "nayeon",
+        "subIds": [
+          "jeongyeon",
+          "momo"
+        ]
+      },
+      "cast": {
+        "playerName": "Summer",
+        "age": 29,
+        "playerBirthYear": 1997
+      },
+      "roster": [
+        {
+          "id": "nayeon",
+          "name": "Nayeon",
+          "slot": "main"
+        },
+        {
+          "id": "jeongyeon",
+          "name": "Jeongyeon",
+          "slot": "sub"
+        },
+        {
+          "id": "momo",
+          "name": "Momo",
+          "slot": "sub"
+        },
+        {
+          "id": "sana",
+          "name": "Sana",
+          "slot": "npc"
+        },
+        {
+          "id": "jihyo",
+          "name": "Jihyo",
+          "slot": "npc"
+        },
+        {
+          "id": "mina",
+          "name": "Mina",
+          "slot": "npc"
+        },
+        {
+          "id": "dahyun",
+          "name": "Dahyun",
+          "slot": "npc"
+        },
+        {
+          "id": "chaeyoung",
+          "name": "Chaeyoung",
+          "slot": "npc"
+        },
+        {
+          "id": "tzuyu",
+          "name": "Tzuyu",
+          "slot": "npc"
+        }
+      ],
+      "finalStats": {
+        "selfId": 77,
+        "secrecy": 63,
+        "mood": 100,
+        "week": 20,
+        "affection": 97
+      },
+      "historyLen": 20,
+      "captured": [
+        "warn: [aliyun] qwen3.8-max: free_exhausted, trying next model",
+        "warn: [aliyun] qwen3.8-max-0902: free_exhausted, trying next model",
+        "warn: [aliyun] deepseek-v4-pro: free_exhausted, trying next model"
+      ],
+      "cachePct": "86.9"
+    }
+  ]
+}
