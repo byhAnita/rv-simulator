@@ -71,22 +71,12 @@ the `direct` rate drops at all, the cost is real and the case is weak.
 for `zh` and `ko`, words for `en`.
 
 **Why.** "Words" is not a unit Chinese or Korean prose is measured in, so for two of the three
-languages the prompt states a length in a unit that does not apply and the model interprets it.
-Measured: a zh round comes out at **794-965 characters** against a band whose upper bound is 450 of
-anything — roughly double, if the model is reading 2 characters to a word. Nothing is *wrong* with
-the result: ~800 characters is about the 800 output tokens the README's cost model and every cost
-string in the app already assume. But the length the game gets is an accident of interpretation
-rather than a number anyone chose, and the same sentence is being read differently in each language.
+languages the prompt states a length in a unit that does not apply, and what those languages produce is
+whatever the model infers. The same sentence is being read differently in each language, and nobody
+chose the result.
 
-**What it might buy.** A length that is specified. It also makes the cost model honest: the README
-derives every per-round price from 800 output tokens, which the zh band supports and the en band may
-not — 350-450 English words is ~500-650 tokens, so an English player's rounds may be materially
-cheaper than the table says, or the en prose may be materially shorter than the zh prose for no
-reason a player would want.
-
-**What it would cost.** All three goldens move. If the new zh band is written as what is already
-produced (~750-900 characters), nothing about the output changes and the only gain is that it is
-stated; if it is written lower, every zh round gets shorter and the cost strings need rechecking.
+**What it would cost.** All three goldens move, and if a band is written lower than what a language
+already produces, every round in that language gets shorter and the cost strings need rechecking.
 
 **Measured across four configurations, 85 rounds, 2026-09-27.** The comparable number is **completion
 tokens**, not characters: comparing a Chinese character count to an English word count is not a ratio,
@@ -171,22 +161,27 @@ after three rounds the model can no longer see what the *player* chose, only wha
 dating sim the player's own arc is the thing continuity is most about: whether she has been bold or
 careful for twenty rounds is exactly what a member should remember.
 
-**Evidence it may not matter.** Sampled summaries already do it unprompted — *"You chaired the first
-comeback meeting"*, *"You visited the practice corridor at dusk"*. The field is asked for as "what
-happened this round and who appeared", and the model volunteers the player's action anyway.
+**Measured, and it mostly does not matter: 94 of 105 summaries (90%) name the player or her action
+unprompted** — *"You chaired the first comeback meeting"*, *"You visited the practice corridor at dusk"*,
+*"Lin Xia responds to Irene's confession with…"*. The field is asked for as "who appeared and what
+emotionally shifted" and the model volunteers her action anyway, across all three languages.
 
 **What it would cost.** Keeping `choice` adds ~15 tokens to every summary, against a summary that is
 ~25 — a large relative increase in the one block that is designed to stay small, and it is the
 *cached* block, so it is cheap per round but permanent. Asking the summary to include the action
 costs nothing at all.
 
-**Why it is not done.** The cheap version (ask the summary for it) is probably sufficient and is worth
-doing on its own, but it changes what the model writes into a field that becomes permanent memory, and
-that deserves a measurement rather than a guess.
+**Why it is not done — and it is now close to being decided against.** At 90% unprompted, carrying
+`choice` through the collapse would spend ~15 tokens per summary of permanently cached prefix to
+recover the remaining 10%, in a block designed to stay small. The cheaper half (naming her action in
+the schema) is also not done, but only because the summary instruction was just rewritten for length
+in the same release and stacking a second demand onto it would make the next length measurement
+unreadable.
 
-**What would settle it.** Count, across ~20 rounds, how many summaries name the player's action
-without being asked. If it is most of them, ask for it explicitly and change nothing else. If it is
-patchy, ask for it explicitly and re-measure before considering the token cost of carrying `choice`.
+**What would settle it.** Whether the 10% that omit her matter. Read a collapsed ledger from a
+20-round save and see whether the player's arc is legible from the summaries alone; if it is, delete
+this entry. If a stretch of rounds reads as things happening *to* nobody, add the clause to the schema
+and re-measure length at the same time.
 
 ---
 
@@ -199,11 +194,16 @@ patchy, ask for it explicitly and re-measure before considering the token cost o
 rounds and a 0.7 cap otherwise — and `pickPrimaryMember` draws one. CLAUDE.md documents the formula
 and calls it the Member Probability Engine.
 
-**It is a closed loop.** `pickPrimaryMember` is called at `mainAgent.js:756`, which is **after** the
-LLM call. Its result `primaryId` has exactly one use: writing `memberAppearances: {[primaryId]:
-[roundNum]}`. And `memberAppearances` has exactly one reader: the recency term of
-`calculateProbability`. Nothing about the engine reaches the prompt, the UI, the save's meaning, or
-the player. It is a lottery that records its own results so it can consult them next time.
+**It was a closed loop, and as of §5 landing it is not called at all.** `pickPrimaryMember` used to run
+*after* the LLM call, and its result had exactly one use: writing `memberAppearances: {[primaryId]:
+[roundNum]}`, whose only reader was the recency term of `calculateProbability`. Nothing about it reached
+the prompt, the UI, the save's meaning or the player — a lottery recording its own results so it could
+consult them next time.
+
+Appearances are observed from the prose now, so the draw fed nothing whatsoever: a `Math.random()` in
+the round path whose result was discarded. **The call is removed; the module is left in place**, because
+removing the call does not pre-empt this decision and keeping a discarded random draw would have. If the
+engine is wired, the call site is a different one — before the LLM call, not after it.
 
 Worse, the record is fiction. The **model** decides who appears in a round; the engine draws a name
 afterwards and writes down that she appeared. A member the story never mentioned is logged as having
@@ -266,42 +266,15 @@ choice between wiring and deleting the engine comes back, with better evidence.
 
 ---
 
-## 5. Observe who appeared instead of drawing it — and make `[NPC Appearances]` exist
+## 5. ~~Observe who appeared instead of drawing it~~ — DONE
 
-**Written 2026-09-27, during v1.4.0 step 7.**
+**Landed 2026-09-27**, as part of the rotation fix. Appearances are derived from the prose in
+`executeRound`; `npcAppearances` and the `[NPC Appearances]` line it fed are removed rather than
+revived, replaced by `[Rounds Absent]` over every member. See CLAUDE.md, *3-Tier Prompt Structure*.
 
-**What.** Derive both appearance records from the story text rather than from a lottery or from
-nothing: a member appeared this round if the prose names her.
-
-**Why, for NPCs, this is a plain bug rather than a design question.** `mainAgent.js` does
-`const npcAppearances = { ...memory.npcAppearances };` and writes it back **unchanged**. Nothing ever
-adds an entry, so the object is `{}` for the life of every save. Therefore:
-
-- The `[NPC Appearances] Joy(last: round 2)` line in the dynamic tail **never renders** — its guard is
-  `Object.keys(...).length > 0`. CLAUDE.md documents it as a live line and shows that exact example.
-- Section 8's `NPC: max 1 dialogue/round, 2-round cooldown` refers to information the model is never
-  given, so the cooldown half of that rule has never been enforceable.
-
-This is the third piece of NPC machinery that turns out to be inert: `NPC_APPEARANCE_CHANCE` and
-`NPC_COOLDOWN_ROUNDS` are already documented as imported by nothing.
-
-**The fix is small and the detector already exists.** `scripts/analyze-prose.mjs` measures rotation by
-checking which member names occur in each round's prose, and names in this library are distinctive
-enough that a substring test is reliable. The same test in `executeRound` would make both records
-describe what happened.
-
-**What it would cost.** A scan of the story per cast member, once per round. `[NPC Appearances]` would
-start rendering, which adds a line to the always-miss tail and moves nothing cached. It would also
-make `calculateProbability`'s recency term real for the first time — which is a change in behaviour,
-not just in bookkeeping, and smoke Layer D's pinned-random guard would need rereading.
-
-**Why it is not done.** It is entangled with 4. If the engine is deleted, `memberAppearances` has no
-reader at all and deriving it honestly is work for nobody; only the NPC half is worth fixing. If the
-engine is wired, both halves matter and the appearance data must be real first. So this should land
-**with** whichever way 4 is decided, not before it.
-
-**What would settle it.** Nothing to measure — this one waits on a decision, not on evidence. The NPC
-half could be split out and done now if `[NPC Appearances]` is wanted in the tail regardless.
+It turned out not to be entangled with 4 after all: giving the model the FACT steers nothing, so it
+needed no decision about whether rotation should feel mechanical. 4 is still open, and its evidence is
+better for having this done first.
 
 ---
 

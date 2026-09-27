@@ -2,7 +2,8 @@
 // v11.1 Final: Language enforcement + Social isolation + NPC no social + JSON hardening + Age texture + Chapter auto + Special events
 import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
-import { pickPrimaryMember } from "./probabilityEngine";
+// `probabilityEngine` is deliberately NOT imported any more — see the note beside
+// where pickPrimaryMember used to be called, and docs/PROPOSALS.md §4.
 import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/stageConfig";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
@@ -754,7 +755,16 @@ export async function executeRound({
     }
   });
 
-  const primaryId = pickPrimaryMember(allTargetIds, currentAff, memory);
+  // `pickPrimaryMember` used to be called here, and its result was used for exactly
+  // one thing: writing a fabricated `memberAppearances` entry for whoever the lottery
+  // drew AFTER the round was already generated. Appearances are observed from the prose
+  // now, so the draw fed nothing at all — a `Math.random()` in the round path whose
+  // result was discarded.
+  //
+  // The module is left in place, not deleted: whether to wire the engine into the
+  // prompt (a hint in the tail, drawn BEFORE the call) or remove it is a decision about
+  // whether rotation should feel mechanical, and it is written up in
+  // `docs/PROPOSALS.md` §4. If it is wired, the call site is a different one.
   const relationshipEvent = checkRelationshipEvents(newStats, currentAff, allTargetIds, roundNum, members, language);
   const achievement = checkAchievement(newStats, currentAff, roundNum, language);
 
