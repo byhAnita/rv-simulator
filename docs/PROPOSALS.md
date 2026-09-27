@@ -74,29 +74,43 @@ reason a player would want.
 produced (~750-900 characters), nothing about the output changes and the only gain is that it is
 stated; if it is written lower, every zh round gets shorter and the cost strings need rechecking.
 
-**Measured, zh, 25 rounds, 财阀 / 高压舆论向 (2026-09-27):**
+**Measured across four configurations, 85 rounds, 2026-09-27.** The comparable number is **completion
+tokens**, not characters: comparing a Chinese character count to an English word count is not a ratio,
+and doing that is what made the first version of this entry overstate the problem.
 
-| | asked | delivered | ratio |
-| --- | --- | --- | --- |
-| `story` | 350-450 "words" | median **1139** chars, range 762-**1994** | ~2.5x |
-| `summary` | "One sentence (~100 chars)" | median **303** chars, range 186-**506**, 2-4 sentences | ~3x |
+| config | rounds | median completion | vs the assumed 800 | median prompt |
+| --- | --- | --- | --- | --- |
+| zh `财阀` / `高压舆论向` | 25 | **1,710** | 2.14x | 7,874 |
+| zh `练习生` / `慢热现实向` | 20 | **1,086** | 1.36x | 7,389 |
+| en `Staff` / `修罗海王向` | 20 | **1,177** | 1.47x | 9,629 |
+| ko `主线成员前女友` / `浪漫情感向` | 20 | **1,572** | 1.97x | 8,922 |
 
-**Both are worth deciding, and the summary is the sharper one.** The summary is the collapse target,
-so it becomes the permanent cached ledger entry: at 300 characters instead of 100, the ledger is 3x
-the size the *Round-by-Round Cache Trace* in CLAUDE.md is drawn with (~25 tokens per `S` entry). And
-it is the field that most plainly disobeys — "one sentence" is getting three or four.
+**Every configuration exceeds the assumption, in every language, by 1.4x to 2.1x.** The README derives
+each per-round price from **800 output tokens**; input matches its profile closely. Output is the
+expensive component everywhere (DeepSeek bills ￥4 per 1M output against ￥1 input and ￥0.02
+cache-hit), so `MODEL_CONFIGS[*].gameplay`, `ALIYUN_PAID_MODELS[*].gameplay` and the README cost table
+quote roughly **60% of what a round costs**. That part is not a matter of taste.
 
-**It puts every cost figure in the app out by about 2x, and that is measured, not inferred.** The
-README derives each per-round price from **800 output tokens**. The provider's own `usage` block over
-those 25 rounds reports a **median of 1,710 completion tokens — 2.14x** — while input matches the
-profile almost exactly (median 7,874 against the assumed ~8,000, so 0.98x). Output is the expensive
-component everywhere (DeepSeek bills ￥4 per 1M output against ￥1 input and ￥0.02 cache-hit), so
-`MODEL_CONFIGS[*].gameplay`, `ALIYUN_PAID_MODELS[*].gameplay`, `MODEL_PRICES_PER_1M`'s consumers and
-the README table are all quoting roughly half of what a round costs. **That half is not a matter of
-taste.**
+**In each language's own unit**, which is what the band should have been stated in:
+
+| | asked | zh | en | ko |
+| --- | --- | --- | --- | --- |
+| `story` | 350-450 "words" | median 1,139 chars | median **482 words** | median 1,002 chars |
+| `summary` | "one sentence (~100 chars)" | median **303**, up to 506 | median 141 | median 138 |
+
+**English lands near its band; the two languages where "words" means nothing are unspecified.** en is
+482 against a 450 ceiling — 1.07x, roughly on spec. zh and ko produce ~1,000-1,100 characters, which
+is *in the same neighbourhood* by reading length but arrived at by interpretation rather than by
+instruction.
+
+**The summary is the sharpest single case, and it is zh-specific.** 303 characters of 2-4 sentences
+against "one sentence (~100 chars)" — while en and ko both land near 140. The summary is the collapse
+target, so it becomes the permanent cached ledger entry: at 300 characters the ledger is ~3x the size
+the *Round-by-Round Cache Trace* in CLAUDE.md is drawn with (~25 tokens per `S` entry). This one
+enforces a number Yuhan already chose, so it is the piece of this that needs no decision.
 
 **And there is no effective upper bound at all — the round gets more expensive the longer you play.**
-Across the same 25 rounds, in order:
+Across the 25-round configuration, in order:
 
 | round | story chars | summary chars | completion tokens | prompt tokens |
 | --- | --- | --- | --- | --- |
@@ -117,13 +131,13 @@ band that yields 1,994 characters at round 14 is not constraining anything.
 
 **Not touched here, because the right band is an authorial choice.** ~1,100 characters is about two
 minutes of reading on a 390px screen, and whether that is the game or twice the game is Yuhan's call.
-The three plausible answers are: say ~1100 and fix the cost table to match; say ~800 and accept
-shorter rounds; or leave the story and only tighten the summary, which recovers the ledger size
-without changing a word the player reads.
+The three plausible answers: state ~1,100 for zh/ko and **fix the cost table to match the measured
+tokens**; state ~800 and accept shorter rounds; or leave the story alone and change nothing but the
+cost table, since the lengths are defensible and only the arithmetic is wrong.
 
-**What would still help.** The same two medians for `en` and `ko` — the long run collects them — so
-that whatever band is chosen is chosen in each language's own unit rather than in "words", which is
-the unit that produced this.
+**What is being done now, separately from that choice:** the summary tightened to the number already
+written down, and a ceiling on the story so it stops growing — a cap near today's median changes
+nothing typical and removes the drift, which is the part nothing intended.
 
 ---
 

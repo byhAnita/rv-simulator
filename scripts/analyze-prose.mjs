@@ -79,12 +79,27 @@ const jaccard = (a, b) => {
   return shared / (a.size + b.size - shared);
 };
 
-// The address forms each language actually uses, from the world files rather
-// than from memory.
+// The address forms each language uses, split by whether they can be counted on
+// their own. The first version counted every occurrence of each form anywhere and
+// reported `아:194` in a 20-round Korean run: 아 and 야 are single syllables that
+// occur inside ordinary Korean words constantly, and 씨 and 님 are words in their own
+// right. The Latin ones have the same problem from the other side — `xi` and `nim`
+// sit inside plenty of Latin strings.
+//
+// So the rule splits by script, because the two have opposite problems:
+//
+//   - a HANGUL suffix must follow a cast or player name, since 아 and 야 are syllables
+//     inside ordinary words. The cost is that a form on a TITLE rather than a name —
+//     `회장님`, `선배님` — is not counted; that is an undercount worth knowing about
+//     rather than a reason to go back to matching every 아.
+//   - a LATIN suffix is counted anywhere, because the hyphen (`-nim`) or the Latin
+//     letters sitting in CJK prose (`会长nim`) already make it specific. Anchoring
+//     these to a name was worse: it silently dropped `Manager-nim`, which is the
+//     Staff identity's work title and the thing most worth measuring in that run.
 const ADDRESS_FORMS = {
-  zh: ["欧尼", "nim", "xi", "前辈"],
-  en: ["unnie", "-nim", "-ssi", "sunbae", "-ya", "-ah"],
-  ko: ["언니", "님", "씨", "선배", "야", "아"],
+  zh: { standalone: ["欧尼", "前辈", "nim", "xi"], suffix: [] },
+  en: { standalone: ["unnie", "sunbae", "-nim", "-ssi", "-ya", "-ah"], suffix: [] },
+  ko: { standalone: ["언니", "선배"], suffix: ["님", "씨", "야", "아"] },
 };
 // What the prompt bans by name — as a FORM OF ADDRESS, which is the distinction the
 // first version of this got wrong. It counted every 姐姐 and reported three
@@ -184,14 +199,22 @@ function analyze(result, config) {
   }
 
   // --- honorifics: is the address protocol visible in the prose at all?
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Everyone a form or a substitute could be attached to. The player counts: she is
+  // who a member would wrongly call 姐, and who carries the -nim in `会长nim`.
+  const addressable = [...names, result.cast?.playerName].filter(Boolean);
+  const table = ADDRESS_FORMS[lang] || { standalone: [], suffix: [] };
   const forms = {};
-  for (const f of ADDRESS_FORMS[lang] || []) {
+  for (const f of table.standalone) {
     forms[f] = T.reduce((n, t) => n + (t.story.split(f).length - 1), 0);
   }
-  // Anchored to a cast or player name, so the ordinary noun in narration is not a
-  // finding. `names` already holds the cast; the player counts too, since she is who
-  // a member would wrongly call 姐.
-  const addressable = [...names, result.cast?.playerName].filter(Boolean);
+  for (const f of table.suffix) {
+    const re = new RegExp(`(?:${addressable.map(esc).join("|")})\\s*${esc(f)}`, "g");
+    forms[f] = addressable.length
+      ? T.reduce((n, t) => n + [...t.story.matchAll(re)].length, 0)
+      : 0;
+  }
+  // Anchored to a cast or player name, so the ordinary noun in narration is not a finding.
   const bannedExamples = [];
   for (const sub of BANNED_AFTER_NAME[lang] || []) {
     for (const n of addressable) {
