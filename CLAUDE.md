@@ -1001,6 +1001,23 @@ Regenerating to make a red suite green, without reading the diff, converts the o
 }
 ```
 
+**`scene` is ONE SHORT PHRASE, and that is a layout requirement rather than a preference.** It is
+printed in the stats box as `📍<scene>` — one line of a 30-character ASCII box, on a 390px phone. The
+rule used to say "a short location description" with `"Practice room, 10PM"` as the example, and step
+7's English run answered with 250-character sensory paragraphs:
+
+> `"Practice room B, now almost completely dark except for the amber emergency light above the door and the faint blue glow of a forgotten phone screen on the floor. The mirrors hold the last ghosts of the day's rehearsals. Outside, the building has gone quiet."`
+
+Eight wrapped lines inside a box built for one. "Short" was not a bound, so the rule now says what the
+shape is — a place and a time, nothing else — and says where it is printed, since a reason is what this
+prompt responds to.
+
+**It also has to move.** The same run repeated a byte-identical `scene` for **five consecutive rounds**
+(9 through 13, all "near midnight… neither of you has broken the hush") on the *harem* pace, which is
+the opposite of standing still. Nothing asked it to change, so the rule now does. zh was unaffected on
+both counts — 23 distinct scenes in 25 rounds, each a short phrase — which is worth knowing when reading
+a single language's run as evidence.
+
 **This block is transcribed from a golden fixture, not from memory.** It said 250-350 words against
 the prompt's 350-450, gave `bubble` as an array of bare strings and `weverse` as a string (both of
 which `validateAndFixOutput` *repairs* rather than requests), and named the fourth option
@@ -1121,7 +1138,25 @@ Two things this touched that are worth knowing:
 - **Measure `parseLevel`, not just the flag.** The reorder asks a model to emit ~800 tokens of prose
   earlier in its response, and the 4-level parser exists because weaker route models struggle with
   long JSON. The harness records `parseLevel` per round; compare `direct` rates before and after
-  rather than assuming.
+  rather than assuming. **Measured: `direct` on 85 of 85 rounds across four configurations** — the
+  reorder cost nothing at all on that axis.
+
+**The reorder cut it from 15% of rounds to 4%, and the fourth attempt is an ownership statement.**
+Post-reorder: 2 transcribed Kakao in 45 zh rounds, against 3 in 20 before. Both survivors read the same
+way, and neither is a model being careless — they are the model reaching for a beat it is good at:
+
+> `是涩琪，通过公司内部系统发来的消息` — "a message from Seulgi, through the company's internal system"
+
+**It routed around the rule.** The prohibition names "a Kakao message, a chat transcript, a phone screen
+lighting up, or a notification", so the model invented a channel that is none of those. The second case
+names no channel at all. So the rule is now stated as **ownership**, the shape that fixed the identity
+bug: `${playerName}`'s screen belongs to the app, nothing in the prose lights it up or is read off it
+*whatever the channel is called* — and, crucially, **the substitute is supplied**, because a
+prohibition with nothing behind it leaves the model needing the beat and finding a loophole. When a
+member wants to reach her and is not in the room, she leaves something: a note under the door, food in
+the fridge, a jacket over the chair. The model already writes that beautifully — the same round that
+invented the company messaging system also left 紫菜包饭 in the fridge with a crooked bear sticker on
+it. It did the right thing and then added the wrong thing on top.
 
 **`statChanges` and `affectionChanges` are still emitted BEFORE the story**, so the model commits to
 the numbers before writing what earns them. The same argument says they should move too; it is written
