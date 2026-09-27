@@ -244,8 +244,19 @@ export async function resolveRoster(roster, language = "zh") {
   return {
     members,
     mainId,
-    subIds: idsWith("sub"),
-    npcIds: idsWith("npc"),
+    // The main is excluded from the subs even if her entry says "sub". `mainId`
+    // falls back to the first member when no entry claims the main slot, and then
+    // she is in both lists — which does not throw, it produces a prompt that
+    // contradicts itself: `Main Member: Irene` beside `Sub Members: Irene, Wendy`,
+    // and a JSON schema listing `"irene": 0` twice in `affectionChanges` under a
+    // section 2 that demands every key appear EXACTLY ONCE.
+    //
+    // Not reachable from the app today — RosterBuilder gates Start and Save on a
+    // main being chosen — but this function is the single funnel every roster
+    // passes through, including ones a save carries, and a funnel that normalises
+    // shape is the place to do it.
+    subIds: idsWith("sub").filter((id) => id !== mainId),
+    npcIds: idsWith("npc").filter((id) => id !== mainId),
     groupConfig,
   };
 }

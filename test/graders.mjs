@@ -48,6 +48,16 @@ export function sinicizedHonorifics(story, cast, lang) {
 // Members address each other by stage name, so a real name in the vocative is
 // almost always the model reaching for the only Korean-looking name it has.
 // Narration may use real names freely and is deliberately excluded.
+// A character SAYING a name is the speech act this looks for; a character NAMING
+// HERSELF is not. Markers that the narration has already told us which one it is —
+// these are what the prose actually writes when a member says her own name, and it
+// writes them in the attribution, right after the quote.
+const SELF_NAMING = [
+  "自己的名字", "自己的名", "她的名字", "自己的全名",        // zh
+  "her own name", "her full name", "her real name",          // en
+  "자신의 이름", "자기 이름", "본인의 이름",                  // ko
+];
+
 export function selfNameErrors(story, cast) {
   const bad = [];
   const spans = dialogueSpans(story);
@@ -58,7 +68,23 @@ export function selfNameErrors(story, cast) {
     // ("我叫孙胜完，…" / "My name is Bae Ju-hyun, …"), which is correct speech
     // and was the third false positive this check produced.
     const re = new RegExp(`(^|[。.!！?？…—])\\s*${esc(m.name_kr)}\\s*[,，!！?？]`);
-    if (spans.some((s) => re.test(s))) bad.push(`real-name-vocative:${m.id}`);
+    const hit = spans.find((s) => re.test(s));
+    if (!hit) continue;
+    // FIFTH false positive, from step 7's 25-round run, twice in one game: a span
+    // that is NOTHING BUT the name — `"裴珠泫，"她说，叫的是自己的名字` — is not a
+    // vocative at all. There is no message attached to it, so nobody is being
+    // addressed; she is naming herself, and the narration says so in the very next
+    // clause. The earlier fix required a clause opening, which a bare name satisfies.
+    //
+    // Scoped to bare-name spans deliberately. `"裴珠泫，你听我说"` stays a violation
+    // whatever the narration claims, because there the name IS addressing someone.
+    const bareName = new RegExp(`^\\s*${esc(m.name_kr)}\\s*[,，。.!！?？…]*\\s*$`).test(hit);
+    if (bareName) {
+      const at = story.indexOf(hit);
+      const after = story.slice(at + hit.length, at + hit.length + 60);
+      if (SELF_NAMING.some((mark) => after.includes(mark))) continue;
+    }
+    bad.push(`real-name-vocative:${m.id}`);
   }
   return bad;
 }
@@ -89,7 +115,22 @@ export function narratedHonorifics(story, cast, lang) {
       // The separator differs by language: en hyphenates (Irene-unnie), ko
       // spaces (Irene 언니), zh joins directly (Irene欧尼). Accept all three, or
       // the en and ko cases silently never fire.
-      if (new RegExp(`${esc(n)}[\\s\\-]*${esc(form)}`).test(narration)) {
+      // Narration can MENTION a form instead of using one, and the contrastive
+      // shape is what step 7's run produced: `你喊她的名字，不是Irene欧尼，不是队长`
+      // — the prose is naming the form in order to reject it. That is the opposite
+      // of the defect. A form is being discussed, not applied, when it follows a
+      // negation or an explicit naming verb, or when the prose puts it in quotes.
+      //
+      // Deliberately narrow. `叫` alone is NOT a marker, because `她叫Irene欧尼走过来`
+      // is a real violation with the same word in the same position — that shape
+      // (`意识到叫Irene欧尼有些失礼`) is a known remaining false positive rather than
+      // one worth a fragile discriminator.
+      const re = new RegExp(
+        `(?:(不是|称为|称作|叫做|not|rather than)\\s*)?(["“'「])?${esc(n)}[\\s\\-]*${esc(form)}`, "g");
+      // A match is a USE only when neither marker is present: no negation or naming
+      // verb in front of it, and not wrapped in quotes inside the narration.
+      const used = [...narration.matchAll(re)].some((mt) => !mt[1] && !mt[2]);
+      if (used) {
         bad.push(`narrated-honorific:${form}`);
         break;
       }

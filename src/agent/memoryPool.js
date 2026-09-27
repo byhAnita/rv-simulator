@@ -104,7 +104,13 @@ export function buildHistoryLedger(memory) {
     if (h.type === 'summary') {
       parts.push(`R${h.round}: ${h.text}`);
     } else {
-      parts.push(`=== Round ${h.round} ===\n${h.text}\nChoice: ${h.choice || ""}`);
+      // The Choice line is omitted rather than rendered empty: `Choice: ` with a
+      // trailing space is the same invisible byte that has cost the cached prefix
+      // before, and this block is the cacheable one. Every path in App.jsx supplies
+      // a choice (round 1 sends "Game start"), so this is defence at the renderer
+      // for a legacy or hand-built entry, not a case the app produces.
+      parts.push(`=== Round ${h.round} ===\n${h.text}`
+        + (h.choice ? `\nChoice: ${h.choice}` : ""));
     }
   });
   return parts.join("\n");

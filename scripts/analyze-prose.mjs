@@ -86,9 +86,15 @@ const ADDRESS_FORMS = {
   en: ["unnie", "-nim", "-ssi", "sunbae", "-ya", "-ah"],
   ko: ["언니", "님", "씨", "선배", "야", "아"],
 };
-// What the prompt bans by name. A grader covers these; counting them here is to
-// show the ratio, not to re-detect them.
-const BANNED = { zh: ["姐姐", "姐妹"], en: ["big sister"], ko: [] };
+// What the prompt bans by name — as a FORM OF ADDRESS, which is the distinction the
+// first version of this got wrong. It counted every 姐姐 and reported three
+// violations in a 25-round run; all three were the ordinary noun in narration
+// (`护在身后的姐姐` — "the kind of older sister who shields her members",
+// `姐姐对妹妹的那种温柔`). That is correct Chinese prose, and nothing in the prompt
+// forbids it: what is forbidden is 姐 standing in for 언니 when one character
+// addresses another. So this is anchored to a name, exactly as the live grader
+// `sinicizedHonorifics` is, and the whole point of anchoring it there.
+const BANNED_AFTER_NAME = { zh: ["姐", "姐姐"], en: [" sister"], ko: [] };
 
 // ---------------------------------------------------------------- per result
 
@@ -97,6 +103,9 @@ function analyze(result, config) {
   const rounds = (result.rounds || []).filter((r) => r.transcript?.story);
   if (!rounds.length) return null;
   const T = rounds.map((r) => r.transcript);
+  // Round numbers as the game counts them, so a run with a failed round in it does
+  // not report repetitions against indices that have silently shifted.
+  const roundNo = rounds.map((r) => r.round);
   const cast = result.roster || [];
   const nameOf = (id) => cast.find((m) => m.id === id)?.name || id;
   const romanceable = cast.filter((m) => m.slot !== "npc").map((m) => m.id);
@@ -179,8 +188,22 @@ function analyze(result, config) {
   for (const f of ADDRESS_FORMS[lang] || []) {
     forms[f] = T.reduce((n, t) => n + (t.story.split(f).length - 1), 0);
   }
-  const bannedHits = (BANNED[lang] || []).reduce((n, b) =>
-    n + T.reduce((m, t) => m + (t.story.split(b).length - 1), 0), 0);
+  // Anchored to a cast or player name, so the ordinary noun in narration is not a
+  // finding. `names` already holds the cast; the player counts too, since she is who
+  // a member would wrongly call 姐.
+  const addressable = [...names, result.cast?.playerName].filter(Boolean);
+  const bannedExamples = [];
+  for (const sub of BANNED_AFTER_NAME[lang] || []) {
+    for (const n of addressable) {
+      const re = new RegExp(`${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g");
+      T.forEach((t, i) => {
+        for (const mt of t.story.matchAll(re)) {
+          bannedExamples.push(`r${roundNo[i]}: ${t.story.slice(Math.max(0, mt.index - 12), mt.index + 14).replace(/\n/g, " ")}`);
+        }
+      });
+    }
+  }
+  const bannedHits = bannedExamples.length;
 
   // --- affection pacing. The prompt asks for +/-1..10 and the code clamps to 8,
   // so a run sitting at the clamp is a run the model is driving, not the game.
@@ -239,7 +262,7 @@ function analyze(result, config) {
     consecutive, repeats, openerPairs, openerWorst, openers,
     scenes, allOptions, optionLens, leaky, flatRounds,
     appearances, gaps, nameOf, romanceable, cast,
-    forms, bannedHits, mainAff, deltas, atClamp, negative, statMoves, statSeries, STATS,
+    forms, bannedHits, bannedExamples, mainAff, deltas, atClamp, negative, statMoves, statSeries, STATS, roundNo,
     summaries, nonAscii, namesInSummary,
     dialogueShare, silentRounds, parseLevels, proposalGate,
   };
@@ -276,10 +299,10 @@ for (const file of reports) {
     console.log(`              ${flag(a.repeats.length > a.n / 2, a.repeats.length > 2)}${a.repeats.length} sentence(s) reused across rounds${C.x}` +
       (a.repeats.length ? ` — worst appears in ${a.repeats[0][1].length} rounds` : ""));
     for (const [s, rs] of a.repeats.slice(0, FULL ? 40 : 4)) {
-      console.log(`      ${C.d}r${rs.join(",")}: ${s.slice(0, 84)}${C.x}`);
+      console.log(`      ${C.d}r${rs.map((i) => a.roundNo[i]).join(",")}: ${s.slice(0, 84)}${C.x}`);
     }
     console.log(`  ${C.b}openers${C.x}     ${flag(a.openerPairs > a.n, a.openerPairs > 2)}${a.openerPairs} pair(s) of rounds open alike${C.x} (worst similarity ${(a.openerWorst * 100).toFixed(0)}%)`);
-    if (FULL) a.openers.forEach((o, i) => console.log(`      ${C.d}r${i}: ${o.slice(0, 84)}${C.x}`));
+    if (FULL) a.openers.forEach((o, i) => console.log(`      ${C.d}r${a.roundNo[i]}: ${o.slice(0, 84)}${C.x}`));
 
     // scenes
     const us = uniq(a.scenes);
@@ -304,7 +327,7 @@ for (const file of reports) {
     // honorifics
     const totalForms = Object.values(a.forms).reduce((x, y) => x + y, 0);
     console.log(`  ${C.b}address${C.x}     ${flag(totalForms === 0, totalForms < a.n)}${Object.entries(a.forms).map(([f, n]) => `${f}:${n}`).join(" ")}${C.x}` +
-      ` — ${(totalForms / a.n).toFixed(1)} per round` + (a.bannedHits ? ` ${C.r}· ${a.bannedHits} banned substitute(s)${C.x}` : ""));
+      ` — ${(totalForms / a.n).toFixed(1)} per round` + (a.bannedHits ? ` ${C.r}· ${a.bannedHits} banned substitute(s): ${a.bannedExamples.slice(0, 2).join(" ; ")}${C.x}` : ""));
 
     // pacing
     console.log(`  ${C.b}pacing${C.x}      main affection ${a.mainAff[0]} → ${a.mainAff.at(-1)} in ${a.n} rounds · ` +

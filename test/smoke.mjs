@@ -2508,6 +2508,24 @@ async function layerI() {
     ledger.includes(EDIT), ledger.slice(0, 200));
   check("unedited stories still collapse to their summaries",
     !ledger.includes("story zero") && ledger.includes("summary of round 0"), ledger.slice(0, 200));
+  // The ledger is the cacheable block, so an empty `Choice: ` line is the same
+  // invisible trailing byte that has cost the whole prefix before. Every App.jsx
+  // path supplies a choice — round 1 sends "Game start" — so this guards the
+  // renderer against a legacy or hand-built entry rather than a case the app makes.
+  const noChoice = buildHistoryLedger({
+    history: [{ round: 0, type: "full", text: "story zero" }],
+  });
+  check("a full entry with no choice renders no empty Choice line",
+    !/Choice:/.test(noChoice) && noChoice.split("\n").every((l) => !/ $/.test(l)),
+    JSON.stringify(noChoice));
+  check("...and one with a choice still renders it",
+    /\nChoice: B\. walk over$/.test(buildHistoryLedger({
+      history: [{ round: 0, type: "full", text: "story zero", choice: "B. walk over" }],
+    })),
+    JSON.stringify(buildHistoryLedger({
+      history: [{ round: 0, type: "full", text: "s", choice: "B. walk over" }],
+    })));
+
   check("the spared entry is still a full entry",
     m2.history.at(-1).type === "full");
 
@@ -4621,7 +4639,7 @@ async function layerL() {
 
   const cast = {
     members: [
-      { id: "irene", name: "Irene", name_kr: "裴珠泃" },
+      { id: "irene", name: "Irene", name_kr: "裴珠泫" },
       { id: "seulgi", name: "Seulgi", name_kr: "姜涩琪" },
       { id: "yeri", name: "Yeri", name_kr: "金倭宏" },
     ],
@@ -4650,6 +4668,20 @@ async function layerL() {
     g.narratedHonorifics("“晚安。”你说。Irene欧尼点了点头。", cast, "zh").length > 0);
   check("dialogue before narration does not leak into it",
     none(g.narratedHonorifics("“Irene欧尼，晚安。”你说。她点了点头。", cast, "zh")));
+  // Narration can MENTION a form rather than use one, and step 7's run produced the
+  // contrastive shape: the prose names the form in order to reject it, which is the
+  // opposite of the defect. Verbatim from round 17.
+  check("...and does not flag a form the narration is rejecting",
+    none(g.narratedHonorifics("你喊她的名字，不是Irene欧尼，不是队长，是那个在天台上差点哭出来的女人。", cast, "zh")),
+    JSON.stringify(g.narratedHonorifics("你喊她的名字，不是Irene欧尼。", cast, "zh")));
+  check("...nor one the narration puts in quotes as the thing being discussed",
+    none(g.narratedHonorifics("她想了想“Irene欧尼”这个称呼，觉得太远了。", cast, "zh")),
+    "a quoted form inside narration is a mention");
+  // The narrowing must not swallow the bug: the same sentence without the negation
+  // is still a violation.
+  check("...and a plain narrated form is still caught beside a rejected one",
+    g.narratedHonorifics("不是队长。Irene欧尼正站在窗边。", cast, "zh").length > 0,
+    "one mention in a story does not excuse a use elsewhere in it");
 
   // --- name-ya-vocative. zh only; en/ko keep the form.
   check("flags a name+呀 vocative",
@@ -4673,13 +4705,28 @@ async function layerL() {
     none(g.sinicizedHonorifics("走廊尽头有个陌生姐姐。", cast, "zh")),
     "anchored to a cast name, so ordinary prose is safe");
   check("real-name-vocative flags a legal name used to address someone",
-    g.selfNameErrors("“裴珠泃，谢谢你的咖啡。”", cast).length > 0);
+    g.selfNameErrors("“裴珠泫，谢谢你的咖啡。”", cast).length > 0);
   check("...and does not flag a self-introduction",
     none(g.selfNameErrors("“我叫姜涩琪，请多指教。”", cast)),
     "the v1.3.7 false positive");
   check("...and does not flag a real name in narration",
-    none(g.selfNameErrors("裴珠泃转过头来。", cast)),
+    none(g.selfNameErrors("裴珠泫转过头来。", cast)),
     "narration may use real names freely");
+  // FIFTH false positive, twice in one 25-round run in step 7. Verbatim from rounds
+  // 16 and 23: a quoted span that is NOTHING but the name, with the attribution
+  // saying in so many words that she is naming herself. No message is attached, so
+  // nobody is being addressed — and the earlier fix required a clause opening, which
+  // a bare name satisfies.
+  check("...nor a member saying her own name, when the narration says that is what it is",
+    none(g.selfNameErrors("“裴珠泫，”她突然说，用的是自己的名字，像是在做一次新的自我介绍。", cast))
+      && none(g.selfNameErrors("“裴珠泫，”她说，叫的是自己的名字，“在部队锅店门口，穿着你的外套。”", cast)),
+    JSON.stringify(g.selfNameErrors("“裴珠泫，”她突然说，用的是自己的名字。", cast)));
+  // The narrowing is scoped to a BARE name, so the bug it was built for survives: a
+  // real name used to address someone stays a violation however the narration
+  // describes it.
+  check("...and the narrowing does not excuse a name with a message attached",
+    g.selfNameErrors("“裴珠泫，你听我说。”她说，用的是自己的名字。", cast).length > 0,
+    "a span carrying a message is a vocative whatever the attribution claims");
 
   // kkt-transcribed-in-story. The prose below is the real round a player
   // reported on DeepSeek Official in zh: the model delivered the Kakao AND
@@ -4687,7 +4734,7 @@ async function layerL() {
   // only when NOTHING was delivered and could never have seen this.
   const kktRound = { irene: ["到家了吗", "粥的事……我不是随便说的", "下次见面，别道歉。"] };
   const transcribed = "她伸手替你把被子拉高。\n\n---\n\n【手机屏幕亮起】\n\n"
-    + "**📱 KKT · 裴珠泃**\n到家了吗\n粥的事……我不是随便说的\n下次见面，别道歉。";
+    + "**📱 KKT · 裴珠泫**\n到家了吗\n粥的事……我不是随便说的\n下次见面，别道歉。";
   check("kkt-transcribed-in-story flags a delivered Kakao written into the prose",
     g.kktTranscribed(transcribed, kktRound).length > 0, JSON.stringify(g.kktTranscribed(transcribed, kktRound)));
   check("...and names the member whose messages were duplicated",
