@@ -86,11 +86,34 @@ so it becomes the permanent cached ledger entry: at 300 characters instead of 10
 the size the *Round-by-Round Cache Trace* in CLAUDE.md is drawn with (~25 tokens per `S` entry). And
 it is the field that most plainly disobeys — "one sentence" is getting three or four.
 
-**It also puts every cost figure in the app out by roughly 2x.** The README derives each per-round
-price from ~800 output tokens. A zh round is ~1139 characters of story plus ~300 of summary plus
-options plus social content — call it 1,400-1,800 tokens. So `MODEL_CONFIGS[*].gameplay`,
-`ALIYUN_PAID_MODELS[*].gameplay` and the whole README cost table are quoting about half of what a
-round actually costs. That is the part of this that is not a matter of taste.
+**It puts every cost figure in the app out by about 2x, and that is measured, not inferred.** The
+README derives each per-round price from **800 output tokens**. The provider's own `usage` block over
+those 25 rounds reports a **median of 1,710 completion tokens — 2.14x** — while input matches the
+profile almost exactly (median 7,874 against the assumed ~8,000, so 0.98x). Output is the expensive
+component everywhere (DeepSeek bills ￥4 per 1M output against ￥1 input and ￥0.02 cache-hit), so
+`MODEL_CONFIGS[*].gameplay`, `ALIYUN_PAID_MODELS[*].gameplay`, `MODEL_PRICES_PER_1M`'s consumers and
+the README table are all quoting roughly half of what a round costs. **That half is not a matter of
+taste.**
+
+**And there is no effective upper bound at all — the round gets more expensive the longer you play.**
+Across the same 25 rounds, in order:
+
+| round | story chars | summary chars | completion tokens | prompt tokens |
+| --- | --- | --- | --- | --- |
+| 0 | 946 | 235 | 1,030 | 6,248 |
+| 8 | 1,051 | 308 | 1,622 | 8,141 |
+| 14 | 1,994 | 317 | 2,655 | 8,801 |
+| 20 | 1,936 | 368 | 2,856 | 10,193 |
+| 24 | 1,042 | 356 | 1,959 | 8,857 |
+
+Input growing is the design — the ledger accumulates. **Output growing is not designed and nothing
+asks for it**: the model is matching the register of a lengthening context, so completion tokens go
+from 1,030 to 2,856 and the summary climbs steadily from 186 characters to 506. A player's cost per
+round roughly doubles over 25 rounds, as does the reading time, and the usage panel will show her the
+first of those.
+
+So the specification is not merely stated in the wrong unit; it is **not functioning as a bound**. A
+band that yields 1,994 characters at round 14 is not constraining anything.
 
 **Not touched here, because the right band is an authorial choice.** ~1,100 characters is about two
 minutes of reading on a 390px screen, and whether that is the game or twice the game is Yuhan's call.
@@ -181,6 +204,18 @@ someone intended. Neither is a decision a test can make.
 | Irene (main) | 23 / 25 | 2 |
 | Seulgi (sub) | 9 / 25 | **9** |
 | Wendy (sub) | 13 / 25 | **6** |
+
+A second run, 20 rounds, zh, `练习生`, 1 main + 2 subs, is worse:
+
+| | rounds present | longest absence |
+| --- | --- | --- |
+| Irene (main) | 17 / 20 | 2 |
+| Seulgi (sub) | 6 / 20 | 9 |
+| Wendy (sub) | **1 / 20** | **17** |
+| Joy (NPC) | **0 / 20** | — |
+
+A romanceable member the player chose appeared **once in twenty rounds**, and an NPC the prompt says
+"must appear in background" never appeared at all.
 
 Section 3 says *"sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable
 member disappear for more than 3 rounds."* A nine-round absence is not a near miss.

@@ -773,6 +773,12 @@ language's fixture, and read it for agreement with the code rather than for typo
 
 Guarded in Layer I, one check per finding, all 27 mutations verified RED.
 
+**The pace rule is measurably doing something, which is the payoff for wiring it.** `高压舆论向` says
+*"secrecy changes doubled"*; `慢热现实向` says *"affection grows slowly… no rushing"*. Live, from the
+same starting secrecy of 100: the high-pressure run fell to **11 in 25 rounds**, the slow-burn run to
+**91 in 20**. An 89-point drop against a 9-point one is not noise, and before step 7 neither run could
+have differed, because the only thing either sent was the id.
+
 ### Korean particles cannot be authored, because the word in front of them is a variable
 
 `{name}` is whichever member the player picked and `{keepsake}` is one of four, so `ko.json` could
