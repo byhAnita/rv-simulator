@@ -471,7 +471,23 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 **Time Speed placement matters.** The pacing hint is concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger. Toggling it mid-run therefore costs nothing in cache terms. Never move it into `buildSystemPrompt` or `buildHistoryLedger`.
 
-**Export text extraction.** `extractStoryText()` filters `messages` for visible assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+**Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` or `╚` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+
+**It is ONE function because it was two, and they had drifted.** `extractStoryText` (clipboard, TXT) and
+`exportPdf` each carried a copy, and the PDF one filtered only `!m.hidden` — so every "tap ↺ Retry"
+notice landed in the exported PDF, which the v1.3.2 fix above says never happens. It also numbered its
+rounds off that different filter, so one error notice in a run numbered the same round differently in
+TXT and in PDF, and it missed the `╚` fix when that was made. **The guard was written against the copy
+that was correct and could see none of it** — it now reads the single definition and counts the call
+sites.
+
+**And `╚` is in that filter because an absent value was rendered as an empty line.** `buildStatsBox`
+put an empty string where the sub-member line goes when a run has no subs, which split the box into two
+`\n\n` paragraphs — so the bottom border survived a filter that only dropped `╔`. Fixed at the source
+with `filter(Boolean)`; the `╚` clause stays as the backstop, since this filter is the thing that breaks
+silently. The `🎭` chapter was raw too — `start` / `develop` / `climax` / `resolve` printed untranslated
+beside four fields that all carry a localized label — and is now `t.stats.chapters`, with a guard that
+`getChapterByRound` returns only the four the tables cover.
 
 ---
 
@@ -1692,7 +1708,17 @@ what section 6 prints. The second block, a leftover local resolving `"H"` to `fo
 was inert — `App.jsx` already resolves it upstream — and is deleted.
 
 **Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
-**578 → 1019**. `dev` is 31 commits ahead of `main`, 0 behind.
+**578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
+
+**Step 7's pre-release review is the last of those commits and it is not a formality — it found
+nineteen defects.** The method was the one that worked in step 6, applied harder: read all three
+rendered goldens end to end rather than the diff, read the prompt *against the code that consumes it*,
+and then run 105 live rounds and read the prose instead of the pass/fail line. Nine of the nineteen were
+invisible to any test that existed, and **seven of those were invisible to the zh fixture** — the
+language the data is authored in. The full list is in this file under *Reading it a second time*, *105
+live rounds*, *A Kakao is delivered by the app*, *Korean particles*, *[Rounds Absent]*, *a bubble photo*,
+*Known Inconsistencies 2*, and the stats-box note under *Add-on Features*. What was deliberately **not**
+changed is in `docs/PROPOSALS.md`, with the measurement that would settle each one.
 
 **Step 6 is the first of these with player-visible changes**: a second door on the cover leading to
 a roster builder, a three-step member editor with LLM card generation, cast photos, an on-device
