@@ -4194,11 +4194,24 @@ async function layerI() {
   // debuted in — and affections, KKT channels and memberAppearances are all keyed
   // by id. A roster holding one id twice would silently merge two people's state,
   // so the picks map is keyed BY ID, which makes that impossible to express.
-  check("the builder keys its picks by member id, so one id cannot appear twice",
-    /out\[member\.id\] = /.test(builderSrc)
-      && !/\$\{tab\}\/\$\{member\.id\}/.test(builderSrc)
-      && !/`\$\{[^}]*groupId[^}]*\}\/\$\{/.test(builderSrc),
-    "a composite group/id key would let the same person into the cast twice");
+  //
+  // Asserted as BEHAVIOUR against assignSlot, not as a regex over the component.
+  // The rule used to be inline in a click handler and the guard matched
+  // `out[member.id] =` in the source — which pinned where the code lived rather
+  // than what it does, and went red the moment the logic was extracted to be
+  // testable. What matters is that one member cannot occupy two slots.
+  const IRENE = { id: "irene", __groupId: "red_velvet" };
+  const twoSlots = store.assignSlot(
+    store.assignSlot({}, IRENE, "sub"), IRENE, "npc");
+  check("a member assigned a second slot MOVES rather than appearing twice",
+    Object.keys(twoSlots).length === 1 && twoSlots.irene.slot === "npc",
+    JSON.stringify(twoSlots));
+  check("...and the pick records the group she was browsed from, or she cannot resolve",
+    twoSlots.irene.src === "library" && twoSlots.irene.groupId === "red_velvet",
+    JSON.stringify(twoSlots.irene));
+  check("no composite group/id key, which would let the same person in twice",
+    !/\$\{tab\}\/\$\{member\.id\}/.test(builderSrc)
+      && !/`\$\{[^}]*groupId[^}]*\}\/\$\{/.test(builderSrc));
 
   // The roster shaping itself lives in customCast.js so it can be tested as
   // behaviour rather than asserted as a regex — it is the part of the builder
@@ -4279,44 +4292,186 @@ async function layerI() {
   // Exactly one main, always. Promoting a second demotes the first rather than
   // dropping her, because resolveRoster takes idsWith("main")[0] and a second
   // main would simply be ignored — the player would see her pick do nothing.
+  const secondMain = store.assignSlot(
+    store.assignSlot({}, { id: "irene", __groupId: "red_velvet" }, "main"),
+    { id: "seulgi", __groupId: "red_velvet" }, "main");
   check("promoting a second main demotes the first instead of dropping her",
-    /if \(slot === "main"\)/.test(builderSrc) && /out\[id\] = \{ \.\.\.p, slot: "sub" \}/.test(builderSrc),
-    "resolveRoster reads only the first main, so two mains lose one silently");
-
-  // --- the slot control, redesigned after the first phone test ---------------
-  // It was tap-to-cycle: none -> main -> sub -> npc -> none, shown as symbols.
-  // Reported as confusing, and rightly — the player could not tell WHAT they were
-  // assigning, and removing someone meant tapping forward through every remaining
-  // state. It is now one named button per role.
-  check("roles are assigned by name, not by cycling through symbols",
-    /const assign = \(member, slot\) =>/.test(builderSrc)
-      && !/const CYCLE =/.test(builderSrc) && !/const MARK =/.test(builderSrc),
-    "a cycle hides both what the next state is and how to get back to none");
-  // The BUTTON's own form, `{c.roles?.[s] || s}`, which the legend and the cast
-  // summary do not share — a bare `c.roles` match passed with the button's label
-  // replaced by a single letter, because the other two still mention it.
-  check("the role buttons are labelled from t.cast.roles",
-    builderSrc.includes("{c.roles?.[s] || s}"),
-    "the words are what make the control legible");
-  check("tapping the role a member already holds removes her",
-    /if \(cur === slot\) \{ delete out\[member\.id\]; return out; \}/.test(builderSrc),
+    secondMain.seulgi.slot === "main" && secondMain.irene?.slot === "sub",
+    JSON.stringify(secondMain));
+  check("tapping the slot a member already holds removes her",
+    Object.keys(store.assignSlot(
+      store.assignSlot({}, IRENE, "sub"), IRENE, "sub")).length === 0,
     "there must always be one tap that undoes one tap");
-  check("the cast summary can remove a member without finding her tab again",
-    /onClick=\{\(\) => unassign\(p\.id\)\}/.test(builderSrc)
-      && /onClick=\{\(\) => setPicks\(\{\}\)\}/.test(builderSrc),
-    "an x per member, plus a clear-all");
-  // The legend is shown only while the cast is empty — which is exactly when the
-  // player does not yet know what main, sub and npc mean.
-  check("the three roles are explained before anything is picked",
+  check("a custom pick carries her snapshot and language, not a library reference",
+    store.assignSlot({}, { id: "c_1", __custom: true }, "npc",
+      { lang: "ko", profile: { name: "Lin Xia" } }).c_1.src === "custom",
+    "a library reference to a member who exists in no group resolves to nothing");
+  check("an unknown slot name changes nothing",
+    Object.keys(store.assignSlot({}, IRENE, "lead")).length === 0,
+    "SLOTS is the whitelist; a typo must not create a fourth role");
+
+  // --- the slot control, rebuilt role-first ----------------------------------
+  // Two generations of this control are now recorded, because the SECOND one is
+  // the interesting lesson. It began as tap-to-cycle on symbols, which nobody
+  // could read. That was replaced by three named buttons ON EACH MEMBER CARD —
+  // legible, and still wrong: up to twenty-seven adjacent ~18px targets at 390px,
+  // each assigning a DIFFERENT role, so a mis-tap assigned the wrong part rather
+  // than missing. It also inverted the task; a player picks her main first and
+  // never asks "what is Yeri for".
+  //
+  // It is now three SECTIONS, and a member is added into one through a picker
+  // sheet. These guards are written against that requirement — the player can
+  // tell what each role is, fill one, and undo it — not against the markup.
+  const pickerSrc = readFileSync(join(ROOT, "src/platforms/MemberPicker.jsx"), "utf8");
+  check("the builder is organised by role, one section per slot",
+    /SLOT_ORDER\.map\(/.test(builderSrc) && builderSrc.includes("{c.roles?.[s] || s}"),
+    "the sections are titled from t.cast.roles, so the words are the control");
+  // Now unconditional. The old legend appeared only while the whole cast was
+  // empty, so it had vanished by the time the player reached the NPC decision —
+  // which is the LAST one made and the least obvious of the three.
+  check("every section explains its role whether or not it is filled",
     /c\.roleHints\?\.\[s\]/.test(builderSrc)
-      && /chosen\.length === 0 \? \(/.test(builderSrc),
-    "\"no idea what the player is choosing for\" was the actual report");
+      && !/chosen\.length === 0 \? \(/.test(builderSrc),
+    "the NPC hint has to survive picking a main");
+  check("the picker names the role it is filling",
+    /c\.pickFor\?\.\[slot\]/.test(pickerSrc) && /c\.roleHints\?\.\[slot\]/.test(pickerSrc),
+    "a sheet of faces with no title does not say what the tap will do");
+  // Cardinality drives the sheet: one main, so choosing her is the whole
+  // interaction; many subs, so the sheet stays open and counts.
+  check("choosing a main closes the picker, and a sub or NPC does not",
+    /if \(slot === "main"\) onClose\?\.\(\)/.test(pickerSrc)
+      && /slot !== "main" && \(/.test(pickerSrc),
+    "adding four subs must not mean opening the sheet four times");
+  check("a member held in another slot shows that role in the picker",
+    /held \? c\.roles\?\.\[held\]/.test(pickerSrc),
+    "tapping her MOVES her, so the next tap has to be predictable");
+  check("a member can be removed from her section without reopening the picker",
+    /onClick=\{\(\) => unassign\(id\)\}/.test(builderSrc)
+      && /onClick=\{\(\) => setPicks\(\{\}\)\}/.test(builderSrc),
+    "an x per chip, plus a clear-all");
   // Deleting an authored member is not undoable and its button sits beside Edit on
-  // a small card.
+  // a small card in the picker, so the confirmation lives in the builder.
   check("deleting a custom member asks first, and names her",
-    /setConfirmDelete\(m\.id\)/.test(builderSrc)
+    /onDelete\?\.\(m\.id\)/.test(pickerSrc)
+      && /setConfirmDelete\(id\)/.test(builderSrc)
       && /c\.confirmDelete\?\.\(nameOf\(confirmDelete\)\)/.test(builderSrc),
     "\"are you sure\" beside a grid of twelve faces is not an answerable question");
+
+  // --- what the player is shown a member CALLED ------------------------------
+  // The picker shows the name she recognises, which is language-specific. The
+  // prompt is unaffected and must stay so: `name` (the Latin stage name) is the
+  // cast's canonical identity everywhere the model can see it, and
+  // `membersNamedIn` reads it back out of the prose to decide who appeared.
+  const utilsCast = join(OUT, "utils-cast.mjs");
+  await esbuild.build({
+    entryPoints: [join(ROOT, "src", "utils.js")],
+    bundle: true, format: "esm", platform: "neutral", outfile: utilsCast, logLevel: "silent",
+  });
+  const u = await import("file://" + utilsCast.replace(/\\/g, "/") + "?t=" + Date.now());
+  check("zh and ko show the localized real name, en the Latin stage name",
+    u.displayNameIn({ name: "Irene", name_kr: "裴珠泿" }, "zh") === "裴珠泿"
+      && u.displayNameIn({ name: "Irene", name_kr: "배주현" }, "ko") === "배주현"
+      && u.displayNameIn({ name: "Irene", name_kr: "Bae Ju-hyun" }, "en") === "Irene",
+    "en's name_kr is a romanized legal name, longer and not what she is known as");
+  check("...falling back when a custom member left the optional real name blank",
+    u.displayNameIn({ name: "Lin Xia" }, "zh") === "Lin Xia"
+      && u.displayNameIn({ name: "Lin Xia" }, "ko") === "Lin Xia"
+      && u.displayNameIn({}, "zh") === "");
+  // THE guard on this feature. A display name reaching buildSystemPrompt would
+  // move all three goldens and change who the model thinks is in the scene.
+  check("the display name never reaches the prompt or the appearance scanner",
+    !readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8").includes("displayNameIn"),
+    "mainAgent must keep using the Latin stage name as the canonical identity");
+
+  // --- the saved-roster label ------------------------------------------------
+  // `entry.name` and `entry.roster.name` look interchangeable and are not: the
+  // second is the composed GROUP name, which rosterResolver renders into section
+  // 4 as "<name> is an N-member group under <name> Entertainment".
+  const labelled = store.savedRosterEntry({
+    label: "  my Irene run  ", roster: store.rosterFromPicks(PICKS, "kpop_idol"), now: 111,
+  });
+  check("a saved roster's label is trimmed onto the entry",
+    labelled.name === "my Irene run" && labelled.id === 111);
+  check("...and NEVER onto roster.name, which the model is shown",
+    labelled.roster.name === undefined,
+    "a cast saved as \"my Irene run\" would debut under that name in the story");
+  check("an empty label falls back to a name rather than saving a blank shelf entry",
+    store.savedRosterEntry({ label: "   ", roster: {}, fallbackName: "Irene" }).name === "Irene");
+
+  // --- the player's font scale has to reach these screens --------------------
+  // It did not. `rv_sim_fontscale` is threaded into the story, the options, the
+  // Bubble overlay and the Kakao overlay — and into neither cast screen, which
+  // were also the smallest type in the app (down to 8px for a line the player has
+  // to read, against 11-13 everywhere else). So a player who had asked for larger
+  // text got it everywhere except where she needed it most.
+  const CAST_FILES = {
+    "RosterBuilder.jsx": builderSrc,
+    "MemberPicker.jsx": pickerSrc,
+    "MemberEditor.jsx": editorSrc,
+  };
+  const themeOut = join(OUT, "castTheme.mjs");
+  await esbuild.build({
+    entryPoints: [join(ROOT, "src/platforms/castTheme.js")],
+    bundle: true, format: "esm", platform: "neutral", outfile: themeOut, logLevel: "silent",
+  });
+  const ct = await import("file://" + themeOut.replace(/\\/g, "/") + "?t=" + Date.now());
+
+  const appForCast = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+  check("App.jsx passes the player's font scale to the cast screens",
+    /<RosterBuilder[\s\S]{0,400}?fontScale=\{fontScale\}/.test(appForCast),
+    "the one call site, and the only place the setting can enter this flow");
+  check("...and the builder forwards it to both the picker and the editor",
+    /<MemberPicker[\s\S]{0,400}?fontScale=\{fontScale\}/.test(builderSrc)
+      && /<MemberEditor[\s\S]{0,400}?fontScale=\{fontScale\}/.test(builderSrc),
+    "a sheet that ignores the setting is the same bug one level down");
+  const unscaled = [];
+  for (const [file, src] of Object.entries(CAST_FILES)) {
+    if (!/fontScale = 1/.test(src)) unscaled.push(`${file}: no fontScale prop`);
+    if (!/scaleFont/.test(src)) unscaled.push(`${file}: does not call scaleFont`);
+    // Anything under 14 is text. Larger bare values are decorative glyph sizes
+    // inside fixed-size boxes (an emoji avatar), which must NOT scale or they
+    // overflow the box they are centred in.
+    for (const m of src.matchAll(/fontSize: (\d+(?:\.\d+)?)\b/g)) {
+      if (Number(m[1]) < 14) unscaled.push(`${file}: bare fontSize ${m[1]}`);
+    }
+  }
+  check("every cast screen sizes its text through the player's scale",
+    unscaled.length === 0, unscaled.slice(0, 6).join(" | "));
+  check("scaleFont applies the scale and floors at the minimum readable size",
+    ct.scaleFont(11, 1) === 11 && ct.scaleFont(11, 1.25) === 14
+      && ct.scaleFont(8, 1) === ct.CAST_MIN_FONT
+      && ct.scaleFont(8, 1.25) === Math.round(ct.CAST_MIN_FONT * 1.25),
+    `floor ${ct.CAST_MIN_FONT}: an 8px line is raised before the scale, not after`);
+
+  // One palette across the three screens the player walks through in one sitting.
+  // It was three copies of the same fifteen literals; `extractStoryText` is the
+  // precedent — two copies of one definition had drifted, and the guard had been
+  // written against the copy that was still correct.
+  const localPalette = Object.entries(CAST_FILES)
+    .filter(([, src]) => /const (border|textMain|accentGrad) = isLight \?/.test(src))
+    .map(([f]) => f);
+  check("the cast screens share one palette instead of each keeping a copy",
+    localPalette.length === 0 && Object.values(CAST_FILES).every((s) => /castTokens/.test(s)),
+    localPalette.join(", "));
+
+  // The group's display name, never its storage id. Same defect as [Stage Changes]
+  // printing a raw member id beside an [Affections] line printing a name — and a
+  // custom member's id is a timestamp, which reads as nothing at all.
+  check("a member sourced from another group names that group, not its id",
+    /groups\.find\(\(g\) => g\.id === id\)\?\.name/.test(builderSrc)
+      && !/\{c\.viaGroup\} \{picks\[m\.id\]\.groupId\}/.test(builderSrc),
+    "`red_velvet` and `gnz` are keys; the index carries what the player calls them");
+
+  // The control this described was deleted two redesigns ago. A stale string
+  // beside its replacement is the i18n form of the "a prompt is not append-only"
+  // failure this project keeps recording.
+  const stale = [];
+  for (const lang of ["zh", "en", "ko"]) {
+    if (castKeys[lang].pickMainHint !== undefined) stale.push(`${lang}.pickMainHint`);
+  }
+  check("no i18n string survives describing a control that was removed",
+    stale.length === 0 && !/pickMainHint/.test(builderSrc) && !/pickMainHint/.test(pickerSrc),
+    stale.join(", "));
 
   // Roster order is prompt order, and prompt order is a cache boundary: the same
   // cast in a different order is the same game and a total cache miss. Iterating

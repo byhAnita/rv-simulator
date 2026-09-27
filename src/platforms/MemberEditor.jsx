@@ -24,6 +24,7 @@ import {
 } from "../rag/customCast";
 import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
 import { downscale, PHOTO_MAX_CHARS } from "../utils/imageStore";
+import { castTokens, scaleFont } from "./castTheme";
 
 // Which fields live on which step. Required fields are split across steps 1 and
 // 2 deliberately: birthday belongs with the name, and private_personality
@@ -48,7 +49,7 @@ const MULTILINE = new Set([
 ]);
 
 export default function MemberEditor({
-  member, isNew = false, language = "zh", theme = "dark", t,
+  member, isNew = false, language = "zh", theme = "dark", t, fontScale = 1,
   apiKey, modelId, aliyun, world,
   photo, onPhotoChange,
   onSave, onCancel, notify,
@@ -148,23 +149,21 @@ export default function MemberEditor({
     onSave?.({ id, lang: language, profile: sanitizeProfile({ ...profile, id }) });
   };
 
-  // ── styling tokens, local to the component like every other overlay here ──
-  const panelBg = isLight ? "#faf7f0" : "#1a0a20";
-  const border = isLight ? "rgba(100,65,20,.25)" : "rgba(232,135,176,.3)";
-  const textMain = isLight ? "#3a2510" : "#f0dce8";
-  const textDim = isLight ? "#8a6840" : "#a07090";
-  const textFaint = isLight ? "#a8845a" : "#785070";
-  const accent = isLight ? "#8b6914" : "#e887b0";
-  const accentGrad = isLight
-    ? "linear-gradient(135deg,#c8a84b,#a0522d)"
-    : "linear-gradient(135deg,#e887b0,#c86dd0)";
-  const inputBg = isLight ? "rgba(100,65,20,.06)" : "rgba(255,255,255,.05)";
+  // ── styling tokens, shared with the builder and the picker (castTheme.js) ──
+  // These were a local copy of the same fifteen literals. Three copies of one
+  // palette across three screens the player walks through in one sitting is the
+  // drift that makes the sheet look like a different app.
+  const k = castTokens(isLight);
+  const fs = (px) => scaleFont(px, fontScale);
+  const {
+    panelBg, border, textMain, textDim, textFaint, accent, accentGrad,
+    inputBg, inputBorder,
+  } = k;
 
-  const inputBorder = isLight ? "rgba(100,65,20,.18)" : "rgba(232,120,176,.18)";
   const inputStyle = {
-    width: "100%", padding: "8px 10px", borderRadius: 8, background: inputBg,
+    width: "100%", padding: "9px 10px", minHeight: 38, borderRadius: 8, background: inputBg,
     border: `1px solid ${inputBorder}`,
-    color: textMain, fontSize: 12, fontFamily: "inherit", boxSizing: "border-box",
+    color: textMain, fontSize: fs(12), fontFamily: "inherit", boxSizing: "border-box",
   };
 
   // A FUNCTION RETURNING JSX, NOT A COMPONENT. Declaring `const Field = ...`
@@ -177,7 +176,7 @@ export default function MemberEditor({
     const hint = c.hints?.[f];
     return (
       <div key={f} style={{ marginBottom: 10 }}>
-        <label style={{ display: "block", fontSize: 10, color: textDim, marginBottom: 3 }}>
+        <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 3 }}>
           {fieldLabel(f)}
           <span style={{ color: required ? accent : textFaint, marginLeft: 4 }}>
             {required ? `* ${c.required || ""}` : ""}
@@ -191,7 +190,7 @@ export default function MemberEditor({
             style={inputStyle} />
         )}
         {hint && (
-          <div style={{ fontSize: 9, color: textFaint, marginTop: 3, lineHeight: 1.4 }}>{hint}</div>
+          <div style={{ fontSize: fs(9), color: textFaint, marginTop: 3, lineHeight: 1.4 }}>{hint}</div>
         )}
       </div>
     );
@@ -204,15 +203,15 @@ export default function MemberEditor({
         {/* header: title + step dots */}
         <div style={{ background: isLight ? "linear-gradient(135deg,#5c3820,#4a2e14)" : "linear-gradient(135deg,rgba(232,135,176,.15),rgba(200,109,208,.15))", padding: "11px 14px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ color: isLight ? "#f5e8d0" : "#f8c8d8", fontSize: 13, fontWeight: 700 }}>
+            <span style={{ color: isLight ? "#f5e8d0" : "#f8c8d8", fontSize: fs(13), fontWeight: 700 }}>
               {editing ? c.editorEdit : c.editorNew}
             </span>
-            <button onClick={onCancel} aria-label={c.cancel} style={{ background: "none", border: "none", color: isLight ? "#c8a870" : "#a07090", cursor: "pointer", fontSize: 16 }}>✕</button>
+            <button onClick={onCancel} aria-label={c.cancel} style={{ background: "none", border: "none", color: isLight ? "#c8a870" : "#a07090", cursor: "pointer", fontSize: fs(16) }}>✕</button>
           </div>
           <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "center" }}>
             {(c.steps || []).map((label, i) => (
               <button key={i} onClick={() => setStep(i)}
-                style={{ flex: 1, padding: "4px 2px", borderRadius: 7, border: "none", cursor: "pointer", background: i === step ? (isLight ? "rgba(245,232,208,.9)" : "rgba(248,200,216,.18)") : "transparent", color: i === step ? (isLight ? "#4a2e14" : "#f8c8d8") : (isLight ? "#c8a870" : "#8a6080"), fontSize: 9.5, fontWeight: i === step ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                style={{ flex: 1, padding: "4px 2px", borderRadius: 7, border: "none", cursor: "pointer", background: i === step ? (isLight ? "rgba(245,232,208,.9)" : "rgba(248,200,216,.18)") : "transparent", color: i === step ? (isLight ? "#4a2e14" : "#f8c8d8") : (isLight ? "#c8a870" : "#8a6080"), fontSize: fs(9.5), fontWeight: i === step ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {i + 1}. {label}
               </button>
             ))}
@@ -225,22 +224,22 @@ export default function MemberEditor({
             <>
               {/* the fast path: one line in, a full card out */}
               <div style={{ padding: 11, borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 14 }}>
-                <div style={{ fontSize: 11, color: accent, marginBottom: 6, fontWeight: 600 }}>{c.describe}</div>
+                <div style={{ fontSize: fs(11), color: accent, marginBottom: 6, fontWeight: 600 }}>{c.describe}</div>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION_CHARS))}
                   rows={2} placeholder={c.describePlaceholder}
                   style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
                 <button onClick={runGenerate} disabled={generating}
-                  style={{ width: "100%", marginTop: 7, padding: 9, borderRadius: 8, border: "none", cursor: generating ? "default" : "pointer", background: generating ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: 12, fontWeight: 600 }}>
+                  style={{ width: "100%", marginTop: 7, padding: 9, borderRadius: 8, border: "none", cursor: generating ? "default" : "pointer", background: generating ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(12), fontWeight: 600 }}>
                   {generating ? c.generating : c.generate}
                 </button>
-                <div style={{ fontSize: 9, color: textFaint, marginTop: 5, lineHeight: 1.4 }}>{c.generateHint}</div>
+                <div style={{ fontSize: fs(9), color: textFaint, marginTop: 5, lineHeight: 1.4 }}>{c.generateHint}</div>
               </div>
 
               {renderField("name")}
 
               {/* A YEAR, not a date - see setBirthYear. */}
               <div style={{ marginBottom: 10 }}>
-                <label style={{ display: "block", fontSize: 10, color: textDim, marginBottom: 3 }}>
+                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 3 }}>
                   {fieldLabel("birthYear")}
                   <span style={{ color: accent, marginLeft: 4 }}>* {c.required}</span>
                 </label>
@@ -253,28 +252,28 @@ export default function MemberEditor({
                   type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4}
                   placeholder={`${BIRTH_YEAR_MIN}-${BIRTH_YEAR_MAX}`}
                   style={{ ...inputStyle, borderColor: birthYearValid ? inputBorder : "rgba(180,60,20,.5)" }} />
-                <div style={{ fontSize: 9, color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
+                <div style={{ fontSize: fs(9), color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
                   {birthYearValid ? c.hints?.birthday : c.badYear}
                 </div>
               </div>
 
               {/* photo */}
               <div style={{ marginBottom: 4 }}>
-                <label style={{ display: "block", fontSize: 10, color: textDim, marginBottom: 4 }}>{c.photo}</label>
+                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 4 }}>{c.photo}</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <div style={{ width: 52, height: 52, borderRadius: 10, flexShrink: 0, background: inputBg, border: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
                     {photo
                       ? <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : (profile.emoji || "🎻")}
                   </div>
-                  <label style={{ padding: "6px 11px", borderRadius: 7, background: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.12)", border: `1px solid ${isLight ? "rgba(139,105,20,.3)" : "rgba(232,135,176,.25)"}`, color: accent, fontSize: 10.5, cursor: "pointer" }}>
+                  <label style={{ padding: "6px 11px", borderRadius: 7, background: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.12)", border: `1px solid ${isLight ? "rgba(139,105,20,.3)" : "rgba(232,135,176,.25)"}`, color: accent, fontSize: fs(10.5), cursor: "pointer" }}>
                     {c.photoUpload}
                     <input type="file" accept="image/*" style={{ display: "none" }}
                       onChange={(e) => { pickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
                   </label>
                   {photo && (
                     <button onClick={() => onPhotoChange?.(null)}
-                      style={{ padding: "6px 9px", borderRadius: 7, background: "rgba(180,60,20,.08)", border: "1px solid rgba(180,60,20,.2)", color: isLight ? "#a03010" : "#f07070", fontSize: 10.5, cursor: "pointer" }}>
+                      style={{ padding: "6px 9px", borderRadius: 7, background: "rgba(180,60,20,.08)", border: "1px solid rgba(180,60,20,.2)", color: isLight ? "#a03010" : "#f07070", fontSize: fs(10.5), cursor: "pointer" }}>
                       {c.photoRemove}
                     </button>
                   )}
@@ -287,7 +286,7 @@ export default function MemberEditor({
 
           {step === 2 && (
             <>
-              <div style={{ fontSize: 10, color: textFaint, marginBottom: 10, lineHeight: 1.5 }}>
+              <div style={{ fontSize: fs(10), color: textFaint, marginBottom: 10, lineHeight: 1.5 }}>
                 {c.optional} — {c.fictionNote}
               </div>
               {STEP_FIELDS[2].map(renderField)}
@@ -299,20 +298,20 @@ export default function MemberEditor({
         <div style={{ padding: "10px 14px", borderTop: `1px solid ${border}`, display: "flex", gap: 7, alignItems: "center", flexShrink: 0 }}>
           {step > 0 && (
             <button onClick={() => setStep((s) => s - 1)}
-              style={{ padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: 11.5, cursor: "pointer" }}>
+              style={{ padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
               ← {c.back}
             </button>
           )}
           {step < 2 && (
             <button onClick={() => setStep((s) => s + 1)}
-              style={{ flex: 1, padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: 11.5, cursor: "pointer" }}>
+              style={{ flex: 1, padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
               {c.next} →
             </button>
           )}
           {/* Live from any step. A wizard that makes you walk to the end to commit
               is worse than the form it replaced, and step 3 is optional fields. */}
           <button onClick={submit} disabled={!canSave}
-            style={{ flex: 1, padding: "9px 13px", borderRadius: 9, border: "none", cursor: canSave ? "pointer" : "not-allowed", background: canSave ? accentGrad : (isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.08)"), color: canSave ? "#fff" : textFaint, fontSize: 11.5, fontWeight: 700 }}>
+            style={{ flex: 1, padding: "9px 13px", borderRadius: 9, border: "none", cursor: canSave ? "pointer" : "not-allowed", background: canSave ? accentGrad : (isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.08)"), color: canSave ? "#fff" : textFaint, fontSize: fs(11.5), fontWeight: 700 }}>
             {c.save}
           </button>
         </div>

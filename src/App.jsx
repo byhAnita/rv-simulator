@@ -1260,6 +1260,7 @@ export default function App() {
       <>
         <RosterBuilder
           language={language} theme={theme} t={t} world={world}
+          fontScale={fontScale}
           apiKey={apiKey} modelId={selectedModel}
           aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
           onStart={(r) => { setPendingRoster(r); setPhase("setup"); }}

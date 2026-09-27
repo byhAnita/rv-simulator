@@ -206,6 +206,60 @@ export function toRosterEntry(member, slot) {
 }
 
 /**
+ * Assign one member to one slot, or take her out by naming the slot she already
+ * holds. Returns the next picks map; never mutates the one passed in.
+ *
+ * Pure and exported for the same reason `addSaveSlot` is: this is the rule the
+ * roster builder's whole control surface expresses, and three of its four
+ * branches are unreachable by hand without a very specific sequence of taps.
+ *
+ * A MEMBER HOLDS EXACTLY ONE SLOT. Affections, KKT channels and
+ * memberAppearances are all keyed by member id, so the same person in two slots
+ * would silently merge her own state — the map is keyed by id so that cannot be
+ * expressed, and assigning her somewhere new therefore MOVES her.
+ *
+ * Exactly one main, and promoting a second DEMOTES the first rather than
+ * dropping her: resolveRoster reads `idsWith("main")[0]`, so a second main is
+ * simply ignored and the player would watch her own tap do nothing. Demotion is
+ * also what she almost always means.
+ */
+export function assignSlot(picks = {}, member = {}, slot = "main", opts = {}) {
+  const id = member.id;
+  if (!id || !SLOTS.includes(slot)) return picks;
+  const out = { ...picks };
+  // Naming the slot she already holds is how you remove her, so there is always
+  // one tap that undoes one tap.
+  if (out[id]?.slot === slot) { delete out[id]; return out; }
+  if (slot === "main") {
+    for (const [other, p] of Object.entries(out)) {
+      if (p.slot === "main") out[other] = { ...p, slot: "sub" };
+    }
+  }
+  out[id] = member.__custom
+    ? { slot, src: "custom", lang: opts.lang || member.lang || "zh", profile: opts.profile || member.profile }
+    : { slot, src: "library", groupId: member.__groupId ?? null };
+  return out;
+}
+
+/**
+ * One saved roster, as it goes into STORAGE_KEYS.ROSTERS.
+ *
+ * THE LABEL IS `entry.name` AND MUST NEVER REACH `entry.roster.name`. Those two
+ * fields look interchangeable and are not: `roster.name` is the composed GROUP
+ * name, which rosterResolver renders into section 4 of the prompt as
+ * "<name> is an N-member group under <name> Entertainment". A cast the player
+ * saved as "my Irene run" would debut under that name in the story.
+ *
+ * The label is for the player's own shelf and nothing else — it never reaches
+ * the model. That is why this is a function with a test rather than an object
+ * literal in a click handler.
+ */
+export function savedRosterEntry({ label, roster, fallbackName = "", now = Date.now() }) {
+  const name = String(label || "").trim() || fallbackName;
+  return { id: now, name, createdAt: now, roster };
+}
+
+/**
  * Turn the roster builder's picks into a roster.
  *
  * `picks` is keyed BY MEMBER ID — {id: {slot, src, groupId, lang, profile}} —

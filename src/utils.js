@@ -71,6 +71,37 @@ export function addSaveSlot(saves, newSave, max = SAVE_SLOT_MAX) {
   return { ok: true, saves: [newSave, ...rest], reason: null };
 }
 
+/**
+ * What to CALL a member on screen. Display only.
+ *
+ * DO NOT USE THIS IN A PROMPT. `member.name` — the Latin stage name — is the
+ * cast's canonical identity everywhere the model can see: MEMBER PROFILES names
+ * her by it, the address protocol's Address line is computed against it, and
+ * `membersNamedIn` reads it back out of the prose to decide who appeared. A
+ * display name reaching `buildSystemPrompt` would move all three goldens and
+ * change who the model thinks is in the scene.
+ *
+ * The player, though, is picking people she recognises, and the name she
+ * recognises is language-specific:
+ *
+ *   zh  裴珠泫   ko  배주현   en  Irene
+ *
+ * `name_kr` is the localized REAL name in every group file, so zh and ko take
+ * it. English does not: `name_kr` there is a romanized Korean legal name
+ * ("Bae Ju-hyun"), which is longer than the stage name and not what an English
+ * reader knows her as — so en keeps `name`. This is the same split as the zh
+ * address-form table, and for the same reason: the choice follows what the
+ * audience actually reads, not consistency for its own sake.
+ *
+ * Custom members carry `name_kr` only if the player filled that optional field,
+ * hence the fallback.
+ */
+export const displayNameIn = (member, language = "zh") => {
+  const stage = member?.name || "";
+  if (language === "en") return stage || member?.name_kr || "";
+  return member?.name_kr || stage;
+};
+
 export const loadFromStorage = (key) => {
   try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : null; } catch { return null; }
 };
