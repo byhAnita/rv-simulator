@@ -1,0 +1,136 @@
+# Proposals
+
+Changes worth making that are **not made**, because they are larger than one commit, they change
+something a player would notice in a way worth deciding deliberately, or their benefit is a
+hypothesis and shipping them alongside another change would destroy the measurement.
+
+Each entry says what, why, what it would cost, and — most importantly — **what evidence would settle
+it**. A proposal with no such line is a preference, and preferences belong in a conversation rather
+than a file.
+
+Nothing here is in progress. Delete an entry when it lands or when it is decided against, and say
+which in the commit message.
+
+---
+
+## 1. Emit `statChanges` and `affectionChanges` after the story, not before
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What.** Move the two number fields below `story`/`summary` in the JSON schema, giving the order
+`scene, story, summary, statChanges, affectionChanges, socialContent, kktMessages, options`.
+
+**Why.** A model emits keys in the order it is shown them, so today it commits to "+5 affection,
+-3 secrecy" *before* writing the scene that is supposed to earn them. The prose is then written to
+justify numbers guessed from the state block alone. This is the same mechanism that put a Kakao in the
+prose — `kktMessages` sat immediately before `story`, the message was the freshest thing in context,
+and the model wrote the scene around it. That one is fixed by moving `story` ahead of the social
+fields; the argument applies unchanged to the numbers.
+
+**What it might buy.** Deltas that track what actually happened in the round rather than a plausible
+guess. The symptom to look for is monotony: the same +3 every round regardless of whether she was
+warm or evasive, and stats that move in only one direction. `scripts/analyze-prose.mjs` already
+reports `median step`, how many rounds sit at the ±8 clamp, how many deltas are negative, and how
+often each of the three stats moves at all.
+
+**What it would cost.** All three goldens move. It is the second reorder in one release, and each one
+asks a model to restructure a long response — the 4-level parser exists because the weaker route
+models struggle with exactly that. `scene` would also stop being adjacent to the fields that follow
+from it.
+
+**Why it is not done.** The Kakao reorder is justified by a confirmed, repeated live defect. This one
+is justified by symmetry only. Shipping both at once means a later measurement cannot attribute a
+change to either.
+
+**What would settle it.** Two runs of ~20 rounds on the same identity, pace and language, one per
+order, comparing from `scripts/analyze-prose.mjs`: the spread of affection deltas, how many rounds
+move each stat, and the `direct` parse rate. If deltas spread and parse quality holds, take it. If
+the `direct` rate drops at all, the cost is real and the case is weak.
+
+---
+
+## 2. Say the story length in a unit each language actually has
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What.** Replace `Story length: 350 - 450 words in <language>` with a per-language band: characters
+for `zh` and `ko`, words for `en`.
+
+**Why.** "Words" is not a unit Chinese or Korean prose is measured in, so for two of the three
+languages the prompt states a length in a unit that does not apply and the model interprets it.
+Measured: a zh round comes out at **794-965 characters** against a band whose upper bound is 450 of
+anything — roughly double, if the model is reading 2 characters to a word. Nothing is *wrong* with
+the result: ~800 characters is about the 800 output tokens the README's cost model and every cost
+string in the app already assume. But the length the game gets is an accident of interpretation
+rather than a number anyone chose, and the same sentence is being read differently in each language.
+
+**What it might buy.** A length that is specified. It also makes the cost model honest: the README
+derives every per-round price from 800 output tokens, which the zh band supports and the en band may
+not — 350-450 English words is ~500-650 tokens, so an English player's rounds may be materially
+cheaper than the table says, or the en prose may be materially shorter than the zh prose for no
+reason a player would want.
+
+**What it would cost.** All three goldens move. If the new zh band is written as what is already
+produced (~750-900 characters), nothing about the output changes and the only gain is that it is
+stated; if it is written lower, every zh round gets shorter and the cost strings need rechecking.
+
+**Why it is not done.** The `en` and `ko` numbers are not measured yet — the long run collects them.
+Setting a band for a language from a guess is what produced this situation.
+
+**What would settle it.** Median prose length per language from `scripts/analyze-prose.mjs` across
+~20 rounds each. Then set each band around what that language already produces, unless the three are
+wildly unequal in reading time, in which case the question becomes which one is right and that is
+Yuhan's call, not a measurement.
+
+---
+
+## 3. Give the ledger's summaries the player's choice back
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What.** Either keep `choice` on a history entry when `collapseHistoryIfNeeded` converts it to a
+summary, or state in the schema that `summary` must record what the player did.
+
+**Why.** A collapsed entry is `{round, type:'summary', text}` — the `choice` field is dropped. So
+after three rounds the model can no longer see what the *player* chose, only what happened. In a
+dating sim the player's own arc is the thing continuity is most about: whether she has been bold or
+careful for twenty rounds is exactly what a member should remember.
+
+**Evidence it may not matter.** Sampled summaries already do it unprompted — *"You chaired the first
+comeback meeting"*, *"You visited the practice corridor at dusk"*. The field is asked for as "what
+happened this round and who appeared", and the model volunteers the player's action anyway.
+
+**What it would cost.** Keeping `choice` adds ~15 tokens to every summary, against a summary that is
+~25 — a large relative increase in the one block that is designed to stay small, and it is the
+*cached* block, so it is cheap per round but permanent. Asking the summary to include the action
+costs nothing at all.
+
+**Why it is not done.** The cheap version (ask the summary for it) is probably sufficient and is worth
+doing on its own, but it changes what the model writes into a field that becomes permanent memory, and
+that deserves a measurement rather than a guess.
+
+**What would settle it.** Count, across ~20 rounds, how many summaries name the player's action
+without being asked. If it is most of them, ask for it explicitly and change nothing else. If it is
+patchy, ask for it explicitly and re-measure before considering the token cost of carrying `choice`.
+
+---
+
+## 4. Unify how the two halves of the ledger label a round
+
+**Written 2026-09-27, during v1.4.0 step 7.**
+
+**What.** `buildHistoryLedger` writes collapsed entries as `R4: <summary>` and full entries as
+`=== Round 4 ===\n<story>`. Two shapes for the same thing in one block.
+
+**Why it might matter.** Nothing says the two are the same series, so a model has to infer it. A
+short header before each group ("earlier rounds, one line each" / "recent rounds in full") would make
+the structure explicit.
+
+**Why it is not done.** There is no evidence of confusion — continuity in the sampled runs is good,
+and the summaries reference earlier rounds correctly. Headers cost tokens in the cached block, and
+changing the format costs every save in flight one full ledger cache miss. This is a tidiness
+argument wearing a correctness costume until something shows the model mis-reading it.
+
+**What would settle it.** A round where the model attributes an event to the wrong round number, or
+treats the summary block as something other than earlier history. Worth watching for; not worth
+looking for.

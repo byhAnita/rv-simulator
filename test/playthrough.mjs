@@ -44,6 +44,16 @@
 //                                                   # long time, which is how a bug in
 //                                                   # 主线成员前女友's background block
 //                                                   # survived every live run ever made
+//   node test/playthrough.mjs --pace 高压舆论向      # one of the world's 4 paces. Also
+//                                                   # hardcoded until v1.4.0 step 7, which
+//                                                   # started sending the pace's authored
+//                                                   # RULE rather than its id — so three
+//                                                   # of the four had never been played
+//
+// Every round's prose, scene, options, stat deltas and affections are stored under
+// `transcript` in the report. `node scripts/analyze-prose.mjs` reads them and
+// measures what the graders structurally cannot: repetition, scene and option
+// variety, member rotation, honorific frequency, affection pacing.
 //
 // Each model runs in its own child process, so the router's localStorage state
 // and mainAgent's module-level social buffer cannot interleave between them.
@@ -81,6 +91,12 @@ const ROUTE_MODE = has("route");
 // buildSystemPrompt, so pinning one to 练习生 meant 7 of the 8 were never played
 // live by anything.
 const IDENTITY = arg("identity", "练习生");
+// Pace ids, likewise the Chinese literals that sit in form.pace in every save.
+// Hardcoded to 浪漫情感向 until v1.4.0 step 7 — the same shape as the hardcoded
+// identity, and it mattered from the moment section 6 started sending the pace's
+// authored RULE instead of its id: three of the four rules had never been played.
+//   慢热现实向  浪漫情感向  高压舆论向  修罗海王向
+const PACE = arg("pace", "浪漫情感向");
 const WORKER = arg("worker", null);
 
 // --cast plays a ROSTER instead of a group, which is the only way to exercise
@@ -417,7 +433,7 @@ async function runWorker(model) {
   console.error = (...a) => captured.push("error: " + a.map(String).join(" ").slice(0, 200));
   const restore = () => { console.log = realLog; console.warn = realWarn; console.error = realErr; };
 
-  const report = { model, identity: IDENTITY, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
+  const report = { model, identity: IDENTITY, pace: PACE, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
     const world = await loadWorld("kpop_idol", LANG);
 
@@ -495,7 +511,7 @@ async function runWorker(model) {
       mainMember: mainId, subMembers: subIds, identity: IDENTITY, customIdentity: "",
       name: playerName,
       nationality: "KR", birthYear: String(playerBirthYear), age, nickname: "", herNickname: "",
-      starLevel: "", pace: "\u6d6a\u6f2b\u60c5\u611f\u5411",
+      starLevel: "", pace: PACE,
     };
     const cast = {
       playerName, playerBirthYear,
@@ -505,6 +521,14 @@ async function runWorker(model) {
       })),
     };
     report.cast = { playerName, age: Number(age), playerBirthYear: cast.playerBirthYear };
+    // Who was in this run and in which slot. The graders never needed it — they
+    // are handed `cast` directly — but the prose analysis does: "no romanceable
+    // member disappears for more than 3 rounds" is a rule about slots, and it
+    // cannot be checked from a report that records only the player.
+    report.roster = members.map((m) => ({
+      id: m.id, name: m.name,
+      slot: m.id === mainId ? "main" : subIds.includes(m.id) ? "sub" : "npc",
+    }));
 
     // Pin the route at one model so this playthrough grades that model only.
     // Re-pinned before every round: the router now rests a model for an hour
@@ -627,11 +651,31 @@ async function runWorker(model) {
         // Full text, not a 400-char head: a grader can fire past the truncation
         // point, and then the report cannot be used to judge the flag.
         ...(bad.length ? { storyText: story, optionsText: res.options } : {}),
-        // Graders only ever report what went wrong, which cannot show that a
-        // positive instruction was followed — "0 issues" reads the same whether
-        // the model used 欧尼 or avoided honorifics altogether. Keep one sample
-        // per model so the prose can be read back.
-        ...(round === 0 ? { sampleText: story.slice(0, 700) } : {}),
+        // Graders only ever report what went wrong, and that cannot show whether a
+        // positive instruction was FOLLOWED: "0 issues" reads the same whether the
+        // model used 欧尼 all game or avoided honorifics altogether, whether every
+        // round opened on a different image or recycled one, whether the sub
+        // members got the scenes section 3 promises them. Most of what makes this
+        // game good or bad is in that gap.
+        //
+        // So the transcript is kept for EVERY round, not a 700-char head of the
+        // first. It is ~1KB a round against a report nothing streams, and
+        // `scripts/analyze-prose.mjs` is what reads it. Sampling round 0 alone was
+        // the worst possible choice for judging writing: round 0 is the only round
+        // with no history behind it, so it is the one round whose prose cannot
+        // repeat itself.
+        transcript: {
+          story,
+          scene: res.newStats?.scene || "",
+          options: res.options,
+          stats: { selfId: res.newStats?.selfId, secrecy: res.newStats?.secrecy, mood: res.newStats?.mood },
+          affections: { main: res.newStats?.affection, ...(res.newStats?.multiAff || {}) },
+          primary: res.topMember?.id || "",
+          stageChanges: res.stageChanges || [],
+          kktDelivered: Object.entries(res.kktUpdate || {})
+            .filter(([, v]) => Array.isArray(v) && v.length).map(([k]) => k),
+          summaryText: res.updatedMemory.history.at(-1)?.summary || "",
+        },
       });
 
       stats = res.newStats; memory = res.updatedMemory; kktUnlocked = res.newKktUnlocked;
@@ -784,7 +828,7 @@ async function runParent() {
 
   mkdirSync(OUT, { recursive: true });
   const path = join(OUT, `playthrough-${Date.now()}.json`);
-  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, SUBS, REASONING, ROUTE_MODE }, results }, null, 2));
+  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, PACE, SUBS, REASONING, ROUTE_MODE, CAST, CAST_NAME }, results }, null, 2));
   console.log(`${C.d}full report: ${path.replace(ROOT, ".")}${C.x}`);
 
   process.exit(hardFails || breaks ? 1 : 0);

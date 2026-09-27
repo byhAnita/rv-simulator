@@ -1496,7 +1496,7 @@ async function layerI() {
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger,
-          collapseHistoryIfNeeded, updateMemory } =
+          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
 
   // Real group data, loaded the way the app loads it. Reading the JSON straight
@@ -1981,8 +1981,21 @@ async function layerI() {
   // whatever company they are under — the same leak class as the YG bug, except
   // written into the prompt as an example to follow.
   check("the scene example names no record company",
-    !/SM Practice Room/.test(p) && /Do not name a record company here/.test(p),
+    !/SM Practice Room/.test(p),
     "an example is an instruction");
+  // The prohibition that landed beside that fix was absolute — "Do not name a
+  // record company here" — and it is wrong for the classic door, whose section 4
+  // lore names SM as a matter of real history. Live play in step 7 produced
+  // `scene: "SM娱乐大楼顶层会议室"` on a Red Velvet roster: the model resolved the
+  // contradiction toward the richer context, as it always does, and was right to.
+  // The harness already encoded the distinction the prompt did not — realAgencyNames
+  // runs only with --cast, because a whole group's own lore legitimately names its
+  // agency. One sentence now covers both doors by pointing at the single source.
+  check("the company rule points at section 4 rather than forbidding all companies",
+    /The only company that exists in this story is the one section 4 names/.test(p)
+      && !/Do not name a record company/.test(p),
+    "an absolute ban contradicted section 4 on the classic door, and lost");
+
   // Section 1 is headed HIGHEST PRIORITY and used to ask for Korean "rarely,
   // with a translation in parentheses", giving "unnie" as the example — which
   // section 6 spells 欧尼, glosses never, and wants frequent. The highest-priority
@@ -2072,8 +2085,83 @@ async function layerI() {
   // that has bitten here (dialogue once exempt from the pronoun rule, address
   // forms once had no narration scope, roles were once not mentioned at all).
   check("the EXACTLY-ONCE key list covers every key in the schema",
-    /Every key \(scene, statChanges, affectionChanges, socialContent, kktMessages, story, summary, options\)/.test(p),
+    /Every key \(scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options\)/.test(p),
     "scene was required by the schema and absent from the list that guards it");
+
+  // The schema's key order is the model's GENERATION order, and kktMessages used
+  // to sit immediately before story — so the last thing in context before the
+  // prose began was a Kakao the model had just written, and it wrote the scene
+  // around it. Live: 3 of 20 rounds transcribed Irene's Kakao into the prose,
+  // phone buzz included, against a rule that is unconditional and stated first.
+  // This is the same failure the KKT rules were restructured for twice; the third
+  // attempt changes the ORDER rather than the wording, because the wording already
+  // says "before she has looked at her phone".
+  //
+  // Social content gains the same way: written after the story, it can react to
+  // the round instead of being composed before the round exists.
+  const keyOrder = ["scene", "statChanges", "affectionChanges", "story", "summary",
+                    "socialContent", "kktMessages", "options"];
+  const schemaBlock = p.split("JSON SCHEMA - MUST FOLLOW EXACTLY")[1] || "";
+  const positions = keyOrder.map((k) => schemaBlock.indexOf(`"${k}"`));
+  check("the schema asks for story before socialContent and kktMessages",
+    positions.every((n) => n > 0) && positions.every((n, i) => i === 0 || n > positions[i - 1]),
+    keyOrder.map((k, i) => `${k}@${positions[i]}`).join(" "));
+  check("...and says so, since a model emits keys in the order it is shown them",
+    /The story comes BEFORE socialContent and kktMessages/.test(p),
+    "the order alone is an implicit instruction; this one is explicit");
+  // Social content written before the story could only ever be about no particular
+  // day. Now that it follows the story, say what it should be about.
+  check("social content is tied to the round it belongs to",
+    /ALL of it comes out of THIS round/.test(p),
+    "four platforms of filler is worse than three platforms and a gap");
+
+  // BubbleOverlay renders `📸 {photoDesc}` inside a frame it draws from `hasPhoto`.
+  // `photoDesc` was in no schema, so the frame could only ever be empty — and the
+  // example pinned `hasPhoto` to false in both places it appears, so it never fired
+  // either. A UI feature that could not be reached and could not have rendered.
+  check("the bubble schema asks for the photo description the overlay renders",
+    /"bubble":\[\{"content":"msg","hasPhoto":false,"photoDesc":""\}\]/.test(p),
+    (p.split("\n").find((l) => l.includes('"bubble"')) || "").slice(0, 140));
+  check("...and says when to set the flag",
+    /Set hasPhoto true only when she would really attach a picture/.test(p),
+    "an example showing false twice is an instruction to always say false");
+  const overlaySrc = readFileSync(join(ROOT, "src/platforms/BubbleOverlay.jsx"), "utf8");
+  for (const field of ["hasPhoto", "photoDesc"]) {
+    check(`BubbleOverlay still reads ${field}`, overlaySrc.includes(field),
+      "if the overlay stops rendering it, the schema should stop asking for it");
+  }
+  // The pair is one feature, so a post claiming a photo with nothing to describe is
+  // normalised away rather than drawn as an empty frame.
+  const bubbled = validateAndFixOutput({
+    story: "x".repeat(60), options: ["A. a", "B. b", "C. c", "D. d"],
+    socialContent: {
+      irene: { bubble: [{ content: "hi", hasPhoto: true, photoDesc: "  " }] },
+      yeri: { bubble: [{ content: "hey", hasPhoto: true, photoDesc: "the sunset from the van" }] },
+      // A bare string INSIDE the array, which is the branch inside the map. A bare
+      // string as the whole `bubble` value is converted one step earlier, so using
+      // that as the input left this check unable to fail — it passed against a
+      // mutation that deleted the branch it was written for.
+      joy: { bubble: ["a bare string"] },
+    },
+  });
+  check("a photo with nothing to describe is not a photo",
+    bubbled.socialContent.irene.bubble[0].hasPhoto === false,
+    JSON.stringify(bubbled.socialContent.irene.bubble[0]));
+  check("...and a described one survives",
+    bubbled.socialContent.yeri.bubble[0].hasPhoto === true
+      && bubbled.socialContent.yeri.bubble[0].photoDesc === "the sunset from the van",
+    JSON.stringify(bubbled.socialContent.yeri.bubble[0]));
+  check("...and a bare string still becomes a post",
+    bubbled.socialContent.joy.bubble[0].content === "a bare string"
+      && bubbled.socialContent.joy.bubble[0].hasPhoto === false,
+    JSON.stringify(bubbled.socialContent.joy.bubble[0]));
+  // The newline repair in parseLLMOutput is what keeps a model emitting raw
+  // newlines inside `story` parseable, and it was anchored on the key that
+  // FOLLOWS story — so it broke silently every time the schema was reordered.
+  check("the story-field repair does not name the key that follows story",
+    /"story":\\s\*"\(\[\\s\\S\]\*\?\)"\\s\*,\\s\*"\[a-zA-Z_\]\\w\*"/
+      .test(readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8")),
+    "an order-coupled repair is a repair that stops working when the order changes");
 
   // Invisible to a reviewer and worth the whole ~5,500-token cached prefix. This
   // one is the wart the goldens caught during the step 3 extraction and that the
@@ -4698,6 +4786,59 @@ async function layerL() {
                     "roleClaimedByMember", "playerGivenIdolLife"]) {
     check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
   }
+
+  // Every field of `form` that selects a whole block of the prompt must be a flag,
+  // not a literal. This has gone wrong twice with the same consequence: `identity`
+  // was pinned to 练习生, so 7 of the 8 identity backgrounds — including the only
+  // one containing randomness — had never been played live by anything; and `pace`
+  // was pinned to 浪漫情感向, which cost nothing while the pace reached the model as
+  // a bare id and cost three quarters of the coverage the moment step 7 started
+  // sending its authored rule.
+  //
+  // The check is on the form literal rather than on the flag list, because adding
+  // `--pace` while leaving `form.pace` hardcoded would pass a flag check.
+  const formLiteral = (harness.match(/const form = \{[\s\S]*?\n    \};/) || [""])[0];
+  check("the harness builds its form from flags, not literals",
+    formLiteral.length > 0 && /identity: IDENTITY/.test(formLiteral) && /pace: PACE/.test(formLiteral),
+    formLiteral.slice(0, 200) || "form literal not found — the anchor moved");
+  for (const [flag, constant] of [["identity", "IDENTITY"], ["pace", "PACE"]]) {
+    check(`...and --${flag} reaches it`,
+      new RegExp(`const ${constant} = arg\\("${flag}",`).test(harness),
+      `${constant} must come from arg("${flag}", …)`);
+  }
+  // Every id the world declares has to be reachable from the flag, or the default
+  // is the only one anyone ever plays.
+  const paceIds = JSON.parse(readFileSync(join(ROOT, "public/worlds/kpop_idol/zh.json"), "utf8"))
+    .paces.map((p) => p.id);
+  check("the harness documents every pace the world declares",
+    paceIds.every((id) => harness.includes(id)),
+    `undocumented: ${paceIds.filter((id) => !harness.includes(id)).join(", ")}`);
+
+  // Prose is kept for every round, not a head of the first. A grader reports only
+  // what went wrong, so the transcript is the only record of whether a positive
+  // instruction was followed — and round 0 is the worst round to sample, being the
+  // one round with no history behind it and therefore the one that cannot repeat.
+  check("the harness stores a transcript for every round",
+    /transcript: \{/.test(harness) && !/sampleText/.test(harness),
+    "sampling round 0 cannot show repetition, rotation or pacing");
+  // Compare the transcript's KEY SET, not a substring of the literal. Matching the
+  // field name anywhere inside the block passes against `notStory: story` — the
+  // name survives as the value while the key is gone, which is exactly the shape a
+  // rename takes.
+  const transcriptKeys = new Set(
+    [...((harness.match(/transcript: \{[\s\S]*?\n        \},/) || [""])[0])
+      .matchAll(/(?:^|[{,])\s*([A-Za-z_]\w*)\s*[,:]/gm)].map((m) => m[1]));
+  for (const field of ["story", "scene", "options", "affections", "summaryText"]) {
+    check(`...carrying ${field}`, transcriptKeys.has(field),
+      [...transcriptKeys].join(" ") || "transcript literal not found — the anchor moved");
+  }
+  check("the harness records which slot each member held",
+    /report\.roster = members\.map/.test(harness) && /slot: m\.id === mainId/.test(harness),
+    "member rotation is a rule about slots");
+  check("scripts/analyze-prose.mjs reads the transcript",
+    existsSync(join(ROOT, "scripts/analyze-prose.mjs"))
+      && /transcript\?\.story/.test(readFileSync(join(ROOT, "scripts/analyze-prose.mjs"), "utf8")),
+    "a transcript nothing reads is a bigger report file and nothing else");
 }
 
 // ============================================================ main

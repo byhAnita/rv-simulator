@@ -278,8 +278,15 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
 
   // JSON schema. Written without the spaces a formatter would add: the schema is
   // ~8 lines of the cached prefix and reads the same to the model either way.
-  const mainSocial = `"${mainId}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`;
-  const subSocials = subIds.map(id => `"${id}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`).join(",");
+  // `photoDesc` was missing from the schema while BubbleOverlay has always rendered
+  // it: `hasPhoto` drew a photo frame whose only content is `photoDesc`, which the
+  // model was never asked for, so the frame could only ever come out empty. And the
+  // example pinned the flag to `false` twice over (here and in RULES), so it was
+  // never set anyway — a UI feature that could not fire and could not have rendered
+  // if it had.
+  const bubbleShape = `{"content":"msg","hasPhoto":false,"photoDesc":""}`;
+  const mainSocial = `"${mainId}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`;
+  const subSocials = subIds.map(id => `"${id}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`).join(",");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
   return `You are the Dungeon Master (DM) of a yuri dating simulator. You must respond with valid json output. This is a parallel-universe fictional work. Current AI: ${modelName}
 
@@ -295,7 +302,8 @@ ${lr.socialRule}
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text, code fences, explanations, verification checks, or natural language outside JSON.
-Every key (scene, statChanges, affectionChanges, socialContent, kktMessages, story, summary, options) must appear EXACTLY ONCE.
+Every key (scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options) must appear EXACTLY ONCE.
+Emit them in that order. The story comes BEFORE socialContent and kktMessages, so what she posts and texts follows from what happened, and so the scene is not written around a message she has not read yet.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.
 story value = ONE continuous text, no JSON syntax inside it.
@@ -364,7 +372,8 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
 - LANGUAGE: ${lr.lang}.
-- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual.
+- ALL of it comes out of THIS round. A member posts about the day she has just had — the practice she just left, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
+- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual. A post may carry a photo.
 - Instagram: Photo social. Style: aesthetic, short caption + emoji.
 - Weverse: Fan community. Style: friendly, natural.
 - KKT (KakaoTalk): Private chat, member-to-player. Style: flirty/caring/casual.
@@ -398,22 +407,22 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
   "scene": "Location description in ${lr.lang}",
   "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
   "affectionChanges": { "${mainId}": 0${subIds.map(id => `, "${id}": 0`).join("")} },
+  "story": "Story text in ${lr.lang} (350-450 words). Pure story, NO stat bars, NO options.",
+  "summary": "One sentence (~100 chars) summarizing what happened this round and who appeared. In English.",
   "socialContent": {
     ${mainSocial}${subIds.length > 0 ? ",\n    " + subSocials : ""}
   },
   "kktMessages": {
     ${kktFields}
   },
-  "story": "Story text in ${lr.lang} (350-450 words). Pure story, NO stat bars, NO options.",
-  "summary": "One sentence (~100 chars) summarizing what happened this round and who appeared. In English.",
   "options": ["A. option text", "B. option text", "C. option text", "D. option text"]
 }
 
 RULES:
-- scene: A short location description (e.g., "Practice room, 10PM"). Do not name a record company here.
+- scene: A short location description (e.g., "Practice room, 10PM"). The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
-- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false}], NOT a string.
+- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
 - socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
@@ -485,9 +494,15 @@ function parseLLMOutput(text) {
     text = text.substring(jsonStart);
   }
 
-  // Preprocess: escape unescaped newlines in story field
-  // "summary" now sits between "story" and "options" in the schema
-  const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"(?:summary|options)"/);
+  // Preprocess: escape unescaped newlines in story field.
+  //
+  // The following key is matched generically, not by name. It was `"options"`,
+  // then `"(?:summary|options)"` when summary was inserted between them — so the
+  // repair silently stopped working each time the schema was reordered, and it is
+  // the repair that keeps a model emitting raw newlines inside `story` parseable
+  // at all. Any key ends the story field; naming them couples this to an order it
+  // has no reason to know.
+  const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"[a-zA-Z_]\w*"\s*:/);
   if (storyMatch) {
     const rawStory = storyMatch[1];
     const escapedStory = rawStory
@@ -617,7 +632,15 @@ export function validateAndFixOutput(result) {
     for (const [mid, platforms] of Object.entries(result.socialContent)) {
       if (platforms && typeof platforms.bubble === 'string') platforms.bubble = [{ content: platforms.bubble, hasPhoto: false }];
       if (platforms && Array.isArray(platforms.bubble)) {
-        platforms.bubble = platforms.bubble.map(item => typeof item === 'string' ? { content: item, hasPhoto: false } : item);
+        platforms.bubble = platforms.bubble.map(item => {
+          const post = typeof item === 'string' ? { content: item, hasPhoto: false } : { ...item };
+          // The two fields are one feature and BubbleOverlay renders the frame off
+          // the flag alone: a post claiming a photo with nothing to describe draws
+          // an empty box. Keep them consistent here rather than in the component,
+          // so the same rule holds for a save written by an older build.
+          if (post.hasPhoto && !String(post.photoDesc || "").trim()) post.hasPhoto = false;
+          return post;
+        });
       }
     }
   }

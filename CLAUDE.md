@@ -38,6 +38,7 @@ node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, t
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
 node scripts/update-golden.mjs        # regenerate test/fixtures/*.txt after an INTENTIONAL prompt change, then read the diff
+node scripts/analyze-prose.mjs        # writing quality from the newest playthrough: repetition, rotation, pacing
 npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
@@ -62,6 +63,32 @@ six months later.
 `test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.
 
 **The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's birth year therefore defaults to the cast's median, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` still pins it, converted to a birth year on the way in. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
+
+**Every field of `form` that selects a whole block of the prompt has to be a flag.** `--identity`
+exists because pinning `练习生` meant 7 of the 8 identity backgrounds had never been played live by
+anything; `--pace` exists because the same thing was true of the pace, and it started mattering the
+moment section 6 began sending the pace's authored rule instead of its id. Smoke asserts the `form`
+literal is built from `IDENTITY` and `PACE` rather than from strings — a flag check alone would pass
+while `form.pace` stayed hardcoded.
+
+**`node scripts/analyze-prose.mjs` is the third question, and the graders cannot answer it.** A grader
+reports what went **wrong**; "0 issues" reads the same whether the model used `欧尼` all game or
+avoided honorifics altogether, whether each round opened on a different image or recycled one, whether
+the sub members got the scenes section 3 promises them. Most of what makes the game good or bad lives
+in that gap. So the harness stores a full transcript for **every** round — prose, scene, options, stat
+and affection values, the delivered Kakao ids, the summary — and the analyzer measures repetition
+(round-to-round n-gram overlap, reused sentences, openers that rhyme), scene variety, option variety
+and stat leakage, member rotation against section 3's rule, how often the address forms actually
+appear, and affection pacing against the ±8 clamp.
+
+It **prints numbers and no verdicts, deliberately**. There is no threshold at which the writing is
+fine, and a metric that failed a build would be tuned away the first time it was inconvenient. It
+found two defects within three rounds of first being run: `scene: "SM娱乐大楼顶层会议室"` under a rule
+forbidding company names, and zh prose running at double the length the prompt asks for.
+
+Sampling round 0 alone, which is what the report used to keep, is the worst possible choice for judging
+writing: round 0 is the only round with no history behind it, so it is the one round whose prose cannot
+repeat itself.
 
 ---
 
@@ -1002,7 +1029,54 @@ Social content is stored in module-level `pendingSocialFeeds`. `popPendingSocial
 
 **The live grader had the identical blind spot**, which is the more useful half of the lesson. `kkt-narrated-but-locked` runs only `if (!delivered)`, so a round that delivered a Kakao and duplicated it was invisible to it by construction. `kktTranscribed` covers the delivered case by matching a delivered message **verbatim** in the prose — language-independent, and prose does not coincidentally contain a whole chat line. When a rule is scoped to one branch, check whether its detector is scoped to the same branch.
 
+**The third attempt at this rule changes the schema's key ORDER, not its wording — and it is the
+first live flag in this project that survived reading the prose.** Step 7's long run put
+`kkt-transcribed-in-story` on **3 of 20 rounds** in a `练习生` zh game, against 1 in 64 previously.
+Reading all three stories confirmed the model, not the grader: round 12 wrote *"是Irene发来的消息：
+保温杯记得明天还给她。走楼梯小心台阶。"*, round 14 a phone buzzing with the message quoted, round 18
+three of Irene's messages quoted as displayed text with the screen dimming and lighting again. The
+rule they break is unconditional, stated first, and already gives the reason ("before she has looked
+at her phone").
+
+**The cause is mechanical. `kktMessages` sat immediately before `story` in the schema, and a model
+emits keys in the order it is shown them** — so the last thing in its context when the prose began
+was a Kakao it had just written, and the most emotionally loaded line it had. Round 18's entire scene
+is built on those messages. Telling it not to, louder, is what the previous two attempts did.
+
+`story` and `summary` now come **before** `socialContent` and `kktMessages`, and section 2 says so
+explicitly rather than leaving the order to imply it. **Social content gains the same way**: written
+after the story it can react to the round, where before it was composed against a round that did not
+exist yet — which is why section 7 can now ask for posts about *this* day.
+
+Two things this touched that are worth knowing:
+
+- **`parseLLMOutput`'s newline repair was anchored on the key that FOLLOWS `story`** — `"options"`,
+  then `"(?:summary|options)"` when summary was inserted between them. It is the repair that keeps a
+  model emitting raw newlines inside `story` parseable at all, and it had therefore stopped working
+  silently at each past reorder. It now matches any following key.
+- **Measure `parseLevel`, not just the flag.** The reorder asks a model to emit ~800 tokens of prose
+  earlier in its response, and the 4-level parser exists because weaker route models struggle with
+  long JSON. The harness records `parseLevel` per round; compare `direct` rates before and after
+  rather than assuming.
+
+**`statChanges` and `affectionChanges` are still emitted BEFORE the story**, so the model commits to
+the numbers before writing what earns them. The same argument says they should move too; it is written
+up as a proposal rather than done, because one change at a time is what makes the next measurement
+mean anything. See `docs/PROPOSALS.md`.
+
 **Not fixed, and not a regression: a Kakao the scene makes impossible** — she texts "good night" from inside the room, or while asleep. Affection is the only gate; nothing models presence or physical state, so the prompt lacks the information such a rule would need. See `docs/V140_PLAN.md` §18b, which schedules it with v1.4.1's place canon.
+
+### A bubble photo was a UI feature that could not fire and could not have rendered
+
+`BubbleOverlay` draws a photo frame when a post says `hasPhoto`, and the only thing inside that frame
+is `photoDesc` — **which appeared in no schema**. So the frame could only ever come out empty, and it
+never came out at all, because the schema example pinned `hasPhoto: false` in both places it appears
+and a model follows an example. Found by reading the overlay against the rendered prompt in step 7.
+
+The schema now asks for the pair and says when to set it. `validateAndFixOutput` keeps the two
+consistent — a post claiming a photo with nothing to describe has `hasPhoto` cleared — because the
+component renders the frame off the flag alone, and normalising in the engine covers a save written by
+an older build as well.
 
 ---
 
