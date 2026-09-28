@@ -3836,10 +3836,21 @@ async function layerI() {
   // through and none vertically. Every assertion below is written from what the
   // player should see, not from the formula.
   const WIDE = { iw: 800, ih: 400, fw: 200, fh: 200 };
+  const TALL = { iw: 300, ih: 900, fw: 200, fh: 200 };
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
   const atRest = store.cropRect({ ...WIDE, zoom: 1, dx: 0, dy: 0 });
   check("confirming a crop untouched reproduces the old centred crop",
     atRest.sw === 400 && atRest.sh === 400 && atRest.sx === 200 && atRest.sy === 0,
     `${JSON.stringify(atRest)} — the cropper opens on the previous behaviour, so nothing regressed for a player who just taps through`);
+  // BOTH ORIENTATIONS. Mutation-testing found that every assertion here used a
+  // wide source against a square frame, where the vertical centring term is
+  // exactly zero — so deleting it left the whole family green. A portrait source
+  // is also the ordinary case for a photo of a person.
+  const atRestTall = store.cropRect({ ...TALL, zoom: 1, dx: 0, dy: 0 });
+  check("...on a portrait source too, which is what a photo of a person is",
+    near(atRestTall.sw, 300) && near(atRestTall.sh, 300)
+      && near(atRestTall.sx, 0) && near(atRestTall.sy, 300),
+    `${JSON.stringify(atRestTall)} — expected the middle 300 rows of 900`);
   const zoomed = store.cropRect({ ...WIDE, zoom: 2, dx: 0, dy: 0 });
   check("zooming in keeps less of the source, centred on the same point",
     zoomed.sw === atRest.sw / 2 && zoomed.sh === atRest.sh / 2
@@ -3851,8 +3862,12 @@ async function layerI() {
   check("dragging the image right keeps the part that was off to the left",
     panned.sx < atRest.sx && panned.sy === atRest.sy,
     `sx ${atRest.sx} -> ${panned.sx}`);
+  check("...and dragging it down keeps the part that was above the frame",
+    store.cropRect({ ...TALL, zoom: 1, dx: 0, dy: 60 }).sy < atRestTall.sy,
+    `sy ${atRestTall.sy}`);
   check("...and a pan is refused on the axis with nothing to pan through",
-    store.cropRect({ ...WIDE, zoom: 1, dx: 0, dy: 500 }).sy === atRest.sy,
+    store.cropRect({ ...WIDE, zoom: 1, dx: 0, dy: 500 }).sy === atRest.sy
+      && store.cropRect({ ...TALL, zoom: 1, dx: 500, dy: 0 }).sx === atRestTall.sx,
     "a square frame on a wide image has no vertical slack, so dragging down must not move the crop");
   // THE guard of this pair: a blank corner is a defect the player only sees once
   // the image is in the game. Absurd offsets at every zoom, both orientations.
