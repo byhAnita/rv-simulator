@@ -1813,10 +1813,11 @@ as the record of how each one was validated — read the dates, not the tense.
 
 ### Pick up here — v1.4.0 is released, 2026-09-28
 
-**v1.4.0 is deployed and is what players run.** `main` = `origin/main` = `7b3ceea`, tagged
-`v1.4.0`; `dev` = `origin/dev` = `5d0f870`, which is that commit plus the dev-mode
-`index.html`. `main..dev` and `dev..main` are both empty apart from it, so the merge-back is
-done. Nothing is running, and nothing is waiting on a machine.
+**v1.4.0 is deployed and is what players run, and the tree is clean.** `main` = `origin/main` =
+`7b3ceea`, tagged `v1.4.0`; `dev` = `origin/dev`, which is that commit plus the dev-mode
+`index.html` and the docs. `main..dev` holds only those, so the merge-back is done. **No
+uncommitted changes, nothing stashed, nothing running, nothing waiting on a machine** — this is a
+clean starting point for the next batch.
 
 **Verified, by measurement:** `npm run build` clean at 404.59 kB / gzip 142.78; `node
 test/smoke.mjs` **1204 passed / 0 failed**; all three mirrors serve `index-BEbGT01U.js` and the
@@ -1828,11 +1829,18 @@ re-validation — nothing in step 8 is prompt-facing.
 production URLs. They serve the same bytes, so this is a formality rather than a gap, but it has
 not been done. No live round has been played against v1.4.0's code on a production mirror.
 
-**One thing in the working tree is not mine and was deliberately excluded from the release.**
-`src/i18n/zh.js` drops `(最多10个)` from `save.saveBtn`. It is a reasonable edit — the panel now
-shows `n / 10` at all times, so the caption is redundant — but I did not make it, and `src/` is a
-path `deploy.sh` stages, so it was stashed for the deploy and restored afterwards. It is still
-uncommitted. Commit it or discard it; do not let it ride along unnoticed with the next batch.
+**The zh save button keeps `(最多10个)` — decided, not overlooked.** An in-flight edit dropping it
+sat in the working tree during the release, on the reasonable argument that the panel now shows
+`n / 10` at all times so the caption is redundant. It was **stashed for the deploy and then dropped
+on Yuhan's call**, so `save.saveBtn` reads `💗 保存当前进度 (最多10个)` and matches the deployed
+bundle. Do not re-open it as a tidy-up; the caption is what a player sees before she has opened the
+panel at all, which is the moment the cap matters most.
+
+The release-process lesson from it is worth keeping: an uncommitted change in a path `deploy.sh`
+stages is a **release decision**, not an obstacle. It would have changed the bundle hash — verified,
+the same build with it in produced `index-CSLDaEkY.js` against the deployed `index-BEbGT01U.js` — so
+preflight refusing was correct, and `git stash push <path>` is the resolution that neither ships an
+unreviewed edit nor destroys someone's work.
 
 **The exact next command**, for the highest-value open item — three of the four providers have
 never played a live round, which is what open question 3 has been waiting on:
