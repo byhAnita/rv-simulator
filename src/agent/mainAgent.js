@@ -2,11 +2,13 @@
 // v11.1 Final: Language enforcement + Social isolation + NPC no social + JSON hardening + Age texture + Chapter auto + Special events
 import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
-import { pickPrimaryMember } from "./probabilityEngine";
-import { getStageIdx, getStageName } from "../config/stageConfig";
+// `probabilityEngine` is deliberately NOT imported any more — see the note beside
+// where pickPrimaryMember used to be called, and docs/PROPOSALS.md §4.
+import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/stageConfig";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
+import { getIdentity, getPaceRule, renderIdentityBackground } from "../rag/worldLoader";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -43,9 +45,16 @@ function getChapterByRound(roundNum) {
 // ============================================================
 // Build System Prompt
 // ============================================================
-export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language) {
+// `world` is required and has no default on purpose. A default would be a second
+// copy of every string in public/worlds/, and the two would drift silently; it
+// would also let a missing-wiring bug render as plausible output instead of
+// failing. Callers load it with loadWorld() once per game, exactly as they
+// already load the group config.
+export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel, language, world) {
+  if (!world?.addressForms?.tokens) {
+    throw new Error("buildSystemPrompt: a world is required (see rag/worldLoader.js)");
+  }
   const mainMember = members.find(m => m.id === mainId);
-  const identity = form.identity === "H" ? form.customIdentity : form.identity;
   const modelName = selectedModel || "AI";
   const allTargetIds = [mainId, ...subIds];
   const npcIds = members.map(m => m.id).filter(id => !allTargetIds.includes(id));
@@ -56,19 +65,31 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const langRules = {
     zh: {
       lang: "Chinese (Simplified)",
-      rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean words (like unnie, xi) may appear rarely with Simplified Chinese translation in parentheses.",
+      // The old wording asked for Korean words "rarely, with a translation in
+      // parentheses" and gave "unnie" as its example — which contradicted
+      // section 6 twice over (it wants 欧尼, no gloss, and frequent enough to
+      // feel Korean) from inside a section headed HIGHEST PRIORITY. It predates
+      // the address protocol and was never revisited. Now it defers instead of
+      // competing.
+      rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in Simplified Chinese.",
       socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
     },
     en: {
       lang: "English",
-      rule: "ALL generated content MUST be in English. Korean words (like unnie, xi) may appear rarely with English translation in parentheses. DO NOT output Chinese characters.",
+      rule: "ALL generated content MUST be in English. DO NOT output Chinese characters. Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in English.",
       socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
     },
     ko: {
       lang: "Korean",
-      rule: "ALL generated content MUST be in Korean (한국어). DO NOT output English characters. DO NOT output Chinese characters.",
+      // "DO NOT output English characters" forbade the one thing this prompt
+      // requires: every member's name in MEMBER PROFILES is her Latin stage name,
+      // and section 6's own narration example is "Joy는 창가에 서 있다". Section 1
+      // is headed HIGHEST PRIORITY, so the two could only be resolved one way.
+      // Same shape as the zh Korean-gloss contradiction fixed in step 6 — a rule
+      // written before the data it constrains.
+      rule: "ALL generated content MUST be in Korean (한국어). DO NOT output Chinese characters. Member names are the one exception: spell each member exactly as MEMBER PROFILES spells her — her Latin stage name — and never transcribe it into Hangul or swap in her real name.",
       storyRule: "Story text must be in Korean.",
       socialRule: "Social media content must be in Korean.",
     },
@@ -78,16 +99,24 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Identity background. The seed is what keeps this stable round to round —
   // see backstorySeed below, and "buildSystemPrompt must be a pure function of
   // the save" in CLAUDE.md.
-  const identityBg = getIdentityBackground(form.identity, mainMember?.name, language, backstorySeed(form, mainId));
+  const identityBg = renderIdentityBackground(world, form.identity, mainMember?.name, backstorySeed(form, mainId));
 
-  // Pace rules
-  const paceRules = {
-    "慢热现实向": "[Pace: Slow Burn] Flipped & Ambiguous. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
-    "浪漫情感向": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage. ",
-    "高压舆论向": "[Pace: High Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans.",
-    "修罗海王向": "[Pace: Harem Route] Light comedic. Love triangle scences probability doubled. Members compete more openly for your attention.",
-  };
-  const paceRule = paceRules[form.pace] || "";
+  // The identity and the pace both reached the model as their raw ids, which are
+  // authored in Chinese for every language — so an English player's prompt said
+  // `Alex's identity: 财阀` and `Progression Pace: 高压舆论向`, an internal key in a
+  // language she does not read, while Setup showed her "Chaebol" and "High
+  // Pressure Scandal". Two vocabularies for one thing, and the model got the one
+  // nobody can read: exactly the stage-label bug from step 6, one section up.
+  //
+  // `name` fixes the identity. The pace needs no name field, because its authored
+  // rule already opens with a self-describing "[Pace: High Pressure]" — and
+  // sending the rule closes a live feature gap as well: `paceRules` was built into
+  // a local and never referenced, so "secrecy changes doubled" and "love triangle
+  // scenes probability doubled" were things the player could select and the model
+  // could not know. Both fall back to the id, so a world file without either still
+  // renders something true.
+  const identityName = getIdentity(world, form.identity)?.name || form.identity;
+  const paceLine = getPaceRule(world, form.pace) || `Progression Pace: ${form.pace}`;
 
   // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
   // 1995 idol are not peers even though they may be months apart. Direction is
@@ -98,9 +127,43 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // The previous version computed the same number and printed it as the MEMBER's
   // age texture ("15 years younger") when the sign actually describes the
   // PLAYER, so every profile in every group stated the relationship backwards.
-  const playerAge = parseInt(form.age || 20) || 20;
-  const playerBirthYear = GAME_YEAR - playerAge;
+  //
+  // `form.birthYear` is the truth and `playerAge` is a rendering of it, which is
+  // the opposite of what shipped through v1.3.9: that derived the birth year
+  // from the age as `GAME_YEAR - age`, which assumes the player's birthday has
+  // already passed this year and is therefore wrong for roughly half of all
+  // players. Age cannot determine a birth year — the information is simply not
+  // in it — and since seniority here is a hard year boundary with no tolerance,
+  // a one-year error flips the relationship outright whenever it lands on a
+  // member's birth year. Reported from hand play: a player born 1999-11-19
+  // entering age 26 derived 2000, so a 1999 member became her senior when the
+  // two are peers, and the game told her to say 欧尼 to her own age group.
+  //
+  // The fallback is the legacy path, not a default. A save written before
+  // v1.4.0 carries only `age`, and saveMigrator fills `birthYear` from exactly
+  // this arithmetic so a migrated save keeps producing the prompt it already
+  // had. It stays here rather than throwing the way a missing `world` does,
+  // because a missing world is a wiring bug worth failing loudly on, while an
+  // absent birth year is old player data — and a slightly wrong honorific is a
+  // great deal better than a game that will not load.
+  const playerBirthYear = parseInt(form.birthYear) || (GAME_YEAR - (parseInt(form.age || 20) || 20));
+  const playerAge = GAME_YEAR - playerBirthYear;
   const playerName = form.name || "Player";
+
+  // Every line here is conditional on having content, for the same reason the
+  // member profile block is: a solo run has no sub members and rendered a blank
+  // line mid-list, a custom main member has no `name_kr` and rendered `Kim()`,
+  // and a custom identity has no background and rendered a second blank line.
+  const castLines = [
+    `${playerName}'s identity: ${identityName}`,
+    paceLine,
+    `Main Member: ${mainMember?.name}${mainMember?.name_kr ? `(${mainMember.name_kr})` : ""}`,
+    subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : "",
+    npcList.length > 0
+      ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)`
+      : "",
+    identityBg,
+  ].filter(Boolean).join("\n");
 
   // The setting is South Korea, so Korean address forms are transliterated into
   // whatever language the story is written in — never swapped for a native
@@ -110,42 +173,57 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // 언니 has a settled Chinese transliteration (欧尼), but 님 and 씨 are written
   // in Latin as "nim" and "xi" — a reader knows "会长nim" at sight and would
   // stumble over "会长尼姆".
-  const TOKENS = {
-    // zh has no `ya`, and that is the one place transliteration stops working.
-    // 欧尼 and nim arrive in Chinese carrying only their Korean sense, because
-    // neither is a Chinese word. 呀 IS one - a sentence-final particle, where
-    // Korean 야 is a vocative suffix on a name - so "小饼呀，你来了" parses as
-    // Chinese and reads as slightly wrong to a native speaker. Chinese shows
-    // closeness with the bare given name instead. 呀 survives only in the use
-    // the two languages share, as a standalone exclamation; see the zh token
-    // block below. Reported from hand play in v1.3.9.
-    zh: { unnie: "欧尼", ya: null, nim: "nim", ssi: "xi", sep: "" },
-    // `sep` supplies the hyphen, so the tokens must not carry their own. `ya`
-    // did, and every English prompt has been emitting "Alex--ya" since the
-    // address protocol shipped in v1.3.6 - visible in the committed golden,
-    // which is exactly the kind of thing a golden is for.
-    en: { unnie: "unnie", ya: "ya", nim: "nim", ssi: "ssi", sep: "-" },
-    ko: { unnie: "언니", ya: "야", nim: "님", ssi: "씨", sep: " " },
-  };
-  const tk = TOKENS[language] || TOKENS.zh;
+  // The table now lives in the world file, one per language, because which
+  // forms exist is a property of the SETTING and not of the output language:
+  // Korean seniority is a birth-year boundary that 언니/님/씨 encode, and a
+  // different country needs different forms and a different rule. See
+  // public/worlds/kpop_idol/<lang>.json and CLAUDE.md.
+  //
+  // Two invariants the data carries, both of them bugs that shipped:
+  //   - zh `ya` is null. 呀 is an existing Chinese sentence-final particle, so
+  //     transliterating the Korean vocative 야 imports the wrong grammar.
+  //   - `sep` supplies the hyphen, so no token carries one of its own; `ya`
+  //     did, and every English prompt emitted "Alex--ya" from v1.3.6 to v1.3.9.
+  const tk = world.addressForms.tokens;
   const call = (name, token) => `${name}${tk.sep}${token}`;
   // The casual form only exists where the language has a vocative particle that
-  // survives transliteration. zh does not (see TOKENS), so the clause is dropped
-  // rather than rendered as a duplicate of the plain name.
+  // survives transliteration. zh does not (see the token table), so the clause
+  // is dropped rather than rendered as a duplicate of the plain name.
   const casually = (name) => tk.ya ? `, or "${call(name, tk.ya)}" once close` : "";
 
+  // The narration example in the SPEAKER CONTRACT, one clause per language. The ko
+  // frame is possessive on purpose: the natural "<name>는 창가에 서 있다" hardcodes a
+  // topic particle whose form depends on how the name is PRONOUNCED — 는 after Joy
+  // but 은 after Irene (아이린) — and an example is an instruction, so a wrong one
+  // teaches the error. `의` is invariant after every name, Latin or Hangul, and the
+  // sentence still does the one job it has: naming her by stage name alone.
+  const stoodByTheWindow = language === "zh" ? "正站在窗边"
+    : language === "ko" ? "의 시선이 창가로 향했다"
+    : " was standing by the window";
+
+  // Round-phase beats and the archetypes an unnamed supporting role may be.
+  // Both are English rule text in every language file, so the three world files
+  // must agree on them - smoke Layer I asserts they do.
+  const phaseLines = world.phases.map(p => p.line).join("\n");
+  const a = world.npcArchetypes;
+  const archetypeList = a.length > 1
+    ? `${a.slice(0, -1).join(", ")}, or ${a[a.length - 1]}`
+    : (a[0] || "");
+
   // Identities carrying a workplace register that outranks age. It softens
-  // toward her given name as they get closer — REGISTER covers that.
-  const WORK_TITLE = {
-    "Staff": { zh: "经纪人nim", en: "Manager-nim", ko: "매니저님", kr: "매니저님" },
-    "财阀": { zh: "会长nim", en: "Chairwoman-nim", ko: "회장님", kr: "회장님" },
-    "练习生": { zh: "前辈nim", en: "sunbae-nim", ko: "선배님", kr: "선배님" },
-  }[form.identity] || null;
-  const workTitle = WORK_TITLE ? `"${WORK_TITLE[language] || WORK_TITLE.zh}" (${WORK_TITLE.kr})` : null;
+  // toward her given name as they get closer — REGISTER covers that. The world
+  // file is per-language, so `form` is already the right language and `kr` is
+  // the Hangul the prompt shows alongside it.
+  const WORK_TITLE = getIdentity(world, form.identity)?.workTitle || null;
+  const workTitle = WORK_TITLE ? `"${WORK_TITLE.form}" (${WORK_TITLE.kr})` : null;
+  // The two branches point the title in OPPOSITE directions — a trainee uses it
+  // FOR the members, everyone else is called it BY them — so the "it relaxes as
+  // they grow close" clause has to live inside each branch. Shared, it read "It
+  // relaxes toward her given name", which named the wrong person in one of the two.
   const identityAddress = !workTitle ? null
     : form.identity === "练习生"
-      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work`
-      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages`;
+      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work, relaxing toward a member's plain stage name as that member grows close to her`
+      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages, relaxing toward "${playerName}" as they grow close`;
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
@@ -166,22 +244,50 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
-    return `${m.emoji} ${m.name}(${m.name_kr}) ${role}
+    // EVERY optional field is conditional: an absent one renders nothing at all,
+    // never a label with a trailing space and never the string "undefined".
+    //
+    // Only Age and Address are unconditional, because both are computed here and
+    // can never come out empty. Everything else is data, and step 6's custom
+    // members are allowed to omit all of it — docs/V140_PLAN.md §4.4 requires
+    // exactly three fields (name, birthday, private_personality), so a member
+    // built from the required tier alone has no emoji, no name_kr, no animal and
+    // no prose but one line.
+    //
+    // That branch used to produce four defects in one profile block: `undefined`
+    // twice (emoji, animal) and a trailing space twice (`  Public: `,
+    // `  Queer Texture: `). A trailing space is invisible to a reviewer and costs
+    // the whole ~5,500-token cached prefix — it is the single byte the goldens
+    // caught during the step 3 extraction, after 1,368 clean renders had not.
+    //
+    // The goldens cannot catch it HERE, which is the point worth remembering:
+    // all 175 library member records are complete, so every fixture renders
+    // byte-identically whether these lines are conditional or not. Only the
+    // dedicated Layer I guard fails, and it was verified to. Custom members are
+    // the branch no snapshot can contain.
+    //
+    // Habit sits below the prose fields because it is the staging handle for
+    // them, not a fourth differentiator alongside them.
+    const line = (label, value) =>
+      (value && String(value).trim() ? `\n  ${label}: ${value}` : "");
+    const emojiPart = m.emoji ? `${m.emoji} ` : "";
+    const krPart = m.name_kr ? `(${m.name_kr})` : "";
+    return `${emojiPart}${m.name}${krPart} ${role}
   Age: ${ageLine}
-  Address: ${addressLine}
-  Animal: ${m.animal_plastic}
-  Public: ${m.public_image || ""}
-  Private: ${m.private_personality || ""}
-  Queer Texture: ${m.queer_texture || ""}${m.hidden_conflict ? `\n  Hidden Conflict: ${m.hidden_conflict}` : ""}`;
+  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Habit", m.habit)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
-  // JSON schema
-  //const mainSocial = `"${mainId}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`;
-  //const subSocials = subIds.map(id => `"${id}": { "bubble": [{"content":"msg","hasPhoto":false}], "instagram": null, "weverse": null }`).join(",\n    ");
-  //const kktFields = allTargetIds.map(id => `"${id}": ["msg"]`).join(",\n    ");
-  // change to brief schema version
-  const mainSocial = `"${mainId}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`;
-  const subSocials = subIds.map(id => `"${id}": {"bubble":[{"content":"msg","hasPhoto":false}],"instagram":null,"weverse":null}`).join(",");
+  // JSON schema. Written without the spaces a formatter would add: the schema is
+  // ~8 lines of the cached prefix and reads the same to the model either way.
+  // `photoDesc` was missing from the schema while BubbleOverlay has always rendered
+  // it: `hasPhoto` drew a photo frame whose only content is `photoDesc`, which the
+  // model was never asked for, so the frame could only ever come out empty. And the
+  // example pinned the flag to `false` twice over (here and in RULES), so it was
+  // never set anyway — a UI feature that could not fire and could not have rendered
+  // if it had.
+  const bubbleShape = `{"content":"msg","hasPhoto":false,"photoDesc":""}`;
+  const mainSocial = `"${mainId}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`;
+  const subSocials = subIds.map(id => `"${id}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`).join(",");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
   return `You are the Dungeon Master (DM) of a yuri dating simulator. You must respond with valid json output. This is a parallel-universe fictional work. Current AI: ${modelName}
 
@@ -197,7 +303,8 @@ ${lr.socialRule}
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text, code fences, explanations, verification checks, or natural language outside JSON.
-Every key (statChanges, affectionChanges, socialContent, kktMessages, story, summary, options) must appear EXACTLY ONCE.
+Every key (scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options) must appear EXACTLY ONCE.
+Emit them in that order. The story comes BEFORE socialContent and kktMessages, so what she posts and texts follows from what happened, and so the scene is not written around a message she has not read yet.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.
 story value = ONE continuous text, no JSON syntax inside it.
@@ -207,23 +314,23 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 ╔══════════════════════════════════════════╗
 ║ 3. STORY GENERATION                      ║
 ╚══════════════════════════════════════════╝
-- MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds.
+- MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
 - Story length: 350 - 450 words in ${lr.lang}
 - Style: Literary, emotional, sensory details (sight/sound/touch/smell).
 - Open with 1-2 sentences establishing scene atmosphere
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
-- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan. 
-- NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates.
-- Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
-- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy.
-- Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma.
-- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation.
+- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: ${archetypeList}.
+- NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
+- HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up ${playerName}'s screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
+${phaseLines}
 
 ╔══════════════════════════════════════════╗
 ║ 4. GROUP BACKGROUND                      ║
 ╚══════════════════════════════════════════╝
-This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.
+${groupConfig.loreComposed
+  ? `This cast is its own group and everything known about it is written below. It has NO published history, so there is none to reference: build their shared past as the story goes — who joined when, what they have already been through together — and keep it consistent once you have written it. Never borrow a real group's history, discography or agency, and never add a member who is not in MEMBER PROFILES.`
+  : `This is the established world-setting. Draw from it freely — reference group history, inside jokes, shared memories, and past events to enrich scene texture and continuity.`}
 ${groupConfig.groupLore}
 
 ╔══════════════════════════════════════════╗
@@ -235,13 +342,8 @@ ${memberDetails}
 ╔══════════════════════════════════════════╗
 ║ 6. CAST IDENTITY & ADDRESS               ║
 ╚══════════════════════════════════════════╝
-THE PLAYER: ${playerName} — a young WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
-Identity: ${form.identity}
-Progression Pace: ${form.pace}
-Main Member: ${mainMember?.name}(${mainMember?.name_kr})
-${subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : ""}
-${npcList.length > 0 ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)` : ""}
-${identityBg}
+THE PLAYER: ${playerName} — a WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
+${castLines}
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -249,10 +351,15 @@ ${identityBg}
 - A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${language === "zh" ? "正站在窗边" : language === "ko" ? "는 창가에 서 있다" : " was standing by the window"}".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
+
+-- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
+- ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
+- The members' working life — practice, schedules, comebacks, the dorm, this company — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no practice here to be late for and no place in their schedule, and no member reminds her of one.
+- When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from the group's calendar.
 
 -- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}. It relaxes toward her given name as they grow close.` : ""}
+Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}.` : ""}
 How much of that formality she actually speaks is a blend of three things, none of which decides alone:
   1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
   2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
@@ -260,47 +367,40 @@ How much of that formality she actually speaks is a blend of three things, none 
 A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in ${lr.lang} as transliterations, because swapping them for a native equivalent throws away the setting.
-${language === "zh" ? `Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.
-  언니 -> "欧尼"  (NEVER "姐"/"姐姐"/"姐妹" — that reads as a Chinese family drama, not K-pop)
-  님 -> "nim" in Latin letters (e.g. "会长nim，早上好") — NEVER "尼姆"
-  씨 -> "xi" in Latin letters (e.g. "珠泫xi") — NEVER "西"
-  야 -> "呀" ONLY as a standalone exclamation opening a line ("呀！你胆子真大了") — surprise, embarrassment, mock indignation. NEVER as a suffix on a name: "小饼呀" reads as Chinese grammar, not Korean warmth, and a plain "小饼，你来了" is what a native speaker writes. Closeness in Chinese is the bare given name or a nickname, never an added particle
-  선배 -> "前辈" (or "前辈nim")    존댓말 vs 반말: show it in how formal the sentence endings feel` :
-  language === "en" ? `  언니 -> "unnie" (e.g. "Irene-unnie")  — NEVER "big sister", "sis" or "miss"
-  씨 -> "-ssi" (e.g. "Ju-hyun-ssi")    님 -> "-nim" (e.g. "Manager-nim")
-  야/아 -> "-ya"/"-ah" (e.g. "Yerim-ah") — warm and close, or a flash of irritation
-  선배 -> "sunbae"    존댓말 vs 반말: show it in how formal the phrasing feels` :
-  `  언니 / 씨 / 님 / 야 / 아 / 선배님 을 그대로 쓴다. 존댓말과 반말의 차이를 어미로 드러낸다.`}
+${world.addressForms.guide}
 A Korean word dropped into the prose is texture, not a translation error. Keep them frequent enough to feel Korean and rare enough to stay readable.
 
 ╔══════════════════════════════════════════╗
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
 - LANGUAGE: ${lr.lang}.
-- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual.
+- ALL of it comes out of THIS round. A member posts about the day she has just had — the practice she just left, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
+- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual. A post may carry a photo.
 - Instagram: Photo social. Style: aesthetic, short caption + emoji.
 - Weverse: Fan community. Style: friendly, natural.
 - KKT (KakaoTalk): Private chat, member-to-player. Style: flirty/caring/casual.
-- KKT IS A LOCKED CHANNEL. [KKT Channels] in CURRENT STATE lists every member as unlocked or LOCKED. A LOCKED member has no private line to ${playerName} yet: output [] for her id, and the story MUST NOT mention her texting, messaging, KakaoTalk, or a phone buzzing from her. Those messages do not exist — writing them produces a scene about a message the player never receives.
+- KKT IS DELIVERED BY THE APP, NEVER BY THE STORY. Whatever you put in kktMessages is shown to ${playerName} in her own Kakao window after this round. The story therefore NEVER contains a Kakao message, a chat transcript, a phone screen lighting up, or a notification — for EVERY member, the unlocked ones included. Writing the message into the prose delivers it twice, in the wrong voice, before she has looked at her phone.
+- KKT IS A LOCKED CHANNEL. [KKT Channels] in CURRENT STATE lists every member as unlocked or LOCKED. A LOCKED member has no private line to ${playerName} yet: output [] for her id. Those messages do not exist, and narrating one produces a scene about a message the player never receives.
 - Only main and sub members generate social content. NPC members DO NOT generate social content.
 
 ╔══════════════════════════════════════════╗
 ║ 8. NPC RULES                             ║
 ╚══════════════════════════════════════════╝
-- NPC: max 1 dialogue/round, 2-round cooldown.
-- All members must be present in group scenes
+- NPC: max 1 dialogue/round, 2-round cooldown. [Rounds Absent] marks them (npc) and counts the cooldown for you — one at 2 or more may speak this round.
+- All members must be present in group scenes.
 
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Relationship stages: - Stages: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial.
+- Relationship stages, in order: ${stageNamesFor(language).map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
 - Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
 
 ╔══════════════════════════════════════════╗
 ║ 10. STAT SYSTEM                          ║
 ╚══════════════════════════════════════════╝
-Player 4 stats: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood | 📅Round
-LLM decides stat changes +/-1-10 each round, NOT mandatory.
+Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
+📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
+Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -309,38 +409,36 @@ LLM decides stat changes +/-1-10 each round, NOT mandatory.
   "scene": "Location description in ${lr.lang}",
   "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
   "affectionChanges": { "${mainId}": 0${subIds.map(id => `, "${id}": 0`).join("")} },
+  "story": "Story text in ${lr.lang} (350-450 words). Pure story, NO stat bars, NO options.",
+  "summary": "ONE sentence, 100-150 characters, in English: who appeared and what emotionally shifted.",
   "socialContent": {
     ${mainSocial}${subIds.length > 0 ? ",\n    " + subSocials : ""}
   },
   "kktMessages": {
     ${kktFields}
   },
-  "story": "Story text in ${lr.lang} (350-450 words). Pure story, NO stat bars, NO options.",
-  "summary": "One sentence (~100 chars) summarizing what happened this round and who appeared. In English.",
   "options": ["A. option text", "B. option text", "C. option text", "D. option text"]
 }
 
 RULES:
-- scene: A short location description (e.g., "SM Practice Room, 10PM").
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
-- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false}], NOT a string.
+- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
 - socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
-- summary: ALWAYS required. One short English sentence capturing who appeared and what emotionally shifted.
+- summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
-- For Chinese/English: bubble/social content MUST NOT be in Korean.
+- For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
-
-// Change to:
 ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}` : ''}`;
 }
 
 // ============================================================
-// Identity Background (Trilingual)
+// Backstory seed
 // ============================================================
 
 // The system prompt is rebuilt from scratch every round and must come out
@@ -354,6 +452,9 @@ ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}
 // playthroughs. Every field here is chosen at character setup and never changes
 // afterwards, so the value is stable for the life of a save and survives
 // save/load with no new field to persist and nothing to migrate.
+//
+// The text it indexes into now lives in the world file, as `variants` on the
+// identity; renderIdentityBackground applies this seed to it.
 function backstorySeed(form, mainId) {
   let h = 0x811c9dc5;                                            // FNV-1a, as in aliyunRoute.js
   for (const ch of `${form.name || ""}|${form.age || ""}|${form.pace || ""}|${mainId || ""}`) {
@@ -363,73 +464,52 @@ function backstorySeed(form, mainId) {
   return h;
 }
 
-function getIdentityBackground(identity, mainMemberName, language = "zh", seed = 0) {
-  const name = mainMemberName || "her";
-  // Two picks from one seed. Separate bit ranges, so the keepsake is not locked
-  // to the breakup reason - the low bits alone would only ever yield 4 of the
-  // 16 combinations.
-  const pickReason = seed % 4;
-  const pickKeepsake = (seed >>> 16) % 4;
-  const sepReasons = {
-    zh: ["事业规划不同", "家庭压力", "年少不懂事", "聚少离多"],
-    en: ["different career plans", "family pressure", "youthful immaturity", "long distance"],
-    ko: ["서로 다른 진로 계획", "가족의 압력", "어린 시절의 미숙함", "바쁜 스케줄로 인한 소원함"],
-  };
-  const keepsakes = {
-    zh: ["她送的手链", "一起拍的照片", "她写的信", "你们共同听过的CD"],
-    en: ["a bracelet she gave", "a photo together", "a letter she wrote", "a CD you shared"],
-    ko: ["그녀가 준 팔찌", "함께 찍은 사진", "그녀가 쓴 편지", "함께 듣던 CD"],
-  };
-  const reasons = sepReasons[language] || sepReasons.zh;
-  const keeps = keepsakes[language] || keepsakes.zh;
-
-  const backgrounds = {
-    zh: {
-      "练习生": `[身份背景] 你是${name}的练习生后辈, 与${name}在公司练习室自然相识。\ 典型事件：向${name}请教舞台发声和舞蹈技巧；\ 在公司走廊偶遇时${name}顺手帮你整理了一下发型；\ 深夜练习室和${name}两人练到最后，互相袒露心声；\ 被选入公司综艺后辈特辑与${name}共同出镜等 \ 优势：接触自然，有共同训练记忆。劣势：公司内规严格，前后辈身份差异。`,
-      "Staff": `[身份背景] 你是${name}的新任Staff(助理+经纪人)，负责组合打歌行程、妆发协调、后台照顾${name}等。\ 典型事件：去练习室探班给全组带奶茶，${name}对此感到意外且有些受宠若惊；\ 深夜陪${name}下班开车送她回宿舍，接纳她的脆弱； \ 打歌后台关心${name}状态督促她吃饭等 \ 优势：能接触真实台下状态。劣势：职场边界明确，暧昧可能被认定为失职。`,
-      "韩娱艺人": `[身份背景] 你是其他公司的kpop女idol, 与${name}有合作机会。\ 典型事件：你和${name}两人私下排练合作舞台，逐渐熟悉和默契；\ 你和${name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析; \ 你和${name}的综艺同框被剪辑成暧昧视频广泛流传等。 \ 优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。`,
-      "粉丝": `[身份背景] 你是${name}的粉丝，粉丝活动中她似乎对你有超过其他粉丝的特殊对应。\ 典型事件：打歌舞台你抢到前排，${name}的眼神似乎在你身上多停留了一秒；\ 签售会${name}注意到你换了发型/装扮/风格主动提及 \ 你在${name}的bubble粉丝留言板发了条普通的消息, 她接着你的话题和粉丝们聊天 \ 粉丝活动你和${name}拍双人拍立得时${name}凑近搭上了你的肩 \ 优势：对${name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。`,
-      "留学生": `[身份背景] 你是来韩留学生，因与${name}因有共同的舞蹈/唱歌/艺术爱好偶然在日常活动中与${name}相识。优势：有共同爱好, 在日常活动中自然接触。劣势：身份差距、年龄差异`,
-      "财阀": `[身份背景] 你是${name}组合所在公司的新任年轻女会长，主导组合事业走向。\ 典型事件：与${name}所在女团开回归企划讨论会，${name}提出想法令你刮目相看；\ 借关心成员们的名义亲自去探班制造和${name}相处机会；\ 你心疼${name}辛苦于是让秘书给整个组合带薪放假、发奖金等 \ 优势：充足资金和资源。劣势：身份差距。`,
-      "主线成员前女友": `[特殊身份背景-主线成员前女友]
-- 你和${name}曾是学生时代的恋人，几年前因${reasons[pickReason]}分手
-- 你至今保留着${keeps[pickKeepsake]}
-- 现在因工作调动重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
-- 其他成员可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行`,
-    },
-    en: {
-      "练习生": `[Identity: Trainee] You are a trainee junior of ${name}, and naturally met through training at the company practice room. Typical events: Asking ${name} for vocal and dance tips; ${name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside ${name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy.`,
-      "Staff": `[Identity: Staff] You are ${name}'s new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after ${name} backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching ${name} off guard and feeling touched; Driving ${name} home late at night after schedules, being there for her vulnerable moments; Checking in on ${name} backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct.`,
-      "韩娱艺人": `[Identity: K-pop Artist] You are a K-pop idol from another company, with opportunities to collaborate with ${name}. Typical events: Rehearsing a collaboration stage together in private, growing familiar and in sync; Performing together on Music Bank, your interactions getting screenshotted and wildly analyzed by CP fans; Your variety show appearances together being edited into romantic compilations that circulate widely. Advantage: Equal status, collaboration opportunities. Disadvantage: Extremely high public attention, any interaction dissected by CP fans and solo stans from both sides.`,
-      "粉丝": `[Identity: Fan] You are ${name}'s fan, and during fan events she seems to give you special treatment beyond what other fans receive. Typical events: You grab a front-row spot at a music show, and ${name}'s gaze seems to linger on you a second longer; At a fansign, ${name} notices and brings up your new hairstyle/outfit/style change; You post an ordinary message on ${name}'s Bubble, and she picks up your topic to chat with the fans; During a fan event two-shot Polaroid, ${name} leans in and puts her hand on your shoulder. Advantage: Deep knowledge of ${name}. Disadvantage: Highly sensitive identity, exposure means fandom trial.`,
-      "留学生": `[Identity: International Student] You are an international student in Korea who met ${name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference.`,
-      "财阀": `[Identity: Chaebol] You are the new young female chairwoman of ${name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with ${name}'s group, where ${name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around ${name}; Feeling for ${name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap.`,
-      "主线成员前女友": `[Special Identity: Main Member's Ex-Girlfriend]
-- You and ${name} were lovers back in your school days, breaking up years ago due to ${reasons[pickReason]}
-- You still keep ${keeps[pickKeepsake]} to this day
-- Now reunited through a work transfer: awkwardness, complex feelings, unspoken words. Early interactions involve deliberate distance, averted eyes, polite but distant
-- Other members may or may not know about your past. As the game progresses, you may reconcile or go your separate ways`,
-    },
-    ko: {
-      "练习生": `[신분: 연습생] 당신은 ${name}의 연습생 후배로, 회사 연습실에서 자연스럽게 알게 되었습니다. 주요 이벤트: ${name}에게 보컬과 댄스 팁을 구함; 복도에서 우연히 마주친 ${name}이 손수 머리를 정리해 줌; 늦은 밤 연습실에 둘만 남아 서로의 진심을 털어놓음; 회사 예능 후배 특집에 선발되어 ${name}와 함께 출연. 장점: 자연스러운 접촉, 함께한 훈련의 추억. 단점: 엄격한 회사 규정, 선후배 신분 차이.`,
-      "Staff": `[신분: 스태프] 당신은 ${name}의 새로운 스태프(어시스턴트+매니저)로, 그룹의 음악방송 스케줄, 헤어메이크업 조율, 대기실에서 ${name}를 챙기는 일을 맡고 있습니다. 주요 이벤트: 연습실에 밀크티를 들고 찾아가 전 멤버에게 나눠주자 ${name}가 의외라며 감동함; 늦은 밤 스케줄 끝난 ${name}를 차로 숙소까지 데려다주며 그녀의 약한 모습을 감싸줌; 음악방송 대기실에서 ${name}의 컨디션을 살피고 밥을 꼭 챙겨 먹게 함. 장점: 무대 밖 진짜 모습을 볼 수 있음. 단점: 명확한 직장 경계, 애매한 관계는 실책으로 간주될 수 있음.`,
-      "韩娱艺人": `[신분: 케이팝 아티스트] 당신은 다른 소속사의 케이팝 여성 아이돌로, ${name}와 협업 기회가 있습니다. 주요 이벤트: 둘이서만 비공개로 합동 무대를 연습하며 점점 가까워지고 호흡이 맞아감; 뮤직뱅크에서 함께한 무대, 상호작용이 CP 팬들에게 캡처되어 열렬히 분석됨; ${name}와의 예능 동반 출연 장면이 묘한 분위기의 영상으로 편집되어 널리 퍼짐. 장점: 동등한 지위, 협업 기회. 단점: 대중의 관심이 극도로 높아 모든 동선이 CP 팬과 양측 독팬에게 해석됨.`,
-      "粉丝": `[신분: 팬] 당신은 ${name}의 팬으로, 팬 이벤트에서 그녀가 다른 팬들에게는 하지 않는 특별한 대응을 당신에게만 보여주는 듯합니다. 주요 이벤트: 음악방송에서 앞줄을 차지한 당신에게 ${name}의 시선이 1초 더 머문 듯한 순간; 팬사인회에서 ${name}가 당신의 바뀐 헤어스타일/스타일링/분위기를 먼저 알아채고 말을 건넴; ${name}의 버블에 평범한 메시지를 남겼는데 그녀가 당신의 주제를 이어받아 팬들과 대화를 나눔; 팬 이벤트 투샷 폴라로이드를 찍을 때 ${name}가 가까이 다가와 어깨에 손을 올림. 장점: ${name}에 대한 깊은 이해. 단점: 극도로 민감한 신분, 발각되면 팬덤의 재판을 받게 됨.`,
-      "留学生": `[신분: 유학생] 당신은 한국에 유학 온 학생으로, 춤/노래/예술이라는 공통된 취미를 통해 일상 속에서 우연히 ${name}와 알게 되었습니다. 장점: 공통된 취미, 일상 활동 속 자연스러운 접촉. 단점: 신분 격차, 나이 차이.`,
-      "财阀": `[신분: 재벌] 당신은 ${name}의 그룹 소속사에 새로 부임한 젊은 여성 회장으로, 그룹의 활동 방향을 이끌고 있습니다. 주요 이벤트: ${name}의 그룹과 컴백 기획 회의를 하던 중 ${name}가 제안한 아이디어에 감탄함; 멤버들을 살피러 왔다는 명목으로 직접 연습실을 방문해 ${name}와 마주할 기회를 만듦; ${name}의 고생이 안쓰러워 비서를 시켜 그룹 전원에게 유급 휴가와 보너스를 지급함. 장점: 풍부한 자금과 자원. 단점: 신분 격차.`,
-      "主线成员前女友": `[특별 신분: 메인 멤버의 전 여자친구]
-- 당신과 ${name}는 학창 시절 연인이었으며, 몇 년 전 ${reasons[pickReason]}로 인해 헤어졌습니다
-- 당신은 아직도 ${keeps[pickKeepsake]}을/를 간직하고 있습니다
-- 지금은 업무 발령으로 재회: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠
-- 다른 멤버들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다`,
-    },
-  };
-  return (backgrounds[language] || backgrounds.zh)[identity] || "";
-}
-
 // ============================================================
 // Create Initial Stats
 // ============================================================
+/**
+ * Which members the prose actually named — the fact behind `[Rounds Absent]`.
+ *
+ * Exported and pure so it is unit-tested directly rather than only reachable through
+ * a live round, which is the same reason `addSaveSlot` is exported from utils.js.
+ * Its two bugs were both invisible to a source-regex check.
+ *
+ * This used to be a single fabricated entry for whichever member `pickPrimaryMember`
+ * drew AFTER the round was generated, so the record described a lottery rather than
+ * the game. It then matched `m.name` alone, which reported false ABSENCES — worse than
+ * reporting none. Narration may use a member's real name freely (only address forms are
+ * restricted to dialogue), and Chinese prose does so constantly: one pinned 25-round zh
+ * run had 29 of 75 (round, member) pairs naming her ONLY as 涩琪 or 胜完. Those rounds
+ * told the model "Seulgi:5" about someone who was in the previous scene — a fact
+ * contradicting its own context, which is the one thing a fact in the tail must not do.
+ *
+ * The given-name form counts because that is what prose writes: 孙胜完 shortens to 胜完,
+ * 배주현 to 주현, "Bae Ju-hyun" to "Ju-hyun". Longest alias first, masking each match, so
+ * a name that is a substring of another's cannot claim someone else's appearance.
+ */
+export function membersNamedIn(story, members = []) {
+  let scan = story || "";
+  const found = [];
+  const aliases = (m) => {
+    const kr = m?.name_kr || "";
+    // One syllable of surname in Korean and in its zh/en renderings alike.
+    const given = kr.includes(" ") ? kr.slice(kr.indexOf(" ") + 1) : kr.slice(1);
+    // Two characters minimum for either real-name form. A single CJK character occurs
+    // inside ordinary words constantly — the same reason the prose analyzer stopped
+    // counting a bare 아 as an address form after it reported 194 of them in 20 rounds.
+    return [m?.name, ...[kr, given].filter((s) => s.length >= 2)].filter(Boolean);
+  };
+  const ranked = members
+    .flatMap((m) => aliases(m).map((alias) => ({ id: m.id, alias })))
+    .sort((a, b) => b.alias.length - a.alias.length);
+  for (const { id, alias } of ranked) {
+    if (!scan.includes(alias)) continue;
+    if (!found.includes(id)) found.push(id);
+    scan = scan.split(alias).join(" ");
+  }
+  return found;
+}
+
 export function createInitialStats(mainId, subIds) {
   const multiAff = {};
   subIds.forEach(id => {
@@ -459,9 +539,15 @@ function parseLLMOutput(text) {
     text = text.substring(jsonStart);
   }
 
-  // Preprocess: escape unescaped newlines in story field
-  // "summary" now sits between "story" and "options" in the schema
-  const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"(?:summary|options)"/);
+  // Preprocess: escape unescaped newlines in story field.
+  //
+  // The following key is matched generically, not by name. It was `"options"`,
+  // then `"(?:summary|options)"` when summary was inserted between them — so the
+  // repair silently stopped working each time the schema was reordered, and it is
+  // the repair that keeps a model emitting raw newlines inside `story` parseable
+  // at all. Any key ends the story field; naming them couples this to an order it
+  // has no reason to know.
+  const storyMatch = text.match(/"story":\s*"([\s\S]*?)"\s*,\s*"[a-zA-Z_]\w*"\s*:/);
   if (storyMatch) {
     const rawStory = storyMatch[1];
     const escapedStory = rawStory
@@ -591,7 +677,15 @@ export function validateAndFixOutput(result) {
     for (const [mid, platforms] of Object.entries(result.socialContent)) {
       if (platforms && typeof platforms.bubble === 'string') platforms.bubble = [{ content: platforms.bubble, hasPhoto: false }];
       if (platforms && Array.isArray(platforms.bubble)) {
-        platforms.bubble = platforms.bubble.map(item => typeof item === 'string' ? { content: item, hasPhoto: false } : item);
+        platforms.bubble = platforms.bubble.map(item => {
+          const post = typeof item === 'string' ? { content: item, hasPhoto: false } : { ...item };
+          // The two fields are one feature and BubbleOverlay renders the frame off
+          // the flag alone: a post claiming a photo with nothing to describe draws
+          // an empty box. Keep them consistent here rather than in the component,
+          // so the same rule holds for a save written by an older build.
+          if (post.hasPhoto && !String(post.photoDesc || "").trim()) post.hasPhoto = false;
+          return post;
+        });
       }
     }
   }
@@ -619,7 +713,7 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
-  groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
+  groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
   timeSpeed = "default",
 }) {
   const allTargetIds = [mainId, ...subIds];
@@ -639,9 +733,9 @@ export async function executeRound({
   // Tier 1 (static)  — system prompt: rules, lore, member profiles, JSON schema
   // Tier 2 (ledger)  — append-only history: 2/3 rounds cache hit
   // Tier 3 (dynamic) — stats, affections, KKT: always cache miss, kept small
-  const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language);
+  const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
-  const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds);
+  const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
 
   // Step 1.5: Init round variables
   let roundNotifs = [];
@@ -679,7 +773,6 @@ export async function executeRound({
     scene: parsed.scene || stats.scene,
     chapter: getChapterByRound(stats.week + 1),
   };
-  // ... rest stays exactly the same ...
 
   if (parsed.affectionChanges) {
     newStats.multiAff = { ...stats.multiAff };
@@ -701,11 +794,20 @@ export async function executeRound({
     const pv = prevAff[id] || 0, cv = currentAff[id] || 0;
     if (getStageIdx(cv) > getStageIdx(pv)) {
       const m = members.find(mb => mb.id === id);
-      stageChanges.push({ memberId: id, memberName: m?.name, from: getStageName(pv), to: getStageName(cv) });
+      stageChanges.push({ memberId: id, memberName: m?.name, from: stageNameIn(pv, language), to: stageNameIn(cv, language) });
     }
   });
 
-  const primaryId = pickPrimaryMember(allTargetIds, currentAff, memory);
+  // `pickPrimaryMember` used to be called here, and its result was used for exactly
+  // one thing: writing a fabricated `memberAppearances` entry for whoever the lottery
+  // drew AFTER the round was already generated. Appearances are observed from the prose
+  // now, so the draw fed nothing at all — a `Math.random()` in the round path whose
+  // result was discarded.
+  //
+  // The module is left in place, not deleted: whether to wire the engine into the
+  // prompt (a hint in the tail, drawn BEFORE the call) or remove it is a decision about
+  // whether rotation should feel mechanical, and it is written up in
+  // `docs/PROPOSALS.md` §4. If it is wired, the call site is a different one.
   const relationshipEvent = checkRelationshipEvents(newStats, currentAff, allTargetIds, roundNum, members, language);
   const achievement = checkAchievement(newStats, currentAff, roundNum, language);
 
@@ -740,7 +842,7 @@ export async function executeRound({
   pendingSocialFeeds = socialFeedsUpdate;
   pendingNotifications = roundNotifs;
 
-  const npcAppearances = { ...memory.npcAppearances };
+  const namedInStory = membersNamedIn(parsed.story || "", members);
 
   // Update memory — append new full-story entry to history ledger
   const updatedMemory = updateMemory(memory, {
@@ -749,8 +851,7 @@ export async function executeRound({
     historyEntry: { round: roundNum, type: 'full', text: parsed.story || "", choice: playerChoice, summary: parsed.summary || "" },
     kktMessages: filteredKkt,
     stageChanges,
-    memberAppearances: { [primaryId]: [roundNum] },
-    npcAppearances,
+    memberAppearances: Object.fromEntries(namedInStory.map(id => [id, [roundNum]])),
   });
 
   return {

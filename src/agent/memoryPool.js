@@ -1,7 +1,7 @@
 // src/agent/memoryPool.js
 // 1-Tier Stepped Window: single append-only history ledger for KV prefix cache optimization
 
-import { getStageName } from "../config/stageConfig";
+import { stageNameIn } from "../config/stageConfig";
 import { HISTORY_FULL_MAX, HISTORY_PRUNE_BATCH, KKT_MAX, KKT_THRESHOLD } from "../config/constants";
 
 export function createEmptyMemory() {
@@ -12,8 +12,11 @@ export function createEmptyMemory() {
     history:           [],    // [{round, type:'summary'|'full', text, choice?, summary?}]
     kktMessages:       {},    // {memberId: [{sender, content}]} max KKT_MAX per member
     stageChanges:      [],    // [{memberId, from, to}] last 10
-    memberAppearances: {},    // {memberId: [roundNums]} last 10
-    npcAppearances:    {},    // {memberId: lastRoundNum}
+    // {memberId: [roundNums]} last 10 — EVERY member, NPCs included, and observed
+    // from the prose rather than drawn. `npcAppearances` used to sit beside this as a
+    // second record in a different shape; nothing ever wrote it, so the tail line it
+    // fed was never sent to any model. An old save may still carry the key.
+    memberAppearances: {},
   };
 }
 
@@ -54,7 +57,7 @@ export function collapseHistoryIfNeeded(memory) {
 export function updateMemory(memory, updates) {
   const {
     playerStats, affections, historyEntry,
-    kktMessages, stageChanges, memberAppearances, npcAppearances,
+    kktMessages, stageChanges, memberAppearances,
   } = updates;
 
   if (playerStats) memory.playerStats = playerStats;
@@ -89,10 +92,6 @@ export function updateMemory(memory, updates) {
       memory.memberAppearances[mid] = [...(memory.memberAppearances[mid] || []), ...rounds].slice(-10);
     });
   }
-  if (npcAppearances) {
-    memory.npcAppearances = { ...memory.npcAppearances, ...npcAppearances };
-  }
-
   return memory;
 }
 
@@ -104,7 +103,13 @@ export function buildHistoryLedger(memory) {
     if (h.type === 'summary') {
       parts.push(`R${h.round}: ${h.text}`);
     } else {
-      parts.push(`=== Round ${h.round} ===\n${h.text}\nChoice: ${h.choice || ""}`);
+      // The Choice line is omitted rather than rendered empty: `Choice: ` with a
+      // trailing space is the same invisible byte that has cost the cached prefix
+      // before, and this block is the cacheable one. Every path in App.jsx supplies
+      // a choice (round 1 sends "Game start"), so this is defence at the renderer
+      // for a legacy or hand-built entry, not a case the app produces.
+      parts.push(`=== Round ${h.round} ===\n${h.text}`
+        + (h.choice ? `\nChoice: ${h.choice}` : ""));
     }
   });
   return parts.join("\n");
@@ -112,7 +117,11 @@ export function buildHistoryLedger(memory) {
 
 // Serializes the dynamic tail — changes every round, always cache miss, kept small.
 // Contains: player stats, affections, stage changes, NPC appearances, KKT.
-export function buildDynamicTail(memory, members, roundMemberIds = []) {
+// `language` defaults to zh so an older caller keeps today's behaviour exactly —
+// the stage labels were Chinese for everyone until v1.4.0 step 6, and defaulting
+// to the player's language instead would have silently moved the tail for the
+// tests that call this with three arguments.
+export function buildDynamicTail(memory, members, roundMemberIds = [], language = "zh") {
   const parts = [];
 
   if (memory.playerStats) {
@@ -121,25 +130,54 @@ export function buildDynamicTail(memory, members, roundMemberIds = []) {
   }
 
   const affMap = memory.affections || {};
-  const affLines = members.map(m => {
+  const nameOf = (mid) => {
+    const m = members.find(mb => mb.id === mid);
+    return `${m?.emoji || ""}${m?.name || mid}`;
+  };
+  // Only romanceable members have a score. Listing the NPCs too printed every one
+  // of them as `0(Stranger)` for the whole game — telling the model in round 30
+  // that the main member's groupmate, who has been in most scenes, is a stranger.
+  // An empty roundMemberIds means an older caller that passed no round roster, so
+  // it keeps the old behaviour of listing everyone.
+  const scored = roundMemberIds.length > 0
+    ? members.filter(m => roundMemberIds.includes(m.id))
+    : members;
+  const affLines = scored.map(m => {
     const aff = affMap[m.id] || 0;
-    return `${m.emoji}${m.name}:${aff}(${getStageName(aff)})`;
+    return `${m.emoji}${m.name}:${aff}(${stageNameIn(aff, language)})`;
   });
   parts.push(`[Affections] ${affLines.join(" | ")}`);
 
   if (memory.stageChanges?.length > 0) {
     const rc = memory.stageChanges.slice(-3);
-    parts.push(`[Stage Changes] ${rc.map(c => `${c.memberId}: ${c.from}→${c.to}`).join(" | ")}`);
+    // By display name, like every other line in this block. It used to print the
+    // raw member id, so the model had to match `irene` to `🐰Irene` one line above
+    // — and a custom member's id is a timestamp, which matches nothing at all.
+    parts.push(`[Stage Changes] ${rc.map(c => `${nameOf(c.memberId)}: ${c.from}→${c.to}`).join(" | ")}`);
   }
 
-  if (memory.npcAppearances && Object.keys(memory.npcAppearances).length > 0) {
-    const npcInfo = Object.entries(memory.npcAppearances)
-      .map(([mid, round]) => {
-        const m = members.find(mb => mb.id === mid);
-        return `${m?.emoji || ""}${m?.name || mid}(last: round ${round})`;
-      })
-      .join(" | ");
-    parts.push(`[NPC Appearances] ${npcInfo}`);
+  // Section 3 asks for rotation — sub members every 2-3 rounds, nobody absent for
+  // more than 3 — and live runs showed it comprehensively ignored: a romanceable
+  // member appearing once in twenty rounds, an NPC the prompt says must appear in the
+  // background appearing never, across three languages and four identities.
+  //
+  // The model was not refusing the rule. Nothing told it how long anyone had been
+  // away: [Affections] is a score, not a history. So this is that fact, counted in
+  // the unit the rule is written in — rounds of ABSENCE, so 0 means she was in the
+  // previous round and 4 means she has missed the last four.
+  //
+  // Omitted entirely on round 1, when every value would read "never".
+  const now = memory.playerStats?.week
+    ?? (memory.history?.length ? memory.history.at(-1).round + 1 : 1);
+  const appearances = memory.memberAppearances || {};
+  if (Object.keys(appearances).length > 0) {
+    const absence = members.map(m => {
+      const seen = appearances[m.id] || [];
+      const npc = roundMemberIds.length > 0 && !roundMemberIds.includes(m.id) ? "(npc)" : "";
+      const value = seen.length ? Math.max(0, now - Math.max(...seen) - 1) : "never";
+      return `${m.emoji || ""}${m.name}${npc}:${value}`;
+    });
+    parts.push(`[Rounds Absent] ${absence.join(" | ")}`);
   }
 
   // KKT is gated on affection, and the model has to be told which channels are

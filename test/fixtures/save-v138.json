@@ -1,0 +1,67 @@
+{
+  "_comment": [
+    "A save slot in the shape SaveOverlay wrote through v1.3.9: no schema, no",
+    "groupId, no worldId, no roster, and a form carrying age instead of a birth",
+    "year. Pinned so the migration has something real to run against rather than",
+    "something written to make it pass.",
+    "",
+    "The cast is TWICE on purpose. red_velvet is both the app's default selection",
+    "and the migrator's last-resort fallback, so a save of Red Velvet would pass",
+    "every check while the group scan did nothing at all.",
+    "",
+    "jeongyeon, momo, sana, mina and chaeyoung are not in the form: they are the",
+    "NPCs today's getNpcMembers derives, and reproducing that set exactly is the",
+    "gate this fixture exists for."
+  ],
+  "id": 1758700000000,
+  "name": "Week 6 - Nayeon",
+  "date": "2026/9/20",
+  "stats": {
+    "affection": 34,
+    "selfId": 31,
+    "secrecy": 82,
+    "mood": 64,
+    "week": 6,
+    "scene": "Seoul·Practice Room",
+    "chapter": "familiar",
+    "multiAff": { "jihyo": 19, "tzuyu": 8 }
+  },
+  "form": {
+    "mainMember": "nayeon",
+    "subMembers": ["jihyo", "tzuyu"],
+    "identity": "Staff",
+    "customIdentity": "",
+    "name": "Alex",
+    "nationality": "KR",
+    "age": "29",
+    "nickname": "",
+    "herNickname": "",
+    "starLevel": "",
+    "pace": "高压舆论向"
+  },
+  "messages": [
+    { "role": "assistant", "content": "╔══════════════════════════════╗\n💗: 12\n╚══════════════════════════════╝\n\nThe practice room smelled of floor polish and cold coffee.\n\nA. Stay\nB. Leave\nC. Ask\nD. Custom" },
+    { "role": "user", "content": "A. Stay" },
+    { "role": "assistant", "content": "╔══════════════════════════════╗\n💗: 34\n╚══════════════════════════════╝\n\nNayeon did not look up from the mirror.\n\nA. Wait\nB. Speak\nC. Go\nD. Custom" }
+  ],
+  "currentOptions": ["A. Wait", "B. Speak", "C. Go", "D. Custom"],
+  "socialFeeds": {
+    "nayeon": { "bubble": ["long day"], "instagram": null, "weverse": null, "timestamp": 1758700000000, "lastUpdate": 1758700000000 }
+  },
+  "kktMessages": { "jihyo": [{ "sender": "jihyo", "content": "you still here?" }] },
+  "kktUnlocked": { "nayeon": true, "jihyo": false, "tzuyu": false },
+  "memory": {
+    "playerStats": { "selfId": 31, "secrecy": 82, "mood": 64, "week": 6, "scene": "Seoul·Practice Room", "chapter": "familiar" },
+    "affections": { "nayeon": 34, "jihyo": 19, "tzuyu": 8 },
+    "topMemberId": "nayeon",
+    "history": [
+      { "round": 1, "type": "summary", "text": "Alex meets Nayeon after hours; neither admits why they stayed." },
+      { "round": 2, "type": "full", "text": "The practice room smelled of floor polish and cold coffee.", "choice": "A. Stay", "summary": "Alex stays; Nayeon lets the silence run." }
+    ],
+    "kktMessages": { "jihyo": [{ "sender": "jihyo", "content": "you still here?" }] },
+    "stageChanges": [{ "memberId": "nayeon", "from": "Acquaintance", "to": "Friend" }],
+    "memberAppearances": { "nayeon": [1, 2], "jihyo": [2] },
+    "npcAppearances": { "momo": 2 }
+  },
+  "triggeredAchievements": []
+}

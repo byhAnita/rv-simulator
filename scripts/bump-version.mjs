@@ -42,6 +42,18 @@ export const TOTAL_STRINGS = Object.values(EXPECTED).reduce((a, b) => a + b, 0);
 
 const SKIP_LINE = "What's New in";
 
+// In `src/`, the ONLY version string that is state is a cover description.
+// Every other mention is a comment recording when something changed — "v1.4.0
+// step 6 - the custom cast", "a pre-v1.4.0 save", "fixed in v1.3.7" — and
+// rewriting those falsifies the project's own record, which is exactly why
+// CLAUDE.md is anchored rather than swept.
+//
+// It had never bitten because the release version had never yet appeared in a
+// comment: v1.4.0 is the first version this codebase documents itself against
+// while still being the version being bumped TO. Smoke counts through this same
+// function, so it read five cover strings in App.jsx where there are three.
+const SRC_STATE_LINE = "desc:";
+
 // CLAUDE.md is mostly changelog and post-mortem prose, where a version number
 // is a historical fact: "fixed in v1.3.7", "### v1.3.8 - GPT-6 Luna", "v1.3.5
 // introduced the dependency". A bare version regex would rewrite the project's
@@ -125,9 +137,11 @@ export function bumpFile(relPath, text, oldV, newV) {
     return { text: out, count, warnings };
   }
 
+  const isSrc = relPath.startsWith("src/");
   const lines = text.split("\n");
   const out = lines.map((line, i) => {
     if (isReadme && line.includes(SKIP_LINE)) return line;
+    if (isSrc && !line.includes(SRC_STATE_LINE)) return line;
     const [replaced, n] = replaceInLine(line, oldV, newV);
     if (n === 0) return line;
     count += n;

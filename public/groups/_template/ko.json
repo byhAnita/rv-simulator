@@ -27,6 +27,7 @@
       "public_image": "공개 이미지 설명 (1-2문장)",
       "private_personality": "사적 성격 설명 (1-2문장)",
       "queer_texture": "퀴어 텍스처 설명 (1-2문장)",
+      "habit": "구체적이고 반복되는 행동 습관 (한 문장)",
       "animal_plastic": "동물 플라스틱 — 한 문장 요약"
     }
   ],

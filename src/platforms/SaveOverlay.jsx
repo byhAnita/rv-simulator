@@ -1,33 +1,57 @@
 import React, { useState } from "react";
-import { STORAGE_KEYS, loadFromStorage, saveToStorage } from "../utils";
+import { STORAGE_KEYS, loadFromStorage, saveToStorage, addSaveSlot, SAVE_SLOT_MAX } from "../utils";
+import { SAVE_SCHEMA } from "../rag/saveMigrator";
+import { DEFAULT_WORLD_ID } from "../rag/worldLoader";
 
-export default function SaveOverlay({ stats, member, form, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
+export default function SaveOverlay({ stats, member, form, groupId, roster, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
   const [saves, setSaves] = useState(() => loadFromStorage(STORAGE_KEYS.SAVES) || []);
   // Set when localStorage refuses the write. The list must keep showing what is
   // actually stored, so this is the only signal the player gets that the slot
   // they just asked for does not exist.
   const [quotaFailed, setQuotaFailed] = useState(false);
+  // Distinct from quotaFailed: the disk would take this write, the game's own
+  // ten-slot cap will not. Different cause, different advice, so a separate
+  // notice rather than one vague "could not save".
+  const [slotsFull, setSlotsFull] = useState(false);
   const isLight = theme === "light";
+  // A save that cannot be written is a save the player must not be invited to
+  // make. `>=` rather than `===` because a list written before the cap existed
+  // could hold more, and truncating it here would be the very loss being fixed.
+  const atCapacity = saves.length >= SAVE_SLOT_MAX;
 
   const handleSave = () => {
     const newSave = {
       id: Date.now(),
       name: `${t.stats.week.label} ${stats?.week || 1} - ${member?.name || "RV"}`,
       date: new Date().toLocaleDateString("zh-CN"),
+      // A save slot recorded who the player chose but never where they came
+      // from, so loading a TWICE save while Red Velvet was selected produced
+      // Red Velvet's cast under TWICE member ids — no crash, just a prompt
+      // whose main member was undefined. These four fields close that, and are
+      // what saveMigrator backfills for every slot written before v1.4.0.
+      schema: SAVE_SCHEMA,
+      groupId, worldId: roster?.worldId || DEFAULT_WORLD_ID, roster,
       stats, form, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory,
       triggeredAchievements: triggeredAchievements ? [...triggeredAchievements] : [],
     };
-    const updated = [newSave, ...saves.filter(s => s.id !== newSave.id)].slice(0, 10);
+    // The cap REFUSES; it does not evict. `.slice(0, 10)` here used to drop the
+    // oldest slot silently, and since ids are timestamps nothing ever replaced
+    // anything — so the eleventh save deleted a run the player never agreed to
+    // give up. The button below is disabled at the cap as well; this is the check
+    // that actually enforces it.
+    const res = addSaveSlot(saves, newSave);
+    if (!res.ok) { setSlotsFull(res.reason === "slots_full"); return; }
     // Write first, render second. Updating state before checking the result is
     // what made a failed save invisible: the slot appeared in the list, the
     // player closed the overlay believing they were safe, and the save was never
     // on disk. On failure the list is left showing exactly what is stored.
-    if (!saveToStorage(STORAGE_KEYS.SAVES, updated)) {
+    if (!saveToStorage(STORAGE_KEYS.SAVES, res.saves)) {
       setQuotaFailed(true);
       return;
     }
-    setSaves(updated);
+    setSaves(res.saves);
     setQuotaFailed(false);
+    setSlotsFull(false);
   };
 
   const handleDelete = (id) => {
@@ -47,7 +71,30 @@ export default function SaveOverlay({ stats, member, form, messages, currentOpti
           <button onClick={onClose} style={{ background: "none", border: "none", color: isLight ? "#c8a870" : "#a07090", cursor: "pointer", fontSize: 16 }}>✕</button>
         </div>
         <div style={{ padding: 14, overflowY: "auto", flex: 1 }}>
-          <button onClick={handleSave} style={{ width: "100%", padding: 10, borderRadius: 10, background: isLight ? "linear-gradient(135deg,#c8a84b,#a0522d)" : "linear-gradient(135deg,#e887b0,#c86dd0)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 600, marginBottom: 12 }}>{t.save.saveBtn}</button>
+          {/* Slot count, always visible. The cap used to be invisible until it
+              destroyed something; seeing 9/10 is what stops a player reaching it
+              unaware. */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+            <span style={{ color: isLight ? "#8a6840" : "#a07090", fontSize: 10 }}>
+              {t.save.slotCount ? t.save.slotCount(saves.length, SAVE_SLOT_MAX) : `${saves.length}/${SAVE_SLOT_MAX}`}
+            </span>
+          </div>
+          <button onClick={handleSave} disabled={atCapacity}
+            style={{ width: "100%", padding: 10, borderRadius: 10, border: "none", fontSize: 12, fontWeight: 600, marginBottom: 12,
+              background: atCapacity ? (isLight ? "rgba(100,65,20,.12)" : "rgba(255,255,255,.07)")
+                : (isLight ? "linear-gradient(135deg,#c8a84b,#a0522d)" : "linear-gradient(135deg,#e887b0,#c86dd0)"),
+              color: atCapacity ? (isLight ? "#a8845a" : "#7a5a78") : "#fff",
+              cursor: atCapacity ? "not-allowed" : "pointer" }}>
+            {t.save.saveBtn}
+          </button>
+          {(atCapacity || slotsFull) && (
+            // Not a toast, for the same reason as the quota notice: this is the
+            // player being told her progress is NOT being kept, and it must stay
+            // on screen until she has done something about it.
+            <div style={{ padding: "9px 11px", marginBottom: 12, borderRadius: 8, background: "rgba(180,120,20,.10)", border: "1px solid rgba(180,120,20,.35)", color: isLight ? "#8a5a10" : "#f0c070", fontSize: 11, lineHeight: 1.5 }}>
+              {t.save.slotsFull ? t.save.slotsFull(SAVE_SLOT_MAX) : ""}
+            </div>
+          )}
           {quotaFailed && (
             // Deliberately not a toast: a toast is gone in three seconds and this
             // is the player being told their progress was not written. It stays

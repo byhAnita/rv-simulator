@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function MemberSelector({ currentId, onSelect, members, platform, kktUnlocked = {}, theme }) {
+export default function MemberSelector({ currentId, onSelect, members, platform, kktUnlocked = {}, theme, photos = {} }) {
   const pc = { bubble: "#9747ff", instagram: "#ff3b5c", weverse: "#00d28b", kakao: "#3c1e1e" };
   const color = pc[platform] || "#e887b0";
   const isLight = theme === "light";
@@ -20,7 +20,14 @@ export default function MemberSelector({ currentId, onSelect, members, platform,
             fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
           }}
         >
-          <span style={{ fontSize: 13 }}>{m.emoji}</span>
+          {/* Her photo wherever her face is shown, so the tab strip and the
+              thread below it are the same person. The emoji is the fallback,
+              not the default. */}
+          {photos[m.id] ? (
+            <img src={photos[m.id]} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", display: "block", flexShrink: 0 }} />
+          ) : (
+            <span style={{ fontSize: 13 }}>{m.emoji}</span>
+          )}
           <span>{m.name_kr || m.name}</span>
           {platform === "kakao" && !kktUnlocked[m.id] && <span style={{ fontSize: 9, color: "#666" }}>🔒</span>}
           {platform === "kakao" && kktUnlocked[m.id] && <span style={{ fontSize: 9, color: "#6d9b6d" }}>✓</span>}

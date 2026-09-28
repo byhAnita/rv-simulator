@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.3.9
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.0
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.3.9-e887b0)
+![Version](https://img.shields.io/badge/version-1.4.0-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.3.9)
+## 💰 API Cost & Performance (v1.4.0)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -176,6 +176,25 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.4.0
+
+The biggest release so far: the cast is now yours to assemble, and the people in it have faces.
+
+* 🎭 **Build your own cast** — a second door on the cover page opens a roster builder. Pick a main member, as many sub members as you like and any number of background faces, from any group in the library or from several at once. A cast drawn from more than one group is treated as its own group with its own name and agency, not as a guest appearance — so nobody's real groupmates wander into your story.
+* ✍️ **Write a member who does not exist** — describe her in one line and the model fills in a full card: name, birthday, personality, how she speaks, her queer texture, and one physical habit a scene can be built around. Everything is editable, nothing is required except a name, a birth year and a private personality, and a generation that fails leaves you a blank card rather than a broken one.
+* 📷 **Photos and wallpapers** — give any member a photo and a wallpaper, and she carries them into the game: the top bar, every tab strip, and all four social panels. You frame the crop yourself — drag to move, pinch or use the slider to zoom, and confirm — in the shape the image will actually be seen in, a circle for the face and a tall rectangle for the wallpaper. The wallpaper becomes the chat background in Bubble and KakaoTalk, the post image on Instagram and the backdrop of the Weverse feed.
+* 🎂 **Your birth year, not a guess at it** — setup used to ask your age and work backwards, which lands on the wrong year for about half of players and flips who is whose senior. It now asks for the year directly, on a wheel that cannot produce a year outside the range. Saves made before this release keep the year they implied; Settings offers a one-tap correction for exactly those saves.
+* 💾 **The eleventh save no longer deletes the first** — the ten-slot cap used to silently push your oldest run off the end. It now refuses, says so, and shows `n / 10` at all times so it is never a surprise.
+* ⏱️ **Your pace setting reaches the model at last** — Slow Burn, High Pressure and the rest were being sent as a bare internal label, so the rules behind them ("secrecy changes doubled", "no rushing") never left the app. They do now, and it is visible in play: a high-pressure run's secrecy falls many times faster than a slow-burn one's.
+* 🧭 **Whose life is whose** — a Chaebol player was having members claim her own office, and being reminded not to be late for a trainee practice that was never hers. The prompt now states who holds which role, and who is *not* on the group's schedule.
+* 🇰🇷 **Korean reads like Korean** — particles after a member's name are now chosen by how the name actually ends rather than guessed, the Korean output no longer forbids the members' own names, and relationship stages are shown in your own language instead of Chinese.
+* 📍 **The scene line is a place and a time again** — English runs were answering with 250-character paragraphs inside a one-line box, and repeating one scene for five rounds running.
+* 💬 **A Kakao arrives in the Kakao panel, never in the story** — the model had taken to describing the message on your screen before you had looked at it, occasionally inventing a company messaging system to get around the rule. It now leaves a note, food in the fridge or a jacket over a chair instead.
+* 🐞 **An on-device console** — add `?debug=1` to the URL for a panel showing the app's own log, key-redacted. iOS Safari has no developer tools, and the two things most likely to go wrong on a phone — storage limits and provider errors — were both invisible there.
+* 📰 **What is new, inside the game** — the Help Center’s last tab is now **More Info**: one or two lines on every release, newest first, with the contact details underneath it. A player who never opens the repository can still see what changed.
+
+> 🔎 Honest about what is **not** fixed: members still drop out of the story for longer than the game's own rules allow. The attempt at it — telling the model how many rounds each member has been absent — was measured against a control and the result was inconclusive, because two runs of identical code differed more than the two arms did. The line ships because the facts in it are true and cheap; it is not a claim that rotation is solved.
 
 ## 🎉 What's New in v1.3.9
 
@@ -312,7 +331,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.3.9              | |
+|  |              LLM Text Adventure . v1.4.0              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -415,7 +434,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.3.9 - Architecture                     |
+|          Idol Dating Sim  v1.4.0 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -471,7 +490,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.3.9 Round Flow                            |
+|                    v1.4.0 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

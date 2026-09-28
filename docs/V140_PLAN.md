@@ -3,7 +3,9 @@
 Planning artifact. Written before any code, per the repo convention that docs lead.
 Audience: whoever implements this, which is me in a later session and Yuhan reviewing it.
 
-Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done and pushed to `dev`; step 2 next.**
+Status: **agreed in discussion 2026-09-23. Steps 0–3 done — v1.3.9 is released and live, and the
+world/roster extraction is on `dev`. Step 4 next.** Plot mode (§19) was specced on 2026-09-24 and
+scheduled for v1.4.2.
 
 ## Progress
 
@@ -12,10 +14,10 @@ Status: **agreed in discussion 2026-09-23. Steps 0 and 1 done and pushed to `dev
 | **0 — CI** | ✅ **done**, on `dev`, unreleased. `.github/workflows/ci.yml` + two Layer C mirror assertions (smoke 457 → **459**). Both verified failing against injected drift. |
 | **1 — Golden prompt snapshots** | ✅ **done**, on `dev`, unreleased. Three goldens in `test/fixtures/` + smoke **Layer J** + `scripts/update-golden.mjs` (459 → **469**). Found and fixed a shipped bug, **confirmed live A/B**: 7 drifts in 8 rounds and 60.5% cache before, 0 drifts and 87.2% after. Verified failing against the unfixed code. |
 | **2 — Release v1.3.9** | ✅ **released.** Affection clamp (§12), usage panel (§11) + smoke **Layer K**, quota-guarded `saveToStorage` (§10), the backstory fix inherited from step 1, and four writing/pricing fixes found by hand play after the branch was already green (below). Smoke 469 → **578**. |
-| **3 — World extraction + resolver** | ⬜ **next. The gate is now real and mechanical:** `node test/smoke.mjs` must stay green with the goldens untouched. |
-| 4 — Save migration | ⬜ Now also carries the **player birth-year field** — see below. |
-| 5 — Content (`habit` × 27) | ⬜ |
-| 6 — UI | ⬜ |
+| **3 — World extraction + resolver** | ✅ **done**, on `dev`, unreleased. Four commits: world JSON + `worldLoader`, `buildSystemPrompt` reading it, `rosterResolver`, and the `habit`/`tags` whitelist. Smoke 578 → **630**. **The gate held: goldens byte-identical, `update-golden.mjs` never run.** Found two pieces of dead code — see below. |
+| **4 — Save migration** | ✅ **done**, on `dev`, unreleased. Three commits: the player **birth-year field**, `saveMigrator` (`schema`/`worldId`/`groupId`/`roster`), and the App-side rewiring through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke 630 → **671**. **The gate held**: a pinned v1.3.8 save migrates to the same member set `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte. Goldens untouched. |
+| **5 — Content (`habit`)** | ✅ **done**, on `dev`, unreleased. Two commits: 175 habits across 30 files + the 30 root mirror copies, then the conditional `Habit:` line. **The goldens moved here, on purpose and for the first time since step 1**: 19 insertions, 0 deletions, every one a `Habit:` line. Scope was wider than "27 files" — 57 members × 3 languages. A hand-play bug found while the branch was green rode along (`7fd109c`, a Kakao transcribed into the story), moving them a second time. Smoke 671 → **695**. |
+| **6 — UI** | 🟡 **in progress**, on `dev`, unreleased. Six commits: the prompt surviving an incomplete member, the two stores, `cardGenerator`, the three-step member editor, the roster builder + the cover's second door, and the on-device console. Then **three bugs from the first phone test**, all fixed: the birth-year field could not be typed into, the role picker hid what it was assigning, and a cross-group cast was described as the main member's group. Smoke 695 → **849**. **The gate held: goldens byte-identical throughout.** Remaining: correcting a migrated birth year, optionally splitting the classic Setup page, docs. |
 | 7 — Release v1.4.0 | ⬜ |
 
 **Step 1 paid for itself before the first fixture existed.** Writing a snapshot forces the
@@ -70,7 +72,95 @@ What did change is that each is now mechanised going forward: smoke **Layer L** 
 live prose graders (which had never been tested at all — only run live, where a grader that can
 never fire looks identical to a clean run), and Layer K pins the cost arithmetic to a real bill.
 
-### Carried into step 4: the player's birth year
+### Found by step 3: two blocks of dead code, one of them a real feature gap
+
+A faithful extraction has a useful side effect — moving a string forces you to find its reader.
+Two had none.
+
+**`paceRules` was never sent.** All four pace descriptions were built into a local and never
+referenced, so the player's pace reaches the model only as a bare id on the `Progression Pace:`
+line — `浪漫情感向` and nothing else. The model is left to infer what that means from four Chinese
+characters, in a prompt that is otherwise explicit about everything.
+
+This is a **feature gap, not just dead code**, and it is worth fixing on its own: the authored
+text says things like *"secrecy changes doubled"* and *"love triangle probability doubled"* that
+the model currently has no way to know. The strings are preserved in the world file. Wiring them
+in is a **deliberate prompt change** — it moves the goldens, and the diff should be read — so it
+was explicitly not folded into a step whose entire gate is that the goldens do not move.
+
+It also sharpens the plot-mode design in §19: `pace` currently does even less than that section
+assumes, which makes "let `pace` choose the beat pool" a bigger win than it first looked, and
+means these two changes should probably land together.
+
+**`const identity` resolving `"H"` to `form.customIdentity` was a leftover.** `App.jsx` already
+resolves it before calling `executeRound` ([App.jsx:489](../src/App.jsx#L489)), so the local
+shadowed nothing and fed nothing. No player-visible bug: custom identity text does reach the
+prompt, through `form.identity`. Deleted.
+
+### Found by step 4: member ids are not unique across the library
+
+§9.3 says to find a legacy save's group by scanning the index for the one containing
+`form.mainMember`. That is not sufficient, and the plan did not know it. **`x` is a crossover
+roster and shares seven member ids with the groups those members debuted in** — `irene`, `wendy`,
+`sana`, `mina`, `sullyoon`, `wonyoung`, `jisoo`. Seven of the library's fifty ids are ambiguous,
+so a scan matching on the main member alone would pick one in index order and hand the player a
+cast she never chose, silently, on a save she had already been playing.
+
+The implemented rule is containment of the **whole chosen cast** — main plus every sub — which
+separates them in every case where the player picked a sub at all. A remaining tie (a solo
+`irene` run) is broken by the group the app currently has selected, which is a real signal and
+cannot reintroduce the §9.1 bug, because a group that does not contain the cast is never a
+candidate. A cast no group contains is **warned about, never defaulted silently**: that is the
+v1.3.5 lesson, where `loadGroupIndex`'s catch returning a hardcoded Red Velvet entry hid a path
+bug for a whole release. Here the same swallow would have a player's progress attached.
+
+Two corrections to this document follow, both made in place: §9.3's group-scan row, and §9.4's
+claim that the migration checks live in Layer J — they are in **Layer I**, next to the
+`getNpcMembers` equivalence anchor they are measured against.
+
+### Done in step 6: correcting a migrated birth year (`commit 6`)
+
+Migration writes `birthYear = GAME_YEAR - age`, which reproduces the value a legacy save has
+always produced and is therefore **still wrong for about half of those saves**. Nothing can
+recover the real year from an age. New games are correct; old ones are not, and no loader can fix
+that without changing a running game underneath its player.
+
+So the fix is an affordance, not a migration: let the player correct her birth year on a loaded
+save. It belongs in step 6 because it is UI, and because editing it mid-run rewrites the static
+prompt and costs one full cache miss — a fine price for a deliberate action, and not something to
+incur as a side effect of loading.
+
+**As shipped.** A birth-year row in the in-game settings overlay, beside Deep Thinking and Time
+Speed, available in every run rather than only a migrated one — a typo at Setup produces exactly
+the same wrong honorifics as a migration does, and one path is easier to reason about than two.
+
+Three rules govern it, and each is a guard:
+
+1. **It writes `birthYear` and never `age`.** `backstorySeed` hashes `age`, and that seed must stay
+   frozen for the life of a save or the identity backstory re-rolls mid-game — step 1's bug wearing
+   a third hat. The Setup field deliberately writes *both* (age is minted there, once); the
+   correction writes one. They are therefore **different functions**, not one shared handler:
+   `setBirthYear` at Setup, `correctBirthYear` afterwards.
+2. **An unchanged year costs nothing.** Submitting the value already in the form returns the form
+   object untouched, so re-confirming a correct year is not a cache miss. Only a real change pays.
+3. **It is refused outside the bounds.** `validPlayerBirthYear` is now one function in
+   `constants.js` instead of a copy at each call site, because a correction that bypassed the range
+   Setup enforces would let a save hold a year Setup would have rejected.
+
+`correctBirthYear` lives in **`saveMigrator.js`**, next to the migration that deliberately did not
+fix the value. The two halves of one decision belong in one file: that header already said
+*"correcting it is a separate, visible act the player takes"*, and this is that act. It also makes
+the rule **executable** rather than a source-string assertion — the guard that matters here is that
+`age` does not move, and that is worth running rather than grepping for.
+
+**Discoverability is the other half, and it is session state, not a save field.** `loadSave` knows
+something the migrated save no longer does: whether `form.birthYear` was present *before*
+`migrateSave` filled it. A save that had none carries an estimate, so the row explains itself in
+that session. Persisting that provenance would mean a new save field that must then be cleared,
+and the row is permanent and self-describing anyway — the flag only decides whether an extra line
+of explanation shows.
+
+### Done in step 4: the player's birth year
 
 `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes the player's birthday has
 already passed this year, so it is **wrong for roughly half of all players**. Reported live: a
@@ -79,40 +169,300 @@ two are peers, and the game tells her to say `欧尼` to a same-year member.
 
 This is not fixable from age — age alone cannot determine birth year, and since seniority is a
 hard year boundary with no tolerance, a one-year error flips the relationship whenever it lands on
-a member's birth year. The fix is to collect **birth year** at setup (age derives from it exactly;
-the reverse does not), which needs a `form` field and legacy handling for saves carrying only
-`age`. Step 4 already migrates saves, so it belongs there.
+a member's birth year.
+
+**Setup now collects `form.birthYear` and the prompt renders her age from it**, which is the only
+direction that throws nothing away. The comparison itself never needed touching: `mainAgent.js`
+already compared birth year to birth year, and only the source of the player's was lossy.
+
+`age` stayed in the form, **demoted to a frozen setup token**. `backstorySeed` hashes it and that
+seed must stay fixed for the life of a save, or an identity backstory re-rolls mid-game — the
+drift step 1 closed. Setup writes it once from the birth year; nothing edits it afterwards. Had
+the seed been re-pointed at `birthYear` instead, every existing ex-girlfriend save would have
+re-rolled once on load, which is the same bug wearing a different hat.
+
+Old saves migrate to `GAME_YEAR - age`, reproducing the value they already produced, so a game in
+flight is byte-identical before and after. That is preservation, not repair — see *"Carried into
+step 6"* above.
 
 ## Pick up here
 
-**State as of 2026-09-24.** `main` is at `f324a5e`, tagged v1.3.8, live on all three mirrors and
-**unchanged** — nothing in this line has reached players. `dev` carries v1.3.9, fully built,
-bumped and validated, **but not merged and not deployed**. `origin/dev` is at `56acf22`; the five
-commits after it are local only.
+**State as of 2026-09-24.** v1.3.9 is **released** and is what players run: `main` and
+`origin/main` are at `758faa3`, the deploy commit, tagged `v1.3.9`. All three mirrors serve
+`index-DAtY_Xfc.js`.
 
-| Commit | What | Pushed |
-| --- | --- | --- |
-| `1e66262` | live usage-meter assertions in Layers B and H | no |
-| `6d71e94` | usage meter + panel, price table, smoke **Layer K** | no |
-| `f4aaad1` | quota-guarded `saveToStorage` + save-failure notice | no |
-| `e107faf` | ±8 affection clamp | no |
-| `8adff09` | step-1 handoff docs | no |
-| `56acf22` `37f8a1c` `e8a7dfd` `3364731` `aae0c0a` `3073cb7` | step 0 and step 1 | yes, CI green |
+**Steps 3, 4 and 5 are done, pushed, and unreleased.** `dev` and `origin/dev` are both at
+`7fd109c` — **sixteen** commits ahead of `main`, zero behind — and **CI is green** (run
+`36046756985`). Nothing is pending on anyone's machine. No step ships a player-visible change on
+its own, so all three ride with v1.4.0 rather than justifying a release. Smoke **578 → 695**.
 
-Smoke: **535** offline. Working tree carries only ` M index.html` in dev mode, which is normal
-and never committed.
+Goldens were byte-identical through steps 3 and 4; **step 5 moved them twice, both deliberate,
+both diffs read before committing** — 19 `Habit:` lines, then +3/−2 per fixture for the KKT rule
+restructure that came with the v1.3.9 hand-play bug below.
 
-**Next action is step 3 — world extraction + resolver.** Before that, v1.3.9 still has a tail of
-red-line steps that only the user can authorise, in this order:
+CI matters more than usual for these two: it builds from a clean checkout with `npm ci` on Linux,
+while `src/` on the development machine is CRLF and the goldens are LF. Green there is what says
+the line-ending split is not load-bearing.
 
-1. `git push origin dev` — five local commits.
-2. `git checkout main && git pull && git merge dev --no-ff -m "release: v1.3.9"`.
-3. `npm run deploy`, then `git tag v1.3.9 && git push origin v1.3.9` — **tag the deploy commit,
-   not the merge commit**.
-4. `git checkout -- index.html`, then merge `main` back into `dev`, then `node scripts/dev-index.mjs`.
+| Step 4 commit | What |
+| --- | --- |
+| `9d1c6cd` | the player's birth year is collected, not derived |
+| `a629182` | `saveMigrator`, not yet consumed |
+| `73b0995` | the game path resolves its cast from the roster |
 
-The merge-back in step 4 is the one that rots the branch if skipped. CLAUDE.md's **Release**
-section is the authority; this list is a reminder, not a replacement.
+**The gate held.** A pinned v1.3.8 save (`test/fixtures/save-v138.json`, TWICE) migrates and
+resolves to the same member set `getNpcMembers` derives today, in the same order, and builds the
+same system prompt **byte for byte**. Every guard added across the three commits was verified to
+fail against a broken implementation — the old age-derivation, an off-by-one migration fallback, a
+seed hashing `birthYear`, reversed member order, a disabled group scan, a removed idempotence
+short-circuit, `phaseRef` pinned late, the group not taken from the save, and `SaveOverlay`
+dropping `groupId` or `roster`.
+
+**Step 6 is complete apart from two optional items. Smoke 695 → 949.** Fourteen commits:
+
+| Commit | What |
+| --- | --- |
+| `919449a` | the prompt survives an incomplete member (commit 1) |
+| `d79c04c` | the custom-cast palette and the photo store (commit 2) |
+| `b78b8c5` | `cardGenerator` (commit 3) |
+| `258a818` | the member editor, three steps (commit 4) |
+| `d10f586` | the roster builder + the cover's second door (commit 5) |
+| `5548050` | **tooling** — an on-device console |
+| `ca66510` | **fix** — the birth year could not be typed; the role picker hid what it did |
+| `b8e66b0` | **fix** — a cross-group cast is its own group, not the main member's |
+| `081fc86` | **docs** — step 6 recorded, and this document corrected where phone play moved the design |
+| `2eca085` | correcting a migrated birth year (commit 6) — see *"Done in step 6"* above |
+| `06d1dc9` | **test** — `playthrough.mjs` revived and taught `--cast`; the live gate met |
+| `f04c523` | **fix** — the player's identity is hers, and six stale rules removed from the prompt |
+| `d731db1` | **fix** — save slots refuse instead of evicting; stage names and section 4 per roster |
+
+**The live gate is met, and then some — 64 rounds across four configurations** (2026-09-27):
+Chaebol classic **20/20 clean**, Chaebol + cross-group cast 17/20, Staff in **en** 12/12, the
+ex-girlfriend identity in **ko** 12/12. **0 static-prompt drifts and 0 ledger prefix breaks across
+all 64**, 18 collapses, cache 81.2–86.9%. Of the three flags, two were the new grader misreading the
+player's own dialogue and one was a real KKT transcription left alone at n=1 — see CLAUDE.md.
+
+Getting there needed the harness taught to express a roster at all (`--cast
+blackpink:jisoo,red_velvet:irene,custom:李飞,twice:mina@npc,twice:sana@npc`) and, first,
+**`playthrough.mjs` un-broken: it had been dead since step 3**, its `fetch` stub serving `/groups/`
+but not the `/worlds/` step 3 introduced. So steps 3, 4, 5 and 6 were every one of them validated
+with zero live rounds. The new guard derives the trees from `src/` rather than listing them; see
+CLAUDE.md, *"`playthrough.mjs` had been dead since step 3"*.
+
+**Remaining in step 6, both optional and neither blocking a release:** splitting the classic Setup
+page into steps, and the roster builder's visual design — **known to be unpolished and deliberately
+deferred**, Yuhan's call after the phone test: "works but doesn't look good, we can improve this
+later."
+
+**Three more player-reported bugs were fixed after the gate, all from hand play, none findable
+offline:** a Chaebol player's identity leaking onto a member and the members' practice schedule onto
+her (`f04c523`), and **save slots silently deleting the oldest run past ten** (`d731db1`) — the worst
+of the three, because it destroyed player data rather than misdescribing it. Reviewing the whole
+rendered prompt on Yuhan's suggestion found six more stale or contradictory statements in the same
+commit; see CLAUDE.md, *"Reading the whole rendered prompt, once, found six more"*.
+
+**Next: step 7, release v1.4.0.** Nothing in step 6 is known-broken. The release itself still needs
+the version bump, the README "What's New" section, and the merge-and-deploy sequence in CLAUDE.md's
+**Release** flow.
+
+### Hand-tested on a phone, which is the only place three of these showed
+
+Step 6's gate is a 390px hand test, and it was done on an iPhone against the Cloudflare branch
+alias — `https://dev.idol-dating-sim.pages.dev/?debug=1`. **Use Cloudflare, not Vercel, for
+branch previews**: its alias is a deterministic `<branch>.<project>.pages.dev`, while Vercel's
+preview hostname embeds a team slug that exists nowhere in this repo and cannot be derived from
+it.
+
+Three bugs came out of that session and none of them could have come out of anything else:
+
+1. **The birth-year field could not be typed into.** The editor derived the input's value from
+   `profile.birthday`, so one keystroke stored `"1-01-01"` and fed `"1-01-01".slice(0, 4)` —
+   `"1-01"` — back into a `type="number"` input, which cannot render that. The box blanked on
+   every keypress. **The bug was in the round trip**, and the guard covering it checked only the
+   write: it asserted the stored *format* and never that the value read back, so it passed against
+   completely broken behaviour. The conversion now lives in `customCast.js` as `birthYearOf` /
+   `birthdayFromYear`, tested in both directions by simulating the keystrokes.
+2. **The role picker hid what it was assigning.** It was tap-to-cycle — none → main → sub → npc →
+   none — shown as ◌ ★ ● ○. Reported as confusing, and rightly: the player could not tell *what*
+   they were choosing, and removing someone meant tapping *forward* through every remaining state.
+   Now one named button per role, tapping the active one removes her, the three roles are
+   explained while the cast is empty, and the cast summary carries an × per member.
+3. **A cross-group cast was described as the main member's group** — see below. The most
+   consequential of the three.
+
+### Found by phone play: the cast is a group, not a collection
+
+Reported cast: Jisoo (BLACKPINK) main, Irene (Red Velvet) and a custom member sub, Mina and Sana
+(TWICE) as NPCs. Round 1 put **Jennie, Rosé and Lisa** in the story and set the company to **YG**.
+
+`resolveRoster` returned the main member's group config, so §4 of the prompt handed over
+`[BLACKPINK Background]` plus full Public / Private / Queer Texture prose for all four BLACKPINK
+members, three of whom were not in the roster. **§6's rule says only members in MEMBER PROFILES
+may appear by name, and §4 was contradicting it two sections earlier with richer detail.** "YG" is
+in no file in this repo — the model inferred the agency from a premise it was handed.
+
+**The fix changes this plan's design, so the plan is corrected rather than annotated.** §4.2's
+roster already carried an optional `name`; it is now load-bearing.
+
+**A cast drawn from more than one source is its own group.** Yuhan's framing, adopted over the
+first attempt, which told the model these people came from different agencies and that any scene
+putting two of them together needed a reason. That version fights the setting: secrecy, dorms,
+schedules, group activities and the phase beats are *all* group machinery, and a cast described as
+five idols from four companies has none of it. As a group it is a premise instead of a constraint,
+and naming the agency is what stops one being invented.
+
+- Default name **`X`**, agency derived as **`X Entertainment`**, editable at Setup. The library
+  already ships a group called `X` (id `x`, a 10-member crossover), so the default collides by
+  name only; it is one string to change if that becomes annoying.
+- **The origin groups are never named.** That is the leak: a model told the cast is BLACKPINK
+  completes the group from its own knowledge. Nothing downstream needs them — a member's profile
+  says who she is, and her real-world affiliation plays no part in the game.
+- **A subset of one group keeps that group's real name**, because it still *is* that group, but the
+  exclusion is stated out loud. `BLACKPINK is a 4-member group` while naming only Jisoo is the
+  same leak in a quieter form.
+- The composed lore does **not** repeat the prose fields. §5 carries them in full for exactly the
+  members present; the single-group lore duplicates them and that is inherited token cost, not a
+  pattern worth extending.
+- **The gate held anyway.** The verbatim single-group lore is used whenever the roster is exactly
+  one whole group — which is what the classic door always produces, since `buildClassicRoster`
+  gives every member a slot — so the composed form is reached only by a cast the old code could
+  not express. All three goldens are byte-identical.
+
+It also closed a crash: an **all-custom cast** returned `groupConfig: null`, and
+`buildSystemPrompt` reads `groupConfig.groupLore` unconditionally, so it threw a `TypeError`
+before round 1. Reachable, because a custom member can be the main.
+
+**The guard that should have caught the lore bug asserted the opposite.** *"lore follows the main
+member's group, not the first group listed"* pinned the bug as intended behaviour. A guard written
+from the implementation rather than from the requirement will do that, and the only defence is to
+ask what a check would look like if the behaviour were wrong.
+
+### Done in step 6: what the commits decided
+
+- **Every optional field in the member profile block is conditional** (commit 1). A member built
+  from §4.4's required tier alone previously rendered four defects in one block: `undefined` twice
+  (emoji, animal) and a trailing space twice (`  Public: `, `  Queer Texture: `). Step 5 had fixed
+  one instance of a class with five more members.
+- **The golden blind spot, measured rather than asserted**: reverting that to unconditional leaves
+  **0 of 3 goldens moved while 8 Layer I checks fail**. All 175 library member records are
+  complete, so the empty branch appears in no snapshot.
+- **Three storage keys, not §4.3's five.** `rv_sim_worlds_custom_v14` and `rv_sim_world` are v1.4.1
+  work; this repo already carries `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` as a standing
+  example of what declaring ahead of the reader costs.
+- **Nine card fields, not §4.5's seven.** `name` and `birthday` are generated too, or the player
+  still hand-fills two required fields and the fast path is pointless. `mbti`, `role`, `name_kr`
+  and `tags` are excluded: for a custom member they reach **no prompt at all**, since
+  `buildGroupLore` renders those only for the primary group's own members.
+- **`world.setting` does not exist yet.** §4.5 names it; the v1.4.0 world shape carries only
+  `name`/`emoji`/`color`. The card prompt falls back to the name and will prefer `setting`
+  automatically once v1.4.1 adds it.
+- **`src/utils.js` and `src/utils/` now both exist**, because §10 specifies
+  `src/utils/imageStore.js`. Vite and esbuild both resolve `from "./utils"` to the file, and
+  `imageStore` names its own import `../utils.js` rather than relying on that. **A
+  `src/utils/index.js` would silently re-point every such import**; smoke asserts none exists.
+- **`speech_style` joined the whitelist and the profile block**, in the `habit`/`tags` order —
+  field first, so content arrives working rather than silently dropped.
+
+### Done in step 6: an on-device console (`5548050`)
+
+Not a plan item, added because step 6's gate is a phone and iOS Safari has no reachable devtools —
+while this project's two most phone-specific failures, `QuotaExceededError` from `saveToStorage`
+and every `LLMError` kind, are both reported through `console.error`.
+
+**The capture is always on; the panel is opt-in** (`?debug=1`, then persisted). A tool you must
+enable *before* the bug is one you use after reproducing it, and some of these need a twenty-round
+game to reach. **Every captured string is key-redacted before entering the buffer**, because the
+buffer exists to be copied off the phone and pasted into a bug report. Eruda is supported at
+`?debug=eruda` but deliberately not the default — it is a third-party script running beside a
+stored API key, it cannot work offline, and it only records from the moment it loads. Full
+reasoning in `docs/TECH_NOTES.md`.
+
+### Done in step 5
+
+Three commits plus a bug fix found by hand play while the branch was green.
+
+| Commit | What |
+| --- | --- |
+| `6cdb550` | 175 habits across 30 files + the 30 root mirror copies |
+| `26ca206` | the conditional `Habit:` line; goldens moved, +19/−0 |
+| `d3541d2` | docs |
+| `7fd109c` | **fix** — a Kakao is delivered by the app, never transcribed into the story |
+
+**The goldens moved for the first time since step 1, and the diff was read before committing**:
+19 insertions, 0 deletions, every one a `  Habit: ` line, one per member, after `Queer Texture`
+and before `Hidden Conflict` where that exists. No other byte moved in any of the three fixtures.
+
+**Scope was wider than this plan said.** "27 group files" was wrong twice over: there are **30**
+files (9 groups + `_template`) and **57** members, so the content is **175 strings**, not 27. All
+30 are **CRLF**, and `cat -A` piped through GNU sed shows clean `$` and is lying — sed strips the
+CR in text mode, which is the same trap that made step 4's mutation run report a SKIP.
+
+**A golden covers what the data happens to contain, not the branch the data never exercises.**
+The `Habit:` line is conditional, so an absent habit renders nothing rather than `  Habit: ` with
+a trailing space. Mutating it to unconditional leaves **all three goldens green** — every library
+member has a habit, so the empty case appears in no snapshot — and only the dedicated
+trailing-whitespace guard in Layer I fails. This matters immediately for step 6: a custom member
+with no habit is exactly that untested branch. Do not read a green golden as coverage of a case
+the fixtures cannot contain.
+
+The same guard's first catch was a flaw in its own harness rather than in the code — slicing the
+member-profile section at `"6. CAST IDENTITY"` ends mid-banner and leaves a dangling `║ ` that
+reads as trailing whitespace. It now cuts back to the start of the next banner box.
+
+### Found by hand play during step 5: a Kakao written into the story
+
+Reported on DeepSeek Official in zh, on **v1.3.9** — so not a v1.4.0 regression, but fixed here
+because the branch was already moving the goldens. A round delivered Irene's Kakao *and*
+transcribed it into the prose, phone-screen header and all, so the player read the same three
+lines twice: once in the narrator's voice, before she had looked at her phone.
+
+**Root cause is specification by contrast.** The prohibition lived *inside* the LOCKED-channel
+bullet — *"A LOCKED member … the story MUST NOT mention her texting"*. A long, emphatic rule
+conditioned on LOCKED invites the reading that an unlocked member may be narrated, and nothing
+else covered the unlocked case but a generic "no social media in story" line four sections
+earlier. That also dates it: the locked bullet landed in **v1.3.6**, which is when a rare symptom
+became a regular one. The rule is now unconditional and stated *first*, with the locked case as
+an additional constraint.
+
+**The live grader had the identical blind spot, and that is the more reusable half.**
+`kkt-narrated-but-locked` runs only `if (!delivered)`, so a round that delivered a Kakao and
+duplicated it was unreachable by it. `kktTranscribed` covers the delivered case by matching a
+delivered message **verbatim** in the prose. Generalise it: **when a rule is scoped to one
+branch, check whether its detector is scoped to the same branch.** Two independent scopings, the
+same blind spot, and neither would have surfaced without the other being questioned.
+
+Mutation testing earned its keep again. Two of the six new guards came back **GREEN** on the
+first run — the punctuation-reflow fixture used a message with no trailing punctuation to strip,
+and the `{sender, content}` fixture passed only plain strings. Both were passing for the wrong
+reason, and both now isolate the case they claim to test.
+
+### Habit provenance: what is sourced and what is derived
+
+The rule is **publicly known, persona level, never a claim about a real person's health, body,
+relationships or private life** — borrowed from `byhAnita/yuriagent`'s `src/data/facts.js`, which
+states it better than this plan originally did. That rule is only honest where the knowledge is
+actually reliable, so the content ships in two tiers, tracked rather than blurred. Promoting a
+derived habit to a sourced one is a content decision and needs the same care as writing it.
+
+**Sourced (20)** — `red_velvet/` irene, seulgi, wendy, yeri · `twice/` nayeon, jeongyeon, momo,
+sana, mina, dahyun, chaeyoung, tzuyu · `blackpink/` jisoo, jennie, rose, lisa · `aespa/giselle` ·
+`ive/wonyoung` · `nmixx/lily` · `x/hyewon`.
+
+**Derived (30)** — built from that file's own `private_personality`, plainly fiction:
+`red_velvet/joy` · `twice/jihyo` · `aespa/` karina, winter, ningning · all of `itzy/` and `ive/`
+bar wonyoung · `nmixx/` bar lily · all eight of `gnz/` · `x/` eunbi, miyeon.
+
+`gnz` is entirely derived on purpose: it is the group this author has the least reliable public
+knowledge of, and inventing a detail that *reads* as sourced fact is the specific failure the rule
+exists to prevent. Those eight are the first place to spend a correction pass.
+
+Four habits come directly from yuriagent's `FACTS` table (irene, yeri, `blackpink/jisoo`,
+`x/hyewon`) — two of which carry the Red Velvet goldens.
+
+**The seven crossover ids are authored once, at their home group**, and repeated verbatim in `x`:
+irene and wendy from `red_velvet`, sana and mina from `twice`, sullyoon from `nmixx`, wonyoung
+from `ive`, jisoo from `blackpink`. A physical tic belongs to the person, not the roster. Smoke
+fails when one copy is edited and its twin forgotten.
 
 **Four things to know before running anything live.** `qwen3.8-max` and `glm-5.2` are out of
 free credits on the dev key — pin `qwen3.7-plus` or `qwen3.8-flash` instead, and re-probe with
@@ -327,17 +677,32 @@ member from the palette can then never break a running save or a saved preset, w
 library profile reaches games in progress. The custom-member store is a *palette*, not a
 dependency.
 
+**`name` is load-bearing, not decorative — corrected in step 6.** A roster drawn from more than one
+source *is its own group*, and `name` is that group's name: the prompt's §4 renders
+`[<name> Background]` with the agency derived as `<name> Entertainment`, defaulting to `X`. Before
+this, §4 used the **main member's group config**, which handed the model a group it was not playing
+— full profiles for three BLACKPINK members who were not in the roster, and an agency it inferred
+from the group name. See *"Found by phone play: the cast is a group, not a collection"* in Progress.
+The origin groups are deliberately absent from the composed lore, and a roster that is exactly one
+whole group still uses that group's own lore verbatim, which is what keeps the goldens fixed.
+
 ### 4.3 New localStorage keys
 
 All go in `STORAGE_KEYS`, per the existing note that inline literals are the wrong pattern.
 
-| Key | Holds |
-| --- | --- |
-| `rv_sim_cast_custom_v14` | `[{id, lang, createdAt, profile}]` — custom member palette |
-| `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds (v1.4.1) |
-| `rv_sim_rosters_v14` | `[{id, name, roster}]` — player-saved rosters |
-| `rv_sim_cast_photos_v14` | `{memberId: dataUrl}` — 256×256 WebP |
-| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) |
+| Key | Holds | State |
+| --- | --- | --- |
+| `rv_sim_cast_custom_v14` | `[{id, lang, createdAt, profile}]` — custom member palette | ✅ step 6 |
+| `rv_sim_rosters_v14` | `[{id, name, createdAt, roster}]` — player-saved rosters | ✅ step 6 |
+| `rv_sim_cast_photos_v14` | `{memberId: dataUrl}` — 256×256 WebP | ✅ step 6 |
+| `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds | ⬜ v1.4.1 |
+| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) | ⬜ v1.4.1 |
+
+**Only the three v1.4.0 keys are declared.** The other two are not added until something reads
+them: `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` have sat unimported in `constants.js` for
+several releases and are documented in CLAUDE.md as "either wire them up or delete them", which is
+the cost of declaring ahead of the reader. `rv_sim_debug` also exists, set by `?debug=1`, and is
+deliberately *not* in `STORAGE_KEYS` — it is read by `debugConsole.js` before React mounts.
 
 ### 4.4 Custom member form
 
@@ -396,12 +761,29 @@ Section numbering is preserved so the diff stays readable.
 | 3 | Story generation | phase beats come from `world.phases` |
 | 4 | Group background | `world.setting` + `world.lore` + roster relations |
 | 5 | Member profiles | + `Habit:` line; NPCs are explicit, not leftovers |
-| 6 | Cast identity & address | identity text from `world.identities`; **address protocol unchanged** |
+| 6 | Cast identity & address | identity text from `world.identities`; token table from `world.addressForms`; **protocol logic unchanged** |
 | 7 | Social platform rules | only the platforms the world declares |
 | 8 | — | **NEW** Places (canon list) + opening scenario |
 
 **Everything added here is static and therefore cached from R1.** No change touches the history
 ledger or the cache-miss boundary.
+
+**The address token table moves into the world file — during the extraction, not after.**
+`TOKENS` in `mainAgent.js` maps 언니 / 님 / 씨 / 야 per output language, so it reads as a
+*language* table. It is not. It is a **(world, language)** table: Korean seniority is a birth-year
+boundary and these honorifics are how it is spoken, whereas a Japanese setting needs 先輩 / さん /
+ちゃん with seniority by school year, and a Chinese one has almost no formal peer register to
+carry at all. Keeping `unnie` / `xi` while changing the country would put Korean grammar in a
+Tokyo scene — the same error class as the zh `呀` bug (CLAUDE.md, *"Korean address forms are
+transliterated, never localized"*), where a transliteration was valid in one target language and
+collided with existing grammar in another.
+
+So a background country is **not** a second axis alongside the world; a country ships *as* a
+world. `kpop_idol` carries today's table **verbatim** — goldens unchanged, this stays a pure
+extraction — and a future `jpop_idol` ships its own without reopening `buildSystemPrompt`. Only
+the tokens move: the *logic* (direction fixed by birth year, register blended from stage and
+Private Personality) stays in code, because it is behaviour rather than content. Cheap while the
+file is already open, expensive once three world JSONs exist.
 
 Estimated static-prompt delta, Red Velvet, 1 main + 2 subs:
 
@@ -540,7 +922,7 @@ New fields written: `schema: 14`, `worldId`, `roster`, `groupId`.
 | --- | --- |
 | no `schema` | treat as schema 13 |
 | no `worldId` | `"kpop_idol"` |
-| no `groupId` | scan the group index for the group containing `form.mainMember`; ambiguous or absent → `"red_velvet"` + `console.warn` |
+| no `groupId` | scan for the group containing **the whole chosen cast** — `form.mainMember` *and* every `form.subMembers` entry. Matching on the main member alone is not enough: `x` is a crossover roster sharing seven ids with the groups those members debuted in. A remaining tie → the group the app has selected, if it is a candidate; still tied → first in index order + `console.warn`; no candidate at all → `"red_velvet"` + `console.warn` |
 | no `roster` | build from `groupId` + `form.mainMember` + `form.subMembers`; **all remaining group members get `slot:"npc"`**, reproducing today's `getNpcMembers` exactly |
 | `form.identity` unknown to the world | keep the raw string, render as a custom identity — never blank it |
 | `form.pace` / `starLevel` unknown | same |
@@ -553,10 +935,16 @@ say so.
 
 ### 9.4 Test obligation
 
-Smoke **Layer J** pins a real v1.3.8 save as a fixture and asserts it migrates, resolves a
-roster, and builds a prompt without throwing — and that the resolved member set is *identical*
-to what `getNpcMembers` produces today. Per the v1.3.7 lesson, every assertion goes through
-`resolveRoster` / `loadGroupConfig`, never by reading `public/groups/*.json` directly.
+Smoke **Layer I** — not Layer J, as this section originally said — pins a real v1.3.8 save as
+`test/fixtures/save-v138.json` and asserts it migrates, resolves a roster, and builds a prompt
+without throwing, and that the resolved member set is *identical* to what `getNpcMembers` produces
+today. Layer I is where that equivalence anchor already lives, and a gate reads better next to the
+thing it gates. Per the v1.3.7 lesson, every assertion goes through `resolveRoster` /
+`loadGroupConfig`, never by reading `public/groups/*.json` directly.
+
+**The fixture is TWICE, deliberately.** Red Velvet is both the app's default selection and the
+migrator's last-resort fallback, so a Red Velvet save would pass every check in this section with
+the group scan doing nothing whatsoever.
 
 ---
 
@@ -573,8 +961,20 @@ save**. This must be fixed in v1.4.0 — return a boolean, surface a localized n
 | Custom worlds (5 × ~6 KB) | 30 KB |
 | Rosters (20 × ~1 KB) | 20 KB |
 | **Photos (30 × ~15 KB)** | **450 KB** |
+| **Wallpapers (8 × ~46 KB)** — step 8, 2:3 | **370 KB** |
 | Everything else | < 50 KB |
-| Total vs ~5 MB quota | ~2.1 MB |
+| Total vs ~5 MB quota | ~2.4 MB (worst case ~3.1 MB, which is the caps and did not move) |
+
+**Both image rows are calculated from the encoder's settings, not measured**, and the wallpaper row
+is the weaker of the two: 360×540 at q0.7 is ~2.9× the pixels of a 256×256 at q0.8, so ~46 KB of
+stored string — it was ~55 KB while the wallpaper was 360×640, which the second hand test corrected
+to 2:3, the ratio the panel actually shows it at and 16% fewer pixels with it. Canvas WebP cannot be
+encoded outside a browser, so neither number can be checked by
+any offline test — which is why the image sheet prints `N KB used` on screen. **The hand test is
+the measurement**; correct this table from it rather than from the arithmetic above.
+
+Worst case is the caps rather than the typical sizes: 30 × 40 KB + 8 × 90 KB = 1.92 MB of images.
+Both fit, but quote the right one.
 
 **Photos must be downscaled, not stored as picked.** A phone photo is 3–5 MB and base64 inflates
 it ~37%; a single one blows the quota. `src/utils/imageStore.js` draws to a canvas at 256×256,
@@ -668,48 +1068,84 @@ player API keys to leak. IndexedDB is the database here.
 
 ### 14.2 Roster builder
 
+**As shipped in step 6. The sketch below replaces a tap-to-cycle design that was built, hand-tested
+on a phone, and reported as confusing** — the roles were symbols (◌ ★ ● ○), so the player could not
+tell what they were assigning, and removing someone meant tapping *forward* through every remaining
+state to return to none.
+
 ```
 ┌──────────────────────────────┐
-│ ← World: 🎓 Campus           │
+│ ← 🎤 Build a cast            │
 ├──────────────────────────────┤
-│ [RV][TWICE][aespa][IVE]… [★] │  group tabs, ★ = my custom
-│ ┌────┐┌────┐┌────┐┌────┐     │
-│ │🐰  ││🐻  ││🐿️ ││🦊  │     │  tap = cycle slot
-│ │Iren││Seul││Wend││Joy │     │  ◯ none → ★ main → ● sub → ○ npc
-│ │ ★  ││ ●  ││ ○  ││ ◯  │     │
-│ └────┘└────┘└────┘└────┘     │
+│ [RV][TWICE][aespa][IVE]… [✨]│  group tabs, ✨ = my members
+│ ┌─────────────┬─────────────┐│
+│ │ 🐰 Irene    │ 🐻 Seulgi   ││  two columns, so the role
+│ │[Main][Sub][N]│[Main][Sub][N]│  names fit as words
+│ ├─────────────┼─────────────┤│
+│ │ 🐿️ Wendy    │ 🦊 Joy      ││  tapping the ACTIVE role
+│ │[Main][Sub][N]│[Main][Sub][N]│  removes her
+│ └─────────────┴─────────────┘│
 ├──────────────────────────────┤
-│ Cast  ★Irene ●Seulgi ○Wendy  │
-│ [+ Create a member]          │
+│ Main  Irene ×                │  grouped, named, × removes
+│ Sub   Seulgi ×  Sana ×       │
+│ NPC   Wendy ×                │
+│ [Clear cast]                 │
 │ [Save roster]    [Start →]   │
 └──────────────────────────────┘
 ```
 
+Three things the redesign added, each answering a specific complaint:
+
+- **Named buttons, one per role**, two columns so the words fit. The words are what make the
+  control legible; the symbols were the whole problem.
+- **While the cast is empty, the three roles are explained** a line each — Main is the core romance
+  line and there is exactly one, Sub is also romanceable, NPC appears but is not. That is precisely
+  when the player does not know what they mean; once someone is picked, the space becomes the cast.
+- **The cast summary removes members**, so it never means finding her tab again. Plus a clear-all.
+- **Deleting an authored member asks first and names her.** It is not undoable and its button sits
+  beside Edit on a small card.
+
+The visual design is **acknowledged as unpolished and deferred by agreement** after the phone test.
+
 ### 14.3 Member editor
+
+**Three steps, not one scroll — changed during step 6 at Yuhan's request.** Sixteen fields plus a
+photo plus the generate box is unreadable as a single page at 390px: somewhere around field nine you
+lose track of what is still required.
 
 ```
 ┌──────────────────────────────┐
-│ ← New member                 │
+│ ← New member               ✕ │
+│ [1. Who she is][2. Reads][3.]│  step indicator, tappable
 ├──────────────────────────────┤
-│ ✨ Describe her in one line   │
+│ ✨ Describe her in one line   │   STEP 1
 │ ┌──────────────────────────┐ │
 │ │ a reserved cellist who   │ │
 │ │ never sleeps before 3am  │ │
 │ └──────────────────────────┘ │
-│        [ Generate card ]     │
-├──────────────────────────────┤
+│        [ Generate card ]     │   fills steps 2 and 3
 │ Name*        [___________]   │
-│ Born*        [____] (year)   │
-│ Private*     [___________]   │
-│ ─────────────────────────    │
-│ Public image [___________]   │
-│ Queer texture[___________]   │
-│ Speech style [___________]   │
-│ Habit        [___________]   │
-│ ▸ Advanced (9 fields)        │
-│ Photo  [🐰 default] [upload] │
+│ Born*        [1999] 1980-2012│   a YEAR, stored as YYYY-01-01
+│ Photo  [🎻] [upload]         │
+├──────────────────────────────┤
+│  [← Back]  [Next →]  [Save]  │   Save is live from ANY step
 └──────────────────────────────┘
+
+STEP 2  Private* · Public image · Queer texture · Speech style · Habit
+STEP 3  Real name · MBTI · Role · Animal · Hidden conflict   (skippable)
 ```
+
+- **Save goes live the moment the three required fields are filled, from whatever step.** Being made
+  to walk to the end is what makes a wizard worse than the form it replaced, and step 3 is optional
+  fields only. The fast path is: type a line, generate, glance, save.
+- **Generated values merge *under* what the player typed**, so pressing Generate twice cannot
+  destroy their edits.
+- **The year field holds its own draft.** Deriving it from `profile.birthday` is the bug in
+  Progress: it round-tripped through `YYYY-01-01` and sliced *into* the date. It is `type="text"`
+  with `inputMode="numeric"` — iOS gives the same keypad, but a number input refuses any value it
+  cannot parse, which is what made a half-typed year undisplayable.
+- **The caller mints the member id**, because a photo can be picked on step 1 before anything is
+  saved and the photo store is keyed by id.
 
 ### 14.4 Map picker (v1.4.1)
 
@@ -761,7 +1197,7 @@ sequencing rules drive everything:
 | **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |
 | **4** | Save migration: task 6 | A pinned v1.3.8 save migrates and resolves to the *same* member set `getNpcMembers` returns today |
 | **5** | Content: task 5 (`habit` × 27 files) + task 13 (root mirror) | Layer J asserts `habit` reaches the prompt through `loadGroupConfig` |
-| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px; live `playthrough.mjs` on a cross-group roster |
+| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px **(done — found 3 bugs, all fixed)**; live `playthrough.mjs` on a cross-group roster **(not yet run)** |
 | **7** | **Release v1.4.0** | Build + smoke + live playthrough, then the normal release flow |
 
 **Step 1 is the highest-value hour in this plan.** A world/roster extraction that changes the
@@ -780,21 +1216,21 @@ data instead of an inherited figure.
 
 ### v1.4.0
 
-| # | Task | Files |
-| --- | --- | --- |
-| 1 | `worldLoader.js`, `public/worlds/kpop_idol/*` — extract today's hardcoded blocks verbatim | new + `mainAgent.js` |
-| 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` | new |
-| 3 | `buildSystemPrompt` reads world + roster | `mainAgent.js` |
-| 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` |
-| 5 | `habit` in all 9 group JSONs × 3 languages | `public/groups/**` |
-| 6 | Save migration + `groupId`/`worldId`/`roster` in the slot | `App.jsx`, `SaveOverlay.jsx` |
-| 7 | Roster builder + member editor UI | new `platforms/*` |
-| 8 | `cardGenerator.js` | new |
-| 9 | `imageStore.js` + quota-guarded `saveToStorage` | new + `utils.js` |
-| 10 | Usage panel | `llmTool.js`, new `platforms/UsagePanel.jsx` |
-| 11 | Affection clamp | `mainAgent.js` |
-| 12 | Smoke **Layer J** (migration, resolver, static-prompt stability) | `test/smoke.mjs` |
-| 13 | Root `groups/` mirror re-synced by hand after (5) | — |
+| # | Task | Files | State |
+| --- | --- | --- | --- |
+| 1 | `worldLoader.js`, `public/worlds/kpop_idol/*` — extract today's hardcoded blocks verbatim, `TOKENS` included | new + `mainAgent.js` | ✅ |
+| 2 | `rosterResolver.js` — `resolveRoster`, `buildClassicRoster` | new | ✅ |
+| 3 | `buildSystemPrompt` reads world + roster | `mainAgent.js` | ✅ |
+| 4 | `birthday` + `habit` + `tags` in the `parseGroupConfig` whitelist | `groupLoader.js` | ✅ |
+| 5 | `habit` in all 9 group JSONs × 3 languages, **plus the prompt line that renders it** | `public/groups/**`, `mainAgent.js` | ✅ — 175 strings across 30 files, not 27 |
+| 6 | Save migration + `groupId`/`worldId`/`roster` in the slot | `App.jsx`, `SaveOverlay.jsx` | ✅ |
+| 7 | Roster builder + member editor UI | new `platforms/*` | ✅ — redesigned after the phone test, see §14.2 |
+| 8 | `cardGenerator.js` | new | ✅ — 9 fields, not 7 |
+| 9 | `imageStore.js` + quota-guarded `saveToStorage` | new + `utils.js` | ✅ — both |
+| 10 | Usage panel | `llmTool.js`, new `platforms/UsagePanel.jsx` | ✅ (v1.3.9) |
+| 11 | Affection clamp | `mainAgent.js` | ✅ (v1.3.9) |
+| 12 | Smoke migration / resolver / static-prompt stability checks | `test/smoke.mjs` | ✅ — Layers **I** and **J**, not J alone |
+| 13 | Root `groups/` mirror re-synced by hand after (5) | — | ✅ |
 
 > ⚠️ Task 13 is not optional. `deploy.sh` copies only `assets/*.js` and `*.css`; nothing keeps
 > the root `groups/` mirror in sync with `public/groups/`. Adding `habit` to the public copies
@@ -809,7 +1245,8 @@ canon in §8; map picker; discovered places.
 ### v1.4.2
 
 Player KKT/IG composers; `playerPostReactions` in the schema and parser; relations in §4;
-opening scenario; affinity matrix call + `BETA` prior in `probabilityEngine.js`.
+opening scenario; affinity matrix call + `BETA` prior in `probabilityEngine.js`; **plot mode
+(§19)** — authored story beats, offered as option D, injected into the tail.
 
 ### v1.5.0
 
@@ -894,3 +1331,338 @@ None blocking v1.4.0. Carried forward:
    so the feature is discoverable without work from the player.
 4. **`BETA` value** needs one live playthrough sweep to settle; 1.5 is a starting point, not a
    measurement.
+
+---
+
+## 18b. A Kakao that the scene makes impossible
+
+**Reported from hand play, v1.3.9, and deliberately not fixed there.** It long predates v1.4.0
+and is not a regression; it is a missing mechanism.
+
+A member texts the player something the scene they are both standing in contradicts:
+
+- She is **in the room**, face to face, and texts *"see you tomorrow, good night"* — and the next
+  round is still the same scene, in the same place, so the goodbye never becomes true.
+- She is **asleep or drunk**, the player has just walked her back to the dorm, and a message
+  arrives from someone who cannot be holding a phone.
+
+The player's own verdict is the one to design against: *this ruins the immersion quite a lot.*
+It is worse than a flat line of prose, because the game contradicts a fact the player watched
+happen.
+
+**Why it happens.** KKT generation is asked for every round and gated on exactly one thing —
+affection, via `[KKT Channels]` in the dynamic tail. There is no notion of whether she is
+*able* or *has reason* to send one. The prompt knows the scene as a free-text label
+(`Scene:practice room`) and knows nothing at all about who is present in it, or her physical
+state, or whether the round ends with the two of them parting.
+
+**Why it is not a prompt tweak.** *"Do not text when you are in the same room"* is a rule the
+model cannot reliably apply, because the information it needs is not in the prompt. The scene
+label is prose, presence is not modelled, and "asleep" exists only inside the story the model
+just wrote. Adding the sentence without adding the state is how a rule becomes noise — and the
+step 5 finding applies here too: a rule the data cannot support is not a fix.
+
+**The shape a real fix takes**, roughly in cost order:
+
+1. **Presence** as structured state: does this round end with the member present or parted? The
+   model already decides it; it would have to *report* it, as a field beside `scene`, and the
+   tail would carry it into the next round.
+2. **A send condition per member** derived from presence + physical state, rendered into
+   `[KKT Channels]` the way the affection lock already is. The lock proved the pattern works:
+   state in the tail, rule in the static prompt, filter as the backstop.
+3. **Post-filter** as the backstop — drop a delivered message whose precondition the round
+   contradicts, exactly as `filterKktByAffection` drops one the lock forbids.
+
+`byhAnita/yuriagent` has already solved the data half of this: its `locations.js` gives every
+place an `exposureBase` **and** a `presence` count, decorrelated on purpose. Presence is the
+field this bug wants, and v1.4.1's place canon (§8) is where it would naturally land.
+
+**Recommendation: schedule with v1.4.1's places, not before.** Doing it earlier means inventing
+a presence model that the place work would then replace. It needs a live playthrough to confirm
+the fix, since the symptom is a contradiction between prose and state that no offline assertion
+can see.
+
+---
+
+## 19. Plot mode — v1.4.2
+
+Authored story beats, opt-in, injected into the dynamic tail. Agreed in discussion 2026-09-24.
+Numbered 19 and placed last so that no existing §-reference in this file, in `CLAUDE.md` or in
+`docs/TECH_NOTES.md` has to be renumbered.
+
+### 19.1 Why
+
+The game has **no authored beats at all**. Every scene is invented by the model from the phase
+rules, which is why a long session drifts toward pleasant sameness — practice room, late night,
+coffee, repeat. The prompt can bias tone; it cannot supply an event decided elsewhere.
+
+`relationshipEvents.js` looks like a counter-example and is not. `proposal_ready`,
+`breakup_warning` and `pressure_warning` render a **modal** ([App.jsx:1453](../src/App.jsx#L1453))
+and never reach the prompt. Nothing in the current engine tells the model *what happens this
+round*.
+
+The content already exists. `src/config/specialEvents.js` on tag `archive/dev-v12.0.0` is 929
+lines of hand-written beats, already trilingual:
+
+| Pool | Tiers | Selected by |
+| --- | --- | --- |
+| `ROMANTIC_EVENTS` | attraction / ambiguous / pre_confession / together | top affection |
+| `PR_CRISIS_EVENTS` | low / medium / high | `secrecy` |
+| `DRAMA_EVENTS` | mild / moderate / intense | gap between the top two affections |
+| `CAREER_EVENTS` | early / mid / late | round number |
+| `EMOTIONAL_EVENTS` | early / late | round number |
+
+Each entry is `{ id, prompt, intro: { zh, en, ko } }` — `prompt` instructs the model, `intro` is
+the one-line teaser shown to the player.
+
+### 19.2 What v12 got wrong, and it is the expensive one
+
+v12 placed the event **instance** correctly: it appended a `[SPECIAL EVENT — THIS ROUND ONLY]`
+block to the user message, which is the tail. Keep that, including its *"open with 1-2 sentences
+that bridge from the previous round"* instruction — without it an injected event reads as a hard
+cut away from the scene the player was in.
+
+What it got wrong was the **flag**. `buildSystemPrompt(..., queueDActive = false)` took queue
+state as a parameter and rewrote two lines of the static prompt — the JSON schema's option D
+(`"D. [reserved]"`) and the options rule — whenever a beat was being offered. Every round with a
+queued beat therefore missed the entire ~5,500-token cached prefix.
+
+Same defect class as the `主线成员前女友` randomness found in step 1: invisible, no error, no
+failing test, and it silently doubles input cost on exactly the rounds the feature is active. The
+rule it violates is CLAUDE.md's **`buildSystemPrompt` must be a pure function of the save**, and
+plot mode must not reintroduce it.
+
+| Layer | Carries | Cache |
+| --- | --- | --- |
+| **Static system prompt** | the `SPECIAL EVENT OVERRIDE` *rule* — unconditional, constant, present whether or not plot mode is on | hits from R1 |
+| **Dynamic tail** | the event *instance* — target member, prompt, ~60-100 tokens | already 100% miss |
+
+Marginal cost is ~100 tail tokens on firing rounds only. This is the Time Speed `[Pacing]`
+pattern that CLAUDE.md already documents; follow it exactly.
+
+**Option D must not be reserved in the schema.** v12 told the model to emit `"D. [reserved]"` and
+then overwrote it client-side. Do the overwrite *without* telling the model: it writes a normal
+D, the client replaces that string with the beat's `intro`. The static prompt then never varies.
+
+### 19.3 Determinism — the failure mode to design against
+
+`pickRhythmEventForQueue` picks with `Math.random()`. Harmless for the cache, since the tail is
+never cached, and fatal for **↺ Retry**: regenerating would roll a *different* beat, so a player
+could reroll until they liked one, and the story would contradict the teaser they just read.
+
+**Decide the beat at the end of round N-1 and store it in `memory`.** Round N only reads. Two
+things then fall out for free:
+
+- `preRoundSnapshotRef` already snapshots `memory`, so Retry restores the same beat with no new
+  code.
+- The teaser must exist before options are rendered anyway — the actual reason v12 needed a queue.
+
+Consume-on-fire mutates the memory **clone** and commits only on success, exactly as
+`collapseHistoryIfNeeded` does. A failed round must not burn a beat.
+
+### 19.4 One toggle, and the class comes from `pace`
+
+v12 shipped **two** overlapping settings, which is why the grouping reads as unclear today. Its
+form carries both at once:
+
+```js
+{ ..., pace: "浪漫情感向", rhythm: "free" }
+```
+
+and the two value sets are the same four axes twice over. A player cannot tell the questions
+apart. Collapse them: [`PACES`](../src/App.jsx#L50) is already chosen at setup and currently only
+nudges tone, so let it pick the pool and finally do something.
+
+| `pace` | Pool |
+| --- | --- |
+| 慢热现实向 | `CAREER_EVENTS` + `EMOTIONAL_EVENTS` (slice-of-life) |
+| 浪漫情感向 | `ROMANTIC_EVENTS` |
+| 高压舆论向 | `PR_CRISIS_EVENTS` |
+| 修罗海王向 | `DRAMA_EVENTS` |
+
+Settings gets **one boolean**, `rv_sim_plotmode`, default **off** — identical current behaviour
+for every existing player, and the honest default for a feature that changes how the story moves.
+A setting rather than a save field, consistent with Time Speed, which also changes the writing.
+No second class picker. If play shows per-class control is wanted, it belongs beside `pace` on
+the setup page, not in settings.
+
+### 19.5 Where the beats live
+
+**Not in `src/config/`.** Every beat in those pools is idol-industry specific — the practice room,
+the dorm, the agency, `pr_crisis` itself. They are **world content** and belong in
+`public/worlds/<id>/<lang>.json` as an `events` block, beside `identities` and `places`.
+
+That is the main reason plot mode waits for v1.4.2 instead of being built now: implementing it
+against `src/config/specialEvents.js` means moving it a release later.
+
+Three sources, in priority order:
+
+1. **`form.customPlot`** — free text at setup. Overrides everything, stored in the save.
+2. **The world's `events` pools** — the v12 content, once ported into `kpop_idol`.
+3. **A generated arc** — if plot mode is on and the world declares no `events` (the normal case
+   for a world the player built in v1.4.1), round 1 asks for an optional `plotArc` field, stored
+   in `memory` and **never regenerated**.
+
+Source 3 is what makes plot mode work for custom worlds at all, and it is also the riskiest path.
+`plotArc` must be **optional in the parser** — a model that ignores it returns nothing and the
+round is still valid, the contract §8 already sets for `playerPostReactions`. Generate once,
+store, never re-ask: a re-rolled arc is the step-1 backstory bug wearing a different hat.
+
+### 19.6 Save shape — no migration
+
+```js
+memory.plot = {
+  queued:        null,  // {eventId, poolId, memberId, prompt, intro:{zh,en,ko}, entryRound}
+  triggered:     [],    // ids already fired, so a beat cannot repeat
+  cooldownUntil: 0,     // round number
+  arc:           null,  // source 3 only, generated once at round 1
+}
+```
+
+A v13 save with no `memory.plot` reads as `undefined` and defaults on load. **No new storage key,
+no migration table, no change to `isLegacyMemory`** — older shapes are already wiped to
+`createEmptyMemory()`. `form.customPlot` is a form field and behaves the same way.
+
+### 19.7 Scope — cut v12's knobs
+
+v12 carried `queueCooldown`, `dShownCount`, `MAX_QUEUE_STAY`, `MAX_D_SHOWN_COUNT`, `D_COOLDOWN`
+and `EMOTIONAL_LATE_ROUND` — six tuning parameters for a feature nobody had played yet. Ship the
+smallest thing that can be judged:
+
+- **at most one** queued beat
+- offered as option D, with the beat's `intro` as the option text
+- expires **3 rounds** after entering the queue if the player never picks it
+- **3-round** cooldown after one fires
+- a beat never repeats within a playthrough (`triggered`)
+
+Add knobs when real play demands them, not before.
+
+### 19.8 Test obligation
+
+| Check | Layer | Guards |
+| --- | --- | --- |
+| Static prompt byte-identical: plot off vs on, beat queued vs not | **J** | the v12 `queueDActive` bug exactly |
+| Same memory + same round ⇒ same beat | **D** | the Retry reroll |
+| Event block in the tail only on the firing round | **D** | placement |
+| Legacy save with no `memory.plot` loads and plays | **G** | the migration-free claim |
+| A failed round does not consume the queued beat | **D** | clone-and-commit |
+
+Per repo convention each must be verified failing against the unfixed code.
+
+### 19.9 Open questions
+
+1. **Does a beat fire inside the achievement window (round 30+)?** v12 gated pools by round via
+   `EMOTIONAL_LATE_ROUND`. Probably yes, but the interaction with `proposal_ready` is unexamined.
+2. **Porting effort for the v12 pools** — ~100 entries × 3 languages into `kpop_idol`, and the
+   prose was written against a v12 stat model that has since changed.
+3. **Should `慢热现实向` fire beats at all**, or is "no beats" the honest meaning of slow-burn
+   realistic? v12's `free` rhythm did exactly nothing.
+
+---
+
+## 20. The photo a player uploads has nowhere to appear — step 8
+
+**Reported from Yuhan's hand test of the role-first cast picker, 2026-09-28.** The photo store
+shipped in step 6 and works: `imageStore.js` downscales, caps, refuses and prunes correctly, and
+the roster builder shows the result. **Nothing in the game ever reads it.** `App.jsx` does not
+import `loadPhotos`, so the four social overlays and the game top bar all still draw
+`emoji + linear-gradient(color, accent)`, and a player who uploaded nine photos sees them only on
+the screen where she uploaded them.
+
+This is the same defect class as `npcAppearances` and the bubble photo frame: **a feature complete
+on one side of a boundary and connected to nothing on the other.** It reads as a broken upload
+rather than a missing consumer, which is why it comes before the release rather than after it.
+
+### Three decisions for Yuhan, marked as recommendations
+
+1. **One wallpaper per member, not one per platform.** He asked for uploadable backgrounds for
+   Bubble, Weverse and KKT. Three per member is 3× the quota and 3× the uploads, and each platform
+   already lays its own scrim over it, so one photo reads differently in each. Recommend one, used
+   as the chat background in Bubble and KKT, the post image on Instagram, and the header banner on
+   Weverse — four jobs per upload instead of one.
+2. **The birth-year row stays for migrated saves only.** He asked to remove it from settings
+   entirely, and for a new game that is exactly right: the year is set once at Setup and never
+   moves, because changing it mid-run re-points every honorific and costs the whole ~5,500-token
+   cached prefix. But `correctBirthYear` exists for the one case where the year is genuinely
+   unknown — a pre-v1.4.0 save whose year was *reproduced* by the migration from `age`, wrong for
+   about half of players and unrecoverable. `birthYearEstimated` is already computed in `loadSave`
+   and is exactly that flag. Recommend gating the row on it: invisible in every new game, present
+   once for a save that needs it. Nothing is deleted.
+3. **Ship it in v1.4.0, before the release.** v1.4.0 is the release that introduces the photo
+   uploader. Shipping it with no consumer means shipping a dead control.
+
+### What gets built
+
+**`imageStore.js` is parameterised rather than copied.** It hardcodes one key, one cap and one
+square size. Wallpapers need a second key, different caps and a different aspect ratio, and a
+second copy of the quota rules is the `extractStoryText` failure — two copies drift and the guard
+gets written against whichever one was correct.
+
+- `downscaleCover(file, w, h, quality)` center-crops to the target aspect ratio; `downscale`
+  becomes the square call. One implementation, two callers, guarded by call-site count.
+- `loadImageMap(key)` / `saveImageMap(key, map)`; `loadPhotos`/`savePhotos` stay as wrappers so no
+  existing caller churns.
+- `putPhoto(map, id, url, {maxCount, maxChars})` — the limits become arguments defaulting to
+  today's values, so the refusal rules have one implementation for both stores.
+- New key `rv_sim_cast_walls_v14` as `STORAGE_KEYS.CAST_WALLS`. Device-local, never a save field,
+  so no migration. `WALL_W x WALL_H = 360x540` (2:3 as shipped — the plan said 360x640 and the hand
+  test corrected it), WebP q0.7, `WALL_MAX_COUNT = 8`, `WALL_MAX_CHARS = 90 KB`.
+
+**The sizes above are calculated from the 256x256 profile, not measured.** 360x540 is ~2.9x the
+pixels of a 256x256 at a lower quality, so ~46 KB of stored string against ~20 KB. Real encoded
+sizes get measured during implementation and this table gets corrected; §10's budget moves from
+~2.1 MB to ~2.5 MB typical and ~3.1 MB worst case against the ~5 MB quota.
+
+**Six consumers, because a member's face has to be the same face everywhere.**
+
+| Surface | Today | After |
+| --- | --- | --- |
+| Game top bar | 28px gradient + emoji | her photo, gradient ring kept as the fallback |
+| `MemberSelector` (the tab strip in all four overlays) | emoji | her photo |
+| Bubble | one lavender panel, no avatars | avatar left of every line, wallpaper behind the thread |
+| KakaoTalk | 26px gradient + emoji per line | her photo per line, wallpaper behind the thread |
+| Instagram | no header, gradient placeholder image | real IG shape: avatar + handle header, wallpaper as the post image, actions and caption below |
+| Weverse | plain card | avatar + name header on the card, wallpaper as its banner |
+
+Bubble's `hasPhoto` / `photoDesc` frame is **left alone**: that is a specific picture she sent this
+round, and substituting her wallpaper for it would render a description of one image over a
+different image.
+
+**Uploads move to the roster builder, on the members actually chosen.** Tapping a member's avatar
+in the builder — the main card or any chip — opens one sheet carrying both images: photo
+upload/replace/remove, wallpaper upload/remove, both counters (`n / 30`, `n / 8`) and the total
+bytes in use. Reasons:
+
+- It covers the library, which is what Yuhan asked for: any member can be given a photo by picking
+  her into a slot, and a member in no slot has no surface anywhere that could show one.
+- It adds **no new tap target to the picker grid**, which is the whole point of the restructure one
+  commit ago — a 20px camera badge beside a 40px assign target on a 390px screen reintroduces
+  exactly the mis-tap the role-first layout removed.
+- The caps and the byte total are visible before they are hit, which is what the save slots and the
+  20-member palette both had to learn the hard way.
+
+**The year text input becomes a scroll wheel**, in Setup and in the member editor. The wheel is a
+CSS `scroll-snap-type: y mandatory` column with no library, ~5 rows visible, the selection
+centered and highlighted, opening centered on 2000. It **removes a failure mode rather than
+restyling one**: `birthdayFromYear` returns `""` for a partial year specifically so a half-typed
+`19` cannot reach the address protocol, and a wheel cannot emit a partial year at all. Two ranges,
+both already defined and not duplicated — `PLAYER_BIRTH_YEAR_MIN/MAX` (1946-2008) for the player,
+`BIRTH_YEAR_MIN/MAX` (1980-2012) for a custom member.
+
+### Guards, all mutation-verified, written from the requirement
+
+- `putPhoto` honours caller-supplied caps, and the wallpaper caps differ from the photo caps.
+- `downscale` delegates to `downscaleCover` — call sites counted, not presence checked.
+- Every surface that renders a member renders her photo when one exists: **count the consumers**,
+  because a helper can exist, be correct, and be used in five of six places.
+- `App.jsx` threads both maps into all four overlays — asserted on the call, not on the import.
+- **No photo or wallpaper data URL can reach the prompt.** Same class as `displayNameIn`, and worse
+  if it fails: a data URL inside the static prompt destroys the cached prefix and bills for it.
+  Asserted on what `executeRound` and `resolveRoster` receive.
+- The settings birth-year row is gated on `birthYearEstimated`.
+- The wallpaper cap and the byte total are rendered at all times, not only once hit.
+- The wheel cannot produce a year outside its range, and `birthdayFromYear` always receives four
+  digits from it.
+
+**Gate: the goldens must not move.** Nothing in this batch is prompt-facing, exactly as the
+role-first picker batch was not.

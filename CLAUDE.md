@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.3.9** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -38,6 +38,7 @@ node test/smoke.mjs --live-free       # + probe every Aliyun free-route model, t
 node test/playthrough.mjs             # live: real multi-round games, one per model family
 node test/playthrough.mjs --models all --rounds 10 --jobs 6   # full 28-model sweep
 node scripts/update-golden.mjs        # regenerate test/fixtures/*.txt after an INTENTIONAL prompt change, then read the diff
+node scripts/analyze-prose.mjs        # writing quality from the newest playthrough: repetition, rotation, pacing
 npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
@@ -61,7 +62,33 @@ six months later.
 
 `test/smoke.mjs` reads `API_KEY` (or the older `YURIAGENT_API_KEY`) and `MODEL_ID` from the git-ignored `.env.local`. `MODEL_ID` accepts either a provider id or a model string (`aliyun`/`qwen`/`qwen3.8-max` all resolve to the `qwen` provider). Never print the key, and never move it into a tracked file — Layer C fails the run if a key reaches `src/`, `dist/`, or git history.
 
-**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's age therefore defaults to the cast's median birth year, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` pins it. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
+**The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's birth year therefore defaults to the cast's median, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` still pins it, converted to a birth year on the way in. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
+
+**Every field of `form` that selects a whole block of the prompt has to be a flag.** `--identity`
+exists because pinning `练习生` meant 7 of the 8 identity backgrounds had never been played live by
+anything; `--pace` exists because the same thing was true of the pace, and it started mattering the
+moment section 6 began sending the pace's authored rule instead of its id. Smoke asserts the `form`
+literal is built from `IDENTITY` and `PACE` rather than from strings — a flag check alone would pass
+while `form.pace` stayed hardcoded.
+
+**`node scripts/analyze-prose.mjs` is the third question, and the graders cannot answer it.** A grader
+reports what went **wrong**; "0 issues" reads the same whether the model used `欧尼` all game or
+avoided honorifics altogether, whether each round opened on a different image or recycled one, whether
+the sub members got the scenes section 3 promises them. Most of what makes the game good or bad lives
+in that gap. So the harness stores a full transcript for **every** round — prose, scene, options, stat
+and affection values, the delivered Kakao ids, the summary — and the analyzer measures repetition
+(round-to-round n-gram overlap, reused sentences, openers that rhyme), scene variety, option variety
+and stat leakage, member rotation against section 3's rule, how often the address forms actually
+appear, and affection pacing against the ±8 clamp.
+
+It **prints numbers and no verdicts, deliberately**. There is no threshold at which the writing is
+fine, and a metric that failed a build would be tuned away the first time it was inconvenient. It
+found two defects within three rounds of first being run: `scene: "SM娱乐大楼顶层会议室"` under a rule
+forbidding company names, and zh prose running at double the length the prompt asks for.
+
+Sampling round 0 alone, which is what the report used to keep, is the worst possible choice for judging
+writing: round 0 is the only round with no history behind it, so it is the one round whose prose cannot
+repeat itself.
 
 ---
 
@@ -129,9 +156,16 @@ Player choice
 | `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
 | `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
-| `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` |
+| `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
+| `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: identities, paces, phase beats, address forms |
+| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()`, `composeRosterLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group |
+| `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
+| `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
+| `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
+| `src/tools/debugConsole.js` | the on-device console: always-on key-redacted ring buffer + `?debug=1` panel. See TECH_NOTES |
+| `src/rag/saveMigrator.js` | `migrateSave(save, lang)`, `migrateSaveFields`, `SAVE_SCHEMA` — brings a pre-v1.4.0 save up to `groupId`/`worldId`/`roster`/`birthYear`, reproducing what it already implied; plus `correctBirthYear`, the one value it deliberately does **not** fix |
 | `src/config/constants.js` | Numeric game constants (see below) |
-| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_USD_PER_1M`, `estimateCallCostUsd` |
+| `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_PER_1M`, `estimateCallCostUsd` |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
@@ -165,8 +199,38 @@ Player choice
 | `rv_sim_fontscale` | inline literal | `1` / `1.25` |
 | `rv_sim_language` | inline literal | `zh` / `en` / `ko` |
 | `rv_sim_group` | inline literal | Selected group id |
+| `rv_sim_cast_custom_v14` | `STORAGE_KEYS.CAST_CUSTOM` | Player-authored member palette, capped at 20 |
+| `rv_sim_rosters_v14` | `STORAGE_KEYS.ROSTERS` | Player-saved rosters, capped at 20 |
+| `rv_sim_cast_photos_v14` | `STORAGE_KEYS.CAST_PHOTOS` | `{memberId: dataUrl}`, 256x256 WebP, capped at 30 |
+| `rv_sim_cast_walls_v14` | `STORAGE_KEYS.CAST_WALLS` | `{memberId: dataUrl}`, 360x540 WebP (2:3), capped at 8 |
+| `rv_sim_debug` | inline literal | `"1"`/`"eruda"` — the on-device console, set by `?debug=1`. Read before React mounts, so deliberately not in `STORAGE_KEYS` |
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
+
+### The tenth save is the last one, and the eleventh is refused
+
+**`[newSave, ...saves].slice(0, 10)` deleted the player's oldest run, silently.** Reported from hand
+play in v1.4.0 step 6. A slot id is `Date.now()`, so **no save has ever replaced another** — every
+one is a new slot — and the eleventh therefore pushed the first off the end. The list looked normal;
+it just had a different last entry, and a run was gone for good.
+
+This is the same failure `saveToStorage` was given a return value for, one level up: silence is the
+wrong default for the one operation whose whole purpose is durability. The difference is the remedy.
+**A refused save costs one tap once the player is told; an evicted save cannot be recovered at all** —
+so the cap refuses.
+
+- **`addSaveSlot(saves, newSave)` in `src/utils.js`** is the rule, pure and exported so it is tested
+  rather than reachable only by filling ten slots by hand. It returns `{ok, saves, reason}` and on
+  refusal hands back **the same array object**, so a caller that renders the result cannot show a
+  slot that does not exist.
+- **Nothing is ever truncated**, including a legacy list that somehow holds more than ten: trimming
+  it would be the very loss being fixed. The guard asserts on **ids**, not length — eviction and
+  refusal both yield ten items, so a length check passes against the bug.
+- **Overwriting an existing slot stays legal at the cap**, because it frees the slot it takes.
+  Nothing does that today; it is there so adding overwrite later cannot bring the eviction back.
+- The UI shows **`n / 10` at all times** and disables Save at the cap with a persistent notice naming
+  both ways out — delete a slot, or export the story from Settings. The cap used to be invisible
+  until it destroyed something.
 
 ### `saveToStorage` returns a boolean, and save slots must check it
 
@@ -198,7 +262,10 @@ router learned, and the worst case of losing it is re-walking the route once.
 ## Key Constants (`src/config/constants.js`)
 
 ```js
-GAME_YEAR           = 2026 // used to derive player birth year from age
+GAME_YEAR           = 2026 // renders the player's age FROM her birth year; also the
+                           // legacy fallback that derives one when a save has none
+PLAYER_BIRTH_YEAR_MIN = GAME_YEAR - 80   // + validPlayerBirthYear(): one range, two
+PLAYER_BIRTH_YEAR_MAX = GAME_YEAR - 18   // writers (Setup, and the in-game correction)
 HISTORY_FULL_MAX    = 3    // N: full-story entries before collapse trigger
 HISTORY_PRUNE_BATCH = 15   // batch-prune this many oldest summaries when total summaries > N*3
 KKT_MAX             = 10   // Q: KakaoTalk messages stored per member
@@ -211,7 +278,18 @@ NPC_APPEARANCE_CHANCE        = 0.3  // DEAD - not imported anywhere
 NPC_COOLDOWN_ROUNDS          = 2    // DEAD - not imported anywhere
 ```
 
-`NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` are **not referenced by any module**. NPC appearance is governed entirely by prompt rules in `buildSystemPrompt` plus the `[NPC Appearances]` block in the dynamic tail. Either wire them up or delete them — do not document them as live behavior.
+`NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` are **not referenced by any module**. Either wire them up or delete them — do not document them as live behavior.
+
+**`npcAppearances` and the `[NPC Appearances]` block were a third such mechanism, and are gone.**
+`executeRound` did `const npcAppearances = { ...memory.npcAppearances };` and wrote it back
+**unchanged** — nothing anywhere added an entry, so the object was `{}` for the life of every save,
+`buildDynamicTail`'s `Object.keys(...).length > 0` guard was never satisfied, and the example line this
+file used to show had never been sent to any model. Section 8's `2-round cooldown` therefore named a
+cooldown the model was given no information to apply.
+
+Replaced in step 7 by `[Rounds Absent]`, which counts every member including the NPCs from
+appearances observed in the prose — see *3-Tier Prompt Structure*. An old save may still carry
+`npcAppearances`; nothing reads it.
 
 ---
 
@@ -368,7 +446,7 @@ whole design constraint, and two separate cases force it:
   the architecture is broken. Their calls are excluded from the rate and counted in
   `unmeasuredCalls`, which the panel names. Note the distinction the meter keeps: a **reported**
   `cached_tokens: 0` is a real 0% and is included; an **absent** field is not a measurement.
-- **Cost.** Several served models have no published per-1M price — see `MODEL_PRICES_USD_PER_1M`
+- **Cost.** Several served models have no published per-1M price — see `MODEL_PRICES_PER_1M`
   under Cost strings. One of them in a session sets `costComplete: false` and the panel says the
   real figure is higher, rather than showing a partial total that looks whole.
 
@@ -381,7 +459,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.3.9)
+## Add-on Features (v1.4.0)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -394,7 +472,23 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 **Time Speed placement matters.** The pacing hint is concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger. Toggling it mid-run therefore costs nothing in cache terms. Never move it into `buildSystemPrompt` or `buildHistoryLedger`.
 
-**Export text extraction.** `extractStoryText()` filters `messages` for visible assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+**Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` or `╚` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+
+**It is ONE function because it was two, and they had drifted.** `extractStoryText` (clipboard, TXT) and
+`exportPdf` each carried a copy, and the PDF one filtered only `!m.hidden` — so every "tap ↺ Retry"
+notice landed in the exported PDF, which the v1.3.2 fix above says never happens. It also numbered its
+rounds off that different filter, so one error notice in a run numbered the same round differently in
+TXT and in PDF, and it missed the `╚` fix when that was made. **The guard was written against the copy
+that was correct and could see none of it** — it now reads the single definition and counts the call
+sites.
+
+**And `╚` is in that filter because an absent value was rendered as an empty line.** `buildStatsBox`
+put an empty string where the sub-member line goes when a run has no subs, which split the box into two
+`\n\n` paragraphs — so the bottom border survived a filter that only dropped `╔`. Fixed at the source
+with `filter(Boolean)`; the `╚` clause stays as the backstop, since this filter is the thing that breaks
+silently. The `🎭` chapter was raw too — `start` / `develop` / `climax` / `resolve` printed untranslated
+beside four fields that all carry a localized label — and is now `t.stats.chapters`, with a guard that
+`getChapterByRound` returns only the four the tables cover.
 
 ---
 
@@ -491,17 +585,121 @@ Message 2 - user (HISTORY LEDGER, append-only):
   (falls back to "[HISTORY]\n(no history yet)" on round 1)
 
 Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
-  "[CURRENT STATE]\n" + buildDynamicTail(memory, members, roundMemberIds) ->
+  "[CURRENT STATE]\n" + buildDynamicTail(memory, members, roundMemberIds, language) ->
     [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
-    [Affections] Irene:24(Acquaintance) | Seulgi:12(Stranger)
-    [Stage Changes] irene: Stranger->Acquaintance
-    [NPC Appearances] Joy(last: round 2)
+    [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
+    [Stage Changes] 🐰Irene: Stranger→Acquaintance
+    [Rounds Absent] 🐰Irene:0 | 🐻Seulgi:4 | 🐥Joy(npc):6
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
   + optional "[Pacing] slow|fast ..." line from Time Speed
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
+
+**`[Rounds Absent]` is the fact that makes section 3's rotation rule applicable.** Section 3 has
+always said *"sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member
+disappear for more than 3 rounds"*, and step 7's live runs showed it comprehensively ignored — Seulgi
+absent 9 rounds in one 25-round game, Wendy appearing **once in twenty** in another, and an NPC the
+prompt says must appear in the background appearing never.
+
+**The model was not refusing the rule; it could not apply it.** Nothing in the prompt said how long
+anyone had been away. `[Affections]` is a score, not a history, and `[NPC Appearances]` never rendered
+(see Key Constants). So the tail now counts it:
+
+```
+[Rounds Absent] 🐰Irene:0 | 🐻Seulgi:4 | 🐿️Wendy:never | 🐥Joy(npc):6 | 🐢Yeri(npc):2
+```
+
+The number is **rounds of absence**, so `0` means she was in the previous round and `4` means she has
+missed the last four — the unit section 3's rule is already written in ("more than 3 rounds"). The line
+is omitted entirely on round 1, when every value would read `never`.
+
+Same shape as `[KKT Channels]`: **the tail carries the fact, the static section carries the rule, and
+the rule points at the line.** Duplicating the rule into the tail would be the two-rules-disagreeing
+failure this prompt keeps hitting.
+
+#### `[Rounds Absent]` shipped telling the model things that were not true
+
+**Found by the step 7 re-validation, and it is the reason the feature looked ineffective.**
+`memberAppearances` is observed from the prose by `membersNamedIn`, and that function matched a
+member's **Latin stage name only**. Narration may use a member's real name freely — only *address*
+forms are confined to dialogue — and Chinese prose does it constantly:
+
+> `门外的走廊传来轻微的动静，那是涩琪和胜完刻意放轻的脚步声。`
+
+Seulgi and Wendy are both in that scene and neither was recorded. Measured on one pinned 25-round zh
+run: **29 of 75 (round, member) pairs name her only as 涩琪 or 胜完**. Those rounds sent the model
+`Seulgi:5` about a member who had just been in the previous scene.
+
+**A false fact in the tail is worse than no fact**, and worse in a specific way: it contradicts the
+model's own context, so the line stops being information and becomes noise to discount. Everything
+`[NPC Appearances]` was deleted for — a label counting something the game does not have — applied to
+its replacement in a quarter of rounds, which is exactly the trap this file keeps recording.
+
+`membersNamedIn` is now **exported and pure**, unit-tested directly rather than only through a live
+round, for the same reason `addSaveSlot` is. It matches the stage name, `name_kr`, and the given-name
+form prose actually writes (`孙胜完` → `胜完`, `배주현` → `주현`, `Bae Ju-hyun` → `Ju-hyun`), longest
+alias first with masking. **Two characters minimum for either real-name form** — a single CJK
+character sits inside ordinary words, the same reason the prose analyzer stopped counting a bare `아`.
+
+**`scripts/analyze-prose.mjs` had the identical bug**, so every rotation number this project has
+recorded — including the six committed baselines — measured which name form the model chose rather
+than who was in the scene. It read **20% rule violation on a run whose real figure is 0%**. The
+harness now stores `name_kr` in `report.roster` so the analyzer can see past the stage name at all.
+
+#### …so rotation is unresolved, and the A/B that was supposed to settle it could not
+
+Four 25-round runs, `qwen3.7-plus-2026-05-26` **pinned and recorded in every arm**, identical flags
+(`--rounds 25 --lang zh --identity 财阀 --pace 高压舆论向 --subs 2`), differing by exactly one line —
+`buildDynamicTail`'s `parts.push` for `[Rounds Absent]`. Measured with the corrected matcher:
+
+| | with the line | line removed |
+| --- | --- | --- |
+| **section 3 broken, % of (round, member) pairs** | **26.7%** and **0%** | **5.3%** and **16%** |
+| distinct scenes / 25 | 23, 8 | 15, 7 |
+| reused sentences | 0, 48 | 14, 2 |
+
+**Run-to-run variance inside one arm is larger than any difference between the arms.** Two runs of
+identical code and identical flags produced 0% and 26.7% rule violation, 0 and 48 reused sentences, 23
+and 8 distinct scenes. **No claim about `[Rounds Absent]` survives that**, in either direction — and an
+n=1 A/B on this harness is not evidence about a prompt change, which is the methodological lesson of
+step 7 and the correction to `test/README.md`'s A/B section.
+
+What *is* established, because it needs no comparison: **rotation is not fixed.** Three of the four
+runs break section 3 in 5–27% of (round, member) pairs, and all six committed baselines sit between
+12.5% and 40% on the old (over-strict) matcher. Nothing in the prompt has yet moved that.
+
+**And the one arm that mattered had never been run**: every measurement above was generated by code
+whose absence counts were partly false. A run on the corrected code is the first honest test of the
+idea, and `docs/PROPOSALS.md` §4 carries the decision that follows it.
+
+**Do not read `rotation.worstGap` as the answer.** It is a maximum: the confounded pre/post pair reads
+9 → 9 while the rule rate moves 16% → 21.3%. `rotation.rulePct` is the rule's own unit and is the row
+to read.
+
+**One line covers everyone, and it replaces `[NPC Appearances]` rather than reviving it.** That block
+rendered a different unit (`Joy(last: round 2)`) for a rule about the same thing, from a field nothing
+ever wrote — so it is gone, along with `npcAppearances` itself. Two labels counting the same quantity
+in two units is how the `[Stage Changes]` id-vs-name mismatch happened one line up. An old save may
+still carry `npcAppearances`; it is simply ignored.
+
+**Appearances are observed, not drawn.** `executeRound` derives them from the prose — a member appeared
+if the story names her — which is what finally makes `memberAppearances` describe the game. The lottery
+in `probabilityEngine.js` used to write a single fabricated entry per round for whichever member it drew
+*after* the round was generated; see `docs/PROPOSALS.md` §4 for what is left to decide about the engine
+itself. Longer names are matched and masked first, so a member whose name is a substring of another's
+cannot have her absence reset by someone else appearing.
+
+**Every line in the tail names a member the way every other line does.** `[Stage Changes]` used to
+print the raw member id beside an `[Affections]` line printing `🐰Irene`, so the model had to match
+`irene` to a name one line above — and a custom member's id is a timestamp, which matches nothing at
+all. It falls back to the id only for a member the roster no longer contains.
+
+**`[Affections]` lists only `roundMemberIds`** — main plus subs, the members who actually have a
+score. Listing the whole roster printed every NPC as `0(Stranger)` for the entire game, which told
+the model in round 30 that the main member's groupmate, present in most scenes, is a stranger. An
+empty `roundMemberIds` still lists everyone, so a two- or three-argument caller is unchanged.
 
 **KKT injection rule**: only inject KKT history for `roundMemberIds` whose **current** affection is at or above `KKT_THRESHOLD`, and only in the dynamic tail — never in the ledger. Affection can fall, and the stored messages do not disappear when it does; re-checking the threshold at build time is what stops a member who dropped back below 30 from silently keeping her channel open in the prompt.
 
@@ -510,6 +708,30 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
 ### Save Compatibility (`isLegacyMemory`)
 
 `rv_sim_saves_v13` is the current standard. On `loadSave`, if `memory.history === undefined`, memory is reset to `createEmptyMemory()` (pool wiped) while stats, form, and affections are still restored. Prevents the old `summaries`/`fullStories` (v12) and `storyRounds` (v11) shapes from crashing the engine.
+
+**Since v1.4.0 `loadSave` also migrates the slot** through `saveMigrator.js#migrateSave`, which
+fills `schema: 14`, `worldId`, `groupId`, `roster` and `form.birthYear` for any save written
+before the split. The key stays `rv_sim_saves_v13` — bumping it would orphan every existing save,
+which is the opposite of the requirement — so `schema` is how a reader tells the shapes apart.
+Migration runs at read time, in place, and **reproduces rather than fixes**: every value written
+is one the save already implied, so a game in flight builds a byte-identical prompt before and
+after. Read `docs/TECH_NOTES.md`, *"Migration that reproduces rather than fixes"*, before changing
+any of it; the birth year in particular is preserved *wrong* on purpose.
+
+**The load is all-or-nothing, and the order in `loadSave` is load-bearing.** Identifying a
+pre-v1.4.0 save's cast means fetching the library, so the load can fail; every fallible step
+therefore completes before the first setter runs, or a failure leaves the player in a game
+assembled out of two different saves. `phaseRef.current` is pinned to `"game"` *before*
+`setSelectedGroup`, because the group effect reads it to decide whether to clear the chosen
+members and the effect that mirrors `phase` into it has not run yet — loading from the cover page
+would otherwise wipe the cast that was just resolved. A roster that cannot be resolved aborts with
+a notice rather than falling into `loadGroupIndex`'s hardcoded Red Velvet entry, which is the
+swallow that made the v1.3.5 path bug invisible for a release. Smoke Layer G guards each of these.
+
+**This closes a bug that predates v1.4.0: save slots recorded no group.** `loadSave` never set
+`selectedGroup`, so loading a TWICE save while Red Velvet was selected yielded Red Velvet's
+`groupConfig` under TWICE member ids — no crash, thanks to optional chaining all the way down,
+just a prompt whose main member was `undefined`.
 
 **`preRoundSnapshotRef` must be cleared on every game boundary.** It holds the pre-round state that ↺ Retry and the ✎ edit controls restore, and it is set only by `startNewGame` and `sendMessage`. `loadSave` must null it: otherwise a player who plays game A and then loads save B sees ↺ on B's last message, and tapping it restores **game A's** stats and memory into B. This also gives the intended gating for free — after loading a save there is no ↺ and no ✎ until one round has been played in this session, so the edit features can never touch a history entry they did not create.
 
@@ -546,9 +768,170 @@ The fix is a per-member **Address** line computed from birth years plus the play
 
 Korean workplace register overrides age where it genuinely would: a **Staff** player is `매니저님` and a **Chaebol** player `회장님` regardless of who was born first, softening toward her name as they get close.
 
+### Whose life is whose — the ROLE CONTRACT
+
+**A fourth failure in this family, reported from hand play and fixed in v1.4.0 step 6.** The player's
+identity and the members' leaked into each other, in both directions at once:
+
+- A **Chaebol** player is the company's chairman, and Irene said *"作为会长，我…"* — claiming the
+  player's office — while narration wrote *"Irene越过你离开走向会长办公室"*, treating 会长 as a third
+  person in a room the 会长 is standing in.
+- The same player was handed the members' working life back: her own trainee practice, and Irene
+  reminding her not to be late for tomorrow's.
+
+**Neither was the model's.** Two things in the prompt caused it, and both are the absence of a
+statement rather than a wrong one:
+
+1. **The role had no owner.** Section 6 listed `Identity: 财阀` as a bare label in a flat run of
+   `Identity:` / `Progression Pace:` / `Main Member:` / `Sub Members:` — so the player's occupation
+   sat in the same unowned list as the roster. It is now `<player>'s identity:`.
+2. **`会长` entered the prompt only as an address form.** `workTitle` supplies `会长nim` / `회장님` as
+   what members *call* her, and nothing said the title *names* her. A floating role noun is one the
+   model may attach to anyone.
+
+And the amount of context on each side is wildly asymmetric: sections 4 and 5 give the members
+thousands of tokens of practice rooms, comebacks, dorms and schedules, against one line for the
+player's job. When the model needs an occupation for anyone, idol is what is available — so the
+player drifts into the group's calendar unless told she is not on it.
+
+**The SPEAKER CONTRACT governed pronouns and names and said nothing about roles**, which is the
+third time a contract in this section has been read, correctly, as exhausting its subject: dialogue
+was once exempt from the pronoun rule, address forms once had no narration/dialogue scope, and now
+roles were not mentioned at all. **When a contract enumerates, the model treats what it omits as
+unconstrained.** Check what a new rule's neighbours *do not* say.
+
+The `ROLE CONTRACT` now sits beside it, and the "unless her identity places her there" clause is
+load-bearing: a **练习生** player really does have practice and a **韩娱艺人** really does have a
+comeback, so the rule cannot be a flat denial. Note also that `练习生` points its work title the
+other way — she uses `선배님` *for* the members — so the contract is written about the identity, never
+about the title's direction.
+
+### Reading the whole rendered prompt, once, found six more
+
+Prompted by the report above: if one setting statement was unclear, others would be. The artifact to
+read is a **golden fixture** — it is the rendered prompt, every substitution already made — and
+reading all 240 lines of one turned up six defects that throw no error and fail no test. None was a
+wrong rule; five were two rules disagreeing, and one was debris.
+
+| Found | Was |
+| --- | --- |
+| **Editing debris in every prompt ever sent** | a bare `// Change to:` line sat between the JSON rules and the memory context |
+| **The schema example named a real agency** | `scene` was exemplified as `"SM Practice Room, 10PM"`, handing every cast SM's name whatever company they are under — the YG leak again, but written in as an example to follow |
+| **Section 1 contradicted section 6 on Korean** | *"Korean words (like unnie, xi) may appear **rarely** with … **translation in parentheses**"* against section 6's exact table, no gloss, and *"frequent enough to feel Korean"*. Section 1 is headed HIGHEST PRIORITY, so it won — and its own example `unnie` is spelled `欧尼` by the table it was overruling. It predates the address protocol. It now defers to section 6 instead of competing |
+| **The round counter was offered as a stat** | *"Player 4 stats: … \| 📅Round"*, beside three the model may actually change |
+| **Section 10 contradicted the schema** | stat changes were *"NOT mandatory"* while `RULES` demanded *"at least 1 field non-zero"* |
+| **A fragment from an earlier edit** | `- Relationship stages: - Stages: 0-15 Stranger…` |
+
+**The pattern in five of the six is a stale rule left beside a newer one.** Nothing in this repo
+fails when two sections disagree; the model simply picks, and it reasonably picks the one marked
+HIGHEST PRIORITY or the one carrying more specific detail — which is the same mechanism that made
+section 4 outrank section 6 in the cross-group bug. **When a rule is added to the prompt, grep for
+what the old one said about the same thing and delete it.** A prompt is not append-only.
+
+Guarded in Layer I, one check per finding, each mutation-verified. The language-rule check **sweeps
+all three languages**, because the first version tested only the English prompt: the contradiction
+lived in the zh and en rules separately, so mutating zh left the guard green and only the zh golden
+moved. A per-language rule needs a per-language check.
+
+**Both of that read's open items are now closed.** The stage labels are localized (see Relationship
+Stages), and section 4's preamble is conditional on `groupConfig.loreComposed`:
+
+| Roster | Preamble |
+| --- | --- |
+| a real group | *"This is the established world-setting. Draw from it freely — reference group history…"* — **verbatim**, which is what the goldens pin |
+| composed, or all-custom | *"It has NO published history… build their shared past as the story goes… Never borrow a real group's history, discography or agency"* |
+
+Asking a composed cast for "group history, inside jokes and past events" is asking the model to
+invent one, and **the nearest history it knows belongs to the real groups the members came from** —
+the leak the composed lore exists to close, requested in the preamble two lines above the lore that
+closes it. `loreComposed` is set in **two** places in `resolveRoster` (the spread branch and the
+synthesised all-custom branch), and each has its own guard, because the all-custom branch is where
+the request is most obviously wrong and it does not share a line of code with the other.
+
+**The classic door's preamble is unchanged, word for word** — smoke asserts the whole sentence, so
+"one engine, two doors" still holds at section 4.
+
+### Reading it a second time found nine more, and seven were invisible to zh
+
+Same method on the same artifact, at the start of step 7: read all 240 rendered lines of each of the
+three goldens rather than the diff. **Reading only the zh fixture would have found two of the nine** —
+seven of them are defects a Chinese game cannot express, because zh is the language the data is
+authored in and every other language is a translation of it.
+
+| Found | Was | Who saw it |
+| --- | --- | --- |
+| **The player's pace never reached the model** | `Progression Pace: 高压舆论向` — the bare stored id, in every language, while the authored rule that says *"secrecy changes doubled"* was referenced by nothing | everyone |
+| **…and the label was an internal key** | so an English player's prompt carried a Chinese id she cannot read, while Setup showed her "High Pressure Scandal" | en, ko |
+| **The identity had both defects** | `Alex's identity: 财阀` | en, ko |
+| **Section 1 forbade the members' own names** | `DO NOT output English characters` in the ko rule — and every member in MEMBER PROFILES is named by her **Latin** stage name. Section 1 is HIGHEST PRIORITY, so the two could only resolve one way | ko |
+| **The ko narration example taught a grammar error** | `"<name>는 창가에 서 있다"` — a topic particle chosen by how the name is *pronounced*, so right for Joy and wrong for Irene (아이린**은**) | ko |
+| **Korean particles after every interpolated word** | `Irene가`, `미숙함로`, and a literal unresolved `편지을/를` | ko |
+| **The key enumeration listed 7 of 8 keys** | `scene` was required by the schema and absent from the list that guards it | everyone |
+| **Three empty-value renders in section 6** | a solo run printed a blank line where sub members go; a custom main printed `Kim()`; a custom identity printed a second blank line | ko fixture (subs), no fixture (the others) |
+| **"a young WLW woman"** | hardcoded, against a field that accepts ages 18 to 80 | everyone |
+
+Plus two wordings that were merely unclear — *"Choose the three yourself"* (choose *which* three?)
+and a shared *"It relaxes toward her given name"* clause on a Work override whose two branches point
+the title in **opposite** directions, so it named the wrong person in one of them — and, in the
+world data, a trailing space in one pace rule and `scences` in another.
+
+**The lesson is about which fixture you read, not about reading one.** `zh` is where the content is
+authored; `en` and `ko` are where a translation can disagree with the code that consumes it. The
+first read covered six defects and they were all visible in zh, so nothing suggested the other two
+fixtures carried a different *kind* of defect. They do: every one of the seven above is a statement
+that is true of the Chinese data and false of a translation of it. **Read the non-authoring
+language's fixture, and read it for agreement with the code rather than for typos.**
+
+Guarded in Layer I, one check per finding, all 27 mutations verified RED.
+
+**The pace rule is measurably doing something, which is the payoff for wiring it.** `高压舆论向` says
+*"secrecy changes doubled"*; `慢热现实向` says *"affection grows slowly… no rushing"*. Live, from the
+same starting secrecy of 100: the high-pressure run fell to **11 in 25 rounds**, the slow-burn run to
+**91 in 20**. An 89-point drop against a 9-point one is not noise, and before step 7 neither run could
+have differed, because the only thing either sent was the id.
+
+### Korean particles cannot be authored, because the word in front of them is a variable
+
+`{name}` is whichever member the player picked and `{keepsake}` is one of four, so `ko.json` could
+not write one form — and what it wrote instead was wrong for about half of all casts. It is the same
+shape as the `Alex--ya` double hyphen: a defect that breaks no test, throws no error, and is only
+visible to someone who reads the language.
+
+So the world file writes the pair in its conventional order (`은/는`, `이/가`, `을/를`, `과/와`,
+`으로/로`) and **`resolveKoreanParticles` in `worldLoader.js` picks**, running last in
+`renderIdentityBackground` because every word in front of a particle has just been substituted in.
+Three rules:
+
+- **Hangul decides exactly.** A syllable encodes its own final consonant: `(code - 0xAC00) % 28`,
+  where 0 means it ends in a vowel. So `미숙함으로`, `편지를`, `사진을` are not guesses.
+- **ㄹ is the one exception** and it is in the set: 서울**로**, never 서울으로. Jongseong index 8.
+- **A Latin name is left as `은(는)`, deliberately.** Guessing from the last letter is worse than not
+  trying — Irene reads 아이린 and ends in a consonant though its last letter is a vowel; Winter reads
+  윈터 and ends in a vowel though its last letter is not. The parenthetical dual is exactly what
+  Korean writes when the noun is a variable, and it is never wrong.
+
+**It is inert on zh and en**, which carry no pairs, and smoke asserts that — a resolver that could
+rewrite a language it was not written for is worse than none.
+
+The one remaining hardcoded particle was in `mainAgent.js`, not the data: the SPEAKER CONTRACT's ko
+narration example. That one is fixed by **changing the frame rather than resolving it** — `의 시선이
+창가로 향했다` needs no name-dependent particle at all, and an example carrying `은(는)` would teach
+the model to write the parenthetical into prose.
+
 ### Korean address forms are transliterated, never localized
 
-The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. `buildSystemPrompt` carries a per-language token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
+The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. The prompt carries a token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
+
+**Since v1.4.0 that table lives in the world file, not in `buildSystemPrompt`** —
+`public/worlds/kpop_idol/<lang>.json`, under `addressForms`. It reads like a per-*language* table
+and it is not: it is keyed on **(world, language)**. These forms encode Korean seniority, which is
+a birth-year boundary; a Japanese setting needs 先輩/さん/ちゃん and seniority by *school year*,
+and a Chinese one has almost no formal peer register to carry at all. Keeping `unnie`/`xi` while
+changing the country would put Korean grammar in a Tokyo scene.
+
+**So a background country ships *as a world*, never as a second axis crossed with one.** Only the
+tokens are data; the *logic* — direction fixed by birth year, register blended from stage and
+Private Personality — stays in code, because it is behaviour rather than content.
 
 | | 언니 | 님 | 씨 | 야/아 |
 | --- | --- | --- | --- | --- |
@@ -590,22 +973,48 @@ zh also romanizes 씨 as **`xi`**, not `ssi`, because that is the pinyin a Chine
 
 Comparison is by **birth year, not age gap in years** — Korean seniority is a birth-year boundary, so a 1994 and a 1995 member are not peers even though they are months apart. The old `±2 years` tolerance erased that distinction.
 
-**Known defect: the player's birth year is derived from her age and is wrong for half of all
-players.** `playerBirthYear = GAME_YEAR - playerAge` (`mainAgent.js:102`) assumes her birthday has
-already passed this year. For anyone whose has not, the real birth year is one earlier. Reported
-from hand play in v1.3.9: a player born 1999-11-19 entering age 26 derives **2000**, so Yeri
-(born 1999) becomes her senior when the two are actually peers — the player is told to call a
-same-year member `欧尼`.
+**The player's birth year is collected, not derived — v1.4.0 step 4.** Setup asks for
+`form.birthYear` and the prompt renders her age from it; through v1.3.9 it ran the other way,
+`playerBirthYear = GAME_YEAR - playerAge`, which assumes her birthday has already passed this
+year and is therefore **wrong for roughly half of all players**. Reported from hand play in
+v1.3.9: a player born 1999-11-19 entering age 26 derived **2000**, so Yeri (born 1999) became her
+senior when the two are peers, and the game told her to say `欧尼` to her own age group.
 
-This is not fixable from age. Age alone cannot determine birth year, ever, and the error is
-~50/50 by construction. Since seniority is a hard year boundary with no tolerance, a one-year
-error flips the relationship whenever it lands on a member's birth year — which for a cast
-spanning three or four years is a large fraction of the cast.
+Age cannot determine a birth year — the information is not in it — and since seniority is a hard
+year boundary with no tolerance, a one-year error flips the relationship outright whenever it
+lands on a member's birth year. For a cast spanning three or four years that is a large fraction
+of the cast, which is why this was worth a save field rather than a heuristic.
 
-The fix is to collect **birth year** at setup instead of age: age is derivable from birth year
-exactly, and the reverse is not. That needs a `form` field and legacy handling for saves that
-carry only `age`, so it belongs with the save migration in `docs/V140_PLAN.md` step 4. Until then
-the derived value stands and this paragraph is the record that it is approximate.
+**`age` did not leave the save; it stopped being the source of truth.** `backstorySeed` hashes
+it, and that seed must stay frozen for the life of a save or an identity backstory re-rolls
+mid-game. So setup writes `age` once, derived from the birth year, and nothing edits it
+afterwards. Birth year is the live value; age is a frozen setup token that the prompt also
+happens to print.
+
+**Old saves migrate to `birthYear = GAME_YEAR - age` — the same arithmetic, done once.** That is
+deliberately *not* a fix: it reproduces the value the save already had, so a game in flight is
+byte-identical before and after migrating and nobody's honorifics move under them. Smoke asserts
+exactly that. The consequence is that **a pre-v1.4.0 save keeps its ±1 error**, because nothing
+can recover a birth year from an age.
+
+**So the player is given the year back — `correctBirthYear`, in the settings overlay, since step
+6.** It is the counterpart to the migration's deliberate non-fix and lives in the same file for
+that reason. Three rules, each one a guard:
+
+- **It writes `birthYear` and never `age`.** Setup's `setBirthYear` writes both, because that is
+  where `age` is minted; the correction writes one, because `backstorySeed` hashes `age` and a
+  recomputed one re-rolls the identity backstory mid-save. They are therefore **two functions and
+  must stay two** — smoke turns red if the UI calls Setup's.
+- **An unchanged year returns the same object**, so re-confirming a correct year is not a
+  ~5,500-token cache miss. Only a real change pays, which is the right price for a deliberate act
+  and the wrong one for a no-op.
+- **`validPlayerBirthYear` is one function in `constants.js`.** It used to be a copy in `App.jsx`;
+  a second writer of the field is exactly how the two start disagreeing about which years are legal.
+
+Whether the year is an *estimate* is session state, decided in `loadSave` by whether
+`save.form.birthYear` existed **before** `migrateSave` filled it — read it from the migrated copy
+and nothing is ever flagged. It is deliberately not a save field: the row is permanent and
+self-describing, and the flag only chooses one extra line of explanation.
 
 **`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
 
@@ -637,7 +1046,9 @@ The fix keeps the variety and removes the drift: both indices are now derived fr
 
 ### Golden prompt snapshots (`test/fixtures/`)
 
-Three full system prompts are committed as text files and asserted byte-for-byte by smoke Layer J. They exist because **a prompt regression throws no error and fails no test** — it produces slightly different writing some weeks later, with nothing to bisect. That is the exact risk profile of the v1.4.0 cast/world/roster split, which moves large blocks of `buildSystemPrompt` into `worldLoader.js` while intending to change nothing.
+Three full system prompts are committed as text files and asserted byte-for-byte by smoke Layer J. They exist because **a prompt regression throws no error and fails no test** — it produces slightly different writing some weeks later, with nothing to bisect. That was the exact risk profile of the v1.4.0 cast/world/roster split, which moved large blocks of `buildSystemPrompt` into `worldLoader.js` while intending to change nothing.
+
+**They earned their keep on that split.** The extraction was generated from the live literals and verified against the old code across 1,368 renders — every identity × language × name × seed, 0 mismatches — and the goldens still caught something that could not: a **trailing space** after the NPC-archetype list. No reviewer sees a trailing space; one character of drift costs the whole ~5,500-token prefix. They also now cover the world data itself, so editing `public/worlds/**` produces a located diff rather than silence.
 
 | Fixture | Covers |
 | --- | --- |
@@ -658,17 +1069,64 @@ Regenerating to make a red suite green, without reading the diff, converts the o
   "affectionChanges": { "<mainId>": 0, "<subId>": 0 },
   "socialContent": {
     "<memberId>": {
-      "bubble": ["msg1", "msg2"],
-      "instagram": { "imageDesc": "...", "caption": "..." },
-      "weverse": "post text"
+      "bubble": [{ "content": "msg", "hasPhoto": false }],
+      "instagram": { "caption": "...", "likes": 800000 },
+      "weverse": { "content": "...", "likes": 2000, "comments": 100 }
     }
   },
   "kktMessages": { "<memberId>": ["message text"] },
-  "story": "250-350 words in player's UI language. Pure narrative, no stat bars, no options.",
+  "story": "350-450 words in player's UI language. Pure narrative, no stat bars, no options.",
   "summary": "One English sentence ~100 chars - who appeared and what emotionally shifted.",
-  "options": ["A. ...", "B. ...", "C. ...", "D. Custom"]
+  "options": ["A. ...", "B. ...", "C. ...", "D. ..."]
 }
 ```
+
+**`scene` is ONE SHORT PHRASE, and that is a layout requirement rather than a preference.** It is
+printed in the stats box as `📍<scene>` — one line of a 30-character ASCII box, on a 390px phone. The
+rule used to say "a short location description" with `"Practice room, 10PM"` as the example, and step
+7's English run answered with 250-character sensory paragraphs:
+
+> `"Practice room B, now almost completely dark except for the amber emergency light above the door and the faint blue glow of a forgotten phone screen on the floor. The mirrors hold the last ghosts of the day's rehearsals. Outside, the building has gone quiet."`
+
+Eight wrapped lines inside a box built for one. "Short" was not a bound, so the rule now says what the
+shape is — a place and a time, nothing else — and says where it is printed, since a reason is what this
+prompt responds to.
+
+**It also has to move.** The same run repeated a byte-identical `scene` for **five consecutive rounds**
+(9 through 13, all "near midnight… neither of you has broken the hush") on the *harem* pace, which is
+the opposite of standing still. Nothing asked it to change, so the rule now does.
+
+**"zh was unaffected on both counts" — written here from reading a few zh scenes — was wrong on both
+counts, and the numbers say so.** Corrected once `analyze-prose.mjs` measured scene *length* and
+consecutive-identical *runs* instead of only distinctness:
+
+| baseline run | scenes over a one-line box | longest identical run | worst rotation gap |
+| --- | --- | --- | --- |
+| zh `财阀` / `高压舆论向` r25 | **25 of 25** (median 62 chars, max 148) | 2 | 9 |
+| zh `练习生` / `慢热现实向` r20 | 20 of 20 | **9** | **17** |
+| zh `韩娱艺人` cross-group r20 | 20 of 20 | 4 | 16 |
+| en `Staff` / `修罗海王向` r20 | 20 of 20 | 5 | 14 |
+| ko `主线成员前女友` r20 | 20 of 20 | 2 | 8 |
+
+Every language was affected, and the **worst** repeat was a Chinese run holding one scene for **nine
+consecutive rounds** — worse than the English five this section was written about. "23 distinct scenes
+in 25 rounds" was true and measured the wrong thing: 23 distinct paragraphs are still 23 paragraphs,
+and a distinct-count cannot see either failure. The rotation column is the same story — gaps of 16 and
+17 rounds in runs the graders scored 20/20 clean.
+
+**The mistake is the one this file keeps recording, in a new place: a count that is easy to take
+stood in for the property that mattered.** Reading a few scenes and counting distinct ones felt like
+evidence. It is in `test/reports/2026-09-27-step7-baseline.md` as numbers now, and the post-fix arm
+shows **0 of 25 over bound** with median 12 — directionally strong, though that run is the
+model-confounded one, so treat it as evidence the rule works rather than as a measurement of by how
+much.
+
+**This block is transcribed from a golden fixture, not from memory.** It said 250-350 words against
+the prompt's 350-450, gave `bubble` as an array of bare strings and `weverse` as a string (both of
+which `validateAndFixOutput` *repairs* rather than requests), and named the fourth option
+`"D. Custom"` — which is the placeholder `validateAndFixOutput` pads a short list with, never
+something the model is asked for. The custom-input row is the app's, beside the four options. When
+this drifts, read `test/fixtures/*.txt` and copy.
 
 ### JSON Parsing Pipeline (4-level fallback)
 
@@ -716,6 +1174,22 @@ weight = affection(40%) + balance(30%) + recency(20%) + random(10%)
 
 **Scope correction:** the engine does **not** select which members appear in the prompt. In `executeRound`, `roundMemberIds = allTargetIds` (main + all subs), so KKT injection covers every target member. The engine's only live output is `primaryId`.
 
+**And `primaryId` is a closed loop — found in step 7 and not yet decided.** `pickPrimaryMember` runs
+at `mainAgent.js:756`, **after** the LLM call, and its result is used for exactly one thing: writing
+`memberAppearances: {[primaryId]: [roundNum]}`. The only reader of `memberAppearances` is the recency
+term of `calculateProbability`. So nothing about this engine reaches the prompt, the UI, the save's
+meaning or the player: it is a lottery that records its own results so it can consult them next time.
+
+The record is also fiction. The **model** decides who appears in a round; the engine draws a name
+afterwards and logs that she appeared. A member the prose never mentioned is recorded as present, and
+the one who carried the scene may not be — so the recency term below is computed over data that does
+not describe the game.
+
+Do not read the formula above as game behaviour. Whether to wire it into the prompt (a "centre this
+round on Wendy" hint in the tail, drawn *before* the call) or delete it is written up in
+`docs/PROPOSALS.md` §4, with §5 for the appearance data it would need. It is a taste decision about
+whether rotation should be mechanical, not something a test can settle.
+
 The recency window's reference round comes from the tail of `memory.history`. It previously read `memory.storyRounds` — a v11 field removed in v13 — which pinned `lastRound` to `0`, degenerated the filter to `r >= -3` (every recorded appearance counted as recent), and left both the recency penalty and the "absent 4+ rounds" floor effectively dead. Fixed in v1.3.1; `test/smoke.mjs` Layer D guards it with pinned `Math.random`, and that guard is verified to fail against the old implementation.
 
 ---
@@ -727,7 +1201,7 @@ The recency window's reference round comes from the tail of `memory.history`. It
 | Platform | Content | Unlock |
 | --- | --- | --- |
 | Bubble | Text messages array | Always |
-| Instagram | `{imageDesc, caption}` | Always |
+| Instagram | `{caption, likes}` | Always |
 | Weverse | Post text string | Always |
 | KakaoTalk (KKT) | Private messages | affection >= `KKT_THRESHOLD` (30) |
 
@@ -735,27 +1209,136 @@ Social content is stored in module-level `pendingSocialFeeds`. `popPendingSocial
 
 **The KKT unlock is enforced in two places, and both are needed.** `filterKktByAffection` drops messages from members below the threshold *after* the response arrives — that is what keeps them out of the overlay. But the story was written in the same response, around a message the model believed it had sent, so filtering alone leaves prose describing a text that never appears. The `[KKT Channels]` line in the dynamic tail tells the model which channels are open *before* it writes, and the static prompt forbids narrating a text from a locked member. Filtering stays as the backstop for a model that ignores the instruction.
 
+**A Kakao is delivered by the app and never by the story — for every member, not only locked ones.** The prohibition used to live *inside* the LOCKED-channel bullet, which reads as permission for an unlocked one: a long, specific, emphatic rule conditioned on "LOCKED" invites the inference that an unlocked member may be narrated. That is specification by contrast, and it dates the symptom — the locked bullet landed in v1.3.6, which is when a rare bug became a regular one. Reported from hand play on DeepSeek Official in zh: a round delivered Irene's Kakao *and* transcribed it into the prose, complete with a phone-screen header, so the player read the same three lines twice — once in the narrator's voice, before she had looked at her phone. Fixed in v1.4.0 by stating the rule unconditionally and *first*, with the locked case as an additional constraint rather than the only home for it.
+
+**The live grader had the identical blind spot**, which is the more useful half of the lesson. `kkt-narrated-but-locked` runs only `if (!delivered)`, so a round that delivered a Kakao and duplicated it was invisible to it by construction. `kktTranscribed` covers the delivered case by matching a delivered message **verbatim** in the prose — language-independent, and prose does not coincidentally contain a whole chat line. When a rule is scoped to one branch, check whether its detector is scoped to the same branch.
+
+**The third attempt at this rule changes the schema's key ORDER, not its wording — and it is the
+first live flag in this project that survived reading the prose.** Step 7's long run put
+`kkt-transcribed-in-story` on **3 of 20 rounds** in a `练习生` zh game, against 1 in 64 previously.
+Reading all three stories confirmed the model, not the grader: round 12 wrote *"是Irene发来的消息：
+保温杯记得明天还给她。走楼梯小心台阶。"*, round 14 a phone buzzing with the message quoted, round 18
+three of Irene's messages quoted as displayed text with the screen dimming and lighting again. The
+rule they break is unconditional, stated first, and already gives the reason ("before she has looked
+at her phone").
+
+**The cause is mechanical. `kktMessages` sat immediately before `story` in the schema, and a model
+emits keys in the order it is shown them** — so the last thing in its context when the prose began
+was a Kakao it had just written, and the most emotionally loaded line it had. Round 18's entire scene
+is built on those messages. Telling it not to, louder, is what the previous two attempts did.
+
+`story` and `summary` now come **before** `socialContent` and `kktMessages`, and section 2 says so
+explicitly rather than leaving the order to imply it. **Social content gains the same way**: written
+after the story it can react to the round, where before it was composed against a round that did not
+exist yet — which is why section 7 can now ask for posts about *this* day.
+
+Two things this touched that are worth knowing:
+
+- **`parseLLMOutput`'s newline repair was anchored on the key that FOLLOWS `story`** — `"options"`,
+  then `"(?:summary|options)"` when summary was inserted between them. It is the repair that keeps a
+  model emitting raw newlines inside `story` parseable at all, and it had therefore stopped working
+  silently at each past reorder. It now matches any following key.
+- **Measure `parseLevel`, not just the flag.** The reorder asks a model to emit ~800 tokens of prose
+  earlier in its response, and the 4-level parser exists because weaker route models struggle with
+  long JSON. The harness records `parseLevel` per round; compare `direct` rates before and after
+  rather than assuming. **Measured: `direct` on 85 of 85 rounds across four configurations** — the
+  reorder cost nothing at all on that axis.
+
+**The reorder cut it from 15% of rounds to 4%, and the fourth attempt is an ownership statement.**
+Post-reorder: 2 transcribed Kakao in 45 zh rounds, against 3 in 20 before. Both survivors read the same
+way, and neither is a model being careless — they are the model reaching for a beat it is good at:
+
+> `是涩琪，通过公司内部系统发来的消息` — "a message from Seulgi, through the company's internal system"
+
+**It routed around the rule.** The prohibition names "a Kakao message, a chat transcript, a phone screen
+lighting up, or a notification", so the model invented a channel that is none of those. The second case
+names no channel at all. So the rule is now stated as **ownership**, the shape that fixed the identity
+bug: `${playerName}`'s screen belongs to the app, nothing in the prose lights it up or is read off it
+*whatever the channel is called* — and, crucially, **the substitute is supplied**, because a
+prohibition with nothing behind it leaves the model needing the beat and finding a loophole. When a
+member wants to reach her and is not in the room, she leaves something: a note under the door, food in
+the fridge, a jacket over the chair. The model already writes that beautifully — the same round that
+invented the company messaging system also left 紫菜包饭 in the fridge with a crooked bear sticker on
+it. It did the right thing and then added the wrong thing on top.
+
+**`statChanges` and `affectionChanges` are still emitted BEFORE the story**, so the model commits to
+the numbers before writing what earns them. The same argument says they should move too; it is written
+up as a proposal rather than done, because one change at a time is what makes the next measurement
+mean anything. See `docs/PROPOSALS.md`.
+
+**Not fixed, and not a regression: a Kakao the scene makes impossible** — she texts "good night" from inside the room, or while asleep. Affection is the only gate; nothing models presence or physical state, so the prompt lacks the information such a rule would need. See `docs/V140_PLAN.md` §18b, which schedules it with v1.4.1's place canon.
+
+### A bubble photo was a UI feature that could not fire and could not have rendered
+
+`BubbleOverlay` draws a photo frame when a post says `hasPhoto`, and the only thing inside that frame
+is `photoDesc` — **which appeared in no schema**. So the frame could only ever come out empty, and it
+never came out at all, because the schema example pinned `hasPhoto: false` in both places it appears
+and a model follows an example. Found by reading the overlay against the rendered prompt in step 7.
+
+The schema now asks for the pair and says when to set it. `validateAndFixOutput` keeps the two
+consistent — a post claiming a photo with nothing to describe has `hasPhoto` cleared — because the
+component renders the frame off the flag alone, and normalising in the engine covers a save written by
+an older build as well.
+
 ---
 
 ## Relationship Stages (7)
 
 Defined in `src/config/stageConfig.js`:
 
-| Stage | Score Range |
-| --- | --- |
-| Stranger | 0-15 |
-| Acquaintance | 16-30 |
-| Friend | 31-50 |
-| Close Friend | 51-65 |
-| Crush | 66-80 |
-| Lovers | 81-90 |
-| Trial | 91-100 |
+**Corrected in v1.4.0 step 6 — this table named four stages that exist nowhere in the code.** It
+said Friend / Close Friend / Crush / Lovers for the middle four; `DEFAULT_STAGE_NAMES` has always
+been the Chinese list below, and `buildSystemPrompt` has always sent the English list beside it. The
+names here were invented by the documentation. Found by reading the rendered prompt end to end.
+
+| Score | `DEFAULT_STAGE_NAMES` (what the tail emits) | Section 9 of the prompt |
+| --- | --- | --- |
+| 0-15 | 陌生人 | Stranger |
+| 16-30 | 有印象 | Acquaintance |
+| 31-50 | 产生兴趣 | Interest |
+| 51-65 | 暧昧期 | Flirting |
+| 66-80 | 确认关系 | Confirmed |
+| 81-90 | 热恋期 | Passionate |
+| 91-100 | 考验期 | Trial |
+
+**Localized in v1.4.0 step 6.** `getStageName` took no language, so the dynamic tail emitted the
+Chinese labels to every player's model — an English game sent `Irene:24(有印象)` while section 9 of
+its own prompt listed `Acquaintance`, two vocabularies for one scale with nothing saying they
+corresponded. The UI had it in the open too: an English game showed Chinese stage labels under every
+member.
+
+`STAGE_NAMES` is now keyed by language and `stageNameIn(aff, language)` is what every call site uses.
+Three things make it safe:
+
+- **zh is byte-identical**, so no existing save's prompt moves.
+- The tail is the **always-miss** message, so localizing it costs no cached prefix. Section 9 does
+  move — it now prints `stageNamesFor(language)` — and that moved all three goldens deliberately.
+- **`STAGE_BANDS` is derived from `DEFAULT_STAGE_THRESHOLDS`**, not typed beside them, so section 9
+  cannot describe a scale the code does not implement. Smoke ties the two together: the prompt's list
+  must be exactly the names the tail will emit, per language.
+
+The Korean set (`남남 / 안면 / 관심 / 썸 / 연인 / 열애 / 시험기`) is a judgement call worth a native
+reader's eye — `썸` for the ambiguous stage is the idiomatic choice but `관심`/`연인` are plainer than
+the Chinese originals.
 
 Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` also surfaces `proposal_ready`, `breakup_warning`, and `pressure_warning` as `specialEvent`.
 
 ## Achievements (5 endings)
 
 `src/config/achievements.js`: `he_hidden_love`, `se_public_love`, `be_exposed_separation`, `oe_unspoken_waiting`, `be_you_left`.
+
+They accumulate rather than ending the run: `checkAchievement` runs every round from 30 on, returns
+the **first** definition whose condition holds, and each id fires at most once.
+
+**Four of the five are what a player actually reaches — read `docs/PROPOSALS.md` §6 before changing a
+condition.** `oe_unspoken_waiting` requires `topAff > 90`, and the two conditions tested before it
+claim `topAff > 90` for every secrecy value *except the single integer 60* — so the one ending about
+loving each other while she has not accepted herself is reachable only when secrecy lands exactly
+there. Separately, `topAff < 90 && secrecy >= 45 && mood >= 85` — a discreet, cheerful, moderately
+loved run — matches nothing at all.
+
+Both are fixable in a line, and neither is fixed here: the five titles carry an authorial intent about
+what each ending *means*, so the precedence between them is a decision rather than a bug fix.
 
 ---
 
@@ -769,7 +1352,7 @@ Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
 Setup Page
-  -> Main member + Sub members + Identity (7+1) + Pace + Name/Age
+  -> Main member + Sub members + Identity (7+1) + Pace + Name/Birth year
       |
 Game Page (loop)
   -> Read story -> Choose A/B/C/D or Custom -> Next round
@@ -777,6 +1360,93 @@ Game Page (loop)
 ```
 
 "New Game" is disabled (dimmed + toast) until a group is selected.
+
+---
+
+## Cast, world, roster (v1.4.0)
+
+A "group" used to bundle three independent things. They are now separate, and the split is what
+every v1.4.x feature depends on:
+
+| Concept | Lives in | Answers |
+| --- | --- | --- |
+| **Cast** | `public/groups/<id>/<lang>.json` | who these people are |
+| **World** | `public/worlds/<id>/<lang>.json` | what setting they live in |
+| **Roster** | the save, as `roster` | which of them are in *this* run, and in what slot |
+
+`resolveRoster(roster, language)` is the single funnel: it fetches the groups an entry names,
+applies `override`, splices in inline custom profiles, and returns the same `members[]` shape
+`buildSystemPrompt` has always consumed. **Nothing downstream of it changes.** The classic
+"pick a group" path is not a separate code path — `buildClassicRoster` expresses it as a roster.
+One engine, two doors.
+
+### A cast drawn from more than one source is its own group
+
+**Section 4 of the prompt is composed from the roster, never from one group's config.** Getting
+this wrong shipped a bug found by phone play in v1.4.0 step 6: a cast of Jisoo (BLACKPINK), Irene
+(Red Velvet), a custom member, and Mina + Sana (TWICE) was handed `[BLACKPINK Background]` plus
+full Public / Private / Queer Texture prose for **all four** BLACKPINK members — three of whom were
+not in the roster. Round 1 put Jennie, Rosé and Lisa in the story and set the company to YG.
+
+Neither symptom was the model's. **Section 6's rule says only members in MEMBER PROFILES may appear
+by name, and section 4 was contradicting it two sections earlier with richer detail.** "YG" is in no
+file in this repo; it was inferred from the premise the prompt handed over. Where two sections
+disagree, the one with more specific detail wins.
+
+The rules now, all in `rosterResolver.js#composeRosterLore`:
+
+| Roster shape | Section 4 |
+| --- | --- |
+| exactly one whole group | that group's own `groupLore`, **verbatim** — this is what the classic door always produces, and what keeps the goldens fixed |
+| a subset of one group | that group's real name, listing only the members present, plus an explicit "no other member of \<group\> exists in this story" |
+| more than one group, or any custom member | **its own group**: `[<name> Background]`, `<name> is an N-member group under <name> Entertainment`, default name `X`, editable at Setup |
+
+**The cast is a group, not a collection of people from other groups.** The first attempt said they
+came from different agencies and that any scene putting two of them together needed a reason — which
+fights the setting, because secrecy, dorms, schedules, group activities and the phase beats are all
+group machinery. As a group it is a premise instead of a constraint, and naming the agency is what
+stops one being invented.
+
+**Never name the origin groups in composed lore.** That is the leak: a model told the cast is
+BLACKPINK completes the group from its own knowledge. Nothing downstream needs them — a member's
+profile says who she is, and her real-world affiliation plays no part in the game.
+
+Composed lore does **not** repeat the prose fields; section 5 carries them for exactly the members
+present. The single-group lore duplicates them and that is inherited token cost, not a pattern to
+extend.
+
+**An all-custom cast has no group config at all**, and `buildSystemPrompt` reads
+`groupConfig.groupLore` unconditionally, so returning `null` threw before round 1. `resolveRoster`
+synthesises one. Reachable, because a custom member can be the main.
+
+**The guard that should have caught this asserted the opposite** — *"lore follows the main member's
+group, not the first group listed"* pinned the bug as intended behaviour. A guard written from the
+implementation instead of from the requirement does that; the defence is to ask what the check would
+look like if the behaviour were wrong.
+
+Library members stay **by reference** so a fixed profile reaches games in progress; custom
+members are **snapshotted inline** so deleting one from the palette cannot break a running save.
+
+`buildSystemPrompt(form, members, mainId, subIds, groupConfig, memoryContext, selectedModel,
+language, world)` — **`world` is required and has no default.** A default would be a second copy
+of every string in `public/worlds/`, and the two would drift silently; it would also let a
+missing-wiring bug render as plausible output instead of failing. Callers load it once per game
+with `loadWorld()`, exactly as they already load the group config.
+
+**`parseWorld` validates and throws; it does not whitelist-copy.** See the `birthday` note below
+for why that distinction is not pedantic.
+
+**An identity carries a `name` as well as an `id`, and the pace carries only a rule.** The `id` is a
+*stored* value sitting in every save on every device, so it can never be renamed — which is why it is
+Chinese in all three languages and why the prompt must not print it. `name` is what section 6 prints,
+authored per language, and **smoke asserts it equals the Setup label in `src/i18n/<lang>.js`**, since
+it is a second copy of that string and both sides render something plausible when they drift. A pace
+needs no `name`: its `rule` already opens with a self-describing `[Pace: High Pressure]`, and the rule
+is what the model actually needs. Both fall back to the id, so a world file lacking either still
+renders something true rather than a blank line.
+
+Read `docs/TECH_NOTES.md`, *"World data as a fetched document"*, before changing the world shape,
+and `docs/V140_PLAN.md` §2 and §4 for the full design.
 
 ---
 
@@ -795,6 +1465,36 @@ public/groups/
 Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `emoji`, `color`, `accent`, `personality`, `queerTexture`, `speechStyle`).
 
 **Adding a field to a group JSON is not enough to make it reach the app.** `groupLoader.js#parseGroupConfig` rebuilds every member from an explicit whitelist, so a field that is not listed there is silently dropped between the file and the prompt — no error, no warning, just a `undefined` the consumer quietly defaults. `birthday` sat in every group JSON and never reached `buildSystemPrompt` for the whole life of the age-texture feature. Add the field to the whitelist in the same commit, and assert on it through `loadGroupConfig`, never by reading the JSON.
+
+**`habit` went on the whitelist ahead of any file that declared it, and `tags` still is** — `habit` is authored in v1.4.0 step 5, `tags` in v1.4.2. Putting the field first means the content arrives working instead of arriving silently dropped, which is exactly how `birthday` was lost.
+
+**`habit` is a concrete, observable, repeatable physical behaviour — something the model can stage in a scene.** `private_personality` says *expresses affection through caretaking*, which cannot be blocked into a shot; *straightens your collar mid-sentence without asking* can. It is the staging handle for the three prose fields, not a fourth description of them, which is why it sits outside the `CRITICAL: ★` line naming Public / Private / Queer Texture as the primary differentiators.
+
+**Content is sourced, not invented, and that is a different rule from the fields around it.** `queer_texture` is fiction because it has to be; a habit is the one field fans actually know, and a fabricated concrete detail is both less useful to the model and more misleading than a real one. So: **publicly known, persona level, and never a claim about a real person's health, body, relationships or private life.** Where that knowledge is not reliable — parts of `gnz`, `nmixx` and `x` — the habit is instead *derived* from that file's own `private_personality` and is plainly fiction. The two tiers are tracked per member in `docs/V140_PLAN.md`; do not silently promote a derived habit to a sourced one.
+
+**Member ids are not unique across the library, so a shared id carries the same habit in every group.** A physical tic belongs to the person, not the roster: `x` is a crossover roster sharing seven ids, and smoke fails when one copy is edited and its twin forgotten.
+
+**EVERY optional field in the member profile block is conditional.** An absent one renders *nothing*
+— never a label with a trailing space, and never the string `undefined`. Only `Age` and `Address` are
+unconditional, because both are computed and can never come out empty.
+
+This generalised in step 6, and it had to: a custom member is allowed to carry only the three fields
+`docs/V140_PLAN.md` §4.4 requires (`name`, `birthday`, `private_personality`), and that rendered
+**four defects in one profile block** — `undefined` twice (emoji, animal) and a trailing space twice
+(`  Public: `, `  Queer Texture: `). Step 5 had fixed one instance of a class with five more members.
+Note `resolveRoster` snapshots a custom profile straight into `members[]`, so it never passes through
+`parseGroupConfig` where the `|| ""` defaults live — and an empty string produces the same trailing
+space as `undefined` anyway, so the condition tests for *content*, not presence.
+
+A trailing space is invisible to a reviewer while costing the whole ~5,500-token cached prefix; it is
+the single byte the goldens caught during the step 3 extraction.
+
+**The goldens cannot catch this class of regression, and that is measured, not assumed.** Reverting
+the conditionals leaves **0 of 3 goldens moved while 8 Layer I checks fail** — all 175 library member
+records are complete, so the empty branch appears in no snapshot. Custom members are the branch no
+fixture can contain. Do not read a green golden as coverage of a case the fixtures cannot hold.
+
+57 members × 3 languages, plus `_template`. All 30 files are **CRLF** — `cat -A` piped through GNU sed shows clean `$` and is lying, because sed strips the CR in text mode.
 
 `name` is the Latin stage name in **all three** language files; `name_kr` is the localized real name (`裴珠泫` / `Bae Ju-hyun` / `배주현`). A Hangul *stage* name (`예리`) exists in no group JSON.
 
@@ -990,7 +1690,9 @@ Only Pages serves committed artifacts, which is why `npm run deploy` exists at a
 
 **The root `groups/`, `icons.svg` and `manifest.json` are load-bearing, not duplicates of `public/`.** `groupLoader.js` fetches `${base}groups/index.json` at runtime, and Pages serves the repo root — delete them and every group fails to load there. They are byte-identical to `public/` apart from a trailing newline, and smoke Layer C asserts the two `manifest.json` copies still parse equal.
 
-**Nothing *automates* the `groups/` mirror — `deploy.sh` copies only `assets/*.js` and `*.css` — smoke Layer C now fails when it drifts** (on `dev`, ships with v1.3.9). Two checks: the file trees must match name-for-name, and every file must match in content with trailing whitespace stripped. Before that guard existed, editing a group JSON under `public/` left the Pages site serving the old cast data indefinitely, with no error and nothing a player could report. Copy `public/groups/` over root `groups/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push. The same obligation will apply to `worlds/` and `rosters/` when v1.4.x adds them.
+**Nothing *automates* these mirrors — `deploy.sh` copies only `assets/*.js` and `*.css` — smoke Layer C fails when one drifts.** Two checks per tree: the file trees must match name-for-name, and every file must match in content with trailing whitespace stripped. Before that guard existed, editing a group JSON under `public/` left the Pages site serving the old cast data indefinitely, with no error and nothing a player could report.
+
+**Root `worlds/` is the second such tree, added in v1.4.0.** The Layer C check loops over `["groups", "worlds"]` rather than naming one, because every mirrored tree added is another chance to forget — `rosters/` will be one more string in that array, not a third copy of the check. Copy `public/<tree>/` over root `<tree>/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push.
 
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
@@ -1067,24 +1769,716 @@ Read it before touching `groupLoader.js`, `buildSystemPrompt`'s section layout, 
 shape. Two pre-existing bugs it also closes are documented there: save slots record no group id,
 and `saveToStorage` swallows quota errors.
 
-Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**. Step 3 —
-world extraction and the resolver — is next. Two of the plan-documented pre-existing bugs are
-closed by v1.3.9: `saveToStorage` no longer swallows quota errors, and affection pacing no
-longer depends on which model the router served. Save slots still record no group id; that is
-step 4, which now also carries the **player birth-year field** (see below).
+Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**.
+
+**Step 3 — world extraction + resolver — is done on `dev` and unreleased** (`3bbc033`..`45dcdbe`,
+CI green). It ships no player-visible change by design, so it rides with v1.4.0 rather than
+justifying a release: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
+`buildSystemPrompt` rendering from it, `rosterResolver.js`, and `habit`/`tags` on the
+`parseGroupConfig` whitelist. **The gate held — goldens byte-identical throughout and
+`update-golden.mjs` never run.** Smoke **578 → 630**; the JS bundle shrank 324.73 → 317.51 KB
+(gzip 116.59 → 109.97) because the identity prose is now fetched per language instead of shipped
+to every player in all three.
+
+**Step 3 uncovered two blocks of dead code, and one was a real feature gap — closed in step 7.**
+`paceRules` was built into a local and never referenced, so the player's pace reached the model
+**only as a bare id** on the `Progression Pace:` line — `浪漫情感向` and nothing else, while the
+authored text it was supposed to send says things like *"secrecy changes doubled"* and *"love
+triangle scenes probability doubled"*. Step 3 kept the wiring out because it moves the goldens and
+that step's whole gate was that they do not move; step 7's prompt read found the same gap from the
+other end (an English player's prompt carried an unreadable Chinese id) and `getPaceRule` is now
+what section 6 prints. The second block, a leftover local resolving `"H"` to `form.customIdentity`,
+was inert — `App.jsx` already resolves it upstream — and is deleted.
+
+**Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
+**578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
+
+### Pick up here — step 8, third hand-test pass, 2026-09-28
+
+**Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
+**1204 passed / 0 failed**, and `package.json` now reads **1.4.0**. Nothing is running. Goldens
+untouched throughout — nothing since the
+re-validation is prompt-facing, step 8 included.
+
+**Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
+Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
+Five batches are now waiting on that one test:
+
+- **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
+  not by member*;
+- **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
+  see *The photo store shipped with no reader* and *A birth year is stated once*;
+- **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs**, from
+  his hand test of step 8 — see *Four of those six surfaces were wrong on a phone*;
+- **step 8's third pass: the avatar clip path, Instagram fitting its panel, the wheel on the name
+  field's line, and `npm run bump 1.4.0`** — see *The first fix cured the one surface that was
+  never broken*. **18 mutations, all RED, none needing a fix first.** The version strings are bumped
+  and README carries a hand-written *What's New in v1.4.0*, so the release flow resumes at
+  `git checkout main`.
+- **step 8's fourth pass: an avatar with nothing to clip, and release notes inside the game** —
+  see *The second fix made the square reachable*. **16 mutations, all RED, none needing a fix
+  first.** The Help Center's last tab is now **More Info** and carries `RELEASE_NOTES`, whose
+  newest entry smoke ties to `package.json`.
+
+**Step 8's one unmeasured number is still unmeasured, and it moved.** Canvas WebP cannot be encoded
+outside a browser, so the wallpaper's ~46 KB is calculated and the storage budget it feeds (~2.4 MB
+typical) is calculated with it. That figure went **down** with the 2:3 correction — 16% fewer pixels
+— and it is still arithmetic. The image sheet prints `N KB used` on screen; read it and correct
+`docs/V140_PLAN.md` §10 from the real figure.
+
+**The second pass adds 33 mutations, all RED, and three were red only after a fix — two of them
+were the guards' own presence-versus-behaviour trap again.** Breaking the vertical centring in
+`cropRect` left every crop assertion green, because all of them used a wide source against a square
+frame where that term is exactly zero. Deleting `onWallChange` from the editor's props left its guard
+green, because the name still appeared at the call site that depends on it. And `cropRect` clamped
+twice, so neither clamp could be shown to work at all. The harness itself had a fourth: four of the
+first thirty mutations **never applied**, because a multi-line `from` written with unix newlines
+matches nothing in a CRLF file — the same silent-no-op the perl version of the harness had, reported
+as GREEN both times. **A mutation that reports GREEN and a mutation that never ran are the same line
+of output.**
+
+**38 mutations in the first pass, all RED, and two of them were red only after a fix** — both were this file's own
+rules failed by its own guards. One asserted an oversized wallpaper is refused, which stays true
+when the cap is wrongly pinned to the photo limit; the half that fails is *accepting* an image
+between the two caps. The other matched `removePhoto(walls, id)`, which also appears in `setWallFor`,
+so deleting the delete-path line left it green. **Count the call sites; do not test presence.**
+
+**The sanity run is done, on DeepSeek, and it is the first live exercise of the fixed
+`membersNamedIn`:** 8/8 clean rounds on `deepseek-flash`, median 5,459ms, `direct` parse 8/8, **89.6%
+cache**, 2 collapses with **0 prefix breaks**, **0 static-prompt drifts**. Rotation reads Irene 8/8
+(max gap 0) and Seulgi 5/8 (max gap 2) — **compliant with section 3, and the first honest rotation
+measurement this project has taken**. It is n=1 on 8 rounds in one config, so it settles *nothing*
+about `[Rounds Absent]`; it establishes that the fixed code runs and reports sane numbers.
+
+**The router fix from `56cc684` is still live-untested**, and cannot be tested without an Aliyun
+`sk-ws-` key — `callAliyunFreeRoute` is Aliyun-only and `.env.local` currently holds a DeepSeek key.
+
+**The controlled re-validation is done — 100 live rounds, four 25-round arms, one model pinned and
+recorded in every arm.** It found two bugs and could not answer the question it was run to answer.
+
+- **`[Rounds Absent]` was shipping false absence counts** — `membersNamedIn` matched the Latin stage
+  name only, and 29 of 75 (round, member) pairs in one run named her only as 涩琪 or 胜完. **Fixed**,
+  now an exported pure function with behavioural guards, both mutations RED. See *`[Rounds Absent]`
+  shipped telling the model things that were not true*.
+- **`analyze-prose.mjs` had the same bug**, so every rotation figure recorded before today — the six
+  committed baselines included — measured naming style. **Fixed**; the harness now stores `name_kr`.
+- **The A/B is inconclusive and that is the finding.** Two runs of identical code gave 0% and 26.7%
+  rule violation. Within-arm variance exceeds the between-arm gap, so nothing supports keeping or
+  removing the line. `docs/PROPOSALS.md` §4 says what it would take to decide.
+- **Rotation is still not fixed** — three of four arms break section 3 in 5–27% of pairs. This needs
+  no comparison and is safe to state.
+
+**Still genuinely unfinished, and unchanged by today:**
+
+- **one `kkt-transcribed-in-story` survived the ownership rule**, once in 25 rounds on the post-fix
+  code too. The harness stores only a **count** of delivered Kakao, not their text, so the flag it
+  raises cannot be reviewed afterwards — fix that before acting on this one.
+- a **126-character truncated round was accepted** and rendered with English fallback options — two
+  separate defects, both written up in `docs/PROPOSALS.md` §7.
+- `qwen3.7-plus-2026-05-26` is **out of free credits** as of today; 100 rounds exhausted it. Re-probe
+  with `node test/smoke.mjs --live-free` before pinning anything — and note `--live-free` needs an
+  Aliyun `sk-ws-` key and fails every probe with `auth` on any other, which is correct behaviour and
+  reads alarmingly.
+- **three of the four providers have still never played a live round.** The harness could not reach
+  them until step 7; `--provider gemini` and `--provider gpt4omini` are now one command each, and
+  open question 3 (`reasoning_effort:'none'` on OpenAI, Gemini with thinking off) has been waiting on
+  exactly that.
+
+**The release itself (`npm run bump 1.4.0` onward) is untouched and awaits Yuhan's go.** `main` is still
+v1.3.9 at `758faa3`. The open decision blocking nothing but worth his eye: whether v1.4.0 ships
+claiming rotation is addressed. It should not — the wording above is what the evidence supports.
+
+**Step 7's pre-release review found nineteen defects.** The method was the one that worked in step 6, applied harder: read all three
+rendered goldens end to end rather than the diff, read the prompt *against the code that consumes it*,
+and then run 105 live rounds and read the prose instead of the pass/fail line. Nine of the nineteen were
+invisible to any test that existed, and **seven of those were invisible to the zh fixture** — the
+language the data is authored in. The full list is in this file under *Reading it a second time*, *105
+live rounds*, *A Kakao is delivered by the app*, *Korean particles*, *[Rounds Absent]*, *a bubble photo*,
+*Known Inconsistencies 2*, and the stats-box note under *Add-on Features*. What was deliberately **not**
+changed is in `docs/PROPOSALS.md`, with the measurement that would settle each one.
+
+**Step 6 is the first of these with player-visible changes**: a second door on the cover leading to
+a roster builder, a three-step member editor with LLM card generation, cast photos, an on-device
+console behind `?debug=1`, and the birth-year correction a migrated save needs. It was **hand-tested on an iPhone against the Cloudflare
+branch alias** — `dev.idol-dating-sim.pages.dev` — which found three bugs nothing offline could:
+the birth-year field could not be typed into, the role picker hid what it was assigning, and a
+cross-group cast was described as the main member's group (see *"A cast drawn from more than one
+source is its own group"*). All three are fixed.
+
+**Hand play then found three more, after the offline suite and the live gate were both green** — and
+they are the more instructive half of step 6, because none of them was findable by any check written
+in advance: the player's identity and the members' leaking into each other (*"Whose life is whose"*),
+**save slots silently deleting the oldest run past ten** (*"The tenth save is the last one"*), and,
+from reading the whole rendered prompt on Yuhan's prompting, six stale or contradictory setting
+statements (*"Reading the whole rendered prompt, once, found six more"*). The save bug is the worst
+of everything step 6 turned up: it destroyed player data rather than misdescribing it.
+
+**The goldens moved three times in step 6, each deliberately and each diff read** — the ROLE
+CONTRACT, the six prompt-review fixes, and section 9's localized stage names. They were
+byte-identical through the first eleven commits, which is what the step's own gate asked for.
+
+**For branch previews use Cloudflare, not Vercel.** Cloudflare's alias is a deterministic
+`<branch>.<project>.pages.dev`; Vercel's preview hostname embeds a team slug that exists nowhere in
+this repo and cannot be derived from it.
+
+**Step 6's live gate is met.** The reported roster — Jisoo (BLACKPINK) main, Irene (Red Velvet) and
+a custom member as subs, Mina and Sana (TWICE) as NPCs — played **10/10 clean rounds** in zh:
+**0** outside-cast names among the 14 members of those groups who are not in the roster, **0** real
+agencies, **0** static-prompt drifts, 3 collapses with **0** ledger prefix breaks, 81.2% cache. A
+classic single-group control ran 6/6 clean at 85.6%. Section 4 read `[X Background] / X is a
+5-member group under X Entertainment`, naming none of the four origin groups.
+
+**A second, wider run after the later fixes: 64 rounds, four configurations** — see *"64 live rounds
+across four configurations validate step 6"* under Project Status for the numbers and for the two
+grader bugs it exposed.
+
+Remaining in step 6, optional: splitting the classic Setup page. **It does not block the release**,
+which is step 7. The roster builder's design was the other open item and is now done — see below.
+
+### The cast picker is organised by role, not by member
+
+**Reworked on Yuhan's design, step 7.** The builder listed every member in the library and hung
+three small role buttons off each card. Two things were wrong, and the second is why this was a
+restructure rather than a restyle:
+
+- **It did not match the decision.** A player picks her main, then optionally some subs, then
+  optionally some background faces. She never walks the library asking "what is Yeri for".
+- **It could not be tapped.** Up to twenty-seven adjacent ~18px targets at 390px, each assigning a
+  **different** role — so a mis-tap assigned the wrong part rather than missing.
+
+Note the first version was tap-to-cycle on symbols, replaced after a phone test by those three
+*named* buttons. **The second attempt fixed legibility and left the structure wrong**, which is why
+the lesson is recorded here and not in the commit alone.
+
+Now three sections — main, subs, NPCs — each showing its members as chips with an `x`, and a `+`
+opening `MemberPicker.jsx` for that slot. Four rules the shape encodes:
+
+- **The sheet's behaviour follows the slot's cardinality.** One main, so choosing her closes it;
+  subs and NPCs are "as many as you like", so it stays open and counts.
+- **A member holds exactly one slot, so tapping her elsewhere MOVES her**, and the picker names the
+  role she currently holds. Ids key every per-member map in the save, so one member in two slots
+  would merge her own state; the alternatives are a silent no-op or a duplicate.
+- **Chip order comes from `rosterFromPicks`**, not from the picks object — within-slot order reaches
+  the prompt and prompt order is a cache boundary, so two answers to "what order" is one too many.
+- **Each section explains its role whether or not it is filled.** The old legend showed only while
+  the whole cast was empty, so it had vanished by the time the player reached the NPC decision.
+
+**Five defects went with it, and two are repeats of lessons already in this file:**
+
+| Found | Was |
+| --- | --- |
+| **The player's font scale never reached these screens** | threaded into the story, the options, Bubble and Kakao — and into neither cast screen, which were also the smallest type in the app. A player who asked for larger text got it everywhere else |
+| **Type below the readable floor** | 8px for a line the player has to read (which group a shared member came from), 9 and 9.5 elsewhere, against 11-13 in the rest of the app. `castTheme.js` now holds the floor and every size passes through `scaleFont` |
+| **The raw group id was shown to the player** | `red_velvet`, `gnz` — where every other surface shows the display name. **The `[Stage Changes]` defect one layer up**, and a custom member's id is a timestamp |
+| **The 20-member cap was invisible until hit** | exactly what the save slots taught (*"The tenth save is the last one"*), one screen over. It now reads `n / 20` at all times |
+| **`pickMainHint` described a control deleted two redesigns ago** | in all three languages. **The i18n form of "a prompt is not append-only"** |
+
+**`castTheme.js` exists because the palette was three copies of the same fifteen literals**, one per
+cast screen. That is the convention the older overlays set and it is wrong here: these three are one
+flow the player walks in a single sitting, so a token edited in the builder and forgotten in the
+sheet makes the sheet look like a different app. Same argument as `extractStoryText`, where two
+copies had drifted and the guard had been written against the one that was still correct.
+
+**`displayNameIn` shows the name the player recognises, and must never reach the prompt.** zh sees
+`裴珠泫`, ko `배주현`, en `Irene` — en's `name_kr` is a romanized legal name ("Bae Ju-hyun"), longer
+than the stage name and not what an English reader knows her as, so en keeps `name`. Same split as
+the zh address-form table and for the same reason: what the audience reads, not consistency. The
+prompt is unaffected and guarded: `name` is the cast's canonical identity everywhere the model can
+see it, and `membersNamedIn` reads it back out of the prose to decide who appeared.
+
+**Saving a roster asks what to call it, and the label must never land on `roster.name`.** Those two
+fields look interchangeable and are not: `roster.name` is the composed **group** name, which
+`rosterResolver` renders into section 4 as *"\<name\> is an N-member group under \<name\>
+Entertainment"* — so a cast saved as "my Irene run" would have debuted under that name in the story.
+`savedRosterEntry` is a function with a test for exactly that reason.
+
+**`assignSlot` and `savedRosterEntry` are exported pure functions**, the `addSaveSlot` pattern: five
+guards that matched the component's *source* now test behaviour, and they went red the moment the
+logic moved — which is what a regex over an implementation does. Five more encoding the old layout
+were replaced by guards written from the same requirement.
+
+### The photo store shipped with no reader — step 8
+
+**Reported from Yuhan's hand test of the role-first picker.** `imageStore.js` worked: it
+downscaled, capped, refused and persisted. The roster builder showed the result. **`App.jsx` never
+imported it**, so the game top bar, the four social overlays and the tab strip inside them all still
+drew `emoji` over a `linear-gradient(color, accent)`, and a player who uploaded nine photos saw them
+only on the screen where she uploaded them.
+
+**This is the third instance of one shape in this file** — a feature complete on one side of a
+boundary and connected to nothing on the other:
+
+| | The half that existed | The half that did not |
+| --- | --- | --- |
+| `npcAppearances` | a tail block and a cooldown rule | anything that ever wrote an entry |
+| bubble `hasPhoto` | an overlay that draws a photo frame | `photoDesc` in any schema |
+| **cast photos** | **a store, an uploader, a cap, a prune** | **any consumer in the running game** |
+
+All three read to a player as a broken control rather than a missing consumer, which is exactly how
+this one was reported. **The check that finds this class is not a test — it is asking, for each
+feature, which file READS what it wrote.** A green suite says the writer works.
+
+**`memberFace.jsx` is one definition of "her photo, or her gradient and her emoji"**, consumed by all
+six surfaces. Six copies is six chances for one of them to be the copy still showing the emoji —
+`extractStoryText` is the precedent, where two copies had drifted and the guard had been written
+against the one that was still correct. Guarded by counting the consumers, because a helper can
+exist, be correct, and be used in five of six places.
+
+**One wallpaper per member, not one per platform.** Her wallpaper is the chat background in Bubble
+and KakaoTalk, the post image on Instagram, and the header banner on Weverse — four surfaces per
+upload. Three separate backgrounds would be 3x the quota and 3x the uploads for a photo each
+platform already lays its own scrim over.
+
+**It is safe on Instagram because the post image has always been decorative.** The schema asks for
+`{caption, likes}` and has never carried a description of an image; the table in this file claiming
+`{imageDesc, caption}` was wrong, and is corrected above. Bubble's `hasPhoto`/`photoDesc` frame is
+therefore the opposite case and is **left alone** — that is a specific picture she sent this round,
+and substituting her wallpaper for it would render a description of one image over a different one.
+
+**`imageStore.js` is parameterised, not copied.** A second store with different caps and a different
+aspect ratio is exactly where a second copy of the four refusal rules would appear, so the caps are
+an argument (`PHOTO_LIMITS` / `WALL_LIMITS`), `downscale` is one aspect ratio of `downscaleCover`,
+and `loadPhotos`/`loadWalls` are wrappers over one keyed accessor.
+
+**`pruneOrphans` is gone, and it was a latent data-loss bug this change would have activated.** It
+kept only the ids its caller listed, and its one caller passed the **custom palette** — so once a
+library member could have a photo, deleting one authored member would have deleted every library
+photo in the store. It was harmless only because nothing could put one there. The delete site now
+removes the one id that stopped existing, which needs no id universe — and this screen has none
+anyway, since group configs are fetched per tab and a group the player never opened is
+indistinguishable from a group that is gone. Not kept for v1.5.0: a function with no caller is what
+`NPC_APPEARANCE_CHANCE` is a standing example of, and it is eight lines to write again.
+
+**Uploads live in one sheet on the cast already chosen.** The obvious place is a camera badge on each
+card in the picker grid, and that grid is three columns at 390px where the card itself is the assign
+target — a 20px badge beside a 40px one is the adjacency that made the pre-step-7 builder untappable,
+where a mis-tap did not miss but assigned the wrong role. One entry point reintroduces nothing, and
+gives both caps and the bytes in use somewhere to live: `n / 30`, `n / 8` and `N KB used`, **visible
+at all times** rather than at the moment they refuse. That is the third screen to need that lesson
+after the save slots and the member palette.
+
+**The quota figures are calculated, not measured, and the app now reports the real one.** 360x540 at
+q0.7 is ~2.9x the pixels of a 256x256 at q0.8, so ~46 KB of stored string against ~20 KB; §10's
+budget moves from ~2.1 MB to ~2.4 MB typical against the ~5 MB quota, worst case ~3.1 MB. Canvas WebP
+cannot be encoded outside a browser, so none of that can be measured offline — which is why the sheet
+prints `N KB used`. A number nobody can observe is a number nobody can trust.
+
+### Four of those six surfaces were wrong on a phone — the second hand test
+
+The feature reached the game and then had to survive being looked at. None of the four is a logic
+error; each is the gap between what the code specifies and what a phone renders, which is the class
+this project can only find by hand.
+
+**The crop was automatic, and an automatic crop is indistinguishable from a bug.** `downscaleCover`
+took the largest centred region with the target's aspect ratio — correct for an arbitrary image, and
+wrong every single time for a face, because a photo taken at arm's length puts the head in the top
+third. It was reported as *"the ratio of the photo and wallpaper is not fixed"*, which is exactly
+what a crop nobody chose looks like from the outside: the output varies with the input for a reason
+the screen never states.
+
+So the player frames it: `ImageCropper.jsx`, drag to pan, pinch or slider to zoom, confirm. Three
+things make it more than a restyle:
+
+- **The frame is the shape the image will be seen in** — a circle for a photo, 2:3 for a wallpaper.
+  A square preview of a round avatar is a preview of something that never appears.
+- **The maths is pure and lives in `imageStore.js`** (`coverScale`, `clampOffset`, `cropRect`), not in
+  the component. A wrong crop region is invisible until the image is already in the game, and the
+  component can only be tested by hand; the region can be tested offline, so it is.
+- **`cropRect` at zoom 1 with no pan reproduces the old centred crop exactly**, which smoke asserts.
+  The behaviour survives as the cropper's opening position instead of as a second code path, and
+  `downscale`/`downscaleWall`/`downscaleCover` are **deleted** — an automatic crop beside a chosen
+  one is two answers to one question.
+
+**And it had two clamps of one rule, which is two clamps neither of which can be shown to work.**
+`cropRect` clamped the offset *and* bounded the result into the image. Break either and the other
+covers for it, so the guard that exists to catch a blank corner passes against both halves being
+wrong — found while mutation-testing, not while writing it. One enforcement now, with a
+`Math.max(0, …)` that is documented as a floating-point floor rather than a bound.
+
+**2:3, not 9:16 — the ratio has to be the one the image is SEEN at.** The wallpaper was sized to the
+overlay panel. It is never shown at the panel's size: the title bar and the member strip take ~72px
+off a 600px panel, so the surface is 360x528, and 9:16 lost a sixth of every upload to a crop nobody
+asked for. Instagram is the one surface that cannot show the whole thing, and its square became a
+**4:5 portrait post** — a real Instagram ratio, trimming ~17% where a square would have taken 33%.
+
+**One wallpaper, one job.** Weverse used it as a post card's banner while the other three used it as
+a background, so a single upload meant two different things depending on which tab you opened. It
+now backs the Weverse feed exactly as it backs Bubble and KakaoTalk, and the post card goes nearly
+opaque over it — a 5% tint is invisible against a plain panel and useless against a photograph,
+which is the same reason the chat bubbles keep opaque fills on top of the scrim.
+
+**A square photo inside a round frame, on iPhone only.** `MemberFace` drew the `<img>` as a flex
+child and left the clipping to the parent's `overflow: hidden` + `border-radius` — the one shape
+WebKit declines to clip. The tab strip, which puts the radius on the `<img>` itself, was never
+affected, and that difference is the whole diagnosis. The photo is now positioned `inset: 0` and
+carries `borderRadius: "inherit"`, so its shape does not depend on anyone clipping it; the frame
+gained `isolation: isolate` and an explicit `boxSizing: border-box`, the second because every caller
+passes a 1px border and content-box sizing insets the photo inside its own ring.
+
+**A `display:none` file input inside a `<label>` does not open the picker on iOS Safari.** That is
+how the member editor's uploader shipped **untappable** — the only way to give an authored member a
+photo, on the only device this app is built for. `CastImageSheet` had always used a ref and a
+`.click()`, so the pattern that works was one file away. **The guard is derived**: every
+`type="file"` in `src/` is scanned, none may be wrapped in a label, and every one must reach the
+cropper — so a third uploader cannot reintroduce either. Its first version read the *comments*
+explaining the fix and failed on its own documentation, which is the second time that has happened
+in this batch's guards.
+
+**A custom member could be given a photo and a wallpaper nowhere.** The image sheet lists the
+*chosen* cast, and she is authored before she is chosen. The editor now carries both, through
+`setPhotoFor`/`setWallFor` — the same writers the library uses, because a second write path is a
+second set of caps to forget.
+
+**The year wheel had no edges.** Five rows at 36px is 180px of loose numbers with no frame and no
+surface of its own, sitting in Setup beside a 38px name field — so it read as floating over the
+page rather than as one control. Three rows at 34px inside a bordered, rounded, clipped box, and
+the viewport is `ROW_H * VISIBLE_ROWS + 2` so the border does not cost the pixel that would put
+`scrollSnapAlign: center` permanently one off from `scrollTop = index * ROW_H`.
+
+### The first fix cured the one surface that was never broken — the third hand test
+
+Three more from the phone, and the first of them is the instructive one.
+
+**A fix validated against the working case is a fix validated against nothing.** The square-photo-in-a-round-frame fix of the second pass gave the `<img>` a radius of its own, and the reasoning was sound: the tab strip puts the radius on the `<img>` and the tab strip was never broken. It shipped, and the avatars were still square in Bubble, KakaoTalk and Weverse — and correct on Instagram, *which is the one surface whose shape that fix could reach*. The delta I had used as the diagnosis was a delta between two working copies.
+
+The real discriminator is one line away and was in the diff of the same batch: **Bubble, KakaoTalk and Weverse are exactly the avatars sitting inside a scrolling container that carries a background image, and Instagram's is not.** A scroller with a background becomes its own composited layer on iOS WebKit, and a rounded `overflow` clip on a descendant is not applied across that boundary — which is why the *gradient-and-emoji* default came out square too, and no radius on an `<img>` could ever have helped it. Still **unverified** as a mechanism: it is inferred from which three broke and which one did not, not from a repro. The fix does not rest on it, because `clip-path` does not clip by overflow at all.
+
+- **The shape is a `clip-path`** — **this was also wrong; see *The second fix made the square reachable* below, where removing `overflow: hidden` is what let the square through.** `circle(50%)`, or `inset(0 round Npx)` for the cast screens' rounded squares — and `overflow: hidden` plus `isolation: isolate` are **gone** rather than kept beside it. `border-radius` stays because it is what rounds the *border*. A shape enforced twice is a shape neither enforcement can be shown to hold, which is what `cropRect`'s double clamp cost an hour of mutation testing to find one release ago.
+- **The three scrollers drop `background-attachment: local`**, which was a second, separate bug hiding in the same line. With `local`, `cover` sizes the wallpaper against the whole **scrollable content**, so a long KakaoTalk thread displayed a crop the player never framed — the exact promise the cropper exists to keep. Default attachment pins it to the padding box, which is what a chat wallpaper does anyway: the messages move over it, not with it.
+
+**A fixed aspect ratio decides the layout before the container does.** Instagram's post was 4:5 — a real portrait ratio, chosen to waste less of a 2:3 upload — which is 450px of a 600px panel that has already spent ~115 on its title bar, tab strip and post header. So the caption and the like count sat below the fold on **every** post, and the player had to scroll to read the thing the round actually generated. The frame now takes what the panel has left (`flex: 1 1 0` against siblings that cannot shrink) and `cover` trims the rest. The scroll survives only as a backstop for an unusually long caption; KakaoTalk keeps its scroll on purpose, because a thread is history.
+
+**A caption inside a control's own column moves the control.** Setup's year wheel was in a flex row with the name field and looked like a second row, because the "Birth year" caption above it pushed the wheel down by the caption's own height. The captions are lifted into the section label, so the row holds exactly two boxes and centres them — and the wheel box's centre *is* the selected year, since the band sits at the middle row by construction.
+
+### The second fix made the square reachable — the fourth hand test
+
+**Three fixes for one bug, and the first two were the same mistake in different syntax.** The
+avatar came out square inside its round ring on Bubble, KakaoTalk and Weverse. Attempt one put a
+radius on the `<img>` and cured Instagram, which was never broken. Attempt two moved the frame to
+`clip-path` and **removed `overflow: hidden`**, reasoning that one enforcement is better than two.
+It was still square.
+
+**Attempt two did not merely fail; it made the failure worse, and the report said so in words this
+file had not read carefully enough.** "The square edge **inside** the circle" is not "the frame is
+square" — it is a circle with a square in it. That is precisely what the component does when its
+clip does not apply: `border-radius` still clips the element's **own** background, so the gradient
+frame is a clean circle, while the `<img>` child — no longer held by any overflow clip — paints as
+a full square on top of it. **Measured**, in Chromium with `clip-path` forced off: the current
+component renders a full square, and the fix renders a circle.
+
+**The fix is to delete the child.** Her photo is the frame's own `background-image`, sized with
+`background-size: cover` and `background-origin: border-box`. There is no descendant, so no
+clipping mechanism can fail; `border-radius` clipping an element's own background is the most
+basic rounding in CSS. `overflow`, `clip-path` and `isolation` are all gone.
+
+**`photoFill` is the one definition and it has three consumers**, because `MemberPicker` and
+`RosterBuilder` were clipping an `<img>` the same way — not in the configuration that has ever
+failed, but the same shape, and *count the call sites* is the standing rule here. `MemberSelector`
+keeps its `<img>`: that one carries its **own** `border-radius`, which is why the tab strip has
+never been reported square, and it is the difference the guard is written on. `ImageCropper` keeps
+its `<img>` too, because the preview is panned by transform and must be a child.
+
+**How it was finally diagnosed, after two fixes reasoned from the wrong evidence.** A repro
+harness in the scratchpad: esbuild bundles the *real* `memberFace.jsx` and the *real* crop pipeline
+into a page, headless Chrome screenshots it, and the image is read. Chromium cannot reproduce an
+iOS compositing bug — so the harness reproduces the **consequence** instead, by forcing
+`clip-path: none` and looking at what is left standing. Test images are **generated** (a flat red
+fill, and a checkerboard inside a 20px magenta frame so any letterboxing is unmissable) rather
+than downloaded: a real face hides an edge artefact that a hard frame cannot, and nothing about a
+real photo needs to touch this machine or this repo.
+
+The first thing that harness did was clear a hypothesis out of the way. Yuhan's own reading was
+that the saved crop might be wrong — "check if the scale/ratio is wrong". It is not: the pipeline
+writes a 256x256 WebP with `sx=0 sy=150 sw=900 sh=900` from a 900x1200 source, which is exactly
+the centred square, and the decoded image has no transparent margin. **Ten minutes of rendering
+settled a question two rounds of reasoning had not.**
+
+**The guards moved from the mechanism to the requirement.** They used to assert
+`clipPath: clip, WebkitClipPath: clip` — today's CSS, pinned. They now assert that the component
+**renders no child**, that its shape is its own `border-radius`, and — derived from a scan of
+`src/` — that no screen shows a stored photo as a child something else has to clip. A fourth
+screen cannot quietly reintroduce it.
+
+### What's New belongs in the game, not only in README
+
+**A player opens the game; she does not open the repository.** Every release note this project has
+written has lived in `README.md`, which is on GitHub, behind a link in the Help Center's last tab.
+Reported by Yuhan: put it where she already is.
+
+The Help Center's fourth tab is therefore **More Info** (`更多` / `더보기`) rather than Contact, and
+it renders one or two sentences per release, newest first, above the contact details it already
+carried. The panel's content area already scrolled, so the list can grow a release at a time.
+
+- **`src/config/releaseNotes.js` is ONE array with all three languages side by side**, not three
+  copies in `src/i18n/*.js`. A missing translation in an i18n file is invisible until a Korean
+  player opens the tab; here it is a hole in a row. Smoke asserts every entry carries all three.
+- **Smoke ties `RELEASE_NOTES[0].version` to `package.json`.** Without that the list silently stops
+  at whichever release last remembered to add a line — the failure README's *What's New* heading
+  already has a guard for, one file over. It also makes the tab's "you are playing this" badge on
+  the top entry true by construction rather than by hope.
+- **A version number in that file is history, so `npm run bump` must not touch it** — the same rule
+  as README's old headings and this file's post-mortems. The guard probes a version the notes
+  actually *name*, because bumping the current version would find nothing to rewrite and pass
+  vacuously. That is the second vacuous guard caught in this batch by asking what it would take to
+  fail.
+- **Renaming a tab strands the prose that points at it.** The unrecognised-error line told the
+  player to "report it from the Contact tab", in all three languages, and Contact no longer exists.
+  This is `pickMainHint` again — a control described in three languages that had been deleted two
+  redesigns earlier. The guard is derived from `TABS`: the line must name the tab that is actually
+  last, so the next rename fails the suite until the prose follows.
+
+### `npm run bump` would have rewritten this file's own history, in `src/`
+
+Found by running `npm run bump 1.4.0`: smoke reported **five** cover strings in `App.jsx` where `EXPECTED` declares three, and two in each `src/i18n/*.js` where it declares one.
+
+Nothing had drifted. `bumpFile` rewrites every **line** containing the old version, and `src/` is now full of comments that say `v1.4.0 step 6 - the custom cast` and `a pre-v1.4.0 save`. **This is the CLAUDE.md anchoring lesson, one directory over, and it had never bitten because v1.4.0 is the first version this code documents itself against while also being the version being bumped to.** Left alone, the next bump would have relabelled every one of those comments as a thing that happened in v1.4.1.
+
+In `src/`, the only version string that is **state** is a cover description, so a line must contain `desc:` to be eligible; every other mention is history. Guarded by probing `bumpFile` with a literal comment line rather than with the real file — the real file is what the count check already reads, and the rule has to hold for a comment nobody has written yet.
+
+### A birth year is stated once, and the control cannot express a wrong one
+
+Two changes to one field, both from the same hand test, and they point the same way.
+
+**The settings correction is now gated on `birthYearEstimated`.** It shipped in step 6 always
+visible, on the argument that a typo at Setup produces the same wrong honorifics as a migration does.
+That argument is real and it is outweighed: the year decides which way **every** address form points
+— Korean seniority is a hard year boundary — and it sits in the static system prompt, so a change
+re-points the whole cast's honorifics mid-run *and* costs the entire ~5,500-token cached prefix. A
+control that invites fiddling at that price is the wrong trade.
+
+It survives for the one case it was built for: a pre-v1.4.0 save whose year `migrateSave`
+**reproduced** from `age`, deliberately and wrongly, for about half of those saves and unrecoverably.
+`birthYearEstimated` already means exactly "the year was filled in for her", so it is the gate.
+**Nothing was deleted** — `correctBirthYear`, its guards and its translations all stand, and a new
+game simply never shows the row, because a new game's year was stated by the player.
+
+**Setup and the member editor now pick the year from a wheel, and that removes a failure mode rather
+than restyling one.** `birthdayFromYear` returns `""` for anything under four digits on purpose: a
+half-typed `19` must leave the profile invalid, because a two-digit year reaching the address
+protocol makes the entire cast either senior or junior at once. A wheel's every value is a year in
+range, so the invalid intermediate state **stops existing** instead of being caught downstream. The
+member editor lost that field entirely in step 6 to a `type="number"` that refused to render its own
+partial value; the class of bug goes with the text box.
+
+Two ranges, neither duplicated: `PLAYER_BIRTH_YEAR_MIN/MAX` (1946-2008) for the player,
+`BIRTH_YEAR_MIN/MAX` (1980-2012) for a custom member. **The guards assert the RANGE, not the
+control** — handing Setup the idol bounds would let a player be 14, and handing the editor the
+player's would offer a 79-year-old idol, and neither looks wrong on screen.
+
+**A wheel always displays a value, which is a new way to lie.** Showing `2000` while `birthday` is
+still empty makes the field look filled while Save stays disabled with nothing to point at, so a new
+member is **seeded** at the year the wheel opens on. The displayed value is the stored one from the
+first frame; scrolling is how she changes it, not how she supplies it.
+
+### …and it could only ever test one of the four providers — the third time
+
+**Found running the step 7 sanity check against a DeepSeek key.** `playthrough.mjs` hardcoded
+`selectedModel: "qwen"` and `aliyun: { mode: "free" }` into its `executeRound` call, so it could
+exercise exactly one of the four providers in `MODEL_CONFIGS`. On a key for any of the other three it
+died at round 0 with `free_all_exhausted` — which names the **player's credits**, not the harness —
+one line after warning that the key was not an `sk-ws-` one. **Two true-sounding lines naming the
+wrong cause**, which is worse than a bare failure.
+
+**This is the third field of the same shape in this one file**, and the shape is now unmistakable:
+
+| Field | Was pinned to | What that cost |
+| --- | --- | --- |
+| `identity` | `练习生` | 7 of 8 backgrounds never played live; a bug in one survived every run ever made |
+| `pace` | `浪漫情感向` | three quarters of the coverage, the moment section 6 began sending the pace's authored rule |
+| **provider** | **`qwen`** | **three of four providers have still never played a live round** |
+
+`--provider` now defaults to `MODEL_ID` from `.env.local`, so the harness follows the key that is
+actually configured rather than assuming Aliyun; `resolveProvider` consults `MODEL_CONFIGS` instead
+of carrying a second hand-maintained provider table; only Aliyun is handed a free-route mode, and
+route pinning is skipped for everyone else. **The guards assert on the `executeRound` call, not on
+the flag list** — adding `--provider` while leaving `selectedModel: "qwen"` in place would pass a
+flag check, which is the trap the form-literal guard beside it already exists to avoid.
+
+**Generalise it: every field of `executeRound` that selects a whole code path needs a flag, and the
+guard belongs on the call rather than on the flag.** That is now three instances; assume there is a
+fourth and go looking rather than waiting for it to cost a release.
+
+### `playthrough.mjs` had been dead since step 3, and that is the second time
+
+Its `fetch` stub served `/groups/` and nothing else. Step 3 added `/worlds/`, so every world fetch
+fell through to a real `fetch` on a **relative** URL and the harness died with `Failed to parse URL
+from /worlds/kpop_idol/zh.json` before its first round. **Steps 3, 4, 5 and 6 were therefore all
+validated with zero live rounds** — every gate they claim to have met was met offline.
+
+v1.3.5 did the same thing with `BASE_URL`, and the bootability check in Layer I exists because of
+it. That check could not see this one: it bundles `mainAgent` + `groupLoader` and never
+`worldLoader`, so it proved the harness *boots* while the harness could not *feed* it.
+
+So the guard does not name the trees. It **scans `src/` for `${base()}<tree>/` and requires the
+harness to serve every one it finds**, plus a second check that the scan itself found something —
+a broken scan would otherwise pass the first vacuously. A future loader fetching `rosters/` fails
+smoke until `SERVED_TREES` learns about it. Same reasoning as Layer C's loop over mirrored trees:
+**the thing that keeps going wrong is a list that has to be updated by hand, so derive it.**
+
+**The general rule: a harness that cannot fail is indistinguishable from a passing one.** When a
+step's gate is "offline checks are green", ask what the live harness has actually run lately — and
+if the answer is "nothing since before this area changed", that is a finding, not a formality.
+
+**Step 4 — save migration** (`9d1c6cd`..`73b0995`). Three commits: the **player birth-year
+field**, `saveMigrator.js` (`schema`/`worldId`/`groupId`/`roster`), and the `App.jsx` rewiring
+through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke **630 → 671**, goldens
+untouched.
+
+**Its gate held:** a pinned v1.3.8 save migrates and resolves to the same member set
+`getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte.
+
+**Step 4 found that member ids are not unique across the library.** `x` is a crossover roster
+sharing seven ids — `irene`, `wendy`, `sana`, `mina`, `sullyoon`, `wonyoung`, `jisoo` — with the
+groups those members debuted in. The plan's rule (scan for the group containing
+`form.mainMember`) would therefore have silently recast seven of fifty possible saves. The scan
+matches on the **whole chosen cast** instead, breaks a tie with the selected group, and warns
+rather than defaulting when nothing fits.
+
+All three plan-documented pre-existing bugs are now closed: v1.3.9 fixed `saveToStorage`
+swallowing quota errors and affection pacing depending on the served model; step 4 fixed save
+slots recording no group id.
+
+**Step 5 — `habit` across the group library** (`6cdb550`, `26ca206`). Two commits: 175 habit
+strings across 30 files plus the 30 root mirror copies, then the one conditional `Habit:` line.
+Smoke **671 → 683**. A v1.3.9 hand-play bug found while the branch was green rode along in
+`7fd109c` (a Kakao transcribed into the story — see the KKT note under Social Media System),
+taking smoke to **695** and moving the goldens a second time.
+
+**Step 6 — the custom-cast UI** (`919449a`..`d731db1`, fourteen commits). Smoke **695 → 949**. In
+order: the prompt surviving an incomplete member, the palette + photo store, `cardGenerator`, the
+member editor, the roster builder + second door, the on-device console, the three phone-test fixes,
+docs, the birth-year correction (*"So the player is given the year back"*), the harness revival plus
+`--cast` and the live gate, the ROLE CONTRACT with the six prompt-review fixes, and the save-slot
+cap with per-language stage names and section 4's per-roster preamble.
+
+Three deviations from `docs/V140_PLAN.md`, each deliberate and recorded there: **three storage keys,
+not five** (custom worlds and world selection are v1.4.1, and this repo already carries two
+constants nobody imports); **nine generated card fields, not seven** (`name` and `birthday` are
+generated too, or the player still hand-fills two required fields; `mbti`/`role`/`name_kr`/`tags`
+reach no prompt for a custom member); and **`world.setting` does not exist yet**, so the card prompt
+falls back to `world.name` and will prefer `setting` once v1.4.1 adds it.
+
+**`src/utils.js` and `src/utils/` now both exist**, because §10 specifies
+`src/utils/imageStore.js`. Vite and esbuild both resolve `from "./utils"` to the file, and
+`imageStore` names its own import `../utils.js` rather than relying on that. **Never add a
+`src/utils/index.js`** — it would silently re-point every such import; smoke asserts none exists.
+
+**Two `src/` bugs in step 6 were found by tests rather than by the build**, both worth remembering:
+`rosterFromPicks` used `SLOTS` without importing it, and an undefined identifier is a *runtime*
+error, so `npm run build` passed on code that threw the moment it ran. And an all-custom cast
+returned `groupConfig: null` into a consumer that dereferences it unconditionally. A green build
+says the module graph resolves, not that any of it executes.
+
+**The goldens moved here — deliberately, and for the first time since step 1.** 19 insertions, 0
+deletions, every one a `Habit:` line, one per member. `update-golden.mjs` was run once and the
+diff was read before committing.
+
+**Step 5's most useful finding is about the goldens themselves: they cover what the data happens
+to contain, not the branch the data never exercises.** The `Habit:` line is conditional, so a
+member without one renders nothing rather than `  Habit: ` with a trailing space. Mutating it to
+unconditional leaves **all three goldens green**, because every library member has a habit and the
+empty case therefore appears in no snapshot. Only the dedicated guard in Layer I fails. Step 6's
+custom members are exactly that untested branch, so do not read a green golden as coverage of a
+case the fixtures cannot contain.
 
 Note what v1.3.9 does **not** include, deliberately. `MODEL_PRICES_PER_1M` is partial, and the
 gaps are documented rather than filled — never back-derive a per-1M price from a per-round
 estimate. The player's birth year is still derived from age and is wrong for ~half of players;
 the fix needs a save field, so it waits for step 4.
 
-**Every live flag so far has been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
+### 105 live rounds across five configurations, and what they found — step 7
+
+2026-09-27, route-served, one config per invocation (they share `test/.out/agent.mjs`, so two at once
+race on it):
+
+| config | rounds | graded | median completion |
+| --- | --- | --- | --- |
+| zh `财阀` / `高压舆论向` / 1+2 | 25 | 19 clean, 6 flagged | 1,710 |
+| zh `练习生` / `慢热现实向` / 1+2 | 20 | 17 clean, 3 flagged | 1,086 |
+| en `Staff` / `修罗海王向` / TWICE 1+2 | 20 | **20/20 clean** | 1,177 |
+| ko `主线成员前女友` / `浪漫情感向` / 1+1 | 20 | **20/20 clean** | 1,572 |
+| zh `韩娱艺人` / cross-group + custom | 20 | **20/20 clean** | — |
+
+**The architecture held completely: 31 collapses, 0 ledger prefix breaks, 0 static-prompt drifts, and
+`direct` parses on 105 of 105 rounds.** Cache 79.8–86.9%, consistent with Aliyun's measured ~83%. The
+cross-group cast produced **0 outside-cast names and 0 real agencies**, and wrote its scene as
+`首尔某娱乐公司练习室` — declining to name an agency at all, which is exactly what the composed lore is
+for. The newly wired pace rule showed up in the numbers (see the pace note under *Reading it a second
+time*), and the Korean particle fix and rewritten section 1 rule both came back clean.
+
+**Five of the nine flags were the graders, again** — see *a live flag is a hypothesis about the grader
+first* below, now at 9 of 13 in this project's history.
+
+**What the graders could not see is where the findings were**, and that is the whole reason
+`scripts/analyze-prose.mjs` exists. Good news first, since a tool that only reports trouble teaches
+nothing: **repetition is not a problem** (0–3 reused sentences per run, round-to-round 4-gram overlap
+0.2–4.9%, no two rounds opening alike), and **options are not either** (0 leaking a stat or route hint,
+0 rounds whose four options say one thing, in all five configs).
+
+The problems it did find:
+
+1. **Rotation fails in every configuration.** **NOT fixed.** `[Rounds Absent]` was the attempt and a
+   controlled A/B says it did not work — see *The rotation fix does not fix rotation* below. The line
+   ships anyway, for a reason that is not rotation.
+2. **A Kakao still reached the prose twice in 45 zh rounds** after the reorder, both times through an
+   invented channel. Fixed — see the ownership rule under *A Kakao is delivered by the app*.
+3. **`scene` as a 250-character paragraph, repeated verbatim for five rounds** (en only). Fixed.
+4. **The summary at 3x its stated length** (zh only; en and ko land near 140 characters). Fixed.
+5. **Output runs 1.4–2.1x the 800 tokens every cost figure in the app is derived from**, in every
+   language, and grows with the round number. **Not fixed** — `docs/PROPOSALS.md` §2.
+6. **Zero negative affection steps in 100 transitions**, and every stat saturating by round ~22. **Not
+   fixed** — `docs/PROPOSALS.md` §1, where it is now the prediction that makes the experiment worth
+   running.
+7. **In English the Korean texture barely appears** — `unnie` twice in 20 rounds, against `欧尼`
+   fifty-one times in 25 Chinese ones. **Not acted on**: this area was tuned from a native speaker's
+   reports, so which forms an English reader wants is Yuhan's call, like the Korean stage names.
+
+**64 live rounds across four configurations validated step 6** (same day, before the step 7 work): Chaebol classic **20/20 clean**; Chaebol + cross-group cast **17/20**; Staff in en
+**12/12**; the ex-girlfriend identity in ko **12/12**. **0 static-prompt drifts and 0 ledger prefix
+breaks across all 64 rounds**, 18 collapses. Cache 81.2–86.9%.
+
+Of the three flags, **two were a grader bug of the new grader's own** and one was real:
+
+- **`role-claimed-by-member` fired twice on the player's own correct lines.** `你的声音不高…"而我作为
+  会长，有权决定…"` — she *is* the 会长. **The player speaks inside quotation marks too**, and the
+  grader read every dialogue span as a member's. It now identifies the speaker from the attribution
+  window and stays silent unless a member is named there without the player's `你` beside them.
+- **One real `kkt-transcribed-in-story`**: a round delivered Jisoo's Kakao *and* wrote it into the
+  prose, phone-screen buzz included — all three explicitly forbidden in section 7. One occurrence in
+  64 rounds, on the longest prompt of the four. **Not acted on**: the rule is already unconditional
+  and stated first, and tuning a prompt on n=1 is how the KKT rule got restructured twice already.
+
+**That makes nine grader bugs out of thirteen live flags in this project's history**, which stopped
+being a coincidence several flags ago and is the rule: **a live flag is a hypothesis about the grader
+first and the model second.** The stored `storyText` is the evidence, and reading it takes a minute.
+
+Step 7 added five more, all read before acting: `real-name-vocative` twice on `"裴珠泫，"她说，叫的是
+自己的名字` — a span that is nothing but a name, with the attribution saying she is naming herself;
+`narrated-honorific` twice on `你喊她的名字，不是Irene欧尼` — narration naming the form in order to
+*reject* it; and, in the new prose analyzer, three "banned substitutes" that were all the ordinary noun
+`姐姐` in narration (`护在身后的姐姐`). Each is fixed and unit-tested against the prose verbatim. The
+analyzer also had two metric bugs of its own — `아:194` from counting a Korean syllable that occurs in
+ordinary words, and a repetition count inflated by normalising names out of short sentences until
+`Irene였다.` and `Seulgi였다.` were the same string. **A tool built to judge the model needs the same
+scepticism as the model.**
+
+The two real ones were both `name-ya-vocative` in zh, and one of those is arguably good writing: Wendy's
+confession is *about* the form — `我对你…已经不是'林夏xi'了…是'林夏呀'` — with the token in quotes as the
+thing being discussed. Left alone, beside the scolding case below: the 呀 rule came from a native
+speaker's report.
+
+**Every live flag before these had also been a grader bug, not a model bug** (3 of 3). Narration after a closing quote read as dialogue; a self-introduction read as a vocative; a line saying the Kakao window *stayed silent* read as a phantom message. Each is fixed and each fix is unit-tested against the real prose that triggered it. Read a new flag as a hypothesis, not a verdict — check the stored `storyText` before changing the prompt.
 
 **Open, and deliberately not acted on: `real-name-vocative` on a member scolding another member.** One round in a `留学生` run flagged `real-name-vocative:seulgi` on `"姜涩琪，闭嘴。"` — Irene snapping Seulgi's full legal name at her, blushing, after Seulgi let slip that Irene had wanted to come. Full-name address as a rebuke is a real Korean register, and the rest of the round is exactly right (`林夏xi`, `欧尼` both correct). The grader's premise — *members address each other by stage name* — is right in general and has this exception.
 
 It is **not** changed, for two reasons. It occurred once in 35 rounds, and narrowing the check to member-to-member address would blind the detector for the player-reported bug it was built for (a member addressing the *player*, or herself, by a real name). Tuning a grader on n=1 is how it stops working. Left as a judgement call, since it turns on Korean register rather than on code: the stored prose is in `test/.out/`.
 
 **Dev key free-tier status (probed 2026-09-23):** 2 of 28 route models are genuinely out of free credits — `qwen3.8-max` and `glm-5.2`, both returning `AllocationQuota.FreeTierOnly`. The other 26 answer normally and the router skips the two correctly, so this affects only *pinned* harness runs: pinning an exhausted model leaves the walk with no fallback and ends the playthrough. Use `--models qwen3.7-plus` (or any healthy model) when a run must not be interrupted, and re-probe with `node test/smoke.mjs --live-free` rather than assuming.
+
+**`qwen3.7-plus` joined them by 2026-09-25**, which is the point of the sentence above: the healthy
+set shrinks and a pinned model is a bet on stale information. **Prefer `--route`** for a run that
+only needs *a* model — it walks the real route, serves from the first that answers, and reports
+`(route)` instead of a name. Pin a model only when the model itself is what is under test.
 
 ### v1.3.8 — GPT-6 Luna + bump coverage (2026-09-23)
 
@@ -1216,6 +2610,26 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 1. **`src/App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx` (~line 712), which is why the version lives in 15 places instead of 12. `npm run bump` keeps them in step and smoke Layer C fails if they drift, so this is contained rather than dangerous — but collapsing the fallback into one source would delete six of the fifteen. See **Version strings** under Branch & Deploy Workflow.
 
    **`App.jsx` duplicates the i18n cover strings.** The cover text exists in both `src/i18n/*.js` and a hardcoded fallback object in `App.jsx`, so a bump edited in only one place leaves the two disagreeing depending on which path renders. Worth collapsing into one source before the next release.
+
+2. **`executeRound` never receives `form.identity` — it receives `formForRound()`.** The stored id is
+   rewritten on the way in, because `"H"` means "the player typed her own identity" and the prompt has
+   to see her words rather than the escape hatch. That rewrite was **four copies of one expression**,
+   and in step 7 the fourth turned out to have drifted: the **epilogue** call site omitted the `"H"`
+   branch entirely, so a player who wrote her own identity reached the ending — the single round the
+   whole run builds toward — with the literal placeholder `[自定义]` in section 6 where her words
+   belong. It is one function now, and smoke counts `executeRound` call sites against uses of it.
+
+   **The trap beside it is worse and is still there.** `IDENTITIES` in `App.jsx` gives every entry a
+   `label` equal to its `id`, so `IDENTITIES.find(...).label` is an identity function today.
+   Localizing those labels is the obvious next thing anyone would do — `src/i18n/*.js` already carries
+   an `identities` table for exactly that — and it would silently empty the identity **background** and
+   the **work title** out of every real game, because `getIdentity(world, "Chaebol")` finds nothing.
+   **No test written before step 7 would have noticed**: the goldens, the live harness and every check
+   in `smoke.mjs` pass the raw id, which is the one thing the app does not pass. The guard is therefore
+   written as *what App.jsx forwards must be an id the world declares*, not as "label equals id".
+
+   `PACES` and `STAR_LEVELS` are the same shape one field over — a fourth copy of a list the world
+   file owns, coupled to `t.paces` **by position**. Both are now checked against the world.
 
 ### Cost strings must track README
 

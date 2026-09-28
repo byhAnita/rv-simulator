@@ -17,6 +17,8 @@
 //                        which is how "Irene thanks Bae Ju-hyun" happens
 //   kkt-narrated-but-locked  a Kakao message in the prose that the round never
 //                        delivered, i.e. the affection lock was ignored
+//   kkt-transcribed-in-story  a Kakao the round DID deliver, written into the
+//                        prose as well, so the player reads it twice
 //
 // NOT part of the app bundle. Lives outside src/ so Vite never sees it, and
 // reads its key from .env.local via process.env — never import.meta.env.
@@ -42,6 +44,16 @@
 //                                                   # long time, which is how a bug in
 //                                                   # 主线成员前女友's background block
 //                                                   # survived every live run ever made
+//   node test/playthrough.mjs --pace 高压舆论向      # one of the world's 4 paces. Also
+//                                                   # hardcoded until v1.4.0 step 7, which
+//                                                   # started sending the pace's authored
+//                                                   # RULE rather than its id — so three
+//                                                   # of the four had never been played
+//
+// Every round's prose, scene, options, stat deltas and affections are stored under
+// `transcript` in the report. `node scripts/analyze-prose.mjs` reads them and
+// measures what the graders structurally cannot: repetition, scene and option
+// variety, member rotation, honorific frequency, affection pacing.
 //
 // Each model runs in its own child process, so the router's localStorage state
 // and mainAgent's module-level social buffer cannot interleave between them.
@@ -79,7 +91,68 @@ const ROUTE_MODE = has("route");
 // buildSystemPrompt, so pinning one to 练习生 meant 7 of the 8 were never played
 // live by anything.
 const IDENTITY = arg("identity", "练习生");
+// Pace ids, likewise the Chinese literals that sit in form.pace in every save.
+// Hardcoded to 浪漫情感向 until v1.4.0 step 7 — the same shape as the hardcoded
+// identity, and it mattered from the moment section 6 started sending the pace's
+// authored RULE instead of its id: three of the four rules had never been played.
+//   慢热现实向  浪漫情感向  高压舆论向  修罗海王向
+const PACE = arg("pace", "浪漫情感向");
 const WORKER = arg("worker", null);
+
+// WHICH PROVIDER SERVES THE ROUNDS. This was hardcoded to the Aliyun free route
+// — `selectedModel: "qwen"`, `aliyun: { mode: "free" }` — so the harness could
+// exercise exactly ONE of the four providers in MODEL_CONFIGS, and could not run
+// at all on a key for any of the other three. A DeepSeek key produced
+// `free_all_exhausted` on round 0, which reads as "your credits are gone" rather
+// than "this harness cannot talk to your provider".
+//
+// That is the same shape as the hardcoded `identity` and `pace` this file already
+// records: a field selecting a whole code path, pinned to one value, so the other
+// values were never played live. Three of the four providers still have not been.
+//
+// Defaults to MODEL_ID from .env.local, so the harness follows the key that is
+// actually configured instead of assuming Aliyun. Resolved below the env block,
+// which is where MODEL_ID is read.
+//
+// Spellings that name a MODEL where a provider id is wanted. Deliberately short:
+// `resolveProvider` checks MODEL_CONFIGS itself first, so this only covers names
+// that are neither a provider id nor that provider's current model string.
+const PROVIDER_ALIASES = {
+  "aliyun": "qwen",
+  "deepseek-v4-flash": "deepseek",   // retired upstream, still in .env.local comments
+  "gpt-5.6-luna": "gpt4omini",
+};
+
+// Derived from MODEL_CONFIGS rather than listed by hand: the thing that keeps
+// going wrong in this repo is a list a human has to remember to update.
+function resolveProvider(spec, MODEL_CONFIGS) {
+  const s = String(spec || "").trim();
+  if (MODEL_CONFIGS[s]) return s;
+  if (PROVIDER_ALIASES[s]) return PROVIDER_ALIASES[s];
+  const byModel = Object.keys(MODEL_CONFIGS).find((id) => MODEL_CONFIGS[id].model === s);
+  // Anything else is an Aliyun route model string (`qwen3.7-plus`, `glm-5.3`),
+  // which names the Aliyun provider and is pinned through the route.
+  return byModel || "qwen";
+}
+
+// --cast plays a ROSTER instead of a group, which is the only way to exercise
+// the second door live. Until v1.4.0 step 6 this harness could express exactly
+// one shape — one whole group — so the composed-lore path that step 6 added had
+// never been played by anything, and the bug it fixed was found by hand on a
+// phone.
+//
+//   --cast blackpink:jisoo,red_velvet:irene,twice:mina@npc,twice:sana@npc
+//
+// `group:member` picks, optional `@slot` (main | sub | npc). The first pick is
+// the main unless one says `@main`; the rest default to `sub`. A pick of
+// `custom:<name>` splices in an inline custom member carrying only the three
+// fields §4.4 requires, which is the branch no golden file can contain.
+const CAST = arg("cast", null);
+const CUSTOM_BIRTH_YEAR = arg("custom-birth-year", "1998");
+// The composed group's name. "X" is the app's default, and the agency is derived
+// from it as "X Entertainment" — so a model that invents "YG" instead is doing
+// what the unfixed prompt invited.
+const CAST_NAME = arg("cast-name", "X");
 
 // ---------------------------------------------------------------- env
 function loadEnvLocal() {
@@ -95,6 +168,9 @@ function loadEnvLocal() {
 }
 const env = loadEnvLocal();
 const API_KEY = env.YURIAGENT_API_KEY || env.API_KEY || process.env.YURIAGENT_API_KEY || process.env.API_KEY || "";
+// See the PROVIDER note in the args block: --provider wins, then .env.local's
+// MODEL_ID, then Aliyun.
+const PROVIDER_ARG = arg("provider", env.MODEL_ID || "qwen");
 
 // ------------------------------------------------------- build test bundle
 // src/ uses extensionless imports, which plain Node ESM will not resolve.
@@ -110,6 +186,8 @@ async function buildBundle() {
         'export * from "./src/agent/memoryPool.js";',
         'export * from "./src/tools/aliyunRoute.js";',
         'export * from "./src/rag/groupLoader.js";',
+        'export * from "./src/rag/worldLoader.js";',
+        'export * from "./src/rag/rosterResolver.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -139,7 +217,29 @@ function languageOk(story, lang) {
 
 // Prose graders live in graders.mjs so smoke can unit-test them; see the
 // header there. esc moved with them.
-import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative } from "./graders.mjs";
+import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative,
+         kktTranscribed, outsideCastNames, realAgencyNames, roleClaimedByMember,
+         playerGivenIdolLife } from "./graders.mjs";
+
+// The ROLE CONTRACT's two graders need to know what the player's identity gives
+// her, which nothing downstream of the world file can work out.
+//
+// `role` is the BARE title, not the address form: a member calling her 会长nim is
+// correct and constant. 练习生 is deliberately absent — its work title points the
+// other way (she calls the members 前辈nim), so a member claiming seniority is
+// right, and mainAgent's `identityAddress` carves out the same exception.
+//
+// `idol` marks the identities whose own working day really does contain practice,
+// a schedule or a comeback, so the second grader must stay silent for them.
+const IDENTITY_ROLE = {
+  "财阀": { role: { zh: "会长", ko: "회장", en: "chairman" }, idol: false },
+  "Staff": { role: { zh: "经纪人", ko: "매니저", en: "manager" }, idol: false },
+  "练习生": { role: null, idol: true },
+  "韩娱艺人": { role: null, idol: true },
+  "粉丝": { role: null, idol: false },
+  "留学生": { role: null, idol: false },
+  "主线成员前女友": { role: null, idol: false },
+};
 // unnie in the three scripts the game can output, with or without a separator.
 // The transliterated forms only. 姐 is deliberately absent: the setting is
 // Korean, so the prompt asks for 欧尼 in Chinese and treats 姐 as a defect —
@@ -172,7 +272,7 @@ function honorificErrors(story, cast) {
 }
 
 // Grades one round's parsed output. Returns the list of things that went wrong.
-function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) {
+function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast, outsiders }) {
   const bad = [];
   if (parseLevel !== "direct") bad.push(`parse:${parseLevel}`);
   if (!story || story.length < 80) bad.push(`story-short:${story?.length ?? 0}`);
@@ -207,6 +307,34 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
     // Merely naming the app is not: now that the prompt tells the model which
     // channels are shut, it legitimately writes lines like "the KKT window
     // stayed silent" — which the first version of this check flagged as a bug.
+    // The delivered case is the twin bug and needs its own check: this one
+    // fires only when NOTHING was delivered, so a round that delivered a Kakao
+    // AND transcribed it into the prose was invisible here by construction.
+    bad.push(...kktTranscribed(story || "", res.kktUpdate));
+
+    // A cross-group cast only. `outsiders` is the members of the origin groups
+    // who are NOT in this roster: naming one is the leak the composed lore
+    // exists to close, and a real agency is the same leak by inference. Section
+    // 6 forbids both for any cast, so this is not a --cast-only rule — it is
+    // only CHECKABLE with --cast, because a whole group's own lore legitimately
+    // names every member and its own agency.
+    if (outsiders) {
+      bad.push(...outsideCastNames(story || "", outsiders));
+      bad.push(...realAgencyNames(story || ""));
+    }
+
+    // The ROLE CONTRACT, from both sides: a member claiming the player's office,
+    // and the player handed the members' working day. An unmapped identity (a
+    // custom one) grades neither rather than guessing.
+    const ident = IDENTITY_ROLE[IDENTITY];
+    // The cast's names are what let the grader tell who is speaking: the player
+    // speaks inside quotes too, and she is the one who holds the title.
+    if (ident?.role) {
+      bad.push(...roleClaimedByMember(story || "", ident.role[lang] || ident.role.en,
+        cast.members.flatMap((m) => [m.name, m.name_kr]).filter(Boolean)));
+    }
+    if (ident) bad.push(...playerGivenIdolLife(story || "", { sharesIdolLife: ident.idol }));
+
     const delivered = Object.values(res.kktUpdate || {}).some((v) => Array.isArray(v) && v.length > 0);
     if (!delivered) {
       const s = story || "";
@@ -223,15 +351,73 @@ function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast }) 
   return bad;
 }
 
+// ------------------------------------------------------------- cross-group
+// `group:member[@slot]` picks into roster entries. Library members go in BY
+// REFERENCE and custom ones are SNAPSHOTTED inline, exactly as the app writes
+// them — see rosterResolver.js.
+function parseCastSpec(spec) {
+  const picks = spec.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!picks.length) throw new Error("--cast is empty");
+  const parsed = picks.map((p) => {
+    const [ref, slot] = p.split("@");
+    const [group, member] = ref.split(":");
+    if (!group || !member) throw new Error(`--cast: "${p}" is not group:member`);
+    if (slot && !["main", "sub", "npc"].includes(slot)) {
+      throw new Error(`--cast: "${slot}" is not main|sub|npc`);
+    }
+    return { group, member, slot: slot || null };
+  });
+  const declaredMain = parsed.some((e) => e.slot === "main");
+  return parsed.map((e, i) => ({
+    ...e, slot: e.slot || (!declaredMain && i === 0 ? "main" : "sub"),
+  }));
+}
+
+function rosterFromSpec(parsed, castName) {
+  const main = parsed.find((e) => e.slot === "main") || parsed[0];
+  return {
+    worldId: "kpop_idol",
+    // A cross-group cast is its OWN group, and `name` is load-bearing: it is the
+    // group name section 4 is composed around. The origin groups are never named
+    // there — that is the leak the fix exists to close.
+    name: castName,
+    groupId: main.group === "custom" ? null : main.group,
+    entries: parsed.map((e) => (e.group === "custom"
+      // Only the three fields §4.4 requires. A member this sparse renders four
+      // defects in the profile block if any optional field is unconditional,
+      // and no golden file can contain that branch because all 175 library
+      // records are complete.
+      ? {
+        src: "custom", memberId: `c_${e.member}`, slot: e.slot,
+        profile: {
+          name: e.member,
+          birthday: `${CUSTOM_BIRTH_YEAR}-01-01`,
+          private_personality: LANG === "zh"
+            ? "安静而固执，对在意的人很软"
+            : LANG === "ko"
+              ? "조용하지만 고집이 새다"
+              : "Quiet and stubborn, soft only with the people she has chosen",
+        },
+      }
+      : { src: "library", groupId: e.group, memberId: e.member, slot: e.slot })),
+  };
+}
+
 // ---------------------------------------------------------------- worker
 async function runWorker(model) {
   const bundle = join(OUT, "agent.mjs");
   const mod = await import("file://" + bundle.replace(/\\/g, "/"));
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { executeRound, createInitialStats, createEmptyMemory, buildHistoryLedger,
-          collapseHistoryIfNeeded, loadGroupConfig, getNpcMembers, markModel, resetSessionSkips,
-          resetFreeRoute, buildSystemPrompt } = mod;
+          collapseHistoryIfNeeded, loadGroupConfig, loadWorld, getNpcMembers, markModel, resetSessionSkips,
+          resetFreeRoute, getFreeRouteStatus, buildSystemPrompt, resolveRoster } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
+  const PROVIDER = resolveProvider(PROVIDER_ARG, cfgMod.MODEL_CONFIGS);
+  // Only Aliyun has a free route to walk or pin. Every other provider serves one
+  // model per key, so there is nothing to aim at and `aliyun` must be null —
+  // passing a mode would send the round through the router with a key it cannot
+  // authenticate.
+  const ROUTED = PROVIDER === "qwen";
 
   // --- browser globals the app modules expect
   const store = new Map();
@@ -242,15 +428,25 @@ async function runWorker(model) {
   };
   globalThis.window = { location: { hostname: "localhost" } };
 
-  // Serve public/groups/*.json from disk so the real parseGroupConfig runs;
-  // everything else (the API call) goes out over the network unchanged, but we
-  // read finish_reason and usage off the way past. cached_tokens is the only
-  // direct evidence that the 3-tier prompt is actually hitting the KV cache.
+  // Serve the app's own data trees out of public/ so the real loaders and their
+  // whitelists run; everything else (the API call) goes out over the network
+  // unchanged, but we read finish_reason and usage off the way past.
+  // cached_tokens is the only direct evidence that the 3-tier prompt is actually
+  // hitting the KV cache.
+  //
+  // A LIST, not a name: this stub served only `/groups/` and v1.4.0 step 3 added
+  // `/worlds/`, so every world fetch fell through to a real `fetch` on a relative
+  // URL and every playthrough died with "Failed to parse URL" before its first
+  // round. That killed this harness for four steps of work, which is the SECOND
+  // time it has silently gone dead — v1.3.5 did it with BASE_URL. Layer C learned
+  // the same lesson about mirrored trees and loops over them for the same reason;
+  // adding `rosters/` here must be one string, not another branch.
+  const SERVED_TREES = ["/groups/", "/worlds/"];
   let meta = null;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     const u = String(url);
-    if (u.startsWith("/groups/")) {
+    if (SERVED_TREES.some((t) => u.startsWith(t))) {
       const p = join(ROOT, "public", u.replace(/^\//, ""));
       if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
       const body = readFileSync(p, "utf8");
@@ -282,44 +478,106 @@ async function runWorker(model) {
   console.error = (...a) => captured.push("error: " + a.map(String).join(" ").slice(0, 200));
   const restore = () => { console.log = realLog; console.warn = realWarn; console.error = realErr; };
 
-  const report = { model, identity: IDENTITY, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
+  const report = { model, identity: IDENTITY, pace: PACE, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
-    const groupConfig = await loadGroupConfig(GROUP, LANG);
-    const members = groupConfig.members;
-    const mainId = members[0].id;
-    // Sub-member count changes the dynamic tail (affections, KKT, social targets)
-    // and therefore the cache-miss share of every prompt. The game's minimum is
-    // 1 main + 0 subs; 1 main + 1 sub is the reference setting for cost strings.
-    const subIds = members.slice(1, 1 + SUBS).map(m => m.id);
+    const world = await loadWorld("kpop_idol", LANG);
+
+    // Two doors, and the harness now plays both. Without --cast this is the
+    // classic path, byte for byte what it always was.
+    let groupConfig, members, mainId, subIds, outsiders = null;
+    if (CAST) {
+      const parsed = parseCastSpec(CAST);
+      const resolved = await resolveRoster(rosterFromSpec(parsed, CAST_NAME), LANG);
+      groupConfig = resolved.groupConfig;
+      members = resolved.members;
+      mainId = resolved.mainId;
+      subIds = resolved.subIds;
+      if (!members.length) throw new Error("--cast resolved to an empty cast");
+      report.roster = {
+        name: CAST_NAME, picks: parsed.map((e) => `${e.group}:${e.member}@${e.slot}`),
+        groups: [...new Set(parsed.map((e) => e.group))],
+        members: members.length, mainId, subIds, npcIds: resolved.npcIds,
+        // What section 4 says about them, which is the whole thing under test.
+        loreHead: String(groupConfig?.groupLore || "").split("\n").slice(0, 2).join(" / "),
+      };
+      // Everyone the origin groups contain who is NOT in this roster. These are
+      // the names round 1 produced on the phone, and they appear in no file the
+      // prompt sends — the model supplied them from knowing what BLACKPINK is.
+      //
+      // A name that is a substring of someone PRESENT is dropped: it would fire
+      // on the cast member instead of on the outsider, and a grader that cries
+      // wolf gets tuned away. Same reason `x`'s shared ids are compared by id.
+      const presentIds = new Set(members.map((m) => m.id));
+      const presentText = members.flatMap((m) => [m.name, m.name_kr]).filter(Boolean).join(" | ");
+      const pool = [];
+      for (const gid of report.roster.groups) {
+        if (gid === "custom") continue;
+        const cfg = await loadGroupConfig(gid, LANG);
+        for (const m of cfg.members) {
+          if (presentIds.has(m.id)) continue;
+          if (m.name && presentText.includes(m.name)) continue;
+          if (pool.some((p) => p.name === m.name)) continue;
+          pool.push({ name: m.name, name_kr: m.name_kr });
+        }
+      }
+      outsiders = pool;
+      report.roster.outsiders = pool.map((m) => m.name);
+    } else {
+      groupConfig = await loadGroupConfig(GROUP, LANG);
+      members = groupConfig.members;
+      mainId = members[0].id;
+      // Sub-member count changes the dynamic tail (affections, KKT, social targets)
+      // and therefore the cache-miss share of every prompt. The game's minimum is
+      // 1 main + 0 subs; 1 main + 1 sub is the reference setting for cost strings.
+      subIds = members.slice(1, 1 + SUBS).map(m => m.id);
+      report.group = { id: GROUP, members: members.length, mainId, subIds };
+    }
     const memberIds = members.map(m => m.id);
-    report.group = { id: GROUP, members: members.length, mainId, subIds };
 
     // The player's age is what makes honorifics gradeable. A cast that is
     // uniformly older than the player only ever exercises one direction, so by
     // default the player is born on the cast's median birth year: some members
     // are then her seniors and some her juniors, and a reversed unnie shows up.
     // --age pins it when a specific setup needs reproducing.
+    // The harness always thought in birth years and only converted to an age
+    // because that was the field the form had; since v1.4.0 it carries the
+    // birth year straight through. `age` is still written because backstorySeed
+    // hashes it (see mainAgent.js), and --age still pins the setup.
     const birthYears = members
       .map((m) => parseInt((m.birthday || "2000-01-01").split("-")[0]) || 2000)
       .sort((a, b) => a - b);
-    const playerBirthYear = birthYears[Math.floor(birthYears.length / 2)];
-    const age = AGE != null ? String(AGE) : String(GAME_YEAR - playerBirthYear);
+    const playerBirthYear = AGE != null
+      ? GAME_YEAR - AGE
+      : birthYears[Math.floor(birthYears.length / 2)];
+    const age = String(GAME_YEAR - playerBirthYear);
     const playerName = LANG === "zh" ? "\u6797\u590f" : LANG === "ko" ? "\uc774\ud558\ub9b0" : "Summer";
 
     const form = {
       mainMember: mainId, subMembers: subIds, identity: IDENTITY, customIdentity: "",
       name: playerName,
-      nationality: "KR", age, nickname: "", herNickname: "",
-      starLevel: "", pace: "\u6d6a\u6f2b\u60c5\u611f\u5411",
+      nationality: "KR", birthYear: String(playerBirthYear), age, nickname: "", herNickname: "",
+      starLevel: "", pace: PACE,
     };
     const cast = {
-      playerName, playerBirthYear: GAME_YEAR - parseInt(age),
+      playerName, playerBirthYear,
       members: members.map((m) => ({
         id: m.id, name: m.name, name_kr: m.name_kr,
         birthYear: parseInt((m.birthday || "2000-01-01").split("-")[0]) || 2000,
       })),
     };
     report.cast = { playerName, age: Number(age), playerBirthYear: cast.playerBirthYear };
+    // Who was in this run and in which slot. The graders never needed it — they
+    // are handed `cast` directly — but the prose analysis does: "no romanceable
+    // member disappears for more than 3 rounds" is a rule about slots, and it
+    // cannot be checked from a report that records only the player.
+    // name_kr is stored because narration uses it freely, and an analyzer matching the
+    // stage name alone measures which name form the model chose rather than who was in
+    // the scene. That is not hypothetical: it read 20% rotation failure on a run whose
+    // real figure was 0%, because 29 of 75 (round, member) pairs named her only as 涩琪.
+    report.roster = members.map((m) => ({
+      id: m.id, name: m.name, name_kr: m.name_kr || null,
+      slot: m.id === mainId ? "main" : subIds.includes(m.id) ? "sub" : "npc",
+    }));
 
     // Pin the route at one model so this playthrough grades that model only.
     // Re-pinned before every round: the router now rests a model for an hour
@@ -329,7 +587,7 @@ async function runWorker(model) {
     // this model rather than stopping at its first bad round.
     // ROUTE_MODE leaves the route alone to exercise the real walk instead.
     const aimAtModel = () => {
-      if (ROUTE_MODE) return;
+      if (ROUTE_MODE || !ROUTED) return;
       resetSessionSkips?.();
       resetFreeRoute?.(API_KEY);
       for (const other of ALIYUN_FREE_ROUTE) if (other !== model) markModel(API_KEY, other, "model_unavailable");
@@ -357,7 +615,7 @@ async function runWorker(model) {
       // changed every round, and no test anywhere could see it: the offline
       // suite never called it twice and this harness only ever played 练习生.
       const systemSent = buildSystemPrompt(
-        form, members, mainId, subIds, groupConfig, "", "qwen", LANG);
+        form, members, mainId, subIds, groupConfig, "", "qwen", LANG, world);
       if (prevSystem !== null && systemSent !== prevSystem) {
         let i = 0;
         const a = prevSystem.split("\n"), b = systemSent.split("\n");
@@ -383,9 +641,9 @@ async function runWorker(model) {
         try {
           res = await executeRound({
             playerChoice: `${choice}. option ${choice}`, stats, memory, form, members,
-            mainId, subIds, groupConfig, apiKey: API_KEY, selectedModel: "qwen",
+            mainId, subIds, groupConfig, world, apiKey: API_KEY, selectedModel: PROVIDER,
             kktUnlocked, language: LANG, reasoningEnabled: REASONING,
-            aliyun: { mode: "free" }, timeSpeed: "default",
+            aliyun: ROUTED ? { mode: "free" } : null, timeSpeed: "default",
           });
           lastErr = null;
           break;
@@ -429,8 +687,20 @@ async function runWorker(model) {
       }
       prevLedger = ledgerSent;
 
+      // WHICH MODEL SERVED THIS ROUND. Without it a `--route` run is
+      // uninterpretable, and step 7 learned that the expensive way: an A/B of a
+      // prompt change looked like a 43% drop in output length, and the real cause was
+      // that one more model had gone out of free credits between the two runs, so the
+      // route moved on and a different model answered. Two runs were compared that had
+      // nothing in common but the flags.
+      const servedModel = ROUTE_MODE
+        ? (getFreeRouteStatus?.(API_KEY)?.current || "(unknown)")
+        : model;
+      report.served = report.served || {};
+      report.served[servedModel] = (report.served[servedModel] || 0) + 1;
+
       const story = res.storyContent;
-      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast });
+      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast, outsiders });
       report.rounds.push({
         round, ms, parseLevel, chars: story.length,
         summary: (res.updatedMemory.history.at(-1)?.summary || "").length,
@@ -442,11 +712,31 @@ async function runWorker(model) {
         // Full text, not a 400-char head: a grader can fire past the truncation
         // point, and then the report cannot be used to judge the flag.
         ...(bad.length ? { storyText: story, optionsText: res.options } : {}),
-        // Graders only ever report what went wrong, which cannot show that a
-        // positive instruction was followed — "0 issues" reads the same whether
-        // the model used 欧尼 or avoided honorifics altogether. Keep one sample
-        // per model so the prose can be read back.
-        ...(round === 0 ? { sampleText: story.slice(0, 700) } : {}),
+        // Graders only ever report what went wrong, and that cannot show whether a
+        // positive instruction was FOLLOWED: "0 issues" reads the same whether the
+        // model used 欧尼 all game or avoided honorifics altogether, whether every
+        // round opened on a different image or recycled one, whether the sub
+        // members got the scenes section 3 promises them. Most of what makes this
+        // game good or bad is in that gap.
+        //
+        // So the transcript is kept for EVERY round, not a 700-char head of the
+        // first. It is ~1KB a round against a report nothing streams, and
+        // `scripts/analyze-prose.mjs` is what reads it. Sampling round 0 alone was
+        // the worst possible choice for judging writing: round 0 is the only round
+        // with no history behind it, so it is the one round whose prose cannot
+        // repeat itself.
+        transcript: {
+          story,
+          scene: res.newStats?.scene || "",
+          options: res.options,
+          stats: { selfId: res.newStats?.selfId, secrecy: res.newStats?.secrecy, mood: res.newStats?.mood },
+          affections: { main: res.newStats?.affection, ...(res.newStats?.multiAff || {}) },
+          primary: res.topMember?.id || "",
+          stageChanges: res.stageChanges || [],
+          kktDelivered: Object.entries(res.kktUpdate || {})
+            .filter(([, v]) => Array.isArray(v) && v.length).map(([k]) => k),
+          summaryText: res.updatedMemory.history.at(-1)?.summary || "",
+        },
       });
 
       stats = res.newStats; memory = res.updatedMemory; kktUnlocked = res.newKktUnlocked;
@@ -471,14 +761,26 @@ const C = { g: "\x1b[32m", r: "\x1b[31m", y: "\x1b[33m", d: "\x1b[2m", b: "\x1b[
 
 async function runParent() {
   if (!API_KEY) { console.error("No API_KEY in .env.local"); process.exit(1); }
-  if (!API_KEY.startsWith("sk-ws-")) console.log(`${C.y}warning${C.x} key is not an sk-ws- general key; free mode may not work`);
 
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { ALIYUN_FREE_ROUTE, getAliyunModelFamily } = cfgMod;
+  const PROVIDER = resolveProvider(PROVIDER_ARG, cfgMod.MODEL_CONFIGS);
+
+  // Only meaningful for Aliyun: `sk-ws-` is what its free route needs. Printed
+  // unconditionally, it told a correctly-configured DeepSeek run that its key was
+  // wrong — a false warning, which is worse than none, because the next thing the
+  // run said was `free_all_exhausted` and the two together named the wrong cause.
+  if (PROVIDER === "qwen" && !API_KEY.startsWith("sk-ws-")) {
+    console.log(`${C.y}warning${C.x} key is not an sk-ws- general key; free mode may not work`);
+  }
 
   const modelsArg = arg("models", "sample");
   let models;
-  if (ROUTE_MODE) models = ["(route)"];
+  // A non-Aliyun provider serves one model per key: there is no route to sample,
+  // walk or pin, so `--models` and `--route` have nothing to select and the run is
+  // one game on that provider's own model.
+  if (PROVIDER !== "qwen") models = [cfgMod.MODEL_CONFIGS[PROVIDER].model];
+  else if (ROUTE_MODE) models = ["(route)"];
   else if (modelsArg === "all") models = [...ALIYUN_FREE_ROUTE];
   else if (modelsArg === "sample") {
     // One model per family: the widest parameter coverage for the fewest calls.
@@ -489,7 +791,7 @@ async function runParent() {
     });
   } else models = modelsArg.split(",").map(s => s.trim()).filter(Boolean);
 
-  console.log(`${C.b}Playthrough harness${C.x} — ${models.length} model(s) x ${ROUNDS} rounds · ${GROUP} · lang ${LANG} · thinking ${REASONING ? "ON" : "off"} · jobs ${JOBS}`);
+  console.log(`${C.b}Playthrough harness${C.x} — ${models.length} model(s) x ${ROUNDS} rounds · ${GROUP} · lang ${LANG} · thinking ${REASONING ? "ON" : "off"} · jobs ${JOBS} · provider ${PROVIDER}`);
   console.log(`${C.d}building bundle…${C.x}`);
   await buildBundle();
 
@@ -581,6 +883,17 @@ async function runParent() {
     console.log(`\nmeasured prompt-cache hit rate (round 1+): ` +
       `min ${Math.min(...rates).toFixed(1)}% · median ${rates.sort((a, b) => a - b)[Math.floor(rates.length / 2)].toFixed(1)}% · max ${Math.max(...rates).toFixed(1)}%`);
   }
+  // Which model actually answered. In --route mode this is the difference between a
+  // comparable run and an anecdote: the route's head moves as models run out of free
+  // credits, so two runs a day apart with identical flags can be two different models.
+  const served = {};
+  for (const r of results) for (const [m, n] of Object.entries(r.served || {})) served[m] = (served[m] || 0) + n;
+  const servedList = Object.entries(served).sort((a, b) => b[1] - a[1]);
+  if (servedList.length) {
+    console.log(`\nserved by: ${servedList.map(([m, n]) => `${m} x${n}`).join(" · ")}` +
+      (servedList.length > 1 ? `  ${C.y}(more than one model answered — rounds are not directly comparable)${C.x}` : ""));
+  }
+
   console.log(`\ncache invariant: ${collapses} collapses, ${breaks} prefix breaks ` +
     `${breaks === 0 ? C.g + "(ledger prefix stable outside collapses)" + C.x : C.r + "(BROKEN \u2014 cache hit rate would drop)" + C.x}`);
 
@@ -599,7 +912,7 @@ async function runParent() {
 
   mkdirSync(OUT, { recursive: true });
   const path = join(OUT, `playthrough-${Date.now()}.json`);
-  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, SUBS, REASONING, ROUTE_MODE }, results }, null, 2));
+  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, PACE, SUBS, REASONING, ROUTE_MODE, CAST, CAST_NAME }, results }, null, 2));
   console.log(`${C.d}full report: ${path.replace(ROOT, ".")}${C.x}`);
 
   process.exit(hardFails || breaks ? 1 : 0);

@@ -1,13 +1,16 @@
 import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial } from "./agent/mainAgent";
-import { getStageName, getStageColor, getStageIdx } from "./config/stageConfig";
+import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
-import { loadGroupConfig, loadGroupIndex, getNpcMembers } from "./rag/groupLoader";
+import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
+import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
+import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, agencyFor } from "./rag/rosterResolver";
+import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
 import { getFreeRouteStatus, resolvePaidModel, resetFreeRoute } from "./tools/aliyunRoute";
-import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX } from "./config/constants";
+import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "./config/constants";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
@@ -18,6 +21,12 @@ import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
 import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
+import RosterBuilder from "./platforms/RosterBuilder";
+import DebugPanel from "./platforms/DebugPanel";
+import MemberFace from "./platforms/memberFace";
+import YearWheel, { DEFAULT_YEAR } from "./platforms/YearWheel";
+import { loadPhotos, loadWalls } from "./utils/imageStore";
+import { debugEnabled } from "./tools/debugConsole";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
 // brackets confuse the JSON schema, control characters break it outright.
@@ -251,11 +260,26 @@ function buildStatsBox(stats, members, mainId, subIds, t) {
     `💗 ${mainMember?.emoji}${mainMember?.name}: ${stats.affection}/100`,
     `🌈${t.stats.selfId.label}: ${stats.selfId} | 🔒${t.stats.secrecy.label}: ${stats.secrecy}`,
     `💫${t.stats.mood.label}: ${stats.mood} | 📅${t.stats.week.label} ${stats.week} | 📍${stats.scene}`,
-    `🎭: [${stats.chapter || "start"}]`,
-    subLines || "",
+    // `chapter` is an internal token — start / develop / climax / resolve — and it
+    // was rendered raw, so a Chinese player read `🎭: [start]` in the box she sees
+    // every single round, beside four fields that all carry a localized label.
+    `🎭: [${t.stats.chapters?.[stats.chapter] || t.stats.chapters?.start || stats.chapter || "start"}]`,
+    subLines,
     "╚══════════════════════════════╝",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
+  // `filter(Boolean)` is load-bearing twice over. A solo run has no sub members, and
+  // the empty string left in its place put a BLANK LINE inside the box — which split
+  // the box into two `\n\n` paragraphs, and `extractStoryText` only drops paragraphs
+  // beginning with `╔`. So every exported round of a solo game carried a stray
+  // `╚══════════════════════════════╝`. Same class as the blank line in section 6
+  // of the prompt: an absent value rendered as an empty line rather than as nothing.
 }
+
+// The player's birth year, its bounds and its one validator now live in
+// config/constants.js: the year is written in two places — at Setup, and by the
+// in-game correction a migrated save needs — and a second copy of the range is
+// how the two start disagreeing about what a legal year is.
+const validBirthYear = validPlayerBirthYear;
 
 export default function App() {
   const [language, setLanguage] = useState(() => loadFromStorage("rv_sim_language") || "zh");
@@ -277,7 +301,7 @@ export default function App() {
   const [aliyunMode, setAliyunMode] = useState(() => loadFromStorage(STORAGE_KEYS.ALIYUN_MODE) === "paid" ? "paid" : "free");
   // rv_sim_qwen_submodel is the legacy 3-sub-model key; read once to seed the paid pick.
   const [aliyunPaidModel, setAliyunPaidModel] = useState(() => resolvePaidModel(loadFromStorage(STORAGE_KEYS.ALIYUN_PAID_MODEL) || loadFromStorage("rv_sim_qwen_submodel")));
-  const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
+  const [form, setForm] = useState({ mainMember: null, subMembers: [], identity: "", customIdentity: "", name: "", nationality: "", birthYear: "", age: "", nickname: "", herNickname: "", starLevel: "", pace: "" });
   const [messages, setMessages] = useState([]);
   // Index of the message being edited (choice or story), and its draft text.
   // Bumped after resetFreeRoute so the key page re-reads route state.
@@ -288,6 +312,32 @@ export default function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [groupConfig, setGroupConfig] = useState(null);
+  // The setting the cast lives in: identities, paces, phase beats, address
+  // forms. One world ships today, so it is not yet a player choice; the save
+  // records its id on the roster, so it can become one without a migration.
+  const [world, setWorld] = useState(null);
+  // Who is in THIS run, and in what slot. Set when a game starts and when one
+  // is loaded; it is the thing a save records, and from v1.4.1 the thing the
+  // roster builder produces directly. Null outside a game: at Setup there is no
+  // main member yet, so `members` there is the palette to choose from rather
+  // than a cast that has been chosen.
+  const [roster, setRoster] = useState(null);
+  // Which door the player came through. Session state, never persisted: the
+  // classic door is the default every time the app opens, and a remembered
+  // "custom" would drop a returning player into a builder they did not ask for.
+  const [door, setDoor] = useState("classic");
+  // The roster the builder produced, before a game exists. It is what makes the
+  // custom door reach Setup with a cast already chosen, so Setup asks only for
+  // identity, name, birth year and pace — the main/sub pickers are the builder's
+  // job and are hidden there. Null on the classic door, where startNewGame
+  // composes a roster from the group and the form instead.
+  const [pendingRoster, setPendingRoster] = useState(null);
+  // What the custom cast is called. Kept OUT of pendingRoster on purpose: the
+  // effect that resolves that roster depends on it, so folding the name in would
+  // re-resolve the whole cast on every keystroke. It is applied once, when the
+  // game starts, which is also the last moment it can change without moving the
+  // static prompt under a game in progress.
+  const [castName, setCastName] = useState("");
   const [members, setMembers] = useState([]);
   const [proposalRound, setProposalRound] = useState(null);
   const [achievement, setAchievement] = useState(null);
@@ -304,6 +354,22 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [hoveredStat, setHoveredStat] = useState(null);
   const [topMember, setTopMember] = useState(null);
+  // Her face, in the game. The store shipped in step 6 and NOTHING HERE READ IT
+  // for a whole step: the uploader worked, the roster builder showed the result,
+  // and every surface in the running game still drew `emoji` over a gradient.
+  // A feature finished on one side of a boundary and connected to nothing on the
+  // other reads as a broken control, which is how it was reported.
+  //
+  // Re-read on entering the game rather than only at mount: the roster builder
+  // writes to localStorage synchronously, so a photo added while choosing the
+  // cast must be on screen in the game that starts immediately after.
+  const [castPhotos, setCastPhotos] = useState(() => loadPhotos());
+  const [castWalls, setCastWalls] = useState(() => loadWalls());
+  const refreshCastImages = () => { setCastPhotos(loadPhotos()); setCastWalls(loadWalls()); };
+  // On the phase rather than in startNewGame and loadSave, because that is a
+  // two-entry list somebody has to remember to extend. Every route into the game
+  // passes through here.
+  useEffect(() => { if (phase === "game") refreshCastImages(); }, [phase]);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const preRoundSnapshotRef = useRef(null);
@@ -314,6 +380,12 @@ export default function App() {
   const [confirmDest, setConfirmDest] = useState(null);
   const [keyJustSaved, setKeyJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // The on-device console. Enabled by ?debug=1 and then persisted, so a PWA
+  // launched from the home screen - which has no address bar to retype a query
+  // string into - keeps it across reloads. Read once: it must not flip
+  // mid-session and unmount the panel someone is reading.
+  const [debugOn] = useState(() => debugEnabled());
+  const [showDebug, setShowDebug] = useState(false);
   const [timeSpeed, setTimeSpeed] = useState(() => loadFromStorage("rv_sim_timespeed") || "default");
   const [fontScale, setFontScale] = useState(() => Number(loadFromStorage("rv_sim_fontscale")) || 1);
   const [exportOpen, setExportOpen] = useState(false);
@@ -321,7 +393,47 @@ export default function App() {
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
   const allTargetMembers = [mainMember, ...subMembersList].filter(Boolean);
-  const npcMembers = groupConfig ? getNpcMembers(members, form.mainMember, form.subMembers || []) : [];
+  // `npcMembers` stood here, deriving "everyone not chosen" into a local that
+  // nothing read — dead since before the roster existed. NPC identity now comes
+  // from the roster: buildSystemPrompt takes `members` minus main minus subs,
+  // and under a roster `members` IS the roster's cast, in its order, so the
+  // slots it names are the slots the prompt renders. getNpcMembers survives in
+  // groupLoader as the equivalence anchor smoke measures migration against.
+
+  // `age` is written here and never again. It is not a second source of truth —
+  // the prompt renders the age from the birth year — but backstorySeed hashes
+  // it, and that seed must stay frozen for the life of a save or the identity
+  // backstory re-rolls under a player mid-game — the drift that seed exists to
+  // stop. (No version string in this comment on purpose: `npm run bump`
+  // rewrites every `v<x.y.z>` in this file and smoke Layer C counts them.)
+  const setBirthYear = (v) => setForm(f => ({
+    ...f, birthYear: v, age: validBirthYear(v) ? String(GAME_YEAR - parseInt(v)) : "",
+  }));
+
+  // The correction, mid-run, for a save whose birth year was never stated —
+  // migration derives it as GAME_YEAR - age and that is wrong for about half of
+  // all legacy saves. Deliberately NOT setBirthYear: `correctBirthYear` leaves
+  // `age` alone, for the reason written above it.
+  //
+  // `birthYearEstimated` is session state and not a save field. loadSave knows
+  // something the migrated save no longer does — whether the year was present
+  // before the migration filled it — and that is worth one line of explanation
+  // in the panel, not a field that would then have to be cleared.
+  const [birthYearDraft, setBirthYearDraft] = useState("");
+  const [birthYearEstimated, setBirthYearEstimated] = useState(false);
+  const birthYearDraftValid = validBirthYear(birthYearDraft);
+  const applyBirthYearCorrection = () => {
+    if (!birthYearDraftValid) return;
+    const next = correctBirthYear(form, birthYearDraft);
+    // Identity means the year did not move, so nothing was invalidated and
+    // there is nothing to announce. She has still stated it, which is what
+    // retires the estimate notice.
+    if (next !== form) {
+      setForm(next);
+      showNotif(t.settings?.birthYearSaved || "Birth year updated");
+    }
+    setBirthYearEstimated(false);
+  };
 
   useEffect(() => {
     loadGroupIndex().then(list => {
@@ -332,7 +444,38 @@ export default function App() {
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
+  // Reloads on language change, like the group config: the world file is
+  // per-language and carries the identity backgrounds the prompt renders.
   useEffect(() => {
+    loadWorld(DEFAULT_WORLD_ID, language).then(setWorld).catch(console.error);
+  }, [language]);
+
+  // Two doors, one engine. At Setup this loads a group as a PALETTE to choose
+  // from; in game the roster is authoritative and says who was actually chosen,
+  // which from v1.4.1 can span groups in a way a single group load cannot
+  // express. Language is what changes underneath either, so both paths re-fetch
+  // rather than leaving the cast in the previous language.
+  //
+  // `roster` is deliberately not a dependency. It is set in the same batch as
+  // `selectedGroup` when a save is loaded, so this already sees it; adding it
+  // would additionally re-resolve on every new game, for a cast startNewGame
+  // has in hand.
+  useEffect(() => {
+    if (phaseRef.current === "game" && roster) {
+      resolveRoster(roster, language).then(r => {
+        setGroupConfig(r.groupConfig);
+        setMembers(r.members);
+      }).catch(console.error);
+      return;
+    }
+    // The custom door owns `members` before the game starts, and this effect
+    // would otherwise overwrite the builder's cast with whichever group happens
+    // to still be selected from a previous classic run. The group id is kept
+    // written through, because it is what the cover's classic door restores.
+    if (pendingRoster) {
+      if (selectedGroup) saveToStorage("rv_sim_group", selectedGroup);
+      return;
+    }
     if (!selectedGroup) return;
     loadGroupConfig(selectedGroup, language).then(config => {
       setGroupConfig(config);
@@ -342,7 +485,29 @@ export default function App() {
       }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
-  }, [selectedGroup, language]);
+  }, [selectedGroup, language, pendingRoster]);
+
+  // The custom door, resolved once so Setup sees exactly the `members` shape the
+  // classic door gets from a group load. Deriving form.mainMember/subMembers from
+  // the roster's own slots is what lets everything downstream — mainMember,
+  // allTargetMembers, createInitialStats, the stats bar — stay untouched: they
+  // read the form, and the form now agrees with the builder.
+  useEffect(() => {
+    if (!pendingRoster || phaseRef.current === "game") return;
+    resolveRoster(pendingRoster, language).then(r => {
+      setGroupConfig(r.groupConfig);
+      setMembers(r.members);
+      setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
+    }).catch(e => {
+      // A roster that cannot be resolved must say so rather than fall back to a
+      // default cast — the v1.3.5 lesson, where loadGroupIndex's catch returning
+      // a hardcoded Red Velvet entry hid a path bug for a whole release.
+      console.error("roster resolve failed:", e);
+      setPendingRoster(null);
+      setPhase("cover");
+      showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
+    });
+  }, [pendingRoster, language]);
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -357,6 +522,22 @@ export default function App() {
   const handleModelSelect = (id) => { setSelectedModel(id); saveToStorage(STORAGE_KEYS.SELECTED_MODEL, id); showNotif("Switched to " + MODEL_CONFIGS[id]?.name); };
   const handleAliyunModeSelect = (mode) => { setAliyunMode(mode); saveToStorage(STORAGE_KEYS.ALIYUN_MODE, mode); };
   const handleAliyunPaidModelSelect = (id) => { setAliyunPaidModel(id); saveToStorage(STORAGE_KEYS.ALIYUN_PAID_MODEL, id); };
+  // The form as `executeRound` must receive it. `form.identity` holds a stored id,
+  // and "H" is the escape hatch meaning "the player typed her own" — so the id has
+  // to be resolved before the prompt sees it.
+  //
+  // This is ONE function because it used to be four copies of one expression, and
+  // the fourth had drifted: the epilogue call site omitted the "H" branch, so a
+  // player who wrote her own identity reached the ending — the single round the whole
+  // run builds toward — with the literal placeholder "[自定义]" where her words
+  // should be. Smoke now counts executeRound call sites against uses of this helper.
+  const formForRound = () => ({
+    ...form,
+    identity: form.identity === "H"
+      ? (form.customIdentity || "Custom")
+      : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity),
+  });
+
   const aliyunOptions = () => selectedModel === "qwen"
     ? {
       mode: aliyunMode, paidModel: aliyunPaidModel,
@@ -378,14 +559,33 @@ export default function App() {
   // story or a save slot — they are UI feedback, not narrative.
   const storyMessages = (list) => list.filter(m => !m.error);
 
+  // The exportable story, once. This was TWO copies of the same filter — one here for
+  // clipboard and TXT, one inside exportPdf — and they had already drifted apart:
+  //
+  //   - the PDF copy filtered only `!m.hidden`, so it carried error notices into the
+  //     exported story, which the comment three lines above says never happens;
+  //   - and it numbered its rounds off a different filter, so a run containing one
+  //     error notice numbered the same round differently in TXT and in PDF;
+  //   - and the `╚` fix below reached one of the two.
+  //
+  // The guard in smoke.mjs was written against this copy and could not see any of it.
+  //
+  // `╚` as well as `╔`: the box is one paragraph only while it contains no blank line,
+  // and a solo run's box contained one for as long as the sub-member line was rendered
+  // empty — so the bottom border survived into every exported round. That is fixed at
+  // the source in buildStatsBox; this stays because the filter is the thing that
+  // breaks silently when the box format moves.
+  const storyRounds = () => messages
+    .filter(m => m.role === "assistant" && !m.hidden && !m.error)
+    .map((m, i) => ({
+      n: i + 1,
+      text: m.content.split("\n\n")
+        .filter(p => !p.startsWith("╔") && !p.startsWith("╚") && !/^[A-D]\.\s/.test(p))
+        .join("\n\n").trim(),
+    }));
+
   const extractStoryText = () =>
-    messages.filter(m => m.role === "assistant" && !m.hidden && !m.error)
-      .map((m, i) => {
-        const story = m.content.split("\n\n")
-          .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
-          .join("\n\n").trim();
-        return `=== Round ${i + 1} ===\n${story}`;
-      }).join("\n\n---\n\n");
+    storyRounds().map(r => `=== Round ${r.n} ===\n${r.text}`).join("\n\n---\n\n");
 
   const exportClipboard = async () => {
     try { await navigator.clipboard.writeText(extractStoryText()); showNotif("Copied to clipboard"); }
@@ -413,14 +613,7 @@ export default function App() {
     const headBg     = isLight ? "linear-gradient(135deg,#5c3820,#3a2210)" : "linear-gradient(135deg,#1e0820,#2d0a2e)";
     const font = "'Georgia','Noto Serif SC',serif";
 
-    const rounds = messages
-      .filter(m => m.role === "assistant" && !m.hidden)
-      .map((m, i) => {
-        const text = m.content.split("\n\n")
-          .filter(p => !p.startsWith("╔") && !/^[A-D]\.\s/.test(p))
-          .join("\n\n").trim();
-        return { n: i + 1, text };
-      });
+    const rounds = storyRounds();
 
     const cards = rounds.map(r => `
       <div class="card">
@@ -454,7 +647,21 @@ export default function App() {
     if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
     const mainId = form.mainMember;
     const subIds = form.subMembers || [];
+    // Two doors, one roster. The custom door already built one and it is
+    // authoritative — rebuilding it from the form would throw away the NPC slots
+    // the player assigned and flatten a cross-group cast into a single group.
+    // The classic door composes one here instead: member order comes from the
+    // loaded group because that is the order profiles appear in the prompt, and
+    // the same cast in a different order is the same game and a total cache miss.
+    // Built rather than resolved, because `members` is already the answer
+    // resolveRoster would fetch, and smoke asserts the two doors agree byte for
+    // byte.
+    setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
+      || buildClassicRoster(
+      selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
     setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
+    // A new game states its birth year at Setup, so nothing here is an estimate.
+    setBirthYearEstimated(false);
     setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
     setTriggeredAchievements(new Set());
     statsRef.current = null;
@@ -486,8 +693,8 @@ export default function App() {
       preRoundSnapshotRef.current = { stats: { ...initialStats }, memory: JSON.parse(JSON.stringify(mem)), kktUnlocked: {}, kktMessages: {}, triggeredAchievements: new Set(), playerChoice: "Game start" };
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
-        members, mainId, subIds, groupConfig, apiKey, selectedModel, kktUnlocked: {}, language,
+        form: formForRound(),
+        members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
         aliyun: aliyunOptions(), timeSpeed,
       });
       statsRef.current = result.newStats;
@@ -505,15 +712,59 @@ export default function App() {
     setLoading(false);
   };
 
-  const loadSave = (save) => {
+  const loadSave = async (save) => {
     if (!save) return;
+
+    // Everything that can fail happens BEFORE any state is set. A save slot
+    // carries no group id before v1.4.0, so identifying its cast means fetching
+    // the library — and a half-applied load would leave the player in a game
+    // assembled from two different saves.
+    let migrated, resolved;
+    try {
+      migrated = await migrateSave(save, language, { preferGroupId: selectedGroup });
+      resolved = await resolveRoster(migrated.roster, language);
+      if (!resolved.members.length) throw new Error("roster resolved to an empty cast");
+    } catch (e) {
+      // Loudly, and without touching the current game. A roster that cannot be
+      // resolved must say so: loadGroupIndex's catch returns a hardcoded Red
+      // Velvet entry, and falling into it here would silently recast somebody's
+      // save. See docs/V140_PLAN.md §9.3.
+      console.error("[loadSave] could not resolve this save's cast:", e);
+      showNotif("This save's cast could not be loaded", "error");
+      return;
+    }
+
     // Drop the previous game's pre-round snapshot. Without this, ↺ Retry and the
     // ✎ edit controls would appear straight away on the loaded save's last
     // message and restore the *other* game's stats and memory into it. It also
     // gives the intended gating: no retry or edit until a round is played here.
     preRoundSnapshotRef.current = null;
     resetPendingSocial();
-    setForm(save.form);
+
+    // Set before setSelectedGroup, and deliberately not through setPhase: the
+    // effect that mirrors phase into phaseRef has not run yet, and the group
+    // effect reads phaseRef to decide whether to clear the chosen members. From
+    // the cover page it would still read "cover" and wipe the cast we just
+    // resolved.
+    phaseRef.current = "game";
+    // The pre-existing bug this closes: loadSave never set the group, so
+    // loading a TWICE save while Red Velvet was selected produced Red Velvet's
+    // config with TWICE member ids in `form` — no crash, just a prompt whose
+    // main member was undefined.
+    setSelectedGroup(migrated.groupId);
+    // A save carries its own roster and that one is authoritative. Leaving the
+    // builder's behind would make a later New Game silently prefer it over the
+    // group the player picked.
+    setPendingRoster(null); setDoor("classic");
+    setRoster(migrated.roster);
+    setGroupConfig(resolved.groupConfig);
+    setMembers(resolved.members);
+    setForm(migrated.form);
+    // Read BEFORE the migrated form replaces it: a slot that carried no birth
+    // year of its own is now carrying one derived from age, which is wrong for
+    // about half of those saves and cannot be recovered from the save. The
+    // settings panel says so until she states a year. See saveMigrator.js.
+    setBirthYearEstimated(!save.form?.birthYear && Boolean(migrated.form?.birthYear));
     setMessages(save.messages);
     statsRef.current = save.stats;
     setStats({ ...save.stats });
@@ -557,9 +808,9 @@ export default function App() {
       preRoundSnapshotRef.current = { stats: { ...statsRef.current }, memory: JSON.parse(JSON.stringify(memoryRef.current)), kktUnlocked: { ...kktUnlocked }, kktMessages: JSON.parse(JSON.stringify(kktMessages)), triggeredAchievements: new Set(triggeredAchievements), playerChoice: cleanText };
       const result = await executeRound({
         playerChoice: text, stats: statsRef.current, memory: memoryRef.current,
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
-        groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+        groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
         aliyun: aliyunOptions(), timeSpeed,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
@@ -658,9 +909,9 @@ export default function App() {
     try {
       const result = await executeRound({
         playerChoice: snap.playerChoice, stats: snap.stats, memory: JSON.parse(JSON.stringify(snap.memory)),
-        form: { ...form, identity: form.identity === "H" ? (form.customIdentity || "Custom") : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity) },
+        form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
-        groupConfig, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
+        groupConfig, world, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
         aliyun: aliyunOptions(), timeSpeed,
       });
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
@@ -692,7 +943,7 @@ export default function App() {
 
   const openSocialPlatform = (platform, memberId = null) => setOverlay({ type: platform, memberId: memberId || form.mainMember });
   const getAffection = (mid) => mid === form.mainMember ? (stats?.affection || 0) : (stats?.multiAff?.[mid] || 0);
-  const getStage = (aff) => ({ label: getStageName(aff), color: getStageColor(aff) });
+  const getStage = (aff) => ({ label: stageNameIn(aff, language), color: getStageColor(aff) });
   const quickOptions = currentOptions.map((opt, i) => {
     const letter = String.fromCharCode(65 + i);
     const text = opt.replace(/^[ABCD][.、．]\s*/, '');
@@ -706,16 +957,38 @@ export default function App() {
   const stageLabel = t.stageNames[stageIdx];
   const [triggeredAchievements, setTriggeredAchievements] = useState(new Set());
 
-  const NotificationBar = () => notification ? (
-    <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: notification.type === "error" ? "rgba(220,50,50,.92)" : "rgba(50,180,100,.92)", color: "#fff", padding: "8px 20px", borderRadius: 20, fontSize: 12, fontWeight: 600, zIndex: 9999, pointerEvents: "none" }}>{notification.msg}</div>
-  ) : null;
+  // The fixed chrome: the toast, and the debug console launcher when it is on.
+  // Both live here because this is the one element every phase renders — the five
+  // pages each return their own tree, so anything that must be reachable from all
+  // of them either goes in here or gets pasted five times.
+  const NotificationBar = () => (
+    <>
+      {notification && (
+        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: notification.type === "error" ? "rgba(220,50,50,.92)" : "rgba(50,180,100,.92)", color: "#fff", padding: "8px 20px", borderRadius: 20, fontSize: 12, fontWeight: 600, zIndex: 9999, pointerEvents: "none" }}>{notification.msg}</div>
+      )}
+      {debugOn && !showDebug && (
+        // Bottom-left, above the iOS home indicator and away from every primary
+        // action in the app, which all sit bottom-right or centre.
+        <button onClick={() => setShowDebug(true)} aria-label="debug console"
+          style={{ position: "fixed", left: 10, bottom: "calc(10px + env(safe-area-inset-bottom))", zIndex: 9998, width: 34, height: 34, borderRadius: 17, border: "1px solid rgba(232,135,176,.4)", background: "rgba(20,8,18,.72)", color: "#f8c8d8", fontSize: 14, cursor: "pointer", padding: 0 }}>
+          {"⌗"}
+        </button>
+      )}
+      {debugOn && showDebug && (
+        <DebugPanel theme={theme} onClose={() => setShowDebug(false)}
+          extra={{ phase, language, model: selectedModel, group: selectedGroup,
+                   door, hasRoster: Boolean(roster), pendingRoster: Boolean(pendingRoster),
+                   members: members.length, round: stats?.week ?? null }} />
+      )}
+    </>
+  );
 
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.9", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.9", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.9", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.0", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.0", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.0", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
     const titleGrad = theme === "dark"
@@ -757,13 +1030,30 @@ export default function App() {
             </button>
           </div>
 
+          {/* Two doors, one engine (docs/V140_PLAN.md §14.1). Classic is exactly
+              today's flow and stays the primary button; the custom door leads to
+              the roster builder. Both end at Setup with a roster, so nothing
+              downstream knows which one was used. */}
           <button
             onClick={() => {
               if (!selectedGroup) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
+              // Leaving a builder roster in place would silently override the
+              // group just picked, since startNewGame prefers it.
+              setDoor("classic"); setPendingRoster(null);
               if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput");
             }}
             style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: selectedGroup ? "pointer" : "default", background: selectedGroup ? th.accentGrad : th.newGameDisabled, color: selectedGroup ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
             {ct.newGame}
+          </button>
+          <button
+            onClick={() => {
+              setDoor("custom");
+              // The builder's Generate button spends the player's key, so the key
+              // page comes first when there is none — §4.5 assumes it exists.
+              if (apiKey?.trim()) setPhase("roster"); else setPhase("keyInput");
+            }}
+            style={{ padding: "11px 30px", borderRadius: 40, border: `1px solid ${th.coverContinueBorder}`, background: "transparent", color: th.coverContinueColor, fontSize: 13, cursor: "pointer", marginBottom: 10 }}>
+            {t.cast.customTitle}
           </button>
           {hasSaves() && (
             <button onClick={() => setOverlay({ type: "save" })}
@@ -780,7 +1070,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -964,7 +1254,7 @@ export default function App() {
                 {language === "zh" ? "✅ Key 已保存！选择下一步" : language === "ko" ? "✅ Key 저장 완료! 다음을 선택하세요" : "✅ Key saved! What's next?"}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setKeyJustSaved(false); if (!selectedGroup) setPhase("cover"); else setPhase("setup"); }}
+                <button onClick={() => { setKeyJustSaved(false); if (door === "custom") setPhase("roster"); else if (!selectedGroup) setPhase("cover"); else setPhase("setup"); }}
                   style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: th.accentGrad, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {language === "zh" ? "✨ 开始新游戏" : language === "ko" ? "✨ 새 게임" : "✨ New Game"}
                 </button>
@@ -983,8 +1273,29 @@ export default function App() {
   }
 
   // ── Setup Page ──
+  // ── Roster Builder (the custom door) ──
+  if (phase === "roster") {
+    return (
+      <>
+        <RosterBuilder
+          language={language} theme={theme} t={t} world={world}
+          fontScale={fontScale}
+          apiKey={apiKey} modelId={selectedModel}
+          aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
+          onStart={(r) => { setPendingRoster(r); setPhase("setup"); }}
+          onBack={() => { setPendingRoster(null); setDoor("classic"); setPhase("cover"); }}
+          notify={showNotif}
+        />
+        <NotificationBar />
+      </>
+    );
+  }
+
   if (phase === "setup") {
-    const canStart = form.mainMember && form.name && form.age && form.identity && form.pace;
+    // `world` is in the gate because buildSystemPrompt cannot run without it.
+    // It is fetched on mount and the player cannot reach this screen faster
+    // than that, but a start with no world would throw rather than degrade.
+    const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && form.pace && world;
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
@@ -992,7 +1303,7 @@ export default function App() {
           <style>{th.setupCss}</style>
           <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
             <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>{language === "zh" ? "创建角色" : language === "ko" ? "캐릭터 생성" : "Character Creation"}</h2>
-            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{groupConfig?.group?.name || "Loading..."}</p>
+            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</p>
             <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
               <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
               <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
@@ -1000,6 +1311,43 @@ export default function App() {
             </div>
           </div>
 
+          {/* The custom door already chose the cast AND the slots, so Setup shows
+              it rather than asking again. This is what keeps this page short on
+              that path: identity, name, birth year and pace, and nothing else. */}
+          {pendingRoster ? (
+            <>
+              <div className="s-l">{t.cast.castLabel}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6, alignItems: "center" }}>
+                {members.map(m => {
+                  const slot = m.id === form.mainMember ? "★"
+                    : (form.subMembers || []).includes(m.id) ? "●" : "○";
+                  return (
+                    <span key={m.id} style={{ display: "flex", alignItems: "center", gap: 3, padding: "5px 9px", borderRadius: 14, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 14 }}>{m.emoji}</span>
+                      <span>{m.name}</span>
+                      <span style={{ color: th.textMuted, fontSize: 10 }}>{slot}</span>
+                    </span>
+                  );
+                })}
+                <button onClick={() => setPhase("roster")}
+                  style={{ padding: "5px 10px", borderRadius: 14, border: `1px dashed ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 10, cursor: "pointer" }}>
+                  {t.cast.changeCast}
+                </button>
+              </div>
+              {/* The cast debuts as a group, so it needs a name — and naming the
+                  agency after it is what stops the model inventing one. A
+                  cross-group cast was previously described as the main member's
+                  group, which is how a BLACKPINK main produced "YG". */}
+              <div className="s-l">{t.cast.castName}</div>
+              <input className="s-in" value={castName} maxLength={24}
+                onChange={e => setCastName(e.target.value)}
+                placeholder={t.cast.castNamePlaceholder} style={{ marginBottom: 3 }} />
+              <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+                {t.cast.castNameHint(agencyFor(castName.trim() || DEFAULT_CAST_NAME))}
+              </p>
+            </>
+          ) : (
+          <>
           <div className="s-l">{t.setup.mainMember(MAIN_INITIAL_AFFECTION)}</div>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", color: th.textMuted, padding: 20, fontSize: 12 }}>{t.setup.loading}</div>
@@ -1037,6 +1385,8 @@ export default function App() {
               )}
             </>
           )}
+          </>
+          )}
 
           <div className="s-l">{t.setup.identity}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
@@ -1051,10 +1401,34 @@ export default function App() {
             <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
           )}
 
-          <div className="s-l">{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5 }}>
+          {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
+              second hand test. A caption inside the wheel's own column pushes
+              the wheel down by its own height, so the name field and the
+              selected year sat on two different lines and the pair read as two
+              rows of one control each. With the captions lifted out, the row
+              below holds exactly two boxes and `alignItems: center` puts the
+              38px field's centre on the 104px wheel's centre — which is the
+              selected year, since the band sits at the middle row by
+              construction (`pad = ROW_H`). */}
+          <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
+            <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
+            <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
+              {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
             <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            <input className="s-in" placeholder={language === "zh" ? "年龄" : language === "ko" ? "나이" : "Age"} value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} style={{ flex: 1 }} type="number" min="18" />
+            {/* A wheel, not a field — step 8. The year is one of 63 ordered
+                values, which is a picker; a text box invites a keyboard that on
+                iOS covers the box it is filling, and it can hold "19", which is
+                a year the address protocol must never see. The wheel cannot
+                produce a partial or out-of-range year at all. */}
+            <div style={{ flex: 1, minWidth: 88 }}>
+              <YearWheel value={form.birthYear || DEFAULT_YEAR} onChange={setBirthYear}
+                min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
+                ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
+            </div>
           </div>
 
           <div className="s-l">{t.setup.pace}</div>
@@ -1068,7 +1442,10 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
-            <button onClick={() => setPhase("cover")}
+            {/* Back goes one step, not all the way out: on the custom door the
+                previous step is the builder, and dropping the player at the cover
+                would discard a cast they may have spent real time assembling. */}
+            <button onClick={() => setPhase(pendingRoster ? "roster" : "cover")}
               style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>
@@ -1095,7 +1472,10 @@ export default function App() {
         {/* Top Bar */}
         <div style={{ background: th.topBarBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${th.border}`, padding: "5px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, zIndex: 10, gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg,${displayTopMember?.color || "#f0c8d8"},${displayTopMember?.accent || "#c2185b"})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{displayTopMember?.emoji || "💗"}</div>
+            {/* The most-affected member, as her photo. Her gradient stays under
+                it as the fallback — see memberFace.jsx, which is the one
+                definition all six of these surfaces share. */}
+            <MemberFace member={displayTopMember} photo={castPhotos[displayTopMember?.id]} size={28} />
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: th.topBarText, whiteSpace: "nowrap" }}>{displayTopMember?.name || "RV"}</div>
               <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: stageColor + "18", color: stageColor, border: `1px solid ${stageColor}33` }}>{stageLabel}</span>
@@ -1118,7 +1498,7 @@ export default function App() {
               return (
                 <div key={m.id} className="stat-item" style={{ display: "flex", alignItems: "center", gap: 1, color: th.topBarStatText, position: "relative" }} onMouseEnter={() => setHoveredStat("aff_" + m.id)} onMouseLeave={() => setHoveredStat(null)}>
                   <span style={{ fontSize: 10 }}>{m.emoji}</span><span style={{ fontSize: 8 }}>{aff}</span>
-                  {hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({getStageName(aff)})</div>}
+                  {hoveredStat === "aff_" + m.id && <div className="stat-tooltip">{m.name_kr} Affection: {aff} ({stageNameIn(aff, language)})</div>}
                 </div>
               );
             })}
@@ -1134,7 +1514,7 @@ export default function App() {
               );
             })}
             <button onClick={() => setOverlay({ type: "save" })} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>💾</button>
-            <button onClick={() => setShowSettings(true)} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>⚙️</button>
+            <button onClick={() => { setBirthYearDraft(form.birthYear || ""); setShowSettings(true); }} style={{ background: th.topBarIconBg, border: `1px solid ${th.topBarIconBorder}`, borderRadius: 5, padding: "3px 5px", color: th.topBarText, fontSize: 11, cursor: "pointer" }}>⚙️</button>
           </div>
         </div>
 
@@ -1291,7 +1671,7 @@ export default function App() {
         )}
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
 
         {/* Settings Overlay */}
@@ -1361,6 +1741,55 @@ export default function App() {
                   </div>
                 );
               })()}
+
+              {/* Player birth year — ONLY for a save whose year was never stated.
+                  Step 8 narrowed this from "always visible", and the narrowing
+                  is the point rather than a tidy-up.
+
+                  The year is set once at Setup and then fixed for the life of
+                  the playthrough. It decides which way every address form points
+                  — Korean seniority is a hard year boundary — so changing it
+                  mid-run re-points the whole cast's honorifics under the player,
+                  and it sits in the static system prompt, so a change also costs
+                  the entire ~5,500-token cached prefix. Neither is a price for a
+                  control that mostly invites fiddling.
+
+                  It stays for the one case it was built for: a pre-v1.4.0 save
+                  whose year the migration REPRODUCED from `age`, deliberately
+                  and wrongly, for about half of those saves and unrecoverably.
+                  `birthYearEstimated` is exactly "the year was filled in for
+                  her", so it is the gate. An unchanged year still costs nothing,
+                  which correctBirthYear guarantees by returning the same object.
+
+                  Nothing is deleted: correctBirthYear, its guards and its
+                  translations all stand, and a new game simply never shows the
+                  row because a new game's year was stated by the player. */}
+              {birthYearEstimated && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
+                  <div style={{ fontSize: 13, color: th.textPrimary, fontWeight: 600 }}>{t.settings?.birthYearTitle}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {/* Not type="number": on iOS it fights a 4-digit field, and
+                        the member editor lost a whole field to that in step 6.
+                        Digits are filtered here instead, so the input holds
+                        exactly what the player typed. */}
+                    <input value={birthYearDraft} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                      onChange={e => setBirthYearDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={String(PLAYER_BIRTH_YEAR_MAX)}
+                      style={{ width: 54, padding: "5px 4px", borderRadius: 8, textAlign: "center", fontSize: 13, outline: "none", background: th.cardBg, color: th.textPrimary, border: `1px solid ${!birthYearDraft || birthYearDraftValid ? th.border : th.warnTitle}` }} />
+                    <button onClick={applyBirthYearCorrection} disabled={!birthYearDraftValid}
+                      style={{ padding: "5px 10px", borderRadius: 8, fontSize: 12, cursor: birthYearDraftValid ? "pointer" : "default", background: birthYearDraftValid ? th.switchLlmBg : th.cardBg, border: `1px solid ${birthYearDraftValid ? th.switchLlmBorder : th.border}`, color: birthYearDraftValid ? th.switchLlmColor : th.textFaint }}>
+                      {t.settings?.birthYearApply}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, lineHeight: 1.5, color: birthYearEstimated && birthYearDraftValid ? th.warnTitle : th.textMuted }}>
+                  {birthYearDraft && !birthYearDraftValid
+                    ? t.settings?.birthYearRange?.(PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX)
+                    : birthYearEstimated ? t.settings?.birthYearEstimated : t.settings?.birthYearHint}
+                </div>
+              </div>
+              )}
 
               {/* Session usage. Reads the meter at render time, which is enough:
                   the overlay is mounted fresh on every open and the numbers only
@@ -1463,9 +1892,9 @@ export default function App() {
                     const epilogue = await executeRound({
                       playerChoice: `Generate an epilogue: ${specialEvent.title}. A short story set after this event. 150 words in a warm, literary style. Return ONLY valid JSON.`,
                       stats: statsRef.current, memory: memoryRef.current,
-                      form: { ...form, identity: IDENTITIES.find(i => i.id === form.identity)?.label || form.identity },
+                      form: formForRound(),
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
-                      groupConfig, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
+                      groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
                       aliyun: aliyunOptions(),
                     });
                     const epStats = epilogue.newStats || statsRef.current;
@@ -1491,10 +1920,10 @@ export default function App() {
           </div>
         )}
 
-        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} fontScale={fontScale} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "instagram" && <InstagramOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "weverse" && <WeverseOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} fontScale={fontScale} t={t} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} fontScale={fontScale} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "instagram" && <InstagramOverlay theme={theme} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "weverse" && <WeverseOverlay theme={theme} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} fontScale={fontScale} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
       </div>
     </div>
   );
