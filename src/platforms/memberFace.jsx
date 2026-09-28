@@ -17,6 +17,35 @@
 import React from "react";
 
 /**
+ * Her photo painted as an element's OWN background, ready to spread into a
+ * style object. `under` is an optional layer to sit beneath it.
+ *
+ * This exists because "show her photo in a rounded box" was three components
+ * clipping an `<img>` child, and clipping a child is the thing that keeps
+ * failing on iOS — see the note in MemberFace. An element's own background is
+ * clipped by its own `border-radius`, which is the most basic rounding in CSS
+ * and has no layer-boundary case to get wrong.
+ *
+ * `background-size: cover` is `object-fit: cover` by another name, and
+ * `background-origin: border-box` is what makes the photo fill the frame right
+ * up under the border instead of being inset by it.
+ *
+ * Returns `{}` for no photo and no under-layer, so a caller's own background
+ * stands untouched.
+ */
+export function photoFill(photo, under = null) {
+  const layers = [photo ? `url(${photo})` : null, under].filter(Boolean);
+  if (layers.length === 0) return {};
+  return {
+    backgroundImage: layers.join(","),
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundOrigin: "border-box",
+  };
+}
+
+/**
  * A member's avatar: her photo when she has one, otherwise the emoji on her
  * own two-colour gradient.
  *
@@ -28,65 +57,58 @@ export default function MemberFace({
 }) {
   const m = member || {};
   const r = radius == null ? "50%" : radius;
-  // THE SHAPE IS A CLIP PATH, NOT `overflow: hidden` + a radius — the second
-  // hand test, and the second attempt at this bug.
+  const gradient = `linear-gradient(135deg,${m.color || "#f0c8d8"},${m.accent || "#c2185b"})`;
+  // THE PHOTO IS THE FRAME'S OWN BACKGROUND. There is no child element, so
+  // there is nothing to clip, so no clipping mechanism can fail.
   //
-  // The first attempt gave the <img> its own `borderRadius: inherit` so its
-  // shape did not depend on the parent clipping it. That fixed Instagram and
-  // left Bubble, KakaoTalk and Weverse square, which is the whole diagnosis:
-  // those three are exactly the avatars sitting inside a SCROLLING container
-  // that carries a background image, and Instagram's is not. A scroller with a
-  // background gets its own composited layer on iOS WebKit, and a rounded
-  // `overflow` clip on a descendant is not applied at that layer boundary —
-  // so both the photo AND the gradient came out square inside the ring.
-  // UNVERIFIED as a cause: it is inferred from which three surfaces broke and
-  // which one did not, not from a repro. The fix does not depend on it being
-  // right, because `clip-path` does not clip by overflow at all.
+  // This is the THIRD attempt at one bug and the first that does not depend on
+  // clipping a descendant. Attempt one gave the <img> `borderRadius: inherit`
+  // and fixed Instagram, which was never broken. Attempt two moved the frame to
+  // `clip-path` and removed `overflow: hidden` — and the avatars were still
+  // square on Bubble, KakaoTalk and Weverse.
   //
-  // ONE mechanism, not two: `overflow: hidden` and `isolation: isolate` are
-  // gone rather than kept beside it. A shape enforced twice is a shape neither
-  // enforcement can be shown to hold — which is what `cropRect`'s double clamp
-  // cost an hour of mutation testing to find. `borderRadius` stays because it
-  // is what rounds the BORDER itself; the clip is what rounds everything
-  // painted inside it.
-  const clip = radius == null
-    ? "circle(50%)"
-    : `inset(0 round ${typeof r === "number" ? `${r}px` : r})`;
+  // Attempt two is the one worth recording, because REMOVING `overflow: hidden`
+  // made the failure worse rather than safer. Measured in Chromium with
+  // clip-path forced off: the frame still draws as a circle, because
+  // `border-radius` always clips an element's OWN background — but the <img>
+  // child renders as a full, unclipped square on top of it. That is exactly the
+  // reported symptom, "a square edge inside the circle". So whatever iOS is
+  // doing to the clip on those three panels, a component with a child to clip
+  // has a failure mode and this one does not.
+  //
+  // `border-radius` clipping an element's own background is the most basic
+  // rounding in CSS and has no layer-boundary case to get wrong: the element
+  // paints its own background into its own border box. `background-size: cover`
+  // is `object-fit: cover` by another name, and `background-origin: border-box`
+  // is what makes the photo fill the frame right up under the border instead of
+  // being inset by it.
+  //
+  // ONE mechanism: no `clip-path`, no `overflow: hidden`, no `isolation`. A
+  // shape enforced twice is a shape neither enforcement can be shown to hold —
+  // which is what `cropRect`'s double clamp cost an hour of mutation testing to
+  // find one release ago.
+  //
+  // The gradient stays UNDER the photo rather than being replaced by it: a WebP
+  // that fails to decode leaves an empty box otherwise, and an empty box on a
+  // chat line reads as a broken app.
   return (
     <span
       style={{
         width: size, height: size, borderRadius: r,
-        clipPath: clip, WebkitClipPath: clip,
-        // Explicit, not inherited from App's `*` reset: a border must eat into
-        // the frame rather than growing it, or the photo inside a bordered
-        // avatar is inset by a pixel on every side and reads as the wrong size.
+        // Explicit, not inherited: a border must eat into the frame rather than
+        // growing it, or a bordered avatar is the wrong size on its row.
         boxSizing: "border-box",
-        position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center",
-        // The gradient stays behind the photo rather than being replaced by it.
-        // A WebP that fails to decode leaves an empty box otherwise, and an
-        // empty box on a chat line reads as a broken app.
-        background: `linear-gradient(135deg,${m.color || "#f0c8d8"},${m.accent || "#c2185b"})`,
+        ...photoFill(photo, gradient),
         fontSize: Math.round(size * 0.52), lineHeight: 1, flexShrink: 0,
         border: border || undefined,
         ...style,
       }}
     >
-      {photo
-        ? (
-          // Positioned, not a flex item: `inset: 0` makes the photo fill the
-          // frame whatever a flex container decides about a replaced element's
-          // size. Its rounding comes from the frame's clip path, not from a
-          // radius of its own — see the note above.
-          <img
-            src={photo} alt=""
-            style={{
-              position: "absolute", inset: 0, width: "100%", height: "100%",
-              objectFit: "cover", display: "block",
-            }}
-          />
-        )
-        : (m.emoji || "💗")}
+      {/* The emoji is the fallback, so it is rendered only when there is no
+          photo to cover it. A text node never reaches a circle's corners, which
+          is why losing the clip costs nothing here. */}
+      {photo ? null : (m.emoji || "💗")}
     </span>
   );
 }
@@ -120,14 +142,12 @@ export function wallStyle(wall) {
  * directly on the image.
  *
  * NO `background-attachment: local` on the scroller that carries it — dropped
- * in the second hand test, for two reasons at once. With `local` the
- * background's positioning area is the whole SCROLLABLE content, so `cover`
- * sized a 2:3 wallpaper against a KakaoTalk thread that can be three panels
- * tall: the player framed one crop and the panel showed another. It also makes
- * the scroller a composited layer, which is the best available explanation for
- * the square avatars on exactly those three panels — see MemberFace. Default
- * attachment pins the image to the padding box, which is what a chat wallpaper
- * does anyway: the messages move over it, not with it.
+ * in the second hand test. With `local` the background's positioning area is
+ * the whole SCROLLABLE content, so `cover` sized a 2:3 wallpaper against a
+ * KakaoTalk thread that can be three panels tall: the player framed one crop and
+ * the panel showed another. Default attachment pins the image to the padding
+ * box, which is what a chat wallpaper does anyway: the messages move over it,
+ * not with it.
  */
 export function wallScrim(isLight, strength = 0.55) {
   return isLight

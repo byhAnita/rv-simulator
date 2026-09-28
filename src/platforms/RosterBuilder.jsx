@@ -44,6 +44,7 @@ import {
 } from "../utils/imageStore";
 import CastImageSheet from "./CastImageSheet";
 import { castTokens, scaleFont } from "./castTheme";
+import { photoFill } from "./memberFace";
 import MemberEditor from "./MemberEditor";
 import MemberPicker from "./MemberPicker";
 
@@ -275,13 +276,13 @@ export default function RosterBuilder({
     color: k.accent, fontSize: fs(11.5), cursor: "pointer",
   };
 
+  // Her photo is this span's OWN background rather than a child to be clipped
+  // — see photoFill in memberFace.
   const avatar = (id, size) => {
     const m = memberOf(id) || {};
     return (
-      <span style={{ width: size, height: size, borderRadius: size / 3.5, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.6), lineHeight: 1, background: k.inputBg, flexShrink: 0 }}>
-        {photos[id]
-          ? <img src={photos[id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          : (m.emoji || "✨")}
+      <span style={{ width: size, height: size, borderRadius: size / 3.5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.6), lineHeight: 1, background: k.inputBg, ...photoFill(photos[id]), flexShrink: 0 }}>
+        {photos[id] ? null : (m.emoji || "✨")}
       </span>
     );
   };

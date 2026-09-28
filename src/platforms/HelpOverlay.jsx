@@ -1,5 +1,6 @@
 import { useState, createContext, useContext } from "react";
 import { getTranslations } from "../i18n";
+import { RELEASE_NOTES } from "../config/releaseNotes";
 
 // ── Per-theme color tokens ────────────────────────────────────────────────
 const DARK = {
@@ -431,7 +432,7 @@ const ERROR_HELP_EN = {
   region: "The provider doesn't offer this model in your country or region (e.g. the Gemini free tier). Use another provider.",
   bad_request: "The model rejected the request parameters. Free mode skips that model for this session. If it keeps happening, report it with the model name.",
   bad_response: "The model returned a truncated or near-empty story. The game retries automatically, then moves to another model in free mode, so you should rarely see this. If you do, switch model.",
-  unknown: "An error the game doesn't recognize. Retry; if it repeats, report it from the Contact tab.",
+  unknown: "An error the game doesn't recognize. Retry; if it repeats, report it from the More Info tab.",
 };
 
 const ERROR_HELP_ZH = {
@@ -449,7 +450,7 @@ const ERROR_HELP_ZH = {
   region: "该平台在你所在的国家或地区不提供此模型（例如 Gemini 免费层）。请换一个平台。",
   bad_request: "模型不接受本次请求参数。免费模式下游戏会在本次会话中跳过该模型。若反复出现，请附上模型名反馈给开发者。",
   bad_response: "模型返回了被截断或几乎空白的剧情。游戏会自动重试，免费模式下还会换下一个模型，所以你很少会看到它。若出现，请换一个模型。",
-  unknown: "游戏无法识别的错误。请重试；若反复出现，请通过「联系作者」反馈。",
+  unknown: "游戏无法识别的错误。请重试；若反复出现，请通过「更多」反馈。",
 };
 
 const ERROR_HELP_KO = {
@@ -467,7 +468,7 @@ const ERROR_HELP_KO = {
   region: "해당 플랫폼이 현재 국가 / 지역에서 이 모델을 제공하지 않습니다(예: Gemini 무료 티어). 다른 플랫폼을 사용하세요.",
   bad_request: "모델이 요청 파라미터를 거부했습니다. 무료 모드에서는 이번 세션 동안 해당 모델을 건너뜁니다. 계속 발생하면 모델 이름과 함께 알려주세요.",
   bad_response: "모델이 잘리거나 거의 비어 있는 이야기를 반환했습니다. 게임이 자동으로 재시도하고 무료 모드에서는 다른 모델로 넘어가므로 거의 보이지 않습니다. 보인다면 모델을 바꿔보세요.",
-  unknown: "게임이 인식하지 못한 오류입니다. 다시 시도하고, 반복되면 '문의' 탭으로 알려주세요.",
+  unknown: "게임이 인식하지 못한 오류입니다. 다시 시도하고, 반복되면 '더보기' 탭으로 알려주세요.",
 };
 
 function ErrorsEn() {
@@ -480,6 +481,43 @@ function ErrorsZh() {
 
 function ErrorsKo() {
   return <ErrorList lang="ko" help={ERROR_HELP_KO} intro="생성에 실패하면 아래 알림 중 하나가 표시됩니다. 원인을 해결한 뒤 알림 아래의 ↺ 다시 시도를 누르세요." />;
+}
+
+// ── What's New ────────────────────────────────────────────────────────────
+// A player opens the game, not the repository. The release notes therefore
+// live where she already goes when something is unclear, and the contact
+// details sit underneath them rather than being a tab of their own — which is
+// why this tab is "More Info" and no longer "Contact".
+//
+// The panel's content area already scrolls (see the shell at the bottom of
+// this file), so the list can grow a release at a time without a layout
+// change. The newest entry is first and is labelled as the build in hand:
+// smoke ties RELEASE_NOTES[0].version to package.json, so it cannot say that
+// about a version the player is not running.
+const NEW_TITLE = { zh: "更新内容", en: "What's New", ko: "업데이트 소식" };
+const NEW_NOW = { zh: "你正在玩的版本", en: "you are playing this", ko: "지금 플레이 중" };
+
+function WhatsNew({ lang }) {
+  const c = useContext(HT);
+  return (
+    <>
+      <SH>{NEW_TITLE[lang]}</SH>
+      {RELEASE_NOTES.map((r, i) => (
+        <div key={r.version} style={{ padding: "9px 0", borderBottom: `1px solid ${c.plBorder}` }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
+            <span style={{ color: c.stepNum, fontWeight: 700, fontSize: 12 }}>v{r.version}</span>
+            {i === 0 && (
+              <span style={{ fontSize: 9.5, color: c.tip, border: `1px solid ${c.shBorder}`, borderRadius: 20, padding: "1px 7px" }}>
+                {NEW_NOW[lang]}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11.5, color: c.tip, lineHeight: 1.8, marginTop: 3 }}>{r[lang]}</div>
+        </div>
+      ))}
+      <div style={{ height: 18 }} />
+    </>
+  );
 }
 
 // ── Contact ───────────────────────────────────────────────────────────────
@@ -552,17 +590,21 @@ function ContactKo() {
   );
 }
 
+function MoreEn() { return (<><WhatsNew lang="en" /><ContactEn /></>); }
+function MoreZh() { return (<><WhatsNew lang="zh" /><ContactZh /></>); }
+function MoreKo() { return (<><WhatsNew lang="ko" /><ContactKo /></>); }
+
 // ── Tab config ────────────────────────────────────────────────────────────
 const TABS = {
-  zh: ["指南", "常见问题", "错误代码", "联系作者"],
-  en: ["Guide", "Issues", "Errors", "Contact"],
-  ko: ["가이드", "문제 해결", "오류 코드", "문의"],
+  zh: ["指南", "常见问题", "错误代码", "更多"],
+  en: ["Guide", "Issues", "Errors", "More Info"],
+  ko: ["가이드", "문제 해결", "오류 코드", "더보기"],
 };
 const TITLES = { zh: "帮助中心", en: "Help Center", ko: "도움말" };
 const CONTENTS = {
-  zh: [GuideZh, IssuesZh, ErrorsZh, ContactZh],
-  en: [GuideEn, IssuesEn, ErrorsEn, ContactEn],
-  ko: [GuideKo, IssuesKo, ErrorsKo, ContactKo],
+  zh: [GuideZh, IssuesZh, ErrorsZh, MoreZh],
+  en: [GuideEn, IssuesEn, ErrorsEn, MoreEn],
+  ko: [GuideKo, IssuesKo, ErrorsKo, MoreKo],
 };
 
 // ── Main export ───────────────────────────────────────────────────────────

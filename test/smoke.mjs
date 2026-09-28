@@ -29,7 +29,7 @@
 import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve, join } from "node:path";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -4882,32 +4882,159 @@ async function layerI() {
   check("...and every picked file reaches the cropper before it is stored",
     uncropped.length === 0, uncropped.join(", "));
 
-  // Her face was a square sitting inside a round ring on an iPhone, and the
-  // first fix — a radius on the <img> itself — cured Instagram and left Bubble,
-  // KakaoTalk and Weverse exactly as they were. Those three are the avatars
-  // inside a SCROLLING container carrying a background image; Instagram's is
-  // not. So the requirement is not "the photo has a radius": it is that the
-  // frame's shape survives a context where a rounded overflow clip does not,
-  // and that it holds for the gradient-and-emoji default too, which has no
-  // <img> to put a radius on.
+  // Her face was a square sitting inside a round ring on an iPhone, through
+  // THREE fixes. A radius on the <img> cured Instagram, which was never broken.
+  // Moving the frame to `clip-path` and dropping `overflow: hidden` left the
+  // same three panels square — and made the failure WORSE, because with no
+  // overflow clip an <img> whose clip does not apply renders as a full square
+  // on top of a frame that border-radius still draws as a circle. That is the
+  // reported symptom exactly: a square edge inside the circle.
+  //
+  // So the requirement is not "the photo is clipped correctly". It is that
+  // NOTHING HAS TO CLIP ANYTHING: the photo is the frame's own background, and
+  // an element's own background is clipped by its own border-radius, which has
+  // no layer boundary to get wrong. Written from that, not from the CSS that
+  // happens to implement it today.
+  const stripComments = (src) => src
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
   const faceSrc = readFileSync(join(ROOT, "src/platforms/memberFace.jsx"), "utf8");
-  const faceImg = faceSrc.slice(faceSrc.indexOf("<img"), faceSrc.indexOf("(m.emoji"));
-  check("the avatar's shape is a clip path, so it does not depend on an ancestor's clipping",
-    /clipPath: clip, WebkitClipPath: clip/.test(faceSrc)
-      && /circle\(50%\)/.test(faceSrc) && /inset\(0 round /.test(faceSrc),
-    "both shapes the callers ask for — the circle and the rounded square — have to be clipped the same way");
-  // ONE enforcement. `overflow: hidden` beside a clip path is the `cropRect`
-  // double clamp again: either half can be broken with the other covering for
-  // it, so neither can be shown to work.
+  const faceCode = stripComments(faceSrc);
+  check("the avatar renders no child for an ancestor to fail to clip",
+    !/<img/.test(faceCode),
+    "a photo drawn as a child element is a photo something else has to clip, and that is the bug");
+  check("...so its shape is its own border-radius, for the circle and the rounded square alike",
+    /borderRadius: r,/.test(faceCode) && /radius == null \? "50%" : radius/.test(faceCode),
+    "border-radius clips the element's own background; that is the whole mechanism");
+  // ONE enforcement. A second clip beside it is the `cropRect` double clamp
+  // again: either half can be broken with the other covering for it, so neither
+  // can be shown to work.
   check("...and it is the only thing enforcing that shape",
-    !/overflow: "hidden"/.test(faceSrc) && !/borderRadius: "inherit"/.test(faceImg),
+    !/overflow: "hidden"/.test(faceCode) && !/clipPath/.test(faceCode)
+      && !/isolation/.test(faceCode),
     "a shape enforced twice is a shape neither enforcement can be shown to hold");
-  check("...with the photo filling the frame rather than laid out inside it",
-    /position: "absolute", inset: 0/.test(faceImg) && /objectFit: "cover"/.test(faceImg),
-    "a replaced element sized by a flex container is sized by its own aspect ratio, not the frame's");
+  check("...with the photo filling the frame the way object-fit: cover did",
+    /backgroundSize: "cover"/.test(faceCode) && /backgroundOrigin: "border-box"/.test(faceCode)
+      && /backgroundRepeat: "no-repeat"/.test(faceCode),
+    "background-origin: border-box is what fills the frame right up under the border");
+  check("...and her gradient stays UNDER it, so a photo that fails to decode is not a blank box",
+    /photoFill\(photo, gradient\)/.test(faceCode),
+    "the gradient is the fallback layer, not something the photo replaces");
   check("...and a border eats into the frame instead of insetting the photo",
-    /boxSizing: "border-box"/.test(faceSrc),
+    /boxSizing: "border-box"/.test(faceCode),
     "every caller passes a 1px border, and content-box sizing would shrink the photo by 2px");
+
+  // COUNT THE CALL SITES. `photoFill` can exist, be correct, and be used in
+  // one of three places — which is what `extractStoryText` cost this repo.
+  // Derived from a scan of src/, so a fourth screen that shows a stored photo
+  // cannot quietly go back to clipping an <img>.
+  const photoScreens = [];
+  const walkPhotoScreens = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walkPhotoScreens(p); continue; }
+      if (!/\.(js|jsx)$/.test(e.name)) continue;
+      const code = stripComments(readFileSync(p, "utf8"));
+      if (!/photos\[/.test(code) && !/photoFill\(/.test(code)) continue;
+      photoScreens.push([p.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, ""), code]);
+    }
+  };
+  walkPhotoScreens(join(ROOT, "src"));
+  // An <img> is still allowed for a stored photo, but only one that carries
+  // its OWN radius — the tab strip has always done that, and the tab strip is
+  // the one surface never reported square. What is banned is an <img> whose
+  // shape is somebody else's job.
+  const clippedByAncestor = photoScreens.filter(([, code]) => {
+    const tags = code.match(/<img[\s\S]{0,400}?\/>/g) || [];
+    return tags.some((tag) => /photos\[/.test(tag) && !/borderRadius/.test(tag));
+  }).map(([f]) => f);
+  check("no screen shows a stored photo as a child something else has to clip",
+    clippedByAncestor.length === 0 && photoScreens.length >= 4,
+    clippedByAncestor.join(", ") || `the scan found ${photoScreens.length} photo screens, so it proves nothing`);
+  const fillUsers = photoScreens.filter(([, code]) => /photoFill\(/.test(code)).map(([f]) => f);
+  check("...and the rounded-box screens all paint it through the one definition",
+    fillUsers.length >= 3 && fillUsers.includes("platforms/memberFace.jsx"),
+    `photoFill has ${fillUsers.length} users: ${fillUsers.join(", ")}`);
+  // ── What's New, in the game ──────────────────────────────────────────────
+  //
+  // A player opens the game, not the repository, so the release notes have to
+  // be reachable from inside it. They are one array in src/config/releaseNotes
+  // rendered above the contact details in the Help Center's More Info tab.
+  //
+  // The binding check is the newest entry against package.json. Without it the
+  // list silently stops at whatever release last remembered to add a line —
+  // which is the failure README's "What's New" heading already has a guard for,
+  // one file over.
+  const pkgVersion = readCurrentVersion();
+  const notesSrc = readFileSync(join(ROOT, "src/config/releaseNotes.js"), "utf8");
+  const { RELEASE_NOTES } = await import(pathToFileURL(join(ROOT, "src/config/releaseNotes.js")).href);
+  check("the newest release note is the version the player is running",
+    RELEASE_NOTES[0].version === pkgVersion,
+    `releaseNotes.js starts at ${RELEASE_NOTES[0].version}, package.json says ${pkgVersion} — add the entry`);
+  const langsMissing = RELEASE_NOTES.filter((r) => !["zh", "en", "ko"].every((l) => typeof r[l] === "string" && r[l].trim().length > 20))
+    .map((r) => r.version);
+  check("...and every entry says it in all three languages",
+    langsMissing.length === 0 && RELEASE_NOTES.length >= 5,
+    langsMissing.join(", ") || `only ${RELEASE_NOTES.length} entries, so this proves nothing`);
+  // The tab labels the top entry "you are playing this", which is only true if
+  // the list is ordered newest-first.
+  const descending = RELEASE_NOTES.every((r, i) => {
+    if (i === 0) return true;
+    const a = r.version.split(".").map(Number);
+    const b = RELEASE_NOTES[i - 1].version.split(".").map(Number);
+    for (let k = 0; k < 3; k++) if (a[k] !== b[k]) return a[k] < b[k];
+    return false;
+  });
+  check("...newest first, with no version listed twice",
+    descending && new Set(RELEASE_NOTES.map((r) => r.version)).size === RELEASE_NOTES.length,
+    "the tab calls the first entry the build in hand, so the order is load-bearing");
+  // A version number in this file is HISTORY. `npm run bump` must leave it
+  // alone, exactly as it leaves CLAUDE.md's post-mortems and README's old
+  // headings alone — otherwise the next release relabels notes for a release
+  // that never happened.
+  // Non-vacuous on purpose: bumping the CURRENT version would find nothing in
+  // this file to rewrite, so the probe uses a version the notes actually name.
+  const pastV = (notesSrc.match(/v(\d+\.\d+\.\d+)/) || [])[1];
+  check("...and a bump leaves the notes of past releases alone",
+    Boolean(pastV) && bumpFile("src/config/releaseNotes.js", notesSrc, pastV, "0.0.0").count === 0,
+    pastV ? `a bump of v${pastV} rewrote this file, which is a changelog` : "the notes name no past version, so this proves nothing");
+
+  // The tab shows BOTH halves in all three languages. Composition is the thing
+  // that silently half-lands: a language whose tab renders only the contact
+  // block looks completely normal until someone opens it.
+  const helpSrc = readFileSync(join(ROOT, "src/platforms/HelpOverlay.jsx"), "utf8");
+  const composed = ["Zh", "En", "Ko"].filter((L) =>
+    new RegExp(`function More${L}\\(\\)[^\n]*WhatsNew lang="${L.toLowerCase()}"[^\n]*Contact${L}`).test(helpSrc));
+  check("the More Info tab shows the release notes above the contact details",
+    composed.length === 3,
+    `only ${composed.join("/") || "none"} render both`);
+  check("...in every language's tab list, not just one",
+    (helpSrc.match(/ErrorsZh, MoreZh|ErrorsEn, MoreEn|ErrorsKo, MoreKo/g) || []).length === 3,
+    "CONTENTS still routes a language at the contact-only body");
+  // The panel's content area scrolls, which is what lets the list grow a
+  // release at a time without a layout change.
+  check("...and the panel's content area scrolls",
+    /flex: 1, overflowY: "auto"/.test(helpSrc) && /maxHeight: "86vh"/.test(helpSrc),
+    "a fixed-height panel would cut the oldest releases off");
+  // Renaming a tab and leaving prose pointing at the old name is the
+  // `pickMainHint` failure: a control described in three languages that had
+  // been deleted two redesigns earlier. Derived from TABS, so the next rename
+  // fails here until the prose follows it.
+  const tabRow = (lang) => {
+    const m = helpSrc.match(new RegExp(`\\n  ${lang}: \\[([^\\]]+)\\],`));
+    return m ? m[1].split(",").map((x) => x.trim().replace(/^"|"$/g, "")) : [];
+  };
+  const staleTabRef = ["zh", "en", "ko"].filter((lang) => {
+    const labels = tabRow(lang);
+    const help = helpSrc.match(new RegExp(`ERROR_HELP_${lang.toUpperCase()} = \\{[\\s\\S]*?\\n\\};`));
+    if (!help || labels.length !== 4) return true;
+    const unknown = help[0].split(/\n/).find((l) => l.trim().startsWith("unknown:")) || "";
+    return !unknown.includes(labels[3]);
+  });
+  check("no help text sends the player to a tab that no longer exists",
+    staleTabRef.length === 0,
+    `${staleTabRef.join(", ")}: the unrecognised-error line names a tab that is not in TABS`);
 
   // A wallpaper must be SEEN at the ratio it was framed at. `background-
   // attachment: local` sizes `cover` against the scrollable content instead of

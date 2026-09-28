@@ -192,6 +192,7 @@ The biggest release so far: the cast is now yours to assemble, and the people in
 * 📍 **The scene line is a place and a time again** — English runs were answering with 250-character paragraphs inside a one-line box, and repeating one scene for five rounds running.
 * 💬 **A Kakao arrives in the Kakao panel, never in the story** — the model had taken to describing the message on your screen before you had looked at it, occasionally inventing a company messaging system to get around the rule. It now leaves a note, food in the fridge or a jacket over a chair instead.
 * 🐞 **An on-device console** — add `?debug=1` to the URL for a panel showing the app's own log, key-redacted. iOS Safari has no developer tools, and the two things most likely to go wrong on a phone — storage limits and provider errors — were both invisible there.
+* 📰 **What is new, inside the game** — the Help Center’s last tab is now **More Info**: one or two lines on every release, newest first, with the contact details underneath it. A player who never opens the repository can still see what changed.
 
 > 🔎 Honest about what is **not** fixed: members still drop out of the story for longer than the game's own rules allow. The attempt at it — telling the model how many rounds each member has been absent — was measured against a control and the result was inconclusive, because two runs of identical code differed more than the two arms did. The line ships because the facts in it are true and cheap; it is not a claim that rotation is solved.
 

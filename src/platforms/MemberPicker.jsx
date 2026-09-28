@@ -28,6 +28,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { displayNameIn } from "../utils";
 import { castTokens, scaleFont } from "./castTheme";
+import { photoFill } from "./memberFace";
 import { CAST_MAX } from "../rag/customCast";
 
 export const CUSTOM_TAB = "__custom__";
@@ -143,10 +144,10 @@ export default function MemberPicker({
                     <button onClick={() => tap(m)}
                       aria-pressed={here}
                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "9px 4px", minHeight: 44, borderRadius: 11, cursor: "pointer", border: `1px solid ${here ? (m.accent || k.accent) : k.border}`, background: here ? (m.accent || k.accent) + "22" : k.cardBg, color: k.textMain }}>
-                      <span style={{ width: 40, height: 40, borderRadius: 10, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, lineHeight: 1, background: here ? "transparent" : k.inputBg, flexShrink: 0 }}>
-                        {photos[m.id]
-                          ? <img src={photos[m.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                          : (m.emoji || "✨")}
+                      {/* Her photo is this span's OWN background rather than a
+                          child to be clipped — see photoFill in memberFace. */}
+                      <span style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, lineHeight: 1, background: here ? "transparent" : k.inputBg, ...photoFill(photos[m.id]), flexShrink: 0 }}>
+                        {photos[m.id] ? null : (m.emoji || "✨")}
                       </span>
                       <span style={{ fontSize: fs(11), lineHeight: 1.25, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
                         {name}
