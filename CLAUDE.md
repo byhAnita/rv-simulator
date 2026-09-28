@@ -1816,7 +1816,18 @@ typical) is calculated with it. That figure went **down** with the 2:3 correctio
 — and it is still arithmetic. The image sheet prints `N KB used` on screen; read it and correct
 `docs/V140_PLAN.md` §10 from the real figure.
 
-**38 mutations, all RED, and two of them were red only after a fix** — both were this file's own
+**The second pass adds 33 mutations, all RED, and three were red only after a fix — two of them
+were the guards' own presence-versus-behaviour trap again.** Breaking the vertical centring in
+`cropRect` left every crop assertion green, because all of them used a wide source against a square
+frame where that term is exactly zero. Deleting `onWallChange` from the editor's props left its guard
+green, because the name still appeared at the call site that depends on it. And `cropRect` clamped
+twice, so neither clamp could be shown to work at all. The harness itself had a fourth: four of the
+first thirty mutations **never applied**, because a multi-line `from` written with unix newlines
+matches nothing in a CRLF file — the same silent-no-op the perl version of the harness had, reported
+as GREEN both times. **A mutation that reports GREEN and a mutation that never ran are the same line
+of output.**
+
+**38 mutations in the first pass, all RED, and two of them were red only after a fix** — both were this file's own
 rules failed by its own guards. One asserted an oversized wallpaper is refused, which stays true
 when the cap is wrongly pinned to the photo limit; the half that fails is *accepting* an image
 between the two caps. The other matched `removePhoto(walls, id)`, which also appears in `setWallFor`,
