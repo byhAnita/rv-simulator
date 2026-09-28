@@ -3797,10 +3797,20 @@ async function layerI() {
       Array.from({ length: store.WALL_MAX_COUNT }, (_, i) => [`w_${i}`, img(10)])),
       "extra", img(10), store.PHOTO_LIMITS).ok === true,
     "one shared cap would silently make the smaller store the limit for both");
-  check("a wallpaper may be larger than a photo but not unbounded",
+  // Both directions, because one is not enough: pinning maxChars to the PHOTO
+  // limit still refuses an image over the WALL limit, so the refusal half alone
+  // passes against a wallpaper cap that is being ignored. The acceptance half is
+  // what fails — and a wallpaper between the two caps is the ordinary case.
+  check("a wallpaper may be larger than a photo",
     store.WALL_MAX_CHARS > store.PHOTO_MAX_CHARS
-      && store.putPhoto({}, "w", img(store.WALL_MAX_CHARS + 1), store.WALL_LIMITS).reason === "too_large",
-    "a portrait wallpaper is ~3x the pixels of a square avatar");
+      && store.putPhoto({}, "w", img(store.PHOTO_MAX_CHARS + 1), store.WALL_LIMITS).ok === true,
+    "a portrait wallpaper is ~3x the pixels of a square avatar and must not be held to its cap");
+  check("...but not unbounded",
+    store.putPhoto({}, "w", img(store.WALL_MAX_CHARS + 1), store.WALL_LIMITS).reason === "too_large",
+    "the cap is a backstop for an image that resists compression");
+  check("...and a photo is still held to the photo cap",
+    store.putPhoto({}, "p", img(store.PHOTO_MAX_CHARS + 1), store.PHOTO_LIMITS).reason === "too_large",
+    "one shared cap would raise the photo limit to the wallpaper's");
   // Two stores means two keys. A copy-paste here makes them ONE store, which
   // reads as photos mysteriously becoming wallpapers.
   check("the two image stores are under different keys",
@@ -4570,8 +4580,14 @@ async function layerI() {
   // delete path removes images BY ID, and must never reconcile either store
   // against the custom palette, which is what silently dropped every library
   // member's photo. The positive half is the behavioural pair in Layer I.
+  // Anchored on the CONDITION, not on `removePhoto(walls, id)` — which the first
+  // version matched and which also appears in `setWallFor`, so deleting the whole
+  // line from the delete path left the guard green. That is this file's own
+  // "count the call sites, do not test presence" rule, failed by its own guard.
   check("deleting a custom member drops her photo and her wallpaper",
-    /removePhoto\(photos, id\)/.test(builderSrc) && /removePhoto\(walls, id\)/.test(builderSrc));
+    /if \(photos\[id\]\) \{[^}]*removePhoto\(photos, id\)/.test(builderSrc)
+      && /if \(walls\[id\]\) \{[^}]*removePhoto\(walls, id\)/.test(builderSrc),
+    "her wallpaper outlives her otherwise, in a store capped at 8");
   // Comments stripped first: this guard is about what the builder DOES, and the
   // source carries a comment naming the call precisely so nobody puts it back.
   // A source regex that reads prose as code is a guard that cannot be explained.
