@@ -17,7 +17,7 @@
 // caller decides what to do with it, which is what lets the palette enforce its
 // own cap and report a refusal (customCast.js#upsertMember).
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   REQUIRED_FIELDS, missingRequired, sanitizeProfile,
   birthYearOf, birthdayFromYear, validBirthYear, BIRTH_YEAR_MIN, BIRTH_YEAR_MAX,
@@ -25,6 +25,7 @@ import {
 import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
 import { downscale, PHOTO_MAX_CHARS } from "../utils/imageStore";
 import { castTokens, scaleFont } from "./castTheme";
+import YearWheel, { DEFAULT_YEAR } from "./YearWheel";
 
 // Which fields live on which step. Required fields are split across steps 1 and
 // 2 deliberately: birthday belongs with the name, and private_personality
@@ -85,7 +86,22 @@ export default function MemberEditor({
   // — so the box blanked on every keypress and the field was simply unfillable.
   // The draft holds what the player typed; `birthday` is written only once the
   // year is complete, which also keeps Save disabled until it is.
-  const [yearDraft, setYearDraft] = useState(() => birthYearOf(member?.profile?.birthday));
+  //
+  // Step 8 replaced the input with a wheel, and that changes what an empty draft
+  // means. A wheel always displays a value, so displaying DEFAULT_YEAR while
+  // `birthday` is still empty would be a lie the player cannot act on — the
+  // field looks filled and Save stays disabled with nothing to point at. So a
+  // new member is SEEDED at the year the wheel opens on, and the displayed value
+  // is true from the first frame. Scrolling is how she changes it, not how she
+  // supplies it.
+  const seedYear = birthYearOf(member?.profile?.birthday) || String(DEFAULT_YEAR);
+  const [yearDraft, setYearDraft] = useState(seedYear);
+  useEffect(() => {
+    if (!profile.birthday) set("birthday", birthdayFromYear(seedYear));
+    // Runs once per editor: the seed is derived from the member this editor was
+    // opened for, and the editor is remounted for a different one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setBirthYear = (raw) => {
     const digits = String(raw).replace(/\D/g, "").slice(0, 4);
     setYearDraft(digits);
@@ -243,15 +259,15 @@ export default function MemberEditor({
                   {fieldLabel("birthYear")}
                   <span style={{ color: accent, marginLeft: 4 }}>* {c.required}</span>
                 </label>
-                {/* type="text" with a numeric inputMode, NOT type="number". iOS
-                    shows the same numeric keypad either way, while a number input
-                    refuses any value it cannot parse — which is what made a
-                    partially typed year impossible to display. maxLength also
-                    works here and is ignored on number inputs. */}
-                <input value={yearDraft} onChange={(e) => setBirthYear(e.target.value)}
-                  type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4}
-                  placeholder={`${BIRTH_YEAR_MIN}-${BIRTH_YEAR_MAX}`}
-                  style={{ ...inputStyle, borderColor: birthYearValid ? inputBorder : "rgba(180,60,20,.5)" }} />
+                {/* A wheel, not a text field — step 8. The typed version needed
+                    a separate draft and a partial-year guard because "19" is a
+                    state a keyboard can produce and the profile must reject; a
+                    wheel's every value is a year in range, so both go away. The
+                    draft state stays as the single writer of `birthday`. */}
+                <YearWheel value={yearDraft || DEFAULT_YEAR} onChange={setBirthYear}
+                  min={BIRTH_YEAR_MIN} max={BIRTH_YEAR_MAX}
+                  fontScale={fontScale} ariaLabel={c.fields?.birthYear}
+                  colors={{ text: textMain, textDim, accent, tint: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.14)", border: inputBorder }} />
                 <div style={{ fontSize: fs(9), color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
                   {birthYearValid ? c.hints?.birthday : c.badYear}
                 </div>

@@ -33,6 +33,16 @@ export const STORAGE_KEYS = {
   CAST_CUSTOM: "rv_sim_cast_custom_v14",   // [{id, lang, createdAt, profile}]
   ROSTERS: "rv_sim_rosters_v14",           // [{id, name, createdAt, roster}]
   CAST_PHOTOS: "rv_sim_cast_photos_v14",   // {memberId: dataUrl} - 256x256 WebP
+  // v1.4.0 step 8. Her wallpaper: the chat background in Bubble and KakaoTalk,
+  // the post image on Instagram, the header banner on Weverse. A second store
+  // rather than a second field on the first, because the two carry different
+  // aspect ratios and different caps -- see WALL_* in utils/imageStore.js.
+  //
+  // Device-local like the photos, and deliberately NOT a save field: a save
+  // carrying two data URLs per member would multiply the slot size by an order
+  // of magnitude, and the ten-slot cap is already the tightest thing in the
+  // storage budget.
+  CAST_WALLS: "rv_sim_cast_walls_v14",     // {memberId: dataUrl} - 360x640 WebP
 };
 
 // Ten save slots, and the ELEVENTH SAVE IS REFUSED rather than quietly taking

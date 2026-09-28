@@ -23,6 +23,9 @@ import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
 import RosterBuilder from "./platforms/RosterBuilder";
 import DebugPanel from "./platforms/DebugPanel";
+import MemberFace from "./platforms/memberFace";
+import YearWheel, { DEFAULT_YEAR } from "./platforms/YearWheel";
+import { loadPhotos, loadWalls } from "./utils/imageStore";
 import { debugEnabled } from "./tools/debugConsole";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
@@ -351,6 +354,22 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [hoveredStat, setHoveredStat] = useState(null);
   const [topMember, setTopMember] = useState(null);
+  // Her face, in the game. The store shipped in step 6 and NOTHING HERE READ IT
+  // for a whole step: the uploader worked, the roster builder showed the result,
+  // and every surface in the running game still drew `emoji` over a gradient.
+  // A feature finished on one side of a boundary and connected to nothing on the
+  // other reads as a broken control, which is how it was reported.
+  //
+  // Re-read on entering the game rather than only at mount: the roster builder
+  // writes to localStorage synchronously, so a photo added while choosing the
+  // cast must be on screen in the game that starts immediately after.
+  const [castPhotos, setCastPhotos] = useState(() => loadPhotos());
+  const [castWalls, setCastWalls] = useState(() => loadWalls());
+  const refreshCastImages = () => { setCastPhotos(loadPhotos()); setCastWalls(loadWalls()); };
+  // On the phase rather than in startNewGame and loadSave, because that is a
+  // two-entry list somebody has to remember to extend. Every route into the game
+  // passes through here.
+  useEffect(() => { if (phase === "game") refreshCastImages(); }, [phase]);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const preRoundSnapshotRef = useRef(null);
@@ -1383,9 +1402,22 @@ export default function App() {
           )}
 
           <div className="s-l">{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5 }}>
+          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "flex-start" }}>
             <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            <input className="s-in" placeholder={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"} value={form.birthYear} onChange={e => setBirthYear(e.target.value)} style={{ flex: 1 }} type="number" min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} />
+            {/* A wheel, not a field — step 8. The year is one of 63 ordered
+                values, which is a picker; a text box invites a keyboard that on
+                iOS covers the box it is filling, and it can hold "19", which is
+                a year the address protocol must never see. The wheel cannot
+                produce a partial or out-of-range year at all. */}
+            <div style={{ flex: 1, minWidth: 88 }}>
+              <div style={{ fontSize: 9, color: th.textMuted, textAlign: "center", marginBottom: 2 }}>
+                {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+              </div>
+              <YearWheel value={form.birthYear || DEFAULT_YEAR} onChange={setBirthYear}
+                min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
+                ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder }} />
+            </div>
           </div>
 
           <div className="s-l">{t.setup.pace}</div>
@@ -1429,7 +1461,10 @@ export default function App() {
         {/* Top Bar */}
         <div style={{ background: th.topBarBg, backdropFilter: "blur(12px)", borderBottom: `1px solid ${th.border}`, padding: "5px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, zIndex: 10, gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg,${displayTopMember?.color || "#f0c8d8"},${displayTopMember?.accent || "#c2185b"})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{displayTopMember?.emoji || "💗"}</div>
+            {/* The most-affected member, as her photo. Her gradient stays under
+                it as the fallback — see memberFace.jsx, which is the one
+                definition all six of these surfaces share. */}
+            <MemberFace member={displayTopMember} photo={castPhotos[displayTopMember?.id]} size={28} />
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: th.topBarText, whiteSpace: "nowrap" }}>{displayTopMember?.name || "RV"}</div>
               <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: stageColor + "18", color: stageColor, border: `1px solid ${stageColor}33` }}>{stageLabel}</span>
@@ -1696,17 +1731,29 @@ export default function App() {
                 );
               })()}
 
-              {/* Player birth year.
-                  Here rather than only on a migrated save, because a typo at
-                  Setup produces exactly the same wrong honorifics as a
-                  migration does. The year decides which way every address form
-                  points — Korean seniority is a hard year boundary — and a save
-                  written before v1.4.0 carries one derived from her age, which
-                  is wrong for about half of those saves and unrecoverable.
-                  Applying a CHANGED year rewrites the static system prompt and
-                  costs one prompt-cache miss; an unchanged one costs nothing,
-                  which correctBirthYear guarantees by returning the same
-                  object. */}
+              {/* Player birth year — ONLY for a save whose year was never stated.
+                  Step 8 narrowed this from "always visible", and the narrowing
+                  is the point rather than a tidy-up.
+
+                  The year is set once at Setup and then fixed for the life of
+                  the playthrough. It decides which way every address form points
+                  — Korean seniority is a hard year boundary — so changing it
+                  mid-run re-points the whole cast's honorifics under the player,
+                  and it sits in the static system prompt, so a change also costs
+                  the entire ~5,500-token cached prefix. Neither is a price for a
+                  control that mostly invites fiddling.
+
+                  It stays for the one case it was built for: a pre-v1.4.0 save
+                  whose year the migration REPRODUCED from `age`, deliberately
+                  and wrongly, for about half of those saves and unrecoverably.
+                  `birthYearEstimated` is exactly "the year was filled in for
+                  her", so it is the gate. An unchanged year still costs nothing,
+                  which correctBirthYear guarantees by returning the same object.
+
+                  Nothing is deleted: correctBirthYear, its guards and its
+                  translations all stand, and a new game simply never shows the
+                  row because a new game's year was stated by the player. */}
+              {birthYearEstimated && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
                   <div style={{ fontSize: 13, color: th.textPrimary, fontWeight: 600 }}>{t.settings?.birthYearTitle}</div>
@@ -1731,6 +1778,7 @@ export default function App() {
                     : birthYearEstimated ? t.settings?.birthYearEstimated : t.settings?.birthYearHint}
                 </div>
               </div>
+              )}
 
               {/* Session usage. Reads the meter at render time, which is enough:
                   the overlay is mounted fresh on every open and the numbers only
@@ -1861,10 +1909,10 @@ export default function App() {
           </div>
         )}
 
-        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} fontScale={fontScale} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "instagram" && <InstagramOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "weverse" && <WeverseOverlay theme={theme} t={t} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
-        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} fontScale={fontScale} t={t} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "bubble" && <BubbleOverlay theme={theme} fontScale={fontScale} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} kktUnlocked={kktUnlocked} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "instagram" && <InstagramOverlay theme={theme} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "weverse" && <WeverseOverlay theme={theme} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} socialFeeds={socialFeeds} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "kakao" && <KakaoOverlay theme={theme} fontScale={fontScale} t={t} photos={castPhotos} walls={castWalls} memberId={overlay.memberId} members={members} kktMessages={kktMessages} kktUnlocked={kktUnlocked} allTargetMembers={allTargetMembers} onClose={() => setOverlay(null)} />}
       </div>
     </div>
   );

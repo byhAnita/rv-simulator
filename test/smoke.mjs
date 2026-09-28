@@ -1100,8 +1100,13 @@ async function layerG(mod, MODEL_CONFIGS) {
   // Setup collects the birth year itself. Age is one lossy step from the only
   // number the address protocol compares, and the loss is ~50/50 by
   // construction — see the note above playerBirthYear in mainAgent.js.
+  // Asserted on the RANGE the control offers rather than on its placeholder,
+  // which is what the previous version pinned and what step 8's wheel moved into
+  // a label. The range is the part that can be wrong in a way nobody notices:
+  // handing Setup the custom-cast bounds (1980-2012) would let a player be 14.
   check("setup collects a birth year, not an age",
-    /placeholder=\{language === "zh" \? "出生年份"/.test(app) && !/\? "年龄"/.test(app));
+    /<YearWheel[\s\S]{0,400}min=\{PLAYER_BIRTH_YEAR_MIN\} max=\{PLAYER_BIRTH_YEAR_MAX\}/.test(app)
+    && !/\? "年龄"/.test(app));
   check("the start gate requires a plausible birth year",
     /canStart = [^\n]*validBirthYear\(form\.birthYear\)/.test(app),
     "a bare truthiness test would accept the year 12");
@@ -3763,11 +3768,55 @@ async function layerI() {
     Object.keys(store.removePhoto(photos, "m_0")).length === store.PHOTO_MAX_COUNT - 1);
   check("removing a photo nobody has changes nothing",
     Object.keys(store.removePhoto(photos, "nope")).length === store.PHOTO_MAX_COUNT);
-  check("orphaned photos are pruned when their member is deleted",
-    Object.keys(store.pruneOrphans(photos, ["m_1", "m_2"])).sort().join() === "m_1,m_2",
-    JSON.stringify(Object.keys(store.pruneOrphans(photos, ["m_1", "m_2"]))));
+  // Step 8 removed `pruneOrphans`, which kept only the ids its caller listed and
+  // was called with the CUSTOM PALETTE. Harmless while only an authored member
+  // could have a photo; data loss once a library member can, because every
+  // library id is absent from that list. The requirement is per-id removal, so
+  // that is what is asserted — including the id that used to be collateral.
+  check("deleting one member's photo leaves a library member's alone",
+    Object.keys(store.removePhoto({ ...photos, irene: img(10) }, "m_0")).includes("irene"),
+    "a photo may only be removed for the member it belongs to");
+  check("the palette-wide photo prune is gone",
+    store.pruneOrphans === undefined,
+    "pruneOrphans(photos, paletteIds) deletes every library member's photo");
   check("photoBytes counts the stored characters",
     store.photoBytes({ a: "12345", b: "123" }) === 8);
+
+  // --- step 8: the wallpaper store -----------------------------------------
+  // The caps are an ARGUMENT rather than a module constant, so both stores share
+  // one implementation of the four refusal rules. A second copy is the
+  // extractStoryText failure: two copies drift, and the guard gets written
+  // against whichever one is still correct.
+  check("a wallpaper is refused at its own count cap, not the photo one",
+    store.putPhoto(Object.fromEntries(
+      Array.from({ length: store.WALL_MAX_COUNT }, (_, i) => [`w_${i}`, img(10)])),
+      "extra", img(10), store.WALL_LIMITS).reason === "full",
+    `WALL_MAX_COUNT=${store.WALL_MAX_COUNT} must bind before PHOTO_MAX_COUNT=${store.PHOTO_MAX_COUNT}`);
+  check("...and that same map still accepts a PHOTO, because the caps differ",
+    store.putPhoto(Object.fromEntries(
+      Array.from({ length: store.WALL_MAX_COUNT }, (_, i) => [`w_${i}`, img(10)])),
+      "extra", img(10), store.PHOTO_LIMITS).ok === true,
+    "one shared cap would silently make the smaller store the limit for both");
+  check("a wallpaper may be larger than a photo but not unbounded",
+    store.WALL_MAX_CHARS > store.PHOTO_MAX_CHARS
+      && store.putPhoto({}, "w", img(store.WALL_MAX_CHARS + 1), store.WALL_LIMITS).reason === "too_large",
+    "a portrait wallpaper is ~3x the pixels of a square avatar");
+  // Two stores means two keys. A copy-paste here makes them ONE store, which
+  // reads as photos mysteriously becoming wallpapers.
+  check("the two image stores are under different keys",
+    store.STORAGE_KEYS.CAST_WALLS && store.STORAGE_KEYS.CAST_WALLS !== store.STORAGE_KEYS.CAST_PHOTOS,
+    `${store.STORAGE_KEYS.CAST_PHOTOS} vs ${store.STORAGE_KEYS.CAST_WALLS}`);
+  // The square avatar is one aspect ratio of the general crop, not a second
+  // canvas routine. Asserted by delegation, because both need a browser and
+  // neither can be called here.
+  const storeSrc = readFileSync(join(ROOT, "src/utils/imageStore.js"), "utf8");
+  check("downscale delegates to the general crop rather than repeating it",
+    /export function downscale\(file, px = PHOTO_PX, quality = PHOTO_QUALITY\) \{\s*return downscaleCover\(file, px, px, quality\);/.test(storeSrc)
+      && (storeSrc.match(/createElement\("canvas"\)/g) || []).length === 1,
+    "two canvas routines is two places for the WebP fallback to be forgotten");
+  check("...and the wallpaper crop is portrait, to fill the overlay panel",
+    store.WALL_H > store.WALL_W,
+    `${store.WALL_W}x${store.WALL_H}`);
 
   // Corrupt or absent storage must read as empty, never throw: the same
   // tolerance aliyunRoute.js applies to a malformed route state.
@@ -3788,8 +3837,8 @@ async function layerI() {
   check("a corrupt palette is treated as empty", badCast === null, badCast);
   const badUpsert = tolerates((bad) => store.upsertMember(bad, { id: "c_1", profile: REQ }).ok);
   check("a corrupt palette still accepts a new member", badUpsert === null, badUpsert);
-  const badPrune = tolerates((bad) => Object.keys(store.pruneOrphans(bad, ["a"])).length === 0);
-  check("pruning a corrupt photo map yields an empty map", badPrune === null, badPrune);
+  const badRemove = tolerates((bad) => Object.keys(store.removePhoto(bad, "a")).length === 0);
+  check("removing from a corrupt photo map yields an empty map", badRemove === null, badRemove);
 
   // --- step 6 commit 3: the card generator ---------------------------------
   // The call is an ACCELERATOR, NEVER A GATE: every failure has to resolve to a
@@ -4109,12 +4158,26 @@ async function layerI() {
   const editorCode = editorSrc
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
     .replace(/^\s*\/\/.*$/gm, "");
-  check("the year input is a text field with a numeric keypad, not type=number",
-    /inputMode="numeric"/.test(editorCode) && !/type="number"/.test(editorCode),
-    "iOS shows the same keypad either way; only one of them can render \"19\"");
+  // Step 8: the year is picked from a bounded wheel, so the partial year the
+  // text field could hold is not merely rejected downstream — it cannot be
+  // produced. The requirement is the BOUND, not the control: a wheel handed the
+  // player's range (1946-2008) would offer a 79-year-old idol.
+  check("the editor picks a year from a wheel bounded by the idol range",
+    /<YearWheel[\s\S]{0,400}min=\{BIRTH_YEAR_MIN\} max=\{BIRTH_YEAR_MAX\}/.test(editorCode),
+    "an unbounded or wrongly bounded year reaches the address protocol");
+  check("...and no free-text year input survives beside it",
+    !/inputMode="numeric"/.test(editorCode),
+    "two writers of one field is how they start disagreeing");
   check("the editor renders its own year draft rather than deriving it",
-    /value=\{yearDraft\}/.test(editorSrc) && /const \[yearDraft, setYearDraft\]/.test(editorSrc),
+    /value=\{yearDraft/.test(editorSrc) && /const \[yearDraft, setYearDraft\]/.test(editorSrc),
     "deriving it from profile.birthday is the bug");
+  // A wheel always DISPLAYS a year, so an unseeded new member shows one while
+  // `birthday` is still empty — the field looks filled and Save stays disabled
+  // with nothing to point at. The displayed value has to be the stored one.
+  check("a new member's birthday is seeded to the year the wheel opens on",
+    /seedYear = birthYearOf\([\s\S]{0,80}\|\| String\(DEFAULT_YEAR\)/.test(editorSrc)
+    && /if \(!profile\.birthday\) set\("birthday", birthdayFromYear\(seedYear\)\)/.test(editorSrc),
+    "a wheel showing 2000 over an empty birthday is a lie the player cannot act on");
   // A generated card fills birthday directly, so the draft has to be synced or
   // the player sees a year she cannot edit.
   check("a generated birthday is pushed into the year draft",
@@ -4404,10 +4467,17 @@ async function layerI() {
   // were also the smallest type in the app (down to 8px for a line the player has
   // to read, against 11-13 everywhere else). So a player who had asked for larger
   // text got it everywhere except where she needed it most.
+  const sheetSrc = readFileSync(join(ROOT, "src/platforms/CastImageSheet.jsx"), "utf8");
   const CAST_FILES = {
     "RosterBuilder.jsx": builderSrc,
     "MemberPicker.jsx": pickerSrc,
     "MemberEditor.jsx": editorSrc,
+    // Step 8's sheet is a fourth screen in the same flow, so it is held to the
+    // same two rules: the player's font scale reaches it, and every size passes
+    // through the floor. A screen added without being added here is a screen
+    // that silently ignores the setting -- which is exactly what all three of
+    // the others did until step 7.
+    "CastImageSheet.jsx": sheetSrc,
   };
   const themeOut = join(OUT, "castTheme.mjs");
   await esbuild.build({
@@ -4491,10 +4561,23 @@ async function layerI() {
     /setPicks\(\(prev\) => \(prev\[entry\.id\]/.test(builderSrc),
     "custom entries are snapshotted, so a stale one ships the pre-edit profile");
 
-  // A deleted member's photo would otherwise sit in a capped store forever and
-  // eventually refuse a photo for a member who exists.
-  check("deleting a custom member prunes her photo",
-    /pruneOrphans\(photos, next\.map/.test(builderSrc));
+  // A deleted member's images would otherwise sit in a capped store forever and
+  // eventually refuse an image for a member who exists.
+  //
+  // Asserted on the SOURCE and negatively, which is not the shape this file
+  // prefers — the rule is now two lines inside a component, so there is no pure
+  // function to call. What it pins is the requirement rather than the lines: the
+  // delete path removes images BY ID, and must never reconcile either store
+  // against the custom palette, which is what silently dropped every library
+  // member's photo. The positive half is the behavioural pair in Layer I.
+  check("deleting a custom member drops her photo and her wallpaper",
+    /removePhoto\(photos, id\)/.test(builderSrc) && /removePhoto\(walls, id\)/.test(builderSrc));
+  // Comments stripped first: this guard is about what the builder DOES, and the
+  // source carries a comment naming the call precisely so nobody puts it back.
+  // A source regex that reads prose as code is a guard that cannot be explained.
+  check("...and does not reconcile either store against the palette",
+    !/pruneOrphans/.test(builderSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")),
+    "keeping only palette ids deletes every library member's image");
 
   // The photo store is keyed by member id, and a photo can be picked on step 1
   // before anything is saved — so the CALLER mints the id. Minting it at submit
@@ -4511,11 +4594,123 @@ async function layerI() {
     !/>[A-Z][a-z]+ [a-z]+</.test(builderSrc.replace(/\{[^}]*\}/g, "")),
     "every label comes off t.cast");
   const builderKeys = [...builderSrc.matchAll(/\bc\.([a-zA-Z]+)/g)].map((m) => m[1]);
-  const missingKeys = [...new Set(builderKeys)]
+  // Both screens, because step 8's sheet reads keys the builder never mentions.
+  const sheetKeys = [...sheetSrc.matchAll(/\bc\.([a-zA-Z]+)/g)].map((m) => m[1]);
+  const missingKeys = [...new Set([...builderKeys, ...sheetKeys])]
     .filter((k) => !["fields", "hints"].includes(k))
     .filter((k) => ["zh", "en", "ko"].some((l) => castKeys[l][k] === undefined));
-  check("every t.cast key the builder reads exists in all three languages",
+  check("every t.cast key the cast screens read exists in all three languages",
     missingKeys.length === 0, missingKeys.join(", "));
+
+  // --- step 8: her face, in the game ---------------------------------------
+  // The photo store shipped in step 6 and NOTHING IN THE GAME READ IT. The
+  // uploader worked, the builder showed the result, and all six surfaces that
+  // draw a member still drew `emoji` over a gradient — a feature complete on one
+  // side of a boundary and connected to nothing on the other, which is the same
+  // shape as npcAppearances and the bubble photo frame. It was reported as a
+  // broken uploader, because that is what it looks like.
+  const overlayFiles = {
+    "BubbleOverlay.jsx": readFileSync(join(ROOT, "src/platforms/BubbleOverlay.jsx"), "utf8"),
+    "KakaoOverlay.jsx": readFileSync(join(ROOT, "src/platforms/KakaoOverlay.jsx"), "utf8"),
+    "InstagramOverlay.jsx": readFileSync(join(ROOT, "src/platforms/InstagramOverlay.jsx"), "utf8"),
+    "WeverseOverlay.jsx": readFileSync(join(ROOT, "src/platforms/WeverseOverlay.jsx"), "utf8"),
+    "MemberSelector.jsx": readFileSync(join(ROOT, "src/platforms/MemberSelector.jsx"), "utf8"),
+  };
+  // COUNT THE CONSUMERS, do not test that the helper exists. A helper can exist,
+  // be correct, and be used in five of six places — which is the whole reason
+  // this rule is in CLAUDE.md.
+  const faceless = Object.entries(overlayFiles)
+    .filter(([, src]) => !/photos\s*=\s*\{\}/.test(src) || !/photos\[/.test(src))
+    .map(([f]) => f);
+  check("every surface that shows a member shows her photo",
+    faceless.length === 0, faceless.join(", "));
+  check("...including the game's own top bar",
+    /<MemberFace member=\{displayTopMember\} photo=\{castPhotos\[displayTopMember\?\.id\]\}/.test(appForCast),
+    "the most-affected member is the one face on screen every round");
+  // One definition of "her photo, or her gradient and her emoji". Six copies is
+  // six chances for one of them to be the copy still showing the emoji — the
+  // extractStoryText failure, guarded before the drift rather than after it.
+  const inlineFace = Object.entries({ ...overlayFiles, "App.jsx": appForCast })
+    .filter(([, src]) => /borderRadius: "50%", background: `linear-gradient\(135deg,\$\{m/.test(src))
+    .map(([f]) => f);
+  check("the avatar has one definition rather than one per surface",
+    inlineFace.length === 0, inlineFace.join(", "));
+  // Asserted on the CALL, not on the import: a file can import both maps and
+  // forward neither, which is what a presence check would pass.
+  const unthreaded = ["BubbleOverlay", "InstagramOverlay", "WeverseOverlay", "KakaoOverlay"]
+    .filter((n) => !new RegExp(`<${n}[^>]*photos=\\{castPhotos\\}[^>]*walls=\\{castWalls\\}`).test(appForCast));
+  check("App threads both image maps into all four social overlays",
+    unthreaded.length === 0, unthreaded.join(", "));
+  // The builder writes to localStorage synchronously, so a photo added while
+  // choosing the cast has to be on screen in the game that starts next. On the
+  // PHASE rather than in startNewGame and loadSave, which is a two-entry list
+  // someone has to remember to extend.
+  check("the game re-reads the image stores on entry, not only at mount",
+    /if \(phase === "game"\) refreshCastImages\(\)/.test(appForCast),
+    "a photo added in the builder would not appear until a reload");
+
+  // THE guard of this batch. A data URL is ~20-90 KB of base64; one reaching the
+  // static system prompt would destroy the ~5,500-token cached prefix AND bill
+  // for it every round, which is the most expensive failure available here.
+  // Same class as displayNameIn, and asserted the same way: by who can see it.
+  const imageImporters = [];
+  const walkSrc = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walkSrc(p); continue; }
+      if (!/\.(js|jsx)$/.test(e.name) || e.name === "imageStore.js") continue;
+      // An IMPORT, not a mention. utils.js names the module in a comment
+      // explaining where the wallpaper caps live, and a guard that reads a
+      // comment as a dependency fails on its own documentation.
+      if (/from "[^"]*imageStore/.test(readFileSync(p, "utf8"))) {
+        imageImporters.push(p.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, ""));
+      }
+    }
+  };
+  walkSrc(join(ROOT, "src"));
+  const promptSideImporters = imageImporters.filter((f) => !/^(platforms\/|App\.jsx$)/.test(f));
+  check("nothing the prompt is built from can see an image store",
+    promptSideImporters.length === 0 && imageImporters.length > 0,
+    promptSideImporters.join(", ") || "the scan found no importers, so it proves nothing");
+  // Narrower than "mentions a photo", deliberately. mainAgent.js carries
+  // `hasPhoto` and `photoDesc` because the schema asks a model to DESCRIBE a
+  // picture she posted, and that is text — the first version of this guard read
+  // those as image data and failed on correct code. What must never appear is a
+  // data URL or a handle on either store.
+  const promptPath = ["src/agent/mainAgent.js", "src/rag/rosterResolver.js", "src/rag/groupLoader.js"]
+    .map((f) => readFileSync(join(ROOT, f), "utf8")).join("\n");
+  check("...and no data URL or image store is reachable from the prompt path",
+    !/data:image/.test(promptPath) && !/CAST_PHOTOS|CAST_WALLS/.test(promptPath),
+    "members[] is what reaches buildSystemPrompt; a base64 photo in it costs the whole prefix");
+
+  // Both caps and the bytes in use, visible BEFORE they refuse anything. The
+  // save slots cost a run to learn this and the member palette repeated it one
+  // screen over; a third instance would be nobody's fault but this file's.
+  check("the image sheet shows both caps and the bytes in use at all times",
+    /castCount\?\.\(Object\.keys\(photos\)\.length, PHOTO_MAX_COUNT\)/.test(sheetSrc)
+      && /castCount\?\.\(Object\.keys\(walls\)\.length, WALL_MAX_COUNT\)/.test(sheetSrc)
+      && /imagesUsed\?\.\(kb\)/.test(sheetSrc),
+    "a cap the player meets for the first time by being refused is invisible");
+  // One entry point, not a badge per card. The picker grid is three columns at
+  // 390px and the card IS the assign target; a 20px badge beside it is the
+  // adjacency that made the pre-step-7 builder untappable, where a mis-tap
+  // assigned the wrong role rather than missing.
+  check("the picker grid gains no image control of its own",
+    !/imageStore|CastImageSheet|onPickPhoto/.test(pickerSrc),
+    "uploads belong on the members already chosen, not on 57 assign targets");
+
+  // The birth year is stated once and then fixed: it decides which way every
+  // address form points, and it sits in the static prompt, so a mid-run change
+  // re-points the cast's honorifics AND costs the whole cached prefix. The row
+  // survives only for a save whose year the migration reproduced from `age` —
+  // wrong for about half of those saves and unrecoverable.
+  check("the birth-year correction appears only for a save that needs it",
+    /\{birthYearEstimated && \(\s*<div style=\{\{ marginBottom: 20 \}\}>/.test(appForCast),
+    "a new game's year was stated by the player and must not be editable");
+  check("...and correctBirthYear itself is untouched",
+    /correctBirthYear/.test(appForCast)
+      && /export function correctBirthYear/.test(readFileSync(join(ROOT, "src/rag/saveMigrator.js"), "utf8")),
+    "the gate narrows who sees the control, not what it does");
 
   // --- the on-device console -----------------------------------------------
   // iOS Safari has no reachable devtools, and this project's two most

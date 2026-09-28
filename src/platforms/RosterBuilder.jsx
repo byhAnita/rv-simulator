@@ -38,7 +38,11 @@ import {
   loadCustomCast, saveCustomCast, upsertMember, removeMember, rosterFromPicks,
   assignSlot, savedRosterEntry, newMemberId,
 } from "../rag/customCast";
-import { loadPhotos, savePhotos, putPhoto, removePhoto, pruneOrphans } from "../utils/imageStore";
+import {
+  loadPhotos, savePhotos, loadWalls, saveWalls, putPhoto, removePhoto,
+  downscale, downscaleWall, PHOTO_LIMITS, WALL_LIMITS, WALL_MAX_COUNT,
+} from "../utils/imageStore";
+import CastImageSheet from "./CastImageSheet";
 import { castTokens, scaleFont } from "./castTheme";
 import MemberEditor from "./MemberEditor";
 import MemberPicker from "./MemberPicker";
@@ -66,6 +70,8 @@ export default function RosterBuilder({
   const [picks, setPicks] = useState({});
   const [cast, setCast] = useState(() => loadCustomCast());
   const [photos, setPhotos] = useState(() => loadPhotos());
+  const [walls, setWalls] = useState(() => loadWalls());
+  const [showImages, setShowImages] = useState(false);
   const [editing, setEditing] = useState(null);   // {id, profile} | {} for new
   const [saved, setSaved] = useState(() => loadFromStorage(STORAGE_KEYS.ROSTERS) || []);
   // Which section's picker sheet is open, or null.
@@ -174,22 +180,58 @@ export default function RosterBuilder({
     setPicks((prev) => { const o = { ...prev }; delete o[id]; return o; });
     // Her photo would otherwise sit in a capped store forever, eventually
     // refusing a photo for a member who exists.
-    const pruned = pruneOrphans(photos, next.map((m) => m.id));
-    if (Object.keys(pruned).length !== Object.keys(photos).length) {
-      savePhotos(pruned); setPhotos(pruned);
-    }
+    // Drop HER images, by id — not `pruneOrphans(photos, paletteIds)`, which is
+    // what this was and which step 8 turns into data loss. That call keeps only
+    // ids in the custom palette, so now that a LIBRARY member can have a photo,
+    // deleting one authored member would have deleted every library photo in the
+    // store. It was harmless only because nothing could put one there.
+    //
+    // An id is all this site needs: exactly one member stopped existing, and
+    // reconciling the whole store against a set of ids requires knowing every
+    // id, which this screen does not — group configs are fetched per tab, so the
+    // groups the player has not opened are indistinguishable from groups that
+    // are gone.
+    if (photos[id]) { const p = removePhoto(photos, id); savePhotos(p); setPhotos(p); }
+    if (walls[id]) { const w = removePhoto(walls, id); saveWalls(w); setWalls(w); }
   };
 
   const setPhotoFor = (id, dataUrl) => {
     const res = dataUrl === null
       ? { ok: true, photos: removePhoto(photos, id) }
-      : putPhoto(photos, id, dataUrl);
+      : putPhoto(photos, id, dataUrl, PHOTO_LIMITS);
     if (!res.ok) {
       notify?.(res.reason === "full" ? c.photoFull : c.photoTooLarge, "error");
       return;
     }
     if (!savePhotos(res.photos)) { notify?.(c.saveFailed, "error"); return; }
     setPhotos(res.photos);
+  };
+
+  // Her wallpaper. Same refusal rules through the same function, different caps
+  // and a different key — a second copy of the rules is what `extractStoryText`
+  // is a warning about.
+  const setWallFor = (id, dataUrl) => {
+    const res = dataUrl === null
+      ? { ok: true, photos: removePhoto(walls, id) }
+      : putPhoto(walls, id, dataUrl, WALL_LIMITS);
+    if (!res.ok) {
+      notify?.(res.reason === "full" ? c.wallFull?.(WALL_MAX_COUNT) : c.photoTooLarge, "error");
+      return;
+    }
+    if (!saveWalls(res.photos)) { notify?.(c.saveFailed, "error"); return; }
+    setWalls(res.photos);
+  };
+
+  // The picked file becomes a data URL here rather than in the sheet: the sheet
+  // does not own either store, and the two downscales differ only in the target
+  // rectangle, which is the store's business.
+  const takePhoto = async (id, file) => {
+    try { setPhotoFor(id, await downscale(file)); }
+    catch { notify?.(c.photoFailed, "error"); }
+  };
+  const takeWall = async (id, file) => {
+    try { setWallFor(id, await downscaleWall(file)); }
+    catch { notify?.(c.photoFailed, "error"); }
   };
 
   // Commit the saved roster under the name the player just typed. The entry's
@@ -357,11 +399,21 @@ export default function RosterBuilder({
             </div>
           )}
 
+          {/* ONE entry point for every image in the cast, rather than a camera
+              badge per member in the picker grid — see CastImageSheet.jsx. It
+              sits below the three sections because a photo is something you give
+              a member you have already chosen. */}
           {chosen.length > 0 && (
-            <button onClick={() => setPicks({})}
-              style={{ marginTop: 12, padding: "7px 11px", minHeight: 32, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
-              {c.clearCast}
-            </button>
+            <div style={{ display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" }}>
+              <button onClick={() => setShowImages(true)}
+                style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.accent}`, background: k.tint, color: k.accent, fontSize: fs(11), cursor: "pointer" }}>
+                {"📷"} {c.castImages}
+              </button>
+              <button onClick={() => setPicks({})}
+                style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
+                {c.clearCast}
+              </button>
+            </div>
           )}
         </div>
 
@@ -389,6 +441,22 @@ export default function RosterBuilder({
           onCreate={() => setEditing({ id: newMemberId(), profile: {}, isNew: true })}
           onEdit={(id) => setEditing(cast.find((x) => x.id === id))}
           onDelete={(id) => setConfirmDelete(id)}
+        />
+      )}
+
+      {showImages && (
+        <CastImageSheet
+          // Roster order, not picks order — the same derivation the chips use, so
+          // the sheet lists the cast in the order the player sees it.
+          rows={roster.entries.map((e) => ({
+            id: e.memberId, name: nameOf(e.memberId), member: memberOf(e.memberId) || {},
+          }))}
+          photos={photos} walls={walls}
+          onPickPhoto={takePhoto} onPickWall={takeWall}
+          onClearPhoto={(id) => setPhotoFor(id, null)}
+          onClearWall={(id) => setWallFor(id, null)}
+          language={language} theme={theme} t={t} fontScale={fontScale}
+          onClose={() => setShowImages(false)}
         />
       )}
 

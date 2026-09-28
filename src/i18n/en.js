@@ -80,6 +80,16 @@ const en = {
     photoTooLarge: "That image is too large — try another.",
     photoFailed: "Could not read that image — try another.",
     photoFull: "Photo store is full (30).",
+    photoReplace: "Change photo",
+    // Her wallpaper: the chat background in Bubble and KakaoTalk, the post image
+    // on Instagram, the header banner on Weverse. One upload, four surfaces.
+    wall: "Wallpaper",
+    wallReplace: "Change wallpaper",
+    wallRemove: "Remove wallpaper",
+    wallFull: (max) => `Wallpapers are full (${max}). Remove one to add another.`,
+    castImages: "Photos",
+    castImagesHint: "Her photo shows on every screen she appears on. Her wallpaper backs her chats, her Instagram post and her Weverse card.",
+    imagesUsed: (kb) => `${kb} KB used`,
     missing: (fields) => `Still needed: ${fields}`,
     castFull: "Custom cast is full (20). Delete one to add another.",
     saveFailed: "Not saved — browser storage is full.",

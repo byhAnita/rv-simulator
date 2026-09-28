@@ -1545,3 +1545,111 @@ Per repo convention each must be verified failing against the unfixed code.
    prose was written against a v12 stat model that has since changed.
 3. **Should `慢热现实向` fire beats at all**, or is "no beats" the honest meaning of slow-burn
    realistic? v12's `free` rhythm did exactly nothing.
+
+---
+
+## 20. The photo a player uploads has nowhere to appear — step 8
+
+**Reported from Yuhan's hand test of the role-first cast picker, 2026-09-28.** The photo store
+shipped in step 6 and works: `imageStore.js` downscales, caps, refuses and prunes correctly, and
+the roster builder shows the result. **Nothing in the game ever reads it.** `App.jsx` does not
+import `loadPhotos`, so the four social overlays and the game top bar all still draw
+`emoji + linear-gradient(color, accent)`, and a player who uploaded nine photos sees them only on
+the screen where she uploaded them.
+
+This is the same defect class as `npcAppearances` and the bubble photo frame: **a feature complete
+on one side of a boundary and connected to nothing on the other.** It reads as a broken upload
+rather than a missing consumer, which is why it comes before the release rather than after it.
+
+### Three decisions for Yuhan, marked as recommendations
+
+1. **One wallpaper per member, not one per platform.** He asked for uploadable backgrounds for
+   Bubble, Weverse and KKT. Three per member is 3× the quota and 3× the uploads, and each platform
+   already lays its own scrim over it, so one photo reads differently in each. Recommend one, used
+   as the chat background in Bubble and KKT, the post image on Instagram, and the header banner on
+   Weverse — four jobs per upload instead of one.
+2. **The birth-year row stays for migrated saves only.** He asked to remove it from settings
+   entirely, and for a new game that is exactly right: the year is set once at Setup and never
+   moves, because changing it mid-run re-points every honorific and costs the whole ~5,500-token
+   cached prefix. But `correctBirthYear` exists for the one case where the year is genuinely
+   unknown — a pre-v1.4.0 save whose year was *reproduced* by the migration from `age`, wrong for
+   about half of players and unrecoverable. `birthYearEstimated` is already computed in `loadSave`
+   and is exactly that flag. Recommend gating the row on it: invisible in every new game, present
+   once for a save that needs it. Nothing is deleted.
+3. **Ship it in v1.4.0, before the release.** v1.4.0 is the release that introduces the photo
+   uploader. Shipping it with no consumer means shipping a dead control.
+
+### What gets built
+
+**`imageStore.js` is parameterised rather than copied.** It hardcodes one key, one cap and one
+square size. Wallpapers need a second key, different caps and a different aspect ratio, and a
+second copy of the quota rules is the `extractStoryText` failure — two copies drift and the guard
+gets written against whichever one was correct.
+
+- `downscaleCover(file, w, h, quality)` center-crops to the target aspect ratio; `downscale`
+  becomes the square call. One implementation, two callers, guarded by call-site count.
+- `loadImageMap(key)` / `saveImageMap(key, map)`; `loadPhotos`/`savePhotos` stay as wrappers so no
+  existing caller churns.
+- `putPhoto(map, id, url, {maxCount, maxChars})` — the limits become arguments defaulting to
+  today's values, so the refusal rules have one implementation for both stores.
+- New key `rv_sim_cast_walls_v14` as `STORAGE_KEYS.CAST_WALLS`. Device-local, never a save field,
+  so no migration. `WALL_PX = 360x640`, WebP q0.7, `WALL_MAX_COUNT = 8`, `WALL_MAX_CHARS = 90 KB`.
+
+**The sizes above are calculated from the 256x256 profile, not measured.** 360x640 is ~3.5x the
+pixels of a 256x256 at a lower quality, so ~55 KB of stored string against ~20 KB. Real encoded
+sizes get measured during implementation and this table gets corrected; §10's budget moves from
+~2.1 MB to ~2.5 MB typical and ~3.1 MB worst case against the ~5 MB quota.
+
+**Six consumers, because a member's face has to be the same face everywhere.**
+
+| Surface | Today | After |
+| --- | --- | --- |
+| Game top bar | 28px gradient + emoji | her photo, gradient ring kept as the fallback |
+| `MemberSelector` (the tab strip in all four overlays) | emoji | her photo |
+| Bubble | one lavender panel, no avatars | avatar left of every line, wallpaper behind the thread |
+| KakaoTalk | 26px gradient + emoji per line | her photo per line, wallpaper behind the thread |
+| Instagram | no header, gradient placeholder image | real IG shape: avatar + handle header, wallpaper as the post image, actions and caption below |
+| Weverse | plain card | avatar + name header on the card, wallpaper as its banner |
+
+Bubble's `hasPhoto` / `photoDesc` frame is **left alone**: that is a specific picture she sent this
+round, and substituting her wallpaper for it would render a description of one image over a
+different image.
+
+**Uploads move to the roster builder, on the members actually chosen.** Tapping a member's avatar
+in the builder — the main card or any chip — opens one sheet carrying both images: photo
+upload/replace/remove, wallpaper upload/remove, both counters (`n / 30`, `n / 8`) and the total
+bytes in use. Reasons:
+
+- It covers the library, which is what Yuhan asked for: any member can be given a photo by picking
+  her into a slot, and a member in no slot has no surface anywhere that could show one.
+- It adds **no new tap target to the picker grid**, which is the whole point of the restructure one
+  commit ago — a 20px camera badge beside a 40px assign target on a 390px screen reintroduces
+  exactly the mis-tap the role-first layout removed.
+- The caps and the byte total are visible before they are hit, which is what the save slots and the
+  20-member palette both had to learn the hard way.
+
+**The year text input becomes a scroll wheel**, in Setup and in the member editor. The wheel is a
+CSS `scroll-snap-type: y mandatory` column with no library, ~5 rows visible, the selection
+centered and highlighted, opening centered on 2000. It **removes a failure mode rather than
+restyling one**: `birthdayFromYear` returns `""` for a partial year specifically so a half-typed
+`19` cannot reach the address protocol, and a wheel cannot emit a partial year at all. Two ranges,
+both already defined and not duplicated — `PLAYER_BIRTH_YEAR_MIN/MAX` (1946-2008) for the player,
+`BIRTH_YEAR_MIN/MAX` (1980-2012) for a custom member.
+
+### Guards, all mutation-verified, written from the requirement
+
+- `putPhoto` honours caller-supplied caps, and the wallpaper caps differ from the photo caps.
+- `downscale` delegates to `downscaleCover` — call sites counted, not presence checked.
+- Every surface that renders a member renders her photo when one exists: **count the consumers**,
+  because a helper can exist, be correct, and be used in five of six places.
+- `App.jsx` threads both maps into all four overlays — asserted on the call, not on the import.
+- **No photo or wallpaper data URL can reach the prompt.** Same class as `displayNameIn`, and worse
+  if it fails: a data URL inside the static prompt destroys the cached prefix and bills for it.
+  Asserted on what `executeRound` and `resolveRoster` receive.
+- The settings birth-year row is gated on `birthYearEstimated`.
+- The wallpaper cap and the byte total are rendered at all times, not only once hit.
+- The wheel cannot produce a year outside its range, and `birthdayFromYear` always receives four
+  digits from it.
+
+**Gate: the goldens must not move.** Nothing in this batch is prompt-facing, exactly as the
+role-first picker batch was not.
