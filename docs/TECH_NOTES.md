@@ -78,9 +78,36 @@ constraint on every future feature: **nothing that grows mid-game may enter the 
 That rule has already shaped the place map (§7.2 of the v1.4.0 plan) and the retrieval design
 (§13) — both put their growing data in the tail instead.
 
+**v1.4.1 step 2 — the constraint is not only about data that GROWS; it is about anything the
+player can change.** The pace was a setup choice, so it sat correctly in the static prompt for
+four releases. Turning it into a four-way *story mode* the player can switch mid-run changed
+nothing about its size and everything about its placement: a rule in the cached prefix means
+every toggle pays full price for ~5,500 tokens on the next round, which is the cost this entry
+exists to avoid. It moved to the tail beside the Time Speed hint, and the generalised rule is
+**order the prompt by how often each part changes — including the parts that change because a
+person chose to change them.**
+
+The move is ~50 tokens leaving the prefix (~20% of miss price) for the always-miss tail, so about
+40 full-price-equivalent tokens against ~7,950 input per round: **+0.5%, calculated from the token
+profile, not measured.** The static prompt gets ~50 tokens smaller in exchange.
+
+**And the trap it surfaced is a naming one, not a caching one.** Time Speed already wrote
+`[Pacing] slow — …` into the tail, and the obvious label for the new line was also `[Pacing]`.
+**Two different quantities under one label is worse than two labels for one quantity** — the
+`[Stage Changes]` id-vs-name bug this project already records — because the model is left to work
+out which line means what, and nothing fails when it guesses wrong. They were renamed together, in
+the same commit, to `[Story Mode: …]` and `[Time Speed]`. That rename is free precisely because
+the tail is the always-miss message: no golden pins it and no cached prefix contains it.
+
+Both lines are now placed by one exported pure function, `buildTailRules(world, storyMode,
+timeSpeed)`. It was an inline ternary inside a template literal, which meant the one part of the
+prompt that changes every round was the one part no test could call. Layer J asserts the paired
+invariant — the static prompt is byte-identical across a change to either dial **and** the tail is
+what moves instead — because either half alone passes against a dial nothing reads.
+
 **Where it lives.** `src/agent/memoryPool.js` (`buildHistoryLedger`, `buildDynamicTail`,
-`collapseHistoryIfNeeded`), `src/agent/mainAgent.js` (`buildSystemPrompt`). The round-by-round
-cache trace is in `CLAUDE.md`.
+`collapseHistoryIfNeeded`), `src/agent/mainAgent.js` (`buildSystemPrompt`, `buildTailRules`).
+The round-by-round cache trace is in `CLAUDE.md`.
 
 **Short form.** Prompts are cached by prefix, so the prompt is ordered by how often each part
 changes and the history is append-only. Collapsing old stories into their summaries in place

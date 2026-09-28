@@ -1461,7 +1461,7 @@ all three languages, and smoke should assert that no world's display name equals
 | Step | Work | Gate before moving on |
 | --- | --- | --- |
 | **1** | ✅ Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | ✅ **Done.** Goldens byte-identical and untouched on disk, mirrors in sync, smoke **1204 → 1232**, 14 mutations RED |
-| **2** | Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail as `[Story Mode]`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` deleted, legacy seeding from `form.pace` | Goldens move **once** — the pace line leaving section 6 — diff read. Layer J builds the static prompt across a mode change and asserts it is byte-identical, which is the claim the tail move rests on |
+| **2** | ✅ Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail via `buildTailRules`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` / `world.paces` deleted, legacy seeding through `resolveStoryMode` | ✅ **Done.** Goldens moved **once** — 3 files, 3 deletions, 0 insertions, all the `[Pace: …]` line — diff read. Layer J asserts the paired invariant. Smoke **1232 → 1262**, **24 mutations RED** across two rounds |
 | **3** | Setup page: pace picker out, **world picker in** at the same slot; order becomes name / birth year / world / identity; changing world clears `identity` and `customIdentity` to empty | Both doors already converge on Setup ([App.jsx:1285](../src/App.jsx#L1285)), so both get worlds. A world change leaves no id the new world does not declare — asserted on what Setup **forwards**, not on its source |
 | **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
 | **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design) | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
@@ -1478,6 +1478,51 @@ instead of once per world; `public/worlds/index.json` is the picker's lazy-load 
 **`roleLabel` from §4.1 was deliberately NOT added** — that sketch lists it with no stated reader,
 and this repo carries `NPC_APPEARANCE_CHANCE` as the standing example of what declaring ahead of a
 reader costs. It arrives with whatever prints it.
+
+#### Step 2 is done, and it went two steps past its own row
+
+**`world.paces` is deleted too, not just `PACES` and `t.paces`.** The row said "`paces` stays
+untouched", inherited from step 1's gate. Once `modes` supersedes it whole, a required field with no
+reader is what this project already tracks four times — and step 7 would have authored four pace
+rules per new world that nothing reads. It is out of `REQUIRED`, out of the returned object, out of
+all six world files, and `getPaceRule` is now `getModeRule`, a keyed lookup rather than a find over
+an array.
+
+**`form.pace` stays in the save and stays in `backstorySeed`**, which is the one thing that could not
+change. Dropping it from the hash would re-roll the breakup reason and keepsake of every
+ex-girlfriend save in flight — the exact drift `backstorySeed` exists to prevent. It is a frozen
+setup token now, like `age`: new saves hash an empty string there, stable for the life of the save.
+The story mode is deliberately **not** hashed, because a live value in the seed would make the static
+prompt drift on every toggle.
+
+**Two findings, neither of them in scope:**
+
+- **The epilogue call site was passing no `timeSpeed` at all**, so Time Speed has never applied to an
+  epilogue in any release. That is the fourth-call-site drift *Known Inconsistencies 2* already
+  records for `formForRound()`, in the same function. All four call sites now pass `timeSpeed,
+  storyMode,` identically, and the guard counts the pair rather than either name.
+- **`STORAGE_KEYS.FORM` (`rv_sim_form_v11`) is a dead key.** Nothing in `src/` reads or writes it,
+  so the first version of the legacy seeding — which read `form.pace` from it — was a legacy path
+  that could never have fired. A vacuous seed would have looked exactly like a working one. The
+  pace actually lives in **save slots**, which `migrateSaveFields` copies untouched, so that is
+  where the seed reads from. CLAUDE.md's storage table claimed the key held "character setup form";
+  corrected. Add it to §18's dead-constant decision beside `STAR_LEVELS`.
+
+**The mutation sweep's own lesson, and it is a different one from step 1's.** Three of the first
+twenty went GREEN, all three on the pace-to-mode map. Step 1's greens were mutations aimed at
+*redundant* enforcements, where the requirement held and a neighbouring check fired. These were
+not: **nothing tested the mapping at all.** The structural guard — "App seeds through
+`seededStoryMode`" — passed while the rule it names was free to return anything. A guard that the
+right function is *called* is not a guard on what it *does*. The rule is now one pure exported
+function, `resolveStoryMode(stored, legacyPace)` (two functions would have been two answers to one
+question), with ten behavioural guards, and the three went RED. **24/24 across both rounds.**
+
+**Also fixed in the same sweep: my own Layer J check could not fail.** It was
+`MODE_IDS.map(() => dBuild(dForm(), "zh"))` — the same builder called four times, so "byte-identical
+across a mode change" was a tautology. It now varies `form.storyMode`, which is the field a future
+implementation would most plausibly carry the mode in, and the Time Speed half varies
+`form.timeSpeed` the same way. *A harness that cannot fail is indistinguishable from a passing one*,
+applied to a guard written in this very step.
 
 **Two of the first-round mutations went GREEN and reading why was the useful part.** Dropping
 `castLore` from `REQUIRED`, and deleting the unknown-register throw, both left the suite green —
@@ -1667,11 +1712,41 @@ Still open, and none of it blocks starting step 1:
    [App.jsx:58](../src/App.jsx#L58), referenced nowhere, and `form.starLevel` is `""` in every save.
    Deleting is recommended. Wiring it as *prior relationship to the cast* (fan level in kpop, family
    standing in chaebol) is coherent, but that is a new feature wearing a dead field's name.
+
+   **`STORAGE_KEYS.FORM` is the same decision, found in step 2.** `rv_sim_form_v11` is defined in
+   `src/utils.js` and **nothing in `src/` reads or writes it**. CLAUDE.md's storage table claimed it
+   held the character setup form; corrected in step 2. Persisting the setup form across reloads is a
+   real (small) feature — the player re-picks her cast after a refresh today — so this is either a
+   deletion or a five-line feature, and it should not stay a constant pretending to be wiring.
 7. **Is `WorldBuilder.jsx` in or out?** Out as scoped. In, it roughly doubles the release's UI work.
 8. **`PROPOSALS.md` §6's ending precedence is now a prerequisite, not a cleanup.** Two of the five
    endings are effectively unreachable, and endings plus After Story (`番外`) are the feature the
    story-mode switch is the foundation for. Fix the precedence before writing content that hangs off
    an ending nobody can reach.
+9. **Should `secrecy` become `pressure`, inverted, to read uniformly across worlds?** Raised by
+   Yuhan during step 2. **Recommendation: no — give the world a display `statLabels` instead, and
+   keep the field, its polarity and its thresholds.** Three reasons:
+
+   - **`pressure` is the one name it cannot have.** The story mode `pressure` shipped in step 2, so a
+     stat called Pressure sits in the tail beside `[Story Mode: Pressure]` — two different quantities
+     under one name, which is precisely the `[Pacing]` collision step 2 existed to avoid and worse
+     than the `[Stage Changes]` id-vs-name case, because the model has to guess which is which.
+   - **It is an inversion, not a rename, and it lands on thresholds already known to be broken.**
+     `secrecy` is read by three of the five achievement conditions (`> 60`, `< 60`, `< 45`), and
+     `PROPOSALS.md` §6 records that two of the five endings are effectively unreachable and one
+     condition matches nothing at all. Flipping the polarity of the variable those are written in,
+     in the same release, makes a mis-flip invisible. It also breaks the migration invariant smoke
+     asserts — a pinned v1.3.8 save must build a **byte-identical** prompt — since `100 - secrecy`
+     deliberately changes the number the prompt carries.
+   - **It buys nothing a label cannot.** All four v1.4.1 worlds are hidden-relationship premises
+     (student/professor, manager/report, rival heiresses), so "how well hidden is this" reads
+     correctly in every one. That is exactly why §4.1's `statLabels` was deferred rather than
+     dropped, and `statNotes` — shipped in step 1 — already carries the per-world prose for *what
+     raises and lowers it*.
+
+   **If the inversion is wanted anyway it is its own step with its own gate**, not folded into
+   another: the polarity flip, the three achievement conditions, the `100 - secrecy` migration and
+   a rewritten migration invariant are one change whose diff has to be readable on its own.
 
 ---
 

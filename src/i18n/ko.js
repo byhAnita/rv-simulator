@@ -29,7 +29,6 @@ const ko = {
     basicInfo: "📝 기본 정보",
     name: "이름",
     age: "나이",
-    pace: "🎬 스토리 전개",
     start: (name) => `✨ ${name}와(과) 시작`,
     complete: "모든 항목을 입력해주세요",
     loading: "멤버 데이터 로딩 중...",
@@ -156,7 +155,17 @@ const ko = {
     "主线成员前女友": "전 여자친구",
     "H": "[직접 입력]",
   },
-  paces: ["현실 느린 전개", "로맨틱 드라마", "고강도 스캔들", "하렘 루트"],
+  // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
+  // laid out in a parallel array. `paces` used to sit here and was read as
+  // `t.paces[i]` against `PACES[i]` in App.jsx, coupling two hand-maintained
+  // lists by POSITION. One string per mode, matching how Time Speed reads: the
+  // section title is the heading and this is the line under it.
+  modes: {
+    free: "🌿 자유 — 외부 사건 없이 관계 자체가 이야기",
+    romance: "💕 로맨스 — 자연스럽게 진행되는 쌍방향 로맨스",
+    pressure: "🔥 고압 — 스캔들과 여론 압박, 비밀 변화 2배",
+    dramatic: "🎭 수라 — 메인과 서브가 당신의 호감을 두고 경쟁",
+  },
   game: {
     generating: "오프닝 스토리 생성 중...",
     progressing: "스토리 진행 중...",
@@ -279,6 +288,7 @@ const ko = {
     reasoningTitle: "🧠 딥씽킹",
     reasoningOn: "💰 ON — 모델이 작성 전에 추론합니다. 스토리가 더 풍부하지만 비용 ~2배, 속도 느림.",
     reasoningOff: "⚡ OFF — 빠른 응답, 낮은 비용. ",
+    storyModeTitle: "🎬 스토리 모드",
     birthYearTitle: "🎂 출생 연도",
     birthYearApply: "저장",
     birthYearHint: "당신과 멤버 사이의 높임말 방향을 결정합니다. 변경하면 다음 라운드부터 반영됩니다.",

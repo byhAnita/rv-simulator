@@ -64,12 +64,18 @@ six months later.
 
 **The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's birth year therefore defaults to the cast's median, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` still pins it, converted to a birth year on the way in. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
 
-**Every field of `form` that selects a whole block of the prompt has to be a flag.** `--identity`
-exists because pinning `练习生` meant 7 of the 8 identity backgrounds had never been played live by
-anything; `--pace` exists because the same thing was true of the pace, and it started mattering the
-moment section 6 began sending the pace's authored rule instead of its id. Smoke asserts the `form`
-literal is built from `IDENTITY` and `PACE` rather than from strings — a flag check alone would pass
-while `form.pace` stayed hardcoded.
+**Every field that selects a whole block of the prompt has to be a flag.** `--identity` exists
+because pinning `练习生` meant 7 of the 8 identity backgrounds had never been played live by anything;
+`--pace` existed because the same thing was true of the pace, and it started mattering the moment
+section 6 began sending the pace's authored rule instead of its id. Smoke asserts the `form` literal
+is built from `IDENTITY` rather than from strings — a flag check alone would pass while
+`form.identity` stayed hardcoded.
+
+**`--pace` is `--mode` since v1.4.1 step 2, and the guard moved with it.** The story mode is not a
+`form` field at all, so smoke asserts `storyMode: MODE` on **the `executeRound` call** — a guard
+reading `form` would now be reading the wrong object. `MODE_IDS` is imported from
+`src/rag/worldLoader.js` rather than listed in the harness, because a second hand-maintained list of
+mode ids is exactly what `PACES` was. **The guard belongs where the value is passed.**
 
 **`node scripts/analyze-prose.mjs` is the third question, and the graders cannot answer it.** A grader
 reports what went **wrong**; "0 issues" reads the same whether the model used `欧尼` all game or
@@ -102,7 +108,7 @@ repeat itself.
     1. **Static system prompt** — rules, lore, member profiles, JSON schema (~5,500 tok) -> 100% cache hit after R1
     2. **History ledger** (`buildHistoryLedger`) — append-only summaries + full stories (~2,300 tok) -> hits except the newest entry
     3. **Dynamic tail** (`buildDynamicTail`) — player stats, affections, stage changes, NPC state, KKT, pacing hint (~150 tok) -> always cache miss, kept small
-*   **Dynamic fields isolated to tail:** Player stats, affections, stage changes, NPC appearances, and the Time Speed `[Pacing]` hint live exclusively in the dynamic tail message and are never embedded in the history ledger, to avoid invalidating the prefix.
+*   **Dynamic fields isolated to tail:** Player stats, affections, stage changes, NPC appearances, and **both live pacing dials** — the `[Story Mode]` rule and the `[Time Speed]` hint — live exclusively in the dynamic tail message and are never embedded in the history ledger or the system prompt, to avoid invalidating the prefix.
 *   **Save schema:** `rv_sim_saves_v13`. `isLegacyMemory` detects `memory.history === undefined`. On legacy load, memory is wiped to `createEmptyMemory()` while stats and affections are preserved — no crash.
 
 ### Regenerate & Edit Features
@@ -186,7 +192,7 @@ Player choice
 | --- | --- | --- |
 | `rv_sim_saves_v13` | `STORAGE_KEYS.SAVES` | Save slots |
 | `rv_sim_api_key_v11` | `STORAGE_KEYS.API_KEY` | API key |
-| `rv_sim_form_v11` | `STORAGE_KEYS.FORM` | Character setup form |
+| `rv_sim_form_v11` | `STORAGE_KEYS.FORM` | **Nothing. Dead key** — the constant is defined in `src/utils.js` and no file in `src/` reads or writes it. Found in v1.4.1 step 2 while looking for a legacy `form.pace` to seed the story mode from; the pace actually lives in save slots. This row used to claim "character setup form". Either wire it up or delete the constant — `docs/V140_PLAN.md` §18 carries the decision, beside `STAR_LEVELS` |
 | `rv_sim_social_v11` | `STORAGE_KEYS.SOCIAL_FEEDS` | Social feed cache |
 | `rv_sim_model_v11` | `STORAGE_KEYS.SELECTED_MODEL` | Provider id |
 | `rv_sim_reasoning_v13` | `STORAGE_KEYS.REASONING` | Deep Thinking on/off |
@@ -196,6 +202,7 @@ Player choice
 | `rv_sim_qwen_submodel` | inline literal | **Legacy, read-only** — seeds `ALIYUN_PAID_MODEL` once for players upgrading from the 3-sub-model UI |
 | `rv_sim_theme` | inline literal | `"dark"` / `"light"` |
 | `rv_sim_timespeed` | inline literal | `"slow"` / `"default"` / `"fast"` |
+| `rv_sim_story_mode` | inline literal | `"free"` / `"romance"` / `"pressure"` / `"dramatic"`. Absent until the player opens Settings or loads a pre-v1.4.1 save, which **seeds** it from that save's `form.pace` through `resolveStoryMode` — a seed, not a migration |
 | `rv_sim_fontscale` | inline literal | `1` / `1.25` |
 | `rv_sim_language` | inline literal | `zh` / `en` / `ko` |
 | `rv_sim_group` | inline literal | Selected group id |
@@ -464,13 +471,18 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
 | Deep Thinking | `reasoningEnabled` | `rv_sim_reasoning_v13` | -> `executeRound` -> `callLLM` per-provider flags |
-| Time Speed | `timeSpeed` (`slow`/`default`/`fast`) | `rv_sim_timespeed` | -> `executeRound` -> appended to the **dynamic tail** as a `[Pacing]` line, never the ledger |
+| Story Mode | `storyMode` (`free`/`romance`/`pressure`/`dramatic`) | `rv_sim_story_mode` | -> `executeRound` -> `buildTailRules` -> the world's `modes[id]` rule, appended to the **dynamic tail**, never the system prompt |
+| Time Speed | `timeSpeed` (`slow`/`default`/`fast`) | `rv_sim_timespeed` | -> `executeRound` -> `buildTailRules` -> a `[Time Speed]` line in the **dynamic tail**, never the ledger |
 | Day/Night | `theme` (`dark`/`light`) | `rv_sim_theme` | `THEMES[theme]` -> `th` token object, threaded into every overlay as a `theme` prop |
 | Text size | `fontScale` (`1`/`1.25`) | `rv_sim_fontscale` | `Math.round(base * fontScale)` on story/option text; passed to Bubble and Kakao overlays |
 | Export | `exportClipboard` / `exportTxt` / `exportPdf` | — | Shares `extractStoryText()`; PDF renders themed HTML into a hidden iframe and calls `print()` |
 | Help Center | `showHelp` | — | `HelpOverlay.jsx`, 4 tabs x 3 languages; the Errors tab reads `t.errors` so it always matches the in-game notices |
 
-**Time Speed placement matters.** The pacing hint is concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger. Toggling it mid-run therefore costs nothing in cache terms. Never move it into `buildSystemPrompt` or `buildHistoryLedger`.
+**Placement is what makes both dials free, and `buildTailRules` is the one function that places them.** Both lines are concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger, so toggling either mid-run costs nothing in cache terms. Never move either into `buildSystemPrompt` or `buildHistoryLedger` — Layer J asserts the static prompt is byte-identical across a change to each, paired with the assertion that the tail is what moves instead, because either half alone is vacuous.
+
+**They used to share one label, and that was the bug v1.4.1 step 2 had to avoid.** Time Speed wrote `[Pacing] slow — …`, and the story-mode rule was about to write a second, different quantity under the same name. That is worse than the `[Stage Changes]` id-vs-name case, which was two labels for one quantity: **two quantities under one label leaves the model to work out which line means what.** They are `[Story Mode: …]` and `[Time Speed]` now, renamed in the same commit. No golden pins either, because the tail is the always-miss message.
+
+**`free` sends a rule; it does not send nothing.** A mode that omitted its line would strip a free-mode game of the slow-burn texture every `慢热现实向` player has today, and would be indistinguishable from the wiring being broken. An unrecognised mode id — localStorage can hold anything a previous build left there — resolves to `free` rather than to silence.
 
 **Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` or `╚` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
 
@@ -593,7 +605,9 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
-  + optional "[Pacing] slow|fast ..." line from Time Speed
+  + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
+  + optional "[Time Speed] slow|fast ..." line, only when it is not the default
+  (both from buildTailRules, which is the only thing allowed to place them)
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
 
@@ -746,7 +760,7 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 1. **Language lock** — output language tied to the player's UI language (`zh`/`en`/`ko`)
 2. **JSON schema** — valid JSON every round, no markdown fences
 3. **Member personality matrices** — injected from group RAG JSON
-4. **Identity + Pace blocks** — one of the 7+1 identities and one of the pace settings, selected at build time
+4. **Identity block** — one of the 7+1 identities, selected at build time. The pace block sat beside it until v1.4.1 step 2, which moved it to the dynamic tail as the story mode: a setting the player can change mid-run must not sit in the cached prefix
 5. **Phase rules** — rounds 1-6 (stranger), 7-14 (familiar), 15-24 (pressure), 25+ (consequences)
 6. **Unknown-character rule** — only members in MEMBER PROFILES may appear by name; other roles are unnamed archetypes (manager, assistant, executive, fan)
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
@@ -1364,11 +1378,15 @@ Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
 Setup Page
-  -> Main member + Sub members + Identity (7+1) + Pace + Name/Birth year
+  -> Main member + Sub members + Identity (7+1) + Name/Birth year
+     (the pace picker was here until v1.4.1 step 2; step 3 puts the world
+      picker in the slot it vacated, which is how BOTH cover doors get
+      worlds - they both pass through this page)
       |
 Game Page (loop)
   -> Read story -> Choose A/B/C/D or Custom -> Next round
-     (settings overlay: reasoning, time speed, theme, font, export, help)
+     (settings overlay: reasoning, story mode, time speed, theme, font,
+      export, help)
 ```
 
 "New Game" is disabled (dimmed + toast) until a group is selected.
@@ -1448,14 +1466,21 @@ with `loadWorld()`, exactly as they already load the group config.
 **`parseWorld` validates and throws; it does not whitelist-copy.** See the `birthday` note below
 for why that distinction is not pedantic.
 
-**An identity carries a `name` as well as an `id`, and the pace carries only a rule.** The `id` is a
-*stored* value sitting in every save on every device, so it can never be renamed — which is why it is
+**An identity carries a `name` as well as an `id`, and a story mode carries only a rule.** The `id` is
+a *stored* value sitting in every save on every device, so it can never be renamed — which is why it is
 Chinese in all three languages and why the prompt must not print it. `name` is what section 6 prints,
 authored per language, and **smoke asserts it equals the Setup label in `src/i18n/<lang>.js`**, since
-it is a second copy of that string and both sides render something plausible when they drift. A pace
-needs no `name`: its `rule` already opens with a self-describing `[Pace: High Pressure]`, and the rule
-is what the model actually needs. Both fall back to the id, so a world file lacking either still
-renders something true rather than a blank line.
+it is a second copy of that string and both sides render something plausible when they drift. It falls
+back to the id, so a world file lacking one still renders something true rather than a blank line.
+
+**A story mode needs no `name` for two reasons, and the second is the one that matters.** Its rule
+already opens with a self-describing `[Story Mode: Pressure]`, which is what the model needs — and the
+four ids are **universal across every world**, so the labels live once in `t.modes` instead of once per
+world. `world.modes` is therefore a map **keyed by id**, not an array: `paces` was an array read as
+`t.paces[i]` against a hardcoded `PACES[i]` in `App.jsx`, coupling two hand-maintained lists **by
+position**, so a language with a shorter list mislabelled every entry after it and a world with its own
+pace ids would have stored one the world never declared. `PACES`, `t.paces` and `world.paces` are all
+deleted in v1.4.1 step 2 rather than extended per world.
 
 Read `docs/TECH_NOTES.md`, *"World data as a fetched document"*, before changing the world shape,
 and `docs/V140_PLAN.md` §2 and §4 for the full design.
@@ -2705,8 +2730,13 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
    in `smoke.mjs` pass the raw id, which is the one thing the app does not pass. The guard is therefore
    written as *what App.jsx forwards must be an id the world declares*, not as "label equals id".
 
-   `PACES` is the same shape one field over — a fourth copy of a list the world file owns, coupled
-   to `t.paces` **by position** — and is checked against the world.
+   `PACES` was the same shape one field over — a fourth copy of a list the world file owns, coupled
+   to `t.paces` **by position** — and it is **deleted** in v1.4.1 step 2 rather than guarded. The four
+   story-mode ids that replaced it are universal across every world, so there is no per-world list to
+   keep in step with anything: the labels live once in `t.modes`, keyed by id, and the rules live in
+   `world.modes`, keyed by the same ids. The guards are written so that bringing either list back
+   fails the suite. **A coupling deleted is worth more than a coupling asserted** — the guard that
+   existed here only caught a list that had already drifted.
 
    **`STAR_LEVELS` is not, and the sentence that used to claim it was wrong.** It is
    `["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"]` at `App.jsx:58` and it is **referenced

@@ -44,10 +44,10 @@
 
 1. **Cover Page** — Select girl group → choose language → New Game or Load Save
 2. **Key Input** — Paste your API Key → pick a provider (for Aliyun: 🎁 Free credits or 💳 Paid + model)
-3. **Character Creation** — Main member + Sub members + Identity + Name/Age + Pace
+3. **Character Creation** — Main member + Sub members + Identity + Name/Birth year
 4. **Game** — Read story → choose A/B/C/D (or type a custom action) → repeat
 5. **Social Media** — Check Bubble / Instagram / Weverse / KKT for member updates while the next round generates
-6. **Settings (⚙️)** — Deep Thinking, Time Speed, Day/Night, Text Size, Export, Help, Switch Model
+6. **Settings (⚙️)** — Deep Thinking, Story Mode, Time Speed, Day/Night, Text Size, Export, Help, Switch Model
 7. **Save** — Tap 💾 anytime
 
 ---
@@ -57,7 +57,8 @@
 | Control | Options | Effect |
 | --- | --- | --- |
 | 🧠 **Deep Thinking** | On / **Off (default)** | Off → faster, roughly half the cost, and story quality holds up. On → the model reasons before writing; richer output, ~2x cost, slower. |
-| ⏳ **Time Speed** | 🐌 Slow / **🕛 Normal** / ⚡ Fast | Injected as a `[Pacing]` hint in the dynamic tail. Slow keeps the scene in place; Fast jumps ahead to the next event or date. |
+| 🎬 **Story Mode** | 🌿 **Free (default)** / 💕 Romance / 🔥 Pressure / 🎭 Dramatic | What drives the plot. Free means no external events — the relationship is the story. Pressure doubles scandal and secrecy swings; Dramatic has the main and sub members compete for you. Sent as a `[Story Mode]` rule in the dynamic tail, so switching mid-run is instant and free. |
+| ⏳ **Time Speed** | 🐌 Slow / **🕛 Normal** / ⚡ Fast | Injected as a `[Time Speed]` hint in the dynamic tail. Slow keeps the scene in place; Fast jumps ahead to the next event or date. |
 | 🌗 **Day / Night** | Dark (default) / Light | Full theme swap. Persisted in `rv_sim_theme`. |
 | 🔠 **Text Size** | A (1x) / A+ (1.25x) | Scales story, options, and social overlay text. |
 | 📖 **Export** | Clipboard / `.txt` / PDF | Strips stat boxes and option lines — pure narrative, round by round. PDF respects your current theme. |
@@ -356,7 +357,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  |  Sub Members: [Seulgi] [Joy]                          | |
 |  |  NPC: Seulgi, Joy                                     | |
 |  |  Identity: [Trainee] [Staff] [Artist] [Fan] ...       | |
-|  |  Info: [Name] [Age]     Pace: [Slow/Normal/Pressure]  | |
+|  |  Info: [Name]           Birth year: [ 1998 ]          | |
 |  |  [ Back ]  [ Start with Irene ]                       | |
 |  +-------------------------------------------------------+ |
 +------------------------------------------------------------+
@@ -448,7 +449,7 @@ npm run deploy                  # build + patch index.html + push main
 |  | Tier 1 - Static System Prompt (100% cache hit after R1)        |  |
 |  | |-- System instructions + Language rules                       |  |
 |  | |-- Member profiles (personality / queer texture)              |  |
-|  | |-- Identity backgrounds (7+1 types) + Pace rules              |  |
+|  | |-- Identity backgrounds (7+1 types)                           |  |
 |  | |-- Social platform rules (Bubble/INS/Weverse/KKT)             |  |
 |  | |-- NPC rules + Game rules + Prohibitions                      |  |
 |  | +-- JSON Schema                                                |  |
@@ -461,7 +462,8 @@ npm run deploy                  # build + patch index.html + push main
 |  | |-- Player stats + affections                                  |  |
 |  | |-- Stage changes + NPC appearance state                       |  |
 |  | |-- KKT messages (unlocked members)                            |  |
-|  | +-- [Pacing] hint from the Time Speed setting                  |  |
+|  | |-- [Story Mode] rule from the Story Mode setting              |  |
+|  | +-- [Time Speed] hint from the Time Speed setting              |  |
 |  +---------------------------------------------------------------+  |
 |                  |  ~87% of input tokens bill at cache-hit rate     |
 |                  v                                                  |
@@ -498,7 +500,7 @@ npm run deploy                  # build + patch index.html + push main
 |  Step 0: preRoundSnapshotRef captures state (enables Retry)     |
 |        |                                                        |
 |  Step 1: collapseHistoryIfNeeded -> buildHistoryLedger +        |
-|          buildDynamicTail (+ [Pacing] from Time Speed)          |
+|          buildDynamicTail (+ [Story Mode] and [Time Speed])     |
 |        |                                                        |
 |  Step 1.5: popPendingSocial() -> Display last round's social    |
 |    |-- Notification bar + red dots -> Instant                   |

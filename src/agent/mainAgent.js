@@ -8,7 +8,7 @@ import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
-import { getIdentity, getPaceRule, renderIdentityBackground } from "../rag/worldLoader";
+import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground } from "../rag/worldLoader";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -108,15 +108,17 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Pressure Scandal". Two vocabularies for one thing, and the model got the one
   // nobody can read: exactly the stage-label bug from step 6, one section up.
   //
-  // `name` fixes the identity. The pace needs no name field, because its authored
-  // rule already opens with a self-describing "[Pace: High Pressure]" — and
-  // sending the rule closes a live feature gap as well: `paceRules` was built into
-  // a local and never referenced, so "secrecy changes doubled" and "love triangle
-  // scenes probability doubled" were things the player could select and the model
-  // could not know. Both fall back to the id, so a world file without either still
-  // renders something true.
+  // `name` fixes the identity, and falls back to the id so a world file without
+  // one still renders something true.
+  //
+  // THE PACE IS NOT HERE ANY MORE. v1.4.1 step 2 replaced it with the four-way
+  // story mode, which is a live Settings switch rather than a setup choice — so
+  // its rule is appended to the DYNAMIC TAIL by `buildTailRules` and this
+  // function must never read it. That is the whole point: a mid-run change to
+  // how the story is driven costs no cached prefix, the same trade Time Speed
+  // already made. Anything that puts a mode rule back in here silently charges
+  // full price for ~5,500 tokens on the round after every toggle.
   const identityName = getIdentity(world, form.identity)?.name || form.identity;
-  const paceLine = getPaceRule(world, form.pace) || `Progression Pace: ${form.pace}`;
 
   // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
   // 1995 idol are not peers even though they may be months apart. Direction is
@@ -156,7 +158,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // and a custom identity has no background and rendered a second blank line.
   const castLines = [
     `${playerName}'s identity: ${identityName}`,
-    paceLine,
     `Main Member: ${mainMember?.name}${mainMember?.name_kr ? `(${mainMember.name_kr})` : ""}`,
     subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : "",
     npcList.length > 0
@@ -455,6 +456,15 @@ ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}
 //
 // The text it indexes into now lives in the world file, as `variants` on the
 // identity; renderIdentityBackground applies this seed to it.
+//
+// `form.pace` STAYS in this hash although v1.4.1 step 2 stopped Setup writing it
+// and the prompt reading it. It is a frozen setup token now, exactly like `age`:
+// every existing save carries one, and dropping it from the seed would re-roll
+// the breakup reason and keepsake of every ex-girlfriend save in flight — the
+// one thing this function exists to prevent. New saves hash an empty string
+// there, which is stable for the life of the save; the variety comes from the
+// other three fields. Do NOT swap in the story mode: that value is live, so
+// hashing it would make the static prompt drift on every toggle.
 function backstorySeed(form, mainId) {
   let h = 0x811c9dc5;                                            // FNV-1a, as in aliyunRoute.js
   for (const ch of `${form.name || ""}|${form.age || ""}|${form.pace || ""}|${mainId || ""}`) {
@@ -709,12 +719,48 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 }
 
 // ============================================================
+// The two live pacing dials
+// ============================================================
+// Both belong in the dynamic tail and neither may ever reach buildSystemPrompt.
+// That placement is what makes changing either mid-run free in cache terms, and
+// it is the whole reason the story mode left section 6 in v1.4.1 step 2.
+//
+// THEY USED TO SHARE ONE LABEL. Time Speed wrote `[Pacing] slow - ...`, and the
+// story mode would have written a second, different quantity under the same
+// name. That is worse than the `[Stage Changes]` id-vs-name case, which was two
+// labels for one quantity: two quantities under one label leaves the model to
+// work out which line means what. Renamed together, in the same commit, and no
+// golden pins either - the tail is the always-miss message.
+//
+// `free` SENDS ITS RULE; it does not send nothing. Omitting the line would strip
+// a free-mode game of the slow-burn texture today's slow-burn players have, and
+// a mode that sends nothing is indistinguishable from a wiring bug.
+//
+// An unrecognised mode id resolves to `free` rather than sending no line at all.
+// The value comes from localStorage, so it can hold anything a previous build or
+// a hand edit left there, and the failure to avoid is a game that silently stops
+// driving its own plot.
+export function buildTailRules(world, storyMode, timeSpeed) {
+  const lines = [];
+  // The rule carries its own "[Story Mode: X]" prefix, exactly as the pace rule
+  // carried "[Pace: X]", so nothing is prepended here.
+  const rule = getModeRule(world, MODE_IDS.includes(storyMode) ? storyMode : "free");
+  if (rule) lines.push(rule);
+  if (timeSpeed === "slow") {
+    lines.push("[Time Speed] slow — stay in this moment, don't advance time much this round");
+  } else if (timeSpeed === "fast") {
+    lines.push("[Time Speed] fast — advance time noticeably, skip ahead to the next event or date");
+  }
+  return lines.map((line) => `\n${line}`).join("");
+}
+
+// ============================================================
 // Main Loop
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
   groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
-  timeSpeed = "default",
+  timeSpeed = "default", storyMode = "free",
 }) {
   const allTargetIds = [mainId, ...subIds];
   const roundNum = stats.week;
@@ -745,7 +791,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${timeSpeed === "slow" ? "\n[Pacing] slow — stay in this moment, don't advance time much this round" : timeSpeed === "fast" ? "\n[Pacing] fast — advance time noticeably, skip ahead to the next event or date" : ""}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   // A response that parses but carries no real story is a wasted round. Rather

@@ -103,24 +103,6 @@
       }
     }
   ],
-  "paces": [
-    {
-      "id": "慢热现实向",
-      "rule": "[Pace: Slow Burn] Flipped & Ambiguous. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship."
-    },
-    {
-      "id": "浪漫情感向",
-      "rule": "[Pace: Romantic] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage."
-    },
-    {
-      "id": "高压舆论向",
-      "rule": "[Pace: High Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans."
-    },
-    {
-      "id": "修罗海王向",
-      "rule": "[Pace: Harem Route] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
-    }
-  ],
   "modes": {
     "free": "[Story Mode: Free] No authored plot events — the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
     "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",

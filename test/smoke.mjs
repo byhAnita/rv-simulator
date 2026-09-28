@@ -1600,7 +1600,7 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger,
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
 
@@ -2281,24 +2281,82 @@ async function layerI() {
     /THE PLAYER: Summer — a WLW woman, age /.test(p) && !/young WLW/.test(p),
     "PLAYER_BIRTH_YEAR_MIN is GAME_YEAR - 80");
 
-  // The pace was a bare Chinese id in every language, and its authored rule —
-  // "secrecy changes doubled", "love triangle scenes probability doubled" — was
-  // built into a local in the pre-step-3 code and referenced by nothing. So the
-  // player could choose a pace and the model could not know she had.
+  // ------------------------------------------------- the story mode, in the TAIL
+  //
+  // v1.4.0 step 7 wired the pace’s authored rule into section 6, because until
+  // then the player could choose a pace and the model was sent only its id.
+  // v1.4.1 step 2 keeps the rule and moves it OUT of section 6 into the dynamic
+  // tail, because the four-way story mode is a live Settings switch: a rule in
+  // the cached prefix means every toggle costs ~5,500 tokens on the next round.
+  //
+  // So the load-bearing assertion is the NEGATIVE one. Nothing the mode can say
+  // may appear in the static prompt, in any language - that is the claim the
+  // whole move rests on, and it is what fails if a mode rule is ever put back
+  // into buildSystemPrompt.
   for (const lang of ["zh", "en", "ko"]) {
-    for (const pace of ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"]) {
-      const withPace = prompt(form({ pace }), lang);
-      check(`[${lang}] pace ${pace} reaches the model as its rule`,
-        /\[Pace: (Slow Burn|Romantic|High Pressure|Harem Route)\]/.test(withPace)
-          && !withPace.includes(`Progression Pace: ${pace}`),
-        (withPace.split("\n").find((l) => l.includes("Pace")) || "no pace line").slice(0, 100));
+    const staticPrompt = prompt(form(), lang);
+    const leaked = loader.MODE_IDS.filter((id) => staticPrompt.includes(worldFor[lang].modes[id]));
+    check(`[${lang}] no story-mode rule reaches the static system prompt`,
+      leaked.length === 0,
+      `${leaked.join(", ")} - a live setting in the cached prefix costs the whole prefix on every toggle`);
+    // ...and the pace it replaced is gone from section 6 entirely, rather than
+    // surviving as a bare id beside it. Two rules about how the story is driven
+    // is the "a prompt is not append-only" failure this repo keeps recording.
+    check(`[${lang}] section 6 names no pace at all`,
+      !staticPrompt.includes("Progression Pace:") && !staticPrompt.includes("[Pace:"),
+      (staticPrompt.split("\n").find((l) => l.includes("Pace")) || "").slice(0, 100));
+  }
+  // The positive half: every mode sends its own rule, in every language.
+  for (const lang of ["zh", "en", "ko"]) {
+    for (const id of loader.MODE_IDS) {
+      const tail = buildTailRules(worldFor[lang], id, "default");
+      check(`[${lang}] story mode "${id}" sends its authored rule in the tail`,
+        tail.includes(worldFor[lang].modes[id]),
+        JSON.stringify(tail).slice(0, 120));
     }
   }
-  // An unknown pace — a save from a world that has been re-authored — still has to
-  // render something true rather than nothing.
-  check("an unrecognized pace falls back to naming itself",
-    prompt(form({ pace: "no-such-pace" })).includes("Progression Pace: no-such-pace"),
-    "a silent empty line would be worse than an untranslated one");
+  // `free` is the one that has to be stated separately. It is the DEFAULT mode and
+  // the one that means "no authored plot events", so sending no line at all would
+  // look deliberate - and it would silently strip a free-mode game of the
+  // slow-burn texture every legacy slow-burn player has today.
+  check("free mode sends a rule rather than nothing",
+    buildTailRules(worldFor.en, "free", "default").trim().length > 40,
+    JSON.stringify(buildTailRules(worldFor.en, "free", "default")));
+  // A mode id read back out of localStorage can be anything a previous build or a
+  // hand edit left there. It resolves to free, which is a visible, correct mode -
+  // not to silence, which is indistinguishable from the wiring being broken.
+  check("an unrecognized story mode falls back to free rather than to silence",
+    buildTailRules(worldFor.en, "no-such-mode", "default")
+      === buildTailRules(worldFor.en, "free", "default"),
+    JSON.stringify(buildTailRules(worldFor.en, "no-such-mode", "default")));
+  // THE TWO DIALS MUST NOT SHARE A LABEL. Time Speed wrote `[Pacing] slow - ...`
+  // and the story mode was about to write a second, different quantity under the
+  // same name: worse than the [Stage Changes] id-vs-name case, because the model
+  // would have to work out which line meant what. Renamed in the same commit.
+  const bothDials = buildTailRules(worldFor.en, "pressure", "slow");
+  check("the two tail dials carry different labels, and neither is [Pacing]",
+    bothDials.includes("[Story Mode:") && bothDials.includes("[Time Speed]")
+      && !bothDials.includes("[Pacing]"),
+    JSON.stringify(bothDials).slice(0, 200));
+  check("...on two separate lines, so neither can be read as qualifying the other",
+    bothDials.split("\n").filter(Boolean).length === 2,
+    JSON.stringify(bothDials));
+  // Unchanged behaviour, asserted because the rename touched this branch: the
+  // default time speed sends nothing, so an ordinary round carries one line.
+  check("the default time speed adds no line",
+    buildTailRules(worldFor.en, "free", "default").split("\n").filter(Boolean).length === 1,
+    JSON.stringify(buildTailRules(worldFor.en, "free", "default")));
+  check("a fast round says so",
+    buildTailRules(worldFor.en, "free", "fast").includes("[Time Speed] fast"),
+    JSON.stringify(buildTailRules(worldFor.en, "free", "fast")));
+  // Authored data reaching the prompt verbatim, so the same rule as the prompt’s
+  // own lines applies: no line ends in a space.
+  for (const lang of ["zh", "en", "ko"]) {
+    const dirty = loader.MODE_IDS.filter((id) =>
+      buildTailRules(worldFor[lang], id, "slow").split("\n").some((l) => / $/.test(l)));
+    check(`[${lang}] no story-mode rule carries stray whitespace`,
+      dirty.length === 0, dirty.join(", "));
+  }
 
   // The identity had the same defect and the same cause: `Alex's identity: 财阀`
   // in an English prompt, an internal key in a language she does not read, while
@@ -2880,35 +2938,28 @@ async function layerI() {
   // identity block silently. Plan §4.1 calls this the gpt4omini lesson.
   const SAVED_IDENTITY_IDS =
     ["练习生", "Staff", "韩娱艺人", "粉丝", "留学生", "财阀", "主线成员前女友"];
-  const SAVED_PACE_IDS = ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"];
   for (const lang of ["zh", "en", "ko"]) {
     const ids = worlds[lang].identities.map((i) => i.id);
     check(`[${lang}] the world declares every identity id that can sit in a save`,
       SAVED_IDENTITY_IDS.every((id) => ids.includes(id)),
       `missing: ${SAVED_IDENTITY_IDS.filter((id) => !ids.includes(id)).join(", ")}`);
-    const pids = worlds[lang].paces.map((p) => p.id);
-    check(`[${lang}] the world declares every pace id that can sit in a save`,
-      SAVED_PACE_IDS.every((id) => pids.includes(id)),
-      `missing: ${SAVED_PACE_IDS.filter((id) => !pids.includes(id)).join(", ")}`);
     check(`[${lang}] every identity carries a non-empty background`,
       worlds[lang].identities.every((i) => typeof i.background === "string" && i.background.length > 40),
       worlds[lang].identities.filter((i) => !(i.background?.length > 40)).map((i) => i.id).join(", "));
-    check(`[${lang}] every pace carries a rule`,
-      worlds[lang].paces.every((p) => typeof p.rule === "string" && p.rule.length > 20), "");
     check(`[${lang}] every identity carries the name the prompt prints`,
       worlds[lang].identities.every((i) => typeof i.name === "string" && i.name.length > 0),
       worlds[lang].identities.filter((i) => !i.name).map((i) => i.id).join(", "));
-    // Every pace rule is sent verbatim now, so a trailing space in one is a
-    // trailing space in the prompt — worth the whole cached prefix.
-    check(`[${lang}] no pace rule carries stray whitespace`,
-      worlds[lang].paces.every((p) => p.rule === p.rule.trim()),
-      worlds[lang].paces.filter((p) => p.rule !== p.rule.trim()).map((p) => p.id).join(", "));
+    // The world declares a rule for every story mode and NOTHING for the paces
+    // they replaced. A leftover `paces` array would be authored four more times
+    // in step 7 for three worlds that never read it - the shape this repo
+    // already tracks as NPC_APPEARANCE_CHANCE.
+    check(`[${lang}] every story mode carries a rule`,
+      loader.MODE_IDS.every((id) => typeof worlds[lang].modes[id] === "string"
+        && worlds[lang].modes[id].length > 20),
+      JSON.stringify(worlds[lang].modes).slice(0, 120));
+    check(`[${lang}] the world carries no leftover pace list`,
+      worlds[lang].paces === undefined, JSON.stringify(worlds[lang].paces || "").slice(0, 80));
   }
-  // The rules are English instruction text, like phases: identical in all three
-  // files, so a fix applied to one has to be applied to all three.
-  check("the pace rules are identical across zh/en/ko",
-    new Set(["zh", "en", "ko"].map((l) => JSON.stringify(worlds[l].paces))).size === 1,
-    "a rule fixed in one language only is a rule fixed for a third of players");
 
   // ---------------------------------------------------- Korean particles
   // A Korean particle is chosen by the sound the word in front of it ends in, and
@@ -3025,23 +3076,87 @@ async function layerI() {
     helperBody.includes('form.identity === "H"') && helperBody.includes("form.customIdentity"),
     helperBody.replace(/\s+/g, " ").slice(0, 160) || "formForRound not found — the anchor moved");
 
-  // The same shape one field over: PACES is a fourth copy of the pace list, and a
-  // pace the world does not declare now renders as the bare id instead of the rule
-  // section 6 is supposed to send.
-  const appPaces = ((setupSrc.match(/const PACES = \[([^\]]*)\]/) || [, ""])[1]
-    .match(/"([^"]+)"/g) || []).map((s) => s.replace(/"/g, ""));
-  check("every pace Setup offers is one the world declares",
-    appPaces.length > 0 && appPaces.every((p) => SAVED_PACE_IDS.includes(p)),
-    appPaces.filter((p) => !SAVED_PACE_IDS.includes(p)).join(", ") || appPaces.join(", "));
-  // The Setup picker renders t.paces[i] against PACES[i], so the two are coupled by
-  // POSITION — a language with a shorter list silently mislabels the rest.
+  // PACES AND t.paces ARE GONE, and these guards are written so that bringing
+  // either back fails. They were a fourth copy of the pace list, read as
+  // `t.paces.map((p, i) => ... PACES[i])` - two hand-maintained lists coupled by
+  // POSITION, so a language with a shorter list mislabelled the rest and a world
+  // with its own pace ids would have stored one the world never declared. The
+  // four universal story-mode ids delete the coupling instead of guarding it.
+  check("Setup no longer carries its own copy of the pace list",
+    !/const PACES = /.test(setupSrc) && !setupSrc.includes("t.paces"),
+    "PACES came back - the world owns the list, and the ids are universal");
   for (const lang of ["zh", "en", "ko"]) {
-    const uiPaces = ((readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8")
-      .match(/^\s*paces:\s*\[([^\]]*)\]/m) || [, ""])[1].match(/"([^"]+)"/g) || []).length;
-    check(`[${lang}] the pace labels line up with the pace ids by position`,
-      uiPaces === appPaces.length,
-      `${uiPaces} labels for ${appPaces.length} paces`);
+    const i18nSrc = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8");
+    check(`[${lang}] i18n carries no positional pace array`,
+      !/^\s*paces:\s*\[/m.test(i18nSrc), "t.paces is the list PACES was coupled to");
+    // Keyed by id instead, so a missing translation is a hole in a row rather
+    // than a silent off-by-one in every label after it. Same argument as
+    // RELEASE_NOTES holding all three languages side by side.
+    const missing = loader.MODE_IDS.filter((id) =>
+      !new RegExp(`\\n\\s*${id}:\\s*"[^"]{10,}"`).test(i18nSrc));
+    check(`[${lang}] every story mode has a label`,
+      missing.length === 0, `missing: ${missing.join(", ")}`);
   }
+  // What App.jsx FORWARDS has to be a mode the world declares. Written on the
+  // call rather than on the control, which is the identity lesson one field up:
+  // `IDENTITIES.find(...).label` is an identity function today, so a guard
+  // reading the picker would pass while the value reaching executeRound was
+  // something else entirely.
+  check("every executeRound call site forwards the story mode",
+    (setupSrc.match(/aliyunOptions\(\), timeSpeed, storyMode,/g) || []).length === roundCalls,
+    `${roundCalls} call sites, ${(setupSrc.match(/timeSpeed, storyMode,/g) || []).length} forwarding both dials` +
+    " - the epilogue site is the one that has drifted before");
+  // ...and the value it forwards comes from the seeding rule, which is the only
+  // thing allowed to decide it.
+  check("the story mode state is seeded through seededStoryMode",
+    /useState\(\(\) =>\s*\n?\s*seededStoryMode\(/.test(setupSrc)
+      && /const seededStoryMode = \(legacyPace\) =>/.test(setupSrc),
+    "a second reader of rv_sim_story_mode is a second answer to what the mode is");
+  // ...and loadSave seeds from the slot it is about to play, once, persisting it.
+  // Without that, a player loading a pre-mode save is silently moved to free mode
+  // whatever pace she has been playing for thirty rounds.
+  check("loadSave seeds the story mode from the save it is loading",
+    /seededStoryMode\(migrated.form\?.pace\)/.test(setupSrc)
+      && /saveToStorage\("rv_sim_story_mode"/.test(setupSrc),
+    "a seed that is not persisted runs again on every load and is not a seed");
+
+  // THE SEEDING RULE ITSELF, behaviourally. Three mutations to the pace map went
+  // green before these existed - not because a neighbouring check covered them,
+  // but because nothing tested the mapping at all. The structural guards above
+  // assert that App calls the rule; these assert that the rule is right.
+  for (const [pace, mode] of [["慢热现实向", "free"], ["浪漫情感向", "romance"],
+    ["高压舆论向", "pressure"], ["修罗海王向", "dramatic"]]) {
+    check(`the legacy pace ${pace} seeds story mode "${mode}"`,
+      loader.resolveStoryMode(null, pace) === mode,
+      loader.resolveStoryMode(null, pace));
+  }
+  // A brand-new player has no pace and no mode, and free is what the game has
+  // always been: no authored plot events, the relationship is the plot.
+  check("no pace and no stored mode seeds free",
+    loader.resolveStoryMode(null, undefined) === "free" && loader.resolveStoryMode(null, "") === "free",
+    loader.resolveStoryMode(null, undefined));
+  // A pace from a world that has been re-authored is somebody’s save, not a bug.
+  check("a pace the world no longer declares seeds free rather than nothing",
+    loader.resolveStoryMode(null, "made up in 2024") === "free",
+    loader.resolveStoryMode(null, "made up in 2024"));
+  // A CHOSEN MODE ALWAYS WINS. This is the half that matters once the seed has
+  // run: the legacy field stays in the save forever, so a rule that preferred it
+  // would silently overwrite her choice on every load.
+  check("a stored mode wins over the save’s legacy pace",
+    loader.resolveStoryMode("free", "高压舆论向") === "free"
+      && loader.resolveStoryMode("dramatic", "慢热现实向") === "dramatic",
+    loader.resolveStoryMode("free", "高压舆论向"));
+  // ...but a stored value that is not a mode is not a choice. localStorage can
+  // hold anything a previous build left there.
+  check("a stored value that is not a mode falls through to the pace",
+    loader.resolveStoryMode("浪漫情感向", "高压舆论向") === "pressure"
+      && loader.resolveStoryMode("", "修罗海王向") === "dramatic",
+    loader.resolveStoryMode("浪漫情感向", "高压舆论向"));
+  // Every mode id is reachable as a stored value, or a mode exists that the
+  // player can never be in. Derived from MODE_IDS.
+  check("every story mode id survives a round trip as a stored value",
+    loader.MODE_IDS.every((id) => loader.resolveStoryMode(id, "高压舆论向") === id),
+    loader.MODE_IDS.map((id) => loader.resolveStoryMode(id, "高压舆论向")).join(", "));
 
   // "H" is the custom-identity escape hatch: the player types their own text,
   // so the world must NOT ship a background for it. One that existed would
@@ -3135,7 +3250,7 @@ async function layerI() {
   const parseW = (cfg, reg = registers) => loader.parseWorld(cfg, "kpop_idol", "zh", reg);
 
   for (const key of ["country", "setting", "tone", "statNotes", "platforms", "castLore",
-    "useGroupLore", "identities", "paces", "modes", "phases", "places", "scenario",
+    "useGroupLore", "identities", "modes", "phases", "places", "scenario",
     "npcArchetypes"]) {
     const broken = { ...good };
     delete broken[key];
@@ -5491,7 +5606,29 @@ async function layerJ() {
   const ex = dForm({ identity: "主线成员前女友" });
   check("ex-girlfriend backstory is stable across rounds",
     dBuild(ex, "zh") === dBuild(ex, "zh") && dBuild(ex, "en") === dBuild(ex, "en"),
-    "the breakup reason and keepsake are re-rolling — see backstorySeed in mainAgent.js");
+    "the breakup reason and keepsake are re-rolling - see backstorySeed in mainAgent.js");
+
+  // THE CLAIM THE TAIL MOVE RESTS ON, stated as the pair of assertions it needs.
+  // Changing the story mode mid-run has to cost nothing, which means the static
+  // prompt cannot move across a mode change AND the tail has to be what moves
+  // instead. Either half alone is vacuous: identical prompts would also be true
+  // of a mode nothing reads, and four distinct tails would also be true of a mode
+  // that additionally rewrote section 6.
+  const modePrompts = new Set(mod.MODE_IDS.map((id) => dBuild(dForm({ storyMode: id }), "zh")));
+  const modeTails = new Set(mod.MODE_IDS.map(
+    (id) => mod.buildTailRules(dWorld.zh, id, "default")));
+  check(`the static prompt is byte-identical across all ${mod.MODE_IDS.length} story modes`,
+    modePrompts.size === 1,
+    "a live Settings switch reaching buildSystemPrompt costs ~5,500 tokens per toggle");
+  check("...and the dynamic tail is what changes instead",
+    modeTails.size === mod.MODE_IDS.length,
+    `${modeTails.size} distinct tails for ${mod.MODE_IDS.length} modes`);
+  // Same for Time Speed, which made this trade first and has never been asserted.
+  check("the static prompt is byte-identical across a Time Speed change",
+    new Set(["slow", "default", "fast"].map((ts) => dBuild(dForm({ timeSpeed: ts }), "en"))).size === 1
+      && new Set(["slow", "default", "fast"].map(
+        (ts) => mod.buildTailRules(dWorld.en, "free", ts))).size === 3,
+    "CLAUDE.md: never move the pacing hint into buildSystemPrompt or buildHistoryLedger");
 
   // Stability must not have been bought by pinning everyone to index 0: the
   // seed is supposed to give different playthroughs different backstories.
@@ -5999,32 +6136,73 @@ async function layerL() {
     check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
   }
 
-  // Every field of `form` that selects a whole block of the prompt must be a flag,
-  // not a literal. This has gone wrong twice with the same consequence: `identity`
-  // was pinned to 练习生, so 7 of the 8 identity backgrounds — including the only
-  // one containing randomness — had never been played live by anything; and `pace`
-  // was pinned to 浪漫情感向, which cost nothing while the pace reached the model as
-  // a bare id and cost three quarters of the coverage the moment step 7 started
-  // sending its authored rule.
+  // Every field that selects a whole block of the prompt must be a flag, not a
+  // literal. This has gone wrong three times with the same consequence:
+  // `identity` was pinned to a trainee, so 7 of the 8 backgrounds - including the
+  // only one containing randomness - had never been played live by anything;
+  // `pace` was pinned, which cost nothing while the pace reached the model as a
+  // bare id and cost three quarters of the coverage the moment step 7 started
+  // sending its authored rule; and `provider` was pinned to Aliyun, so three of
+  // the four providers still have not played a live round.
   //
-  // The check is on the form literal rather than on the flag list, because adding
-  // `--pace` while leaving `form.pace` hardcoded would pass a flag check.
+  // The story mode is the same field one release later, and it is now checked ON
+  // THE executeRound CALL rather than on the form literal. That is not a style
+  // change: the mode is no longer a form field at all, so a guard reading `form`
+  // would be reading the wrong object, and adding `--mode` while leaving
+  // `storyMode` off the call would pass a flag check.
   const formLiteral = (harness.match(/const form = \{[\s\S]*?\n    \};/) || [""])[0];
   check("the harness builds its form from flags, not literals",
-    formLiteral.length > 0 && /identity: IDENTITY/.test(formLiteral) && /pace: PACE/.test(formLiteral),
-    formLiteral.slice(0, 200) || "form literal not found — the anchor moved");
-  for (const [flag, constant] of [["identity", "IDENTITY"], ["pace", "PACE"]]) {
-    check(`...and --${flag} reaches it`,
-      new RegExp(`const ${constant} = arg\\("${flag}",`).test(harness),
-      `${constant} must come from arg("${flag}", …)`);
-  }
-  // Every id the world declares has to be reachable from the flag, or the default
-  // is the only one anyone ever plays.
-  const paceIds = JSON.parse(readFileSync(join(ROOT, "public/worlds/kpop_idol/zh.json"), "utf8"))
-    .paces.map((p) => p.id);
-  check("the harness documents every pace the world declares",
-    paceIds.every((id) => harness.includes(id)),
-    `undocumented: ${paceIds.filter((id) => !harness.includes(id)).join(", ")}`);
+    formLiteral.length > 0 && /identity: IDENTITY/.test(formLiteral),
+    formLiteral.slice(0, 200) || "form literal not found - the anchor moved");
+  check("...and --identity reaches it",
+    /const IDENTITY = arg\("identity",/.test(harness),
+    "IDENTITY must come from arg('identity', ...)");
+  const harnessCall = (harness.match(/await executeRound\(\{[\s\S]*?\n          \}\)/) || [""])[0];
+  check("the harness passes its story mode to executeRound",
+    harnessCall.length > 0 && /storyMode: MODE/.test(harnessCall),
+    harnessCall.replace(/\s+/g, " ").slice(0, 200) || "executeRound call not found - the anchor moved");
+  check("...and --mode reaches it",
+    /const MODE = arg\("mode",/.test(harness),
+    "MODE must come from arg('mode', ...)");
+  // `form.pace` stays in the harness form as an EMPTY STRING rather than being
+  // deleted: backstorySeed still hashes it, and a form that omits the key hashes
+  // `undefined` where the app hashes "" - two seeds for one setup.
+  check("...and the dead pace field is still present, empty, for the seed",
+    /pace: ""/.test(formLiteral), formLiteral.slice(0, 200));
+  // Every id the code declares has to be reachable from the flag, or the default
+  // is the only one anyone ever plays. DERIVED from MODE_IDS, so a fifth mode
+  // fails this until the harness documents it.
+  const { MODE_IDS: HARNESS_MODE_IDS } = await import(
+    "file://" + join(ROOT, "src/rag/worldLoader.js").replace(/\\/g, "/"));
+  check("the harness documents every story mode",
+    HARNESS_MODE_IDS.every((id) => harness.includes(id)),
+    `undocumented: ${HARNESS_MODE_IDS.filter((id) => !harness.includes(id)).join(", ")}`);
+  check("...and validates the flag against that list rather than a copy of it",
+    /MODE_IDS.includes\(MODE\)/.test(harness) && /from "..\/src\/rag\/worldLoader.js"/.test(harness),
+    "a second hand-maintained list of mode ids is what PACES was");
+
+  // THE REPORT CONFIG IS WRITTEN ONCE, AT THE END OF A RUN, so an undefined name
+  // in it throws only after the rounds have been spent - and `npm run build` does
+  // not cover this file at all. Renaming PACE to MODE left `PACE` in that object
+  // literal, which parses, bundles and dies at report time. A green build means
+  // the module graph resolves, not that any of it runs.
+  //
+  // Derived: every shorthand name in `config: { ... }` must appear somewhere else
+  // in the harness, so a key whose source was renamed away fails here.
+  const cfgLiteral = (harness.match(/config: \{ ([^}]*) \}/) || [, ""])[1];
+  const cfgKeys = cfgLiteral.split(",").map((k) => k.trim()).filter(Boolean);
+  check("the harness report config is not empty",
+    cfgKeys.length > 5, cfgLiteral.slice(0, 120) || "the config literal anchor moved");
+  // Counting occurrences is NOT enough, and this guard failed its own mutation
+  // that way first: a name mentioned in a COMMENT satisfies a count, and the
+  // comment explaining this very rename mentions PACE twice. That is the
+  // over-wide-pattern failure this suite already records three times. Require an
+  // actual declaration.
+  const orphanKeys = cfgKeys.filter((k) =>
+    !new RegExp(`(const|let|var|function)\\s+${k}\\b`).test(harness));
+  check("every name in the harness report config is defined somewhere in it",
+    orphanKeys.length === 0,
+    `${orphanKeys.join(", ")} - written into the report and declared nowhere, so the run dies after spending the rounds`);
 
   // THE PROVIDER IS THE THIRD FIELD OF THIS SHAPE, and it was the worst of them.
   // `selectedModel: "qwen"` and `aliyun: { mode: "free" }` were hardcoded into the

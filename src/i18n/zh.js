@@ -29,7 +29,6 @@ const zh = {
     basicInfo: "📝 基础信息",
     name: "名字",
     age: "年龄",
-    pace: "🎬 剧情节奏",
     start: (name) => `✨ 与${name} 开始故事`,
     complete: "请填写完整信息",
     loading: "加载成员数据...",
@@ -156,7 +155,17 @@ const zh = {
     "主线成员前女友": "主线成员前女友",
     "H": "[自定义]",
   },
-  paces: ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"],
+  // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
+  // laid out in a parallel array. `paces` used to sit here and was read as
+  // `t.paces[i]` against `PACES[i]` in App.jsx, coupling two hand-maintained
+  // lists by POSITION. One string per mode, matching how Time Speed reads: the
+  // section title is the heading and this is the line under it.
+  modes: {
+    free: "🌿 自由 — 没有外部剧情事件，关系本身就是剧情",
+    romance: "💕 浪漫 — 自然推进的浪漫戏份，双向心动",
+    pressure: "🔥 高压 — 舆论与丑闻压力，保密度变化加倍",
+    dramatic: "🎭 修罗 — 主线与支线成员公开争夺你的好感",
+  },
   game: {
     generating: "生成开局剧情...",
     progressing: "剧情推进中...",
@@ -279,6 +288,7 @@ const zh = {
     reasoningTitle: "🧠 深度思考",
     reasoningOn: "💰 已开启 — 模型在写作前会进行推理。故事更丰富，费用约 2 倍，速度较慢。",
     reasoningOff: "⚡ 已关闭 — 响应更快，费用更低。",
+    storyModeTitle: "🎬 剧情模式",
     birthYearTitle: "🎂 你的出生年份",
     birthYearApply: "保存",
     birthYearHint: "决定你和成员之间敬语的方向。修改后从下一回合起生效。",

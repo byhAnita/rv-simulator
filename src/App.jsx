@@ -3,7 +3,7 @@ import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
-import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
+import { loadWorld, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode } from "./rag/worldLoader";
 import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, agencyFor } from "./rag/rosterResolver";
 import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
@@ -56,7 +56,12 @@ const IDENTITIES = [
   { id: "H", label: "[自定义]" },
 ];
 const STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"];
-const PACES = ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"];
+
+// The rule itself is `resolveStoryMode` in worldLoader.js, pure and tested. This
+// is the one place that reads the key, so the two callers - App init and loadSave
+// - cannot drift into two different answers about where the value comes from.
+const seededStoryMode = (legacyPace) =>
+  resolveStoryMode(loadFromStorage("rv_sim_story_mode"), legacyPace);
 
 const THEMES = {
   dark: {
@@ -387,6 +392,13 @@ export default function App() {
   const [debugOn] = useState(() => debugEnabled());
   const [showDebug, setShowDebug] = useState(false);
   const [timeSpeed, setTimeSpeed] = useState(() => loadFromStorage("rv_sim_timespeed") || "default");
+  // Seeded from the newest save slot's pace so the panel shows something true
+  // before anything is loaded; loadSave re-seeds from the slot actually being
+  // played and persists it, which is the point at which "she has never set one"
+  // stops being true. Same shape as rv_sim_qwen_submodel seeding the paid model:
+  // read the legacy value, write the new key, never write the legacy one again.
+  const [storyMode, setStoryMode] = useState(() =>
+    seededStoryMode(loadFromStorage(STORAGE_KEYS.SAVES)?.[0]?.form?.pace));
   const [fontScale, setFontScale] = useState(() => Number(loadFromStorage("rv_sim_fontscale")) || 1);
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -695,7 +707,7 @@ export default function App() {
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: formForRound(),
         members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
-        aliyun: aliyunOptions(), timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
@@ -740,6 +752,14 @@ export default function App() {
     // gives the intended gating: no retry or edit until a round is played here.
     preRoundSnapshotRef.current = null;
     resetPendingSocial();
+
+    // The pace this save was built with becomes its story mode, once, for a
+    // player who has never set one. It is a live SETTING and not a save field,
+    // so this is a seed rather than a migration: persisting it here is what
+    // makes "never set one" false from now on, and Settings owns it afterwards.
+    const seeded = seededStoryMode(migrated.form?.pace);
+    setStoryMode(seeded);
+    saveToStorage("rv_sim_story_mode", seeded);
 
     // Set before setSelectedGroup, and deliberately not through setPhase: the
     // effect that mirrors phase into phaseRef has not run yet, and the group
@@ -811,7 +831,7 @@ export default function App() {
         form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-        aliyun: aliyunOptions(), timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -912,7 +932,7 @@ export default function App() {
         form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, world, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
-        aliyun: aliyunOptions(), timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -1295,7 +1315,7 @@ export default function App() {
     // `world` is in the gate because buildSystemPrompt cannot run without it.
     // It is fetched on mount and the player cannot reach this screen faster
     // than that, but a start with no world would throw rather than degrade.
-    const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && form.pace && world;
+    const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && world;
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
@@ -1431,15 +1451,12 @@ export default function App() {
             </div>
           </div>
 
-          <div className="s-l">{t.setup.pace}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {t.paces.map((p, i) => (
-              <div key={PACES[i]} onClick={() => setForm(f => ({ ...f, pace: PACES[i] }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.pace === PACES[i] ? th.accent : th.groupBtnBorder}`, background: form.pace === PACES[i] ? th.langBtnActiveBg : th.memberBtnBg, color: form.pace === PACES[i] ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {p}
-              </div>
-            ))}
-          </div>
+          {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
+              Settings as the four-way story mode, because a choice frozen at
+              character setup cannot be a choice about how the story is driven -
+              and the tail is where a live one costs nothing. Step 3 puts the
+              WORLD picker in this slot, which is why both cover doors get worlds
+              without the entry merge: they both pass through this page. */}
 
           <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
             {/* Back goes one step, not all the way out: on the custom door the
@@ -1715,6 +1732,41 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Story Mode - four-way, the same control shape as Time Speed
+                  below it, and deliberately beside it: both are live pacing
+                  dials that ride in the dynamic tail, so toggling either
+                  mid-run costs nothing in cache terms.
+
+                  The knob geometry is derived from the number of modes rather
+                  than written out, because MODE_IDS is the authority on how
+                  many there are and a hardcoded fourth position would go wrong
+                  the moment a fifth mode is added. 16px knob, 3px inset, 21px
+                  step - the same numbers Time Speed uses for three. */}
+              {(() => {
+                const idx = Math.max(0, MODE_IDS.indexOf(storyMode));
+                const width = 6 + 16 + (MODE_IDS.length - 1) * 21;
+                const cycle = () => {
+                  const next = MODE_IDS[(idx + 1) % MODE_IDS.length];
+                  setStoryMode(next);
+                  saveToStorage('rv_sim_story_mode', next);
+                };
+                // `free` reads as the off position: no authored events. The other
+                // three all add something, so they all read as on.
+                const on = storyMode !== 'free';
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, color: th.textPrimary, fontWeight: 600 }}>{t.settings?.storyModeTitle}</div>
+                      <div onClick={cycle}
+                        style={{ width, height: 24, borderRadius: 12, background: on ? th.reasoningOnBg : th.reasoningOffBg, border: `1px solid ${on ? th.reasoningOnBorder : th.reasoningOffBorder}`, cursor: 'pointer', position: 'relative', transition: 'all .2s', flexShrink: 0 }}>
+                        <div style={{ position: 'absolute', top: 3, left: 3 + idx * 21, width: 16, height: 16, borderRadius: '50%', background: on ? '#fff' : th.reasoningKnob, transition: 'left .2s' }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: th.textMuted, lineHeight: 1.5 }}>{t.modes?.[MODE_IDS[idx]]}</div>
+                  </div>
+                );
+              })()}
+
               {/* Time Speed */}
               {(() => {
                 const speeds = ['slow', 'default', 'fast'];
@@ -1895,7 +1947,7 @@ export default function App() {
                       form: formForRound(),
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
                       groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-                      aliyun: aliyunOptions(),
+                      aliyun: aliyunOptions(), timeSpeed, storyMode,
                     });
                     const epStats = epilogue.newStats || statsRef.current;
                     const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);

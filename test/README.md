@@ -78,7 +78,8 @@ graph resolves.
 
 **Layer I also covers world and roster loading** (v1.4.0 step 3): that the world
 JSON loads through `loadWorld` in all three languages, that it still declares
-every identity and pace id that can sit in a save, that `parseWorld` throws on a
+every identity id that can sit in a save and a rule for every story mode, that
+`parseWorld` throws on a
 missing key rather than dropping it, that the three language files agree on the
 blocks that are English rule text, and that a classic roster resolves to a
 **byte-identical prompt**. That last one is what makes "one engine, two doors"
@@ -354,14 +355,26 @@ at ~800 characters against a band asking for 350-450 "words".
 for judging writing.** Round 0 is the only round with no history behind it — the one
 round whose prose cannot repeat itself.
 
-### Every field of `form` that selects a block of the prompt must be a flag
+### Every field that selects a block of the prompt must be a flag
 
 `--identity` exists because pinning `练习生` meant 7 of the 8 identity backgrounds had
-never been played live by anything. `--pace` exists for the same reason, and started
+never been played live by anything. `--pace` existed for the same reason, and started
 mattering the moment section 6 began sending the pace's authored **rule** instead of its
 id — three of the four rules had never reached a model. Smoke asserts the `form` literal
-is built from `IDENTITY` and `PACE`, not from strings: a check on the flag list alone
-would pass while `form.pace` stayed hardcoded.
+is built from `IDENTITY`, not from strings: a check on the flag list alone would pass
+while `form.identity` stayed hardcoded.
+
+**`--pace` is `--mode` since v1.4.1 step 2**, taking one of `free` / `romance` /
+`pressure` / `dramatic`, validated against `MODE_IDS` **imported from
+`src/rag/worldLoader.js`** rather than listed here — a second hand-maintained list of mode
+ids is exactly what `PACES` was. And the guard moved with it: the mode is no longer a
+`form` field at all, so smoke asserts `storyMode: MODE` on **the `executeRound` call**.
+A guard reading `form` would now be reading the wrong object, which is the sharper
+version of the same lesson — *the guard belongs where the value is passed.*
+
+`form.pace` is still in the harness form, as an empty string, because `backstorySeed`
+still hashes it and a form omitting the key would hash `undefined` where the app hashes
+`""` — two seeds for one setup.
 
 ### `--route` does not control the model, and the report now says which one answered
 

@@ -65,6 +65,14 @@ function newestReport() {
 
 // ---------------------------------------------------------------- helpers
 
+// What drove the plot in this run. v1.4.1 step 2 replaced the setup `pace` with
+// the live story `mode`, and the six committed baselines were recorded before
+// that - so both are read and the label says which one the report carries.
+// Relabelling old evidence would be worse than printing two labels: a report is
+// the measurement, and `浪漫情感向` is not the same claim as `romance` reaching
+// the model through a different message.
+const driver = (c) => (c.MODE ? `mode ${c.MODE}` : c.PACE ? `pace ${c.PACE}` : "(not recorded)");
+
 // Sentence split that works for all three languages: CJK full stops and
 // quotation marks as well as Latin ones. Short fragments are dropped — a
 // two-character line repeating is not a repetition finding.
@@ -462,7 +470,7 @@ const flag = (bad, warn) => (bad ? C.r : warn ? C.y : C.g);
 for (const file of reports) {
   const { config, results } = JSON.parse(readFileSync(file, "utf8"));
   console.log(`\n${C.b}${file.replace(ROOT, ".")}${C.x}`);
-  console.log(`${C.d}${config.LANG} · ${config.GROUP}${config.CAST ? ` · cast ${config.CAST}` : ""} · ${config.IDENTITY} · ${config.PACE || "(pace not recorded)"} · ${config.ROUNDS} rounds${C.x}`);
+  console.log(`${C.d}${config.LANG} · ${config.GROUP}${config.CAST ? ` · cast ${config.CAST}` : ""} · ${config.IDENTITY} · ${driver(config)} · ${config.ROUNDS} rounds${C.x}`);
 
   for (const result of results) {
     const a = analyze(result, config);
@@ -578,7 +586,7 @@ if (BASELINE) {
     console.log(`           this run: ${servedOf(JSON.parse(readFileSync(now.file, "utf8")), null)}`);
     console.log(`  ${C.d}If those differ, every row below is confounded and measures the model, not the change.${C.x}`);
 
-    const cfgLine = (c) => `${c.LANG}/${c.IDENTITY}/${c.PACE || "?"}/r${c.ROUNDS}/subs${c.SUBS}`;
+    const cfgLine = (c) => `${c.LANG}/${c.IDENTITY}/${driver(c)}/r${c.ROUNDS}/subs${c.SUBS}`;
     const sameCfg = cfgLine(base.config) === cfgLine(now.config);
     console.log(`  ${C.b}config${C.x}   ${sameCfg ? `${C.g}identical${C.x}` : `${C.r}DIFFERENT — ${cfgLine(base.config)} vs ${cfgLine(now.config)}${C.x}`}`);
 
@@ -623,7 +631,7 @@ if (REPORT_TO) {
       // alone renders both arms identically.
       `## ${file.replace(/^.*[\\/]/, "").replace(/\.json$/, "")}`,
       ``,
-      `${config.LANG} / ${config.IDENTITY} / ${config.PACE || "?"} / ${config.ROUNDS} rounds`,
+      `${config.LANG} / ${config.IDENTITY} / ${driver(config)} / ${config.ROUNDS} rounds`,
       ``,
       `- source: \`${file.replace(ROOT, ".")}\``,
       `- model requested: \`${model}\``,

@@ -1,8 +1,8 @@
 // src/rag/worldLoader.js
 //
 // A world is the half of the old "group" concept that is not the cast: the
-// setting's identities, paces, phase beats, NPC archetypes and — the part that
-// is easy to mistake for a language concern — its address forms.
+// setting's identities, story modes, phase beats, NPC archetypes and — the part
+// that is easy to mistake for a language concern — its address forms.
 //
 // Fetched at runtime from public/worlds/, exactly like group JSON, so the
 // prefix comes from the build and never from the hostname. See groupLoader.js
@@ -14,10 +14,49 @@ export const DEFAULT_WORLD_ID = "kpop_idol";
 
 // The four story modes. The IDS are universal across every world and the RULES
 // are each world's own, which is what lets the picker be one control in i18n
-// instead of a per-world list coupled to it by position. `PACES` in App.jsx was
-// that positional list, and a world with different ids would have written an id
-// the world does not declare into `form.pace`.
+// instead of a per-world list coupled to it by position.
+//
+// `PACES` in App.jsx was that positional list — `t.paces.map((p, i) => … PACES[i])`
+// — and it is deleted in v1.4.1 step 2 rather than extended per world. A campus
+// world with its own pace ids would have written a kpop id into `form.pace`,
+// `getPaceRule` would have resolved nothing, and the prompt would have carried a
+// bare Chinese id: the dead-code bug step 3 of v1.4.0 fixed, returning through a
+// different door. Universal ids delete the coupling instead of guarding it.
 export const MODE_IDS = ["free", "romance", "pressure", "dramatic"];
+
+// The story mode is a live SETTING, not a save field, so it is seeded once from
+// the pace the player last chose rather than migrated. Same pattern as
+// `resolvePaidModel` taking `rv_sim_qwen_submodel`: read the legacy value, write
+// the new key, never write the legacy one again. `form.pace` then goes dead in the
+// save exactly like `starLevel` — which costs nothing and needs no schema bump,
+// and keeps `backstorySeed` hashing the same value it always did.
+const PACE_TO_MODE = {
+  "慢热现实向": "free",
+  "浪漫情感向": "romance",
+  "高压舆论向": "pressure",
+  "修罗海王向": "dramatic",
+};
+
+/**
+ * Which story mode this player is in: the one she chose, or the one implied by
+ * the pace her save was built with.
+ *
+ * ONE function and PURE, taking the stored value rather than reading it. Two
+ * functions — "map a pace" and "decide which wins" — would be two answers to one
+ * question, and reading localStorage in here would make the rule testable only by
+ * driving a browser. That is the `addSaveSlot` argument: the reason it is a pure
+ * exported function is that a rule reachable only through the UI is a rule nobody
+ * has seen fail.
+ *
+ * An unknown or absent pace becomes `free`, which is also a new game's default:
+ * "no authored plot events, the relationship is the plot" is what the game has
+ * always been. A stored mode always wins — a player who has chosen one must never
+ * be moved by a save's legacy field.
+ */
+export function resolveStoryMode(stored, legacyPace) {
+  if (MODE_IDS.includes(stored)) return stored;
+  return PACE_TO_MODE[legacyPace] || "free";
+}
 
 /**
  * Load the world index — the picker's lazy-load boundary, the same shape as
@@ -82,8 +121,11 @@ export async function loadWorld(worldId = DEFAULT_WORLD_ID, language = "zh") {
 // file at all, and is resolved from the register the world's country names.
 // `useGroupLore` is checked for `undefined` rather than truthiness, because
 // `false` is the answer for every world but this one.
+// `paces` is NOT here. Step 2 replaced it with `modes`, and leaving it required
+// would make the three worlds step 7 authors write four pace rules with no
+// reader — the `NPC_APPEARANCE_CHANCE` shape this project tracks four times.
 const REQUIRED = ["world", "country", "setting", "tone", "statNotes", "platforms",
-  "castLore", "useGroupLore", "identities", "paces", "modes", "phases", "places",
+  "castLore", "useGroupLore", "identities", "modes", "phases", "places",
   "scenario", "npcArchetypes"];
 
 export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", registers = null) {
@@ -92,9 +134,9 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     if (config?.[key] === undefined) throw new Error(`world ${where}: missing "${key}"`);
   }
   const { world, country, setting, tone, statNotes, platforms, castLore, useGroupLore,
-    identities, paces, modes, phases, places, scenario, npcArchetypes } = config;
+    identities, modes, phases, places, scenario, npcArchetypes } = config;
 
-  for (const [key, value] of [["identities", identities], ["paces", paces],
+  for (const [key, value] of [["identities", identities],
     ["phases", phases], ["places", places]]) {
     if (!Array.isArray(value) || value.length === 0) {
       throw new Error(`world ${where}: "${key}" must be a non-empty array`);
@@ -153,7 +195,6 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     castLore,
     useGroupLore,
     identities,
-    paces,
     modes,
     phases,
     places,
@@ -166,8 +207,9 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
 export const getIdentity = (world, id) =>
   world?.identities?.find((i) => i.id === id) || null;
 
-export const getPaceRule = (world, id) =>
-  world?.paces?.find((p) => p.id === id)?.rule || "";
+// The rule carries its own `[Story Mode: X]` prefix, exactly as the pace rule
+// carried `[Pace: X]`, so the caller adds no label of its own.
+export const getModeRule = (world, id) => world?.modes?.[id] || "";
 
 // ------------------------------------------------------------------
 // Korean particles

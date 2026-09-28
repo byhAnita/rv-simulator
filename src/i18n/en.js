@@ -29,7 +29,6 @@ const en = {
     basicInfo: "📝 Basic Info",
     name: "Name",
     age: "Age",
-    pace: "🎬 Story Pace",
     start: (name) => `✨ Start with ${name}`,
     complete: "Please complete all fields",
     loading: "Loading members...",
@@ -161,7 +160,17 @@ const en = {
     "主线成员前女友": "Ex-Girlfriend",
     "H": "[Custom]",
   },
-  paces: ["Slow Burn Realistic", "Romantic Drama", "High Pressure Scandal", "Harem Route"],
+  // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
+  // laid out in a parallel array. `paces` used to sit here and was read as
+  // `t.paces[i]` against `PACES[i]` in App.jsx, coupling two hand-maintained
+  // lists by POSITION. One string per mode, matching how Time Speed reads: the
+  // section title is the heading and this is the line under it.
+  modes: {
+    free: "🌿 Free — no plot events; the relationship itself is the story",
+    romance: "💕 Romance — romantic beats and natural mutual progression",
+    pressure: "🔥 Pressure — scandal and scrutiny; secrecy changes doubled",
+    dramatic: "🎭 Dramatic — main and sub members openly compete for you",
+  },
   game: {
     generating: "Generating opening story...",
     progressing: "Story progressing...",
@@ -284,6 +293,7 @@ const en = {
     reasoningTitle: "🧠 Deep Thinking (Reasoning)",
     reasoningOn: "💰 ON — model thinks before writing. Richer story, ~2× cost, slower.",
     reasoningOff: "⚡ OFF — faster responses, lower cost. ",
+    storyModeTitle: "🎬 Story Mode",
     birthYearTitle: "🎂 Your birth year",
     birthYearApply: "Save",
     birthYearHint: "Decides which way honorifics point between you and the cast. Changing it takes effect next round.",

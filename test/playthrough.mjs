@@ -44,11 +44,15 @@
 //                                                   # long time, which is how a bug in
 //                                                   # 主线成员前女友's background block
 //                                                   # survived every live run ever made
-//   node test/playthrough.mjs --pace 高压舆论向      # one of the world's 4 paces. Also
+//   node test/playthrough.mjs --mode pressure      # one of the 4 story modes:
+//                                                   #   free  romance  pressure  dramatic
+//                                                   # This was --pace, a setup field, until
+//                                                   # v1.4.1 step 2 made it a live setting
+//                                                   # carried in the dynamic tail. It was
 //                                                   # hardcoded until v1.4.0 step 7, which
-//                                                   # started sending the pace's authored
-//                                                   # RULE rather than its id — so three
-//                                                   # of the four had never been played
+//                                                   # started sending the authored RULE
+//                                                   # rather than the id — so three of the
+//                                                   # four had never been played
 //
 // Every round's prose, scene, options, stat deltas and affections are stored under
 // `transcript` in the report. `node scripts/analyze-prose.mjs` reads them and
@@ -62,6 +66,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 import { fork } from "node:child_process";
+import { MODE_IDS } from "../src/rag/worldLoader.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "test", ".out");
@@ -91,12 +96,17 @@ const ROUTE_MODE = has("route");
 // buildSystemPrompt, so pinning one to 练习生 meant 7 of the 8 were never played
 // live by anything.
 const IDENTITY = arg("identity", "练习生");
-// Pace ids, likewise the Chinese literals that sit in form.pace in every save.
-// Hardcoded to 浪漫情感向 until v1.4.0 step 7 — the same shape as the hardcoded
-// identity, and it mattered from the moment section 6 started sending the pace's
-// authored RULE instead of its id: three of the four rules had never been played.
-//   慢热现实向  浪漫情感向  高压舆论向  修罗海王向
-const PACE = arg("pace", "浪漫情感向");
+// The story mode. Universal ids, per-world rules, and — since v1.4.1 step 2 — a
+// live Settings switch whose rule rides in the DYNAMIC TAIL rather than a setup
+// field baked into the cached prefix. It was `--pace`, hardcoded to 浪漫情感向
+// until v1.4.0 step 7, and it matters for the same reason: the tail carries the
+// authored rule, so three of the four had never been played live.
+//   free  romance  pressure  dramatic
+const MODE = arg("mode", "romance");
+if (!MODE_IDS.includes(MODE)) {
+  console.error(`unknown --mode "${MODE}" — expected one of: ${MODE_IDS.join(", ")}`);
+  process.exit(1);
+}
 const WORKER = arg("worker", null);
 
 // WHICH PROVIDER SERVES THE ROUNDS. This was hardcoded to the Aliyun free route
@@ -478,7 +488,7 @@ async function runWorker(model) {
   console.error = (...a) => captured.push("error: " + a.map(String).join(" ").slice(0, 200));
   const restore = () => { console.log = realLog; console.warn = realWarn; console.error = realErr; };
 
-  const report = { model, identity: IDENTITY, pace: PACE, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
+  const report = { model, identity: IDENTITY, storyMode: MODE, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
     const world = await loadWorld("kpop_idol", LANG);
 
@@ -556,7 +566,7 @@ async function runWorker(model) {
       mainMember: mainId, subMembers: subIds, identity: IDENTITY, customIdentity: "",
       name: playerName,
       nationality: "KR", birthYear: String(playerBirthYear), age, nickname: "", herNickname: "",
-      starLevel: "", pace: PACE,
+      starLevel: "", pace: "",
     };
     const cast = {
       playerName, playerBirthYear,
@@ -643,7 +653,7 @@ async function runWorker(model) {
             playerChoice: `${choice}. option ${choice}`, stats, memory, form, members,
             mainId, subIds, groupConfig, world, apiKey: API_KEY, selectedModel: PROVIDER,
             kktUnlocked, language: LANG, reasoningEnabled: REASONING,
-            aliyun: ROUTED ? { mode: "free" } : null, timeSpeed: "default",
+            aliyun: ROUTED ? { mode: "free" } : null, timeSpeed: "default", storyMode: MODE,
           });
           lastErr = null;
           break;
@@ -912,7 +922,10 @@ async function runParent() {
 
   mkdirSync(OUT, { recursive: true });
   const path = join(OUT, `playthrough-${Date.now()}.json`);
-  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, PACE, SUBS, REASONING, ROUTE_MODE, CAST, CAST_NAME }, results }, null, 2));
+  // MODE replaces PACE. The six committed baselines still carry PACE, so the
+  // analyzer reads either and says which it found - a report is evidence, and
+  // rewriting how old evidence is labelled is worse than printing two labels.
+  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, MODE, SUBS, REASONING, ROUTE_MODE, CAST, CAST_NAME }, results }, null, 2));
   console.log(`${C.d}full report: ${path.replace(ROOT, ".")}${C.x}`);
 
   process.exit(hardFails || breaks ? 1 : 0);
