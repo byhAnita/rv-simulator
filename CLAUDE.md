@@ -202,6 +202,7 @@ Player choice
 | `rv_sim_cast_custom_v14` | `STORAGE_KEYS.CAST_CUSTOM` | Player-authored member palette, capped at 20 |
 | `rv_sim_rosters_v14` | `STORAGE_KEYS.ROSTERS` | Player-saved rosters, capped at 20 |
 | `rv_sim_cast_photos_v14` | `STORAGE_KEYS.CAST_PHOTOS` | `{memberId: dataUrl}`, 256x256 WebP, capped at 30 |
+| `rv_sim_cast_walls_v14` | `STORAGE_KEYS.CAST_WALLS` | `{memberId: dataUrl}`, 360x640 WebP, capped at 8 |
 | `rv_sim_debug` | inline literal | `"1"`/`"eruda"` — the on-device console, set by `?debug=1`. Read before React mounts, so deliberately not in `STORAGE_KEYS` |
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
@@ -1200,7 +1201,7 @@ The recency window's reference round comes from the tail of `memory.history`. It
 | Platform | Content | Unlock |
 | --- | --- | --- |
 | Bubble | Text messages array | Always |
-| Instagram | `{imageDesc, caption}` | Always |
+| Instagram | `{caption, likes}` | Always |
 | Weverse | Post text string | Always |
 | KakaoTalk (KKT) | Private messages | affection >= `KKT_THRESHOLD` (30) |
 
@@ -1792,16 +1793,31 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 **Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
 **578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
 
-### Pick up here — step 7, 2026-09-28
+### Pick up here — step 8, 2026-09-28
 
 **Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
-**1138 passed / 0 failed**. Nothing is running. Goldens untouched throughout — nothing since the
-re-validation is prompt-facing.
+**1161 passed / 0 failed**. Nothing is running. Goldens untouched throughout — nothing since the
+re-validation is prompt-facing, step 8 included.
 
-**Waiting on Yuhan: hand-test the new cast picker on `dev.idol-dating-sim.pages.dev`, then the
-v1.4.0 release.** The picker was rebuilt role-first on his design — see *The cast picker is organised
-by role, not by member*. Cloudflare's branch alias is deterministic, which is why it and not Vercel
-is the preview to use.
+**Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
+Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
+Two batches are now waiting on that one test:
+
+- **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
+  not by member*;
+- **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
+  see *The photo store shipped with no reader* and *A birth year is stated once*.
+
+**Step 8's one unmeasured number is deliberately left for that hand test.** Canvas WebP cannot be
+encoded outside a browser, so the wallpaper's ~55 KB is calculated and the storage budget it feeds
+(~2.5 MB typical) is calculated with it. The image sheet prints `N KB used` on screen; read it and
+correct `docs/V140_PLAN.md` §10 from the real figure rather than from the arithmetic.
+
+**38 mutations, all RED, and two of them were red only after a fix** — both were this file's own
+rules failed by its own guards. One asserted an oversized wallpaper is refused, which stays true
+when the cap is wrongly pinned to the photo limit; the half that fails is *accepting* an image
+between the two caps. The other matched `removePhoto(walls, id)`, which also appears in `setWallFor`,
+so deleting the delete-path line left it green. **Count the call sites; do not test presence.**
 
 **The sanity run is done, on DeepSeek, and it is the first live exercise of the fixed
 `membersNamedIn`:** 8/8 clean rounds on `deepseek-flash`, median 5,459ms, `direct` parse 8/8, **89.6%
@@ -1956,6 +1972,107 @@ Entertainment"* — so a cast saved as "my Irene run" would have debuted under t
 guards that matched the component's *source* now test behaviour, and they went red the moment the
 logic moved — which is what a regex over an implementation does. Five more encoding the old layout
 were replaced by guards written from the same requirement.
+
+### The photo store shipped with no reader — step 8
+
+**Reported from Yuhan's hand test of the role-first picker.** `imageStore.js` worked: it
+downscaled, capped, refused and persisted. The roster builder showed the result. **`App.jsx` never
+imported it**, so the game top bar, the four social overlays and the tab strip inside them all still
+drew `emoji` over a `linear-gradient(color, accent)`, and a player who uploaded nine photos saw them
+only on the screen where she uploaded them.
+
+**This is the third instance of one shape in this file** — a feature complete on one side of a
+boundary and connected to nothing on the other:
+
+| | The half that existed | The half that did not |
+| --- | --- | --- |
+| `npcAppearances` | a tail block and a cooldown rule | anything that ever wrote an entry |
+| bubble `hasPhoto` | an overlay that draws a photo frame | `photoDesc` in any schema |
+| **cast photos** | **a store, an uploader, a cap, a prune** | **any consumer in the running game** |
+
+All three read to a player as a broken control rather than a missing consumer, which is exactly how
+this one was reported. **The check that finds this class is not a test — it is asking, for each
+feature, which file READS what it wrote.** A green suite says the writer works.
+
+**`memberFace.jsx` is one definition of "her photo, or her gradient and her emoji"**, consumed by all
+six surfaces. Six copies is six chances for one of them to be the copy still showing the emoji —
+`extractStoryText` is the precedent, where two copies had drifted and the guard had been written
+against the one that was still correct. Guarded by counting the consumers, because a helper can
+exist, be correct, and be used in five of six places.
+
+**One wallpaper per member, not one per platform.** Her wallpaper is the chat background in Bubble
+and KakaoTalk, the post image on Instagram, and the header banner on Weverse — four surfaces per
+upload. Three separate backgrounds would be 3x the quota and 3x the uploads for a photo each
+platform already lays its own scrim over.
+
+**It is safe on Instagram because the post image has always been decorative.** The schema asks for
+`{caption, likes}` and has never carried a description of an image; the table in this file claiming
+`{imageDesc, caption}` was wrong, and is corrected above. Bubble's `hasPhoto`/`photoDesc` frame is
+therefore the opposite case and is **left alone** — that is a specific picture she sent this round,
+and substituting her wallpaper for it would render a description of one image over a different one.
+
+**`imageStore.js` is parameterised, not copied.** A second store with different caps and a different
+aspect ratio is exactly where a second copy of the four refusal rules would appear, so the caps are
+an argument (`PHOTO_LIMITS` / `WALL_LIMITS`), `downscale` is one aspect ratio of `downscaleCover`,
+and `loadPhotos`/`loadWalls` are wrappers over one keyed accessor.
+
+**`pruneOrphans` is gone, and it was a latent data-loss bug this change would have activated.** It
+kept only the ids its caller listed, and its one caller passed the **custom palette** — so once a
+library member could have a photo, deleting one authored member would have deleted every library
+photo in the store. It was harmless only because nothing could put one there. The delete site now
+removes the one id that stopped existing, which needs no id universe — and this screen has none
+anyway, since group configs are fetched per tab and a group the player never opened is
+indistinguishable from a group that is gone. Not kept for v1.5.0: a function with no caller is what
+`NPC_APPEARANCE_CHANCE` is a standing example of, and it is eight lines to write again.
+
+**Uploads live in one sheet on the cast already chosen.** The obvious place is a camera badge on each
+card in the picker grid, and that grid is three columns at 390px where the card itself is the assign
+target — a 20px badge beside a 40px one is the adjacency that made the pre-step-7 builder untappable,
+where a mis-tap did not miss but assigned the wrong role. One entry point reintroduces nothing, and
+gives both caps and the bytes in use somewhere to live: `n / 30`, `n / 8` and `N KB used`, **visible
+at all times** rather than at the moment they refuse. That is the third screen to need that lesson
+after the save slots and the member palette.
+
+**The quota figures are calculated, not measured, and the app now reports the real one.** 360x640 at
+q0.7 is ~3.5x the pixels of a 256x256 at q0.8, so ~55 KB of stored string against ~20 KB; §10's
+budget moves from ~2.1 MB to ~2.5 MB typical against the ~5 MB quota, worst case ~3.1 MB. Canvas WebP
+cannot be encoded outside a browser, so none of that can be measured offline — which is why the sheet
+prints `N KB used`. A number nobody can observe is a number nobody can trust.
+
+### A birth year is stated once, and the control cannot express a wrong one
+
+Two changes to one field, both from the same hand test, and they point the same way.
+
+**The settings correction is now gated on `birthYearEstimated`.** It shipped in step 6 always
+visible, on the argument that a typo at Setup produces the same wrong honorifics as a migration does.
+That argument is real and it is outweighed: the year decides which way **every** address form points
+— Korean seniority is a hard year boundary — and it sits in the static system prompt, so a change
+re-points the whole cast's honorifics mid-run *and* costs the entire ~5,500-token cached prefix. A
+control that invites fiddling at that price is the wrong trade.
+
+It survives for the one case it was built for: a pre-v1.4.0 save whose year `migrateSave`
+**reproduced** from `age`, deliberately and wrongly, for about half of those saves and unrecoverably.
+`birthYearEstimated` already means exactly "the year was filled in for her", so it is the gate.
+**Nothing was deleted** — `correctBirthYear`, its guards and its translations all stand, and a new
+game simply never shows the row, because a new game's year was stated by the player.
+
+**Setup and the member editor now pick the year from a wheel, and that removes a failure mode rather
+than restyling one.** `birthdayFromYear` returns `""` for anything under four digits on purpose: a
+half-typed `19` must leave the profile invalid, because a two-digit year reaching the address
+protocol makes the entire cast either senior or junior at once. A wheel's every value is a year in
+range, so the invalid intermediate state **stops existing** instead of being caught downstream. The
+member editor lost that field entirely in step 6 to a `type="number"` that refused to render its own
+partial value; the class of bug goes with the text box.
+
+Two ranges, neither duplicated: `PLAYER_BIRTH_YEAR_MIN/MAX` (1946-2008) for the player,
+`BIRTH_YEAR_MIN/MAX` (1980-2012) for a custom member. **The guards assert the RANGE, not the
+control** — handing Setup the idol bounds would let a player be 14, and handing the editor the
+player's would offer a 79-year-old idol, and neither looks wrong on screen.
+
+**A wheel always displays a value, which is a new way to lie.** Showing `2000` while `birthday` is
+still empty makes the field look filled while Save stays disabled with nothing to point at, so a new
+member is **seeded** at the year the wheel opens on. The displayed value is the stored one from the
+first frame; scrolling is how she changes it, not how she supplies it.
 
 ### …and it could only ever test one of the four providers — the third time
 

@@ -961,8 +961,18 @@ save**. This must be fixed in v1.4.0 — return a boolean, surface a localized n
 | Custom worlds (5 × ~6 KB) | 30 KB |
 | Rosters (20 × ~1 KB) | 20 KB |
 | **Photos (30 × ~15 KB)** | **450 KB** |
+| **Wallpapers (8 × ~55 KB)** — step 8 | **440 KB** |
 | Everything else | < 50 KB |
-| Total vs ~5 MB quota | ~2.1 MB |
+| Total vs ~5 MB quota | ~2.5 MB (worst case ~3.1 MB) |
+
+**Both image rows are calculated from the encoder's settings, not measured**, and the wallpaper row
+is the weaker of the two: 360×640 at q0.7 is ~3.5× the pixels of a 256×256 at q0.8, so ~55 KB of
+stored string. Canvas WebP cannot be encoded outside a browser, so neither number can be checked by
+any offline test — which is why the image sheet prints `N KB used` on screen. **The hand test is
+the measurement**; correct this table from it rather than from the arithmetic above.
+
+Worst case is the caps rather than the typical sizes: 30 × 40 KB + 8 × 90 KB = 1.92 MB of images.
+Both fit, but quote the right one.
 
 **Photos must be downscaled, not stored as picked.** A phone photo is 3–5 MB and base64 inflates
 it ~37%; a single one blows the quota. `src/utils/imageStore.js` draws to a canvas at 256×256,

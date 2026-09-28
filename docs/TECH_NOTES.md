@@ -483,6 +483,65 @@ where it cannot.
 
 ---
 
+### An input that cannot express an invalid value — v1.4.0
+
+**What it is.** Choosing a control whose set of reachable values *is* the set of valid values, so
+the invalid state cannot be entered — rather than letting the control produce anything and rejecting
+the bad ones afterwards. The birth year is picked from a scroll wheel over the legal range instead
+of typed into a text field.
+
+**What it replaced, and how that fell short.** A text input, validated downstream.
+`birthdayFromYear` returns `""` for anything shorter than four digits, deliberately: a half-typed
+`19` must leave the profile invalid, because a two-digit year reaching the address protocol makes
+the whole cast either senior or junior to the player at once. That validation is correct and it was
+never enough, because **the invalid value still exists** — it has to be represented, displayed,
+stored somewhere, and kept out of everything downstream. Each of those is a place to get it wrong,
+and step 6 got two of them wrong in one field:
+
+- `type="number"` refuses to render a value it cannot parse, so the box blanked on every keystroke
+  and the field was **literally unfillable**. Found only by hand-testing on a phone.
+- fixing that needed a second piece of state (`yearDraft`) holding "what the player has typed so
+  far", separate from the profile's `birthday`, plus a rule about which one writes when.
+
+A wheel deletes the category. There is no partial value to represent, no draft to keep in step, no
+`type=` trap, and no range check on the way out — the wheel over `[1980, 2012]` can emit 33 values
+and every one is legal.
+
+**What it bought.** One defect class gone rather than guarded: the partial year, the out-of-range
+year, and the unrenderable value all stop being reachable. Two of the three guards that used to
+cover them are now about the *bound* instead — which is the thing that can still be wrong, and
+invisibly: handing Setup the idol range (1980-2012) would let a player be 14, and handing the editor
+the player's range (1946-2008) would offer a 79-year-old idol, and neither looks wrong on screen.
+It also fits the data: a year is one of ~60 **ordered** values, which is what a picker is for, and a
+numeric keyboard on iOS covers the field it is filling.
+
+**What it costs.**
+
+- **A wheel always displays a value, which is a new way to lie.** Showing `2000` over an empty
+  `birthday` makes the field look filled while Save stays disabled with nothing to point at. The fix
+  is to seed the stored value from the wheel's opening position, so the displayed value is the
+  stored one from the first frame — but note that this is a *silent default*, where the text field
+  had an honest blank. A required field that defaults is a field the player may never consider.
+- ~60 rows of DOM per wheel, and a scroll handler that must debounce: reporting every row a flick
+  passes over would push ~50 values through `onChange`, each one a form write.
+- Reaching 1946 from 2000 is one flick with momentum and a long drag without it. Acceptable here
+  because the common answers cluster near the default; it would not be for a control whose values
+  are uniformly distributed over a wide range.
+- The programmatic scroll and the scroll handler form a loop unless one of them is suppressed —
+  `selfScroll` is a ref, not state, because the guard must take effect before the next event rather
+  than after the next render.
+
+**Where the line is.** This is worth doing when the valid set is small, ordered and enumerable. It
+is not a general argument against text inputs: a member's name has no enumerable valid set, and a
+picker for one would be absurd. The question to ask is whether the control can produce something the
+domain cannot hold — and if it can, whether the set of things it *should* produce is small enough to
+show.
+
+**Short form.** Do not validate a value the control should never have been able to produce. A year
+is 33 ordered choices, so offer 33 choices.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.
