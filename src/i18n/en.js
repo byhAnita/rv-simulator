@@ -171,6 +171,17 @@ const en = {
     pressure: "🔥 Pressure — scandal and scrutiny; secrecy changes doubled",
     dramatic: "🎭 Dramatic — main and sub members openly compete for you",
   },
+  // v1.4.1 step 5 - the place picker. `go` is a TEMPLATE rather than a sentence composed
+  // at the call site: Korean needs a particle after the place name, and the word in front
+  // of a particle is a variable - so ko carries the 으로/로 pair and resolveKoreanParticles
+  // picks. zh and en carry no pair, so the resolver is inert on them.
+  map: {
+    title: "Where to?",
+    costsRound: "Going somewhere advances a round — a scene is a round.",
+    discovered: "discovered",
+    foundIn: (r) => `found in round ${r}`,
+    go: "I head to {place}",
+  },
   game: {
     generating: "Generating opening story...",
     progressing: "Story progressing...",

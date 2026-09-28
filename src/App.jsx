@@ -3,7 +3,7 @@ import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
-import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode } from "./rag/worldLoader";
+import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
 import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor } from "./rag/rosterResolver";
 import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
@@ -19,6 +19,7 @@ import InstagramOverlay from "./platforms/InstagramOverlay";
 import WeverseOverlay from "./platforms/WeverseOverlay";
 import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
+import MapOverlay from "./platforms/MapOverlay";
 import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
 import RosterBuilder from "./platforms/RosterBuilder";
@@ -878,6 +879,15 @@ export default function App() {
     setPhase("game");
     showNotif("Save loaded");
   };
+
+  // Tapping a place submits an ordinary choice, which is what makes the picker free:
+  // no schema field, no tail entry, no second input per round (docs/V140_PLAN.md 7.1).
+  // The sentence is a per-language TEMPLATE from i18n, and ko's carries the 으로/로 pair
+  // for resolveKoreanParticles to pick - the word in front of a Korean particle is a
+  // variable here, which is the whole reason that function exists. It is inert on zh
+  // and en, which carry no pair.
+  const placeChoiceText = (place) =>
+    resolveKoreanParticles(t.map.go.replace("{place}", place));
 
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return;
@@ -1797,6 +1807,13 @@ export default function App() {
             would append a turn and leave the open draft on the wrong index. */}
         {editingIdx === null && (
         <div style={{ padding: "6px 8px", background: th.inputAreaBg, borderTop: `1px solid ${th.borderFaint}`, display: "flex", gap: 5, alignItems: "flex-end", flexShrink: 0 }}>
+          {/* The map SUPPLEMENTS the four options rather than replacing them: the options
+              are generated per round and this list is the same every round, so making them
+              exclusive would hide a round's own options behind a fixture. Disabled rather
+              than hidden while the world loads, so the row does not change shape. */}
+          <button onClick={() => setOverlay({ type: "map" })} disabled={loading || !world}
+            aria-label={t.map.title} title={t.map.title}
+            style={{ width: 34, height: 34, borderRadius: "50%", border: `1px solid ${th.borderDim}`, background: th.inputBg, color: th.textPrimary, fontSize: 15, cursor: loading || !world ? "not-allowed" : "pointer", opacity: loading || !world ? .45 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>📍</button>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
             placeholder={language === "zh" ? "输入你的选择..." : language === "ko" ? "선택 사항 입력..." : "Type your choice..."}
@@ -1810,6 +1827,13 @@ export default function App() {
         {/* Overlays */}
         {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
+        {overlay?.type === "map" && (
+          <MapOverlay theme={theme} t={t} fontScale={fontScale}
+            canon={world?.places || []}
+            discovered={memoryRef.current?.places || []}
+            onPick={(name) => { setOverlay(null); sendMessage(placeChoiceText(name)); }}
+            onClose={() => setOverlay(null)} />
+        )}
 
         {/* Settings Overlay */}
         {showSettings && (

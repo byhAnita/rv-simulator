@@ -156,7 +156,7 @@ Player choice
 | --- | --- |
 | `src/App.jsx` | All React state, page routing (Cover→KeyInput→Setup→Game), themes, settings overlay, story export, save/load |
 | `src/agent/mainAgent.js` | `executeRound`, `buildSystemPrompt`, `parseLLMOutput`, `validateAndFixOutput`, `popPendingSocial`, `resetPendingSocial`, `createInitialStats` |
-| `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory`, `getTopMember` |
+| `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory`, `getTopMember`; plus the discovered-place record, `recordPlace` / `placeKey` / `PLACES_MAX` |
 | `src/agent/probabilityEngine.js` | `calculateProbability`, `pickPrimaryMember` — picks which target member drives this round |
 | `src/tools/llmTool.js` | Unified OpenAI-compatible client + per-provider reasoning flags, 90s timeout, per-kind retry, Aliyun free-credit router |
 | `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
@@ -176,7 +176,7 @@ Player choice
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
 | `src/i18n/` | `useTranslation(lang)` hook + `${var}` interpolation; zh/en/ko |
-| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, MemberSelector, UsagePanel |
+| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, Map, MemberSelector, UsagePanel |
 | `src/utils.js` | `STORAGE_KEYS`, `loadFromStorage`, `saveToStorage` (returns a boolean — see below) |
 
 ### State Management
@@ -525,6 +525,10 @@ beside four fields that all carry a localized label — and is now `t.stats.chap
   stageChanges:      [],     // [{memberId, from, to}] last 10
   memberAppearances: {},     // {memberId: [roundNums]} last 10
   npcAppearances:    {},     // {memberId: lastRoundNum}
+  places:            [],     // [{name, round}] places the MODEL invented, observed from
+                             //   its own `scene` line. CLIENT-SIDE ONLY - it is read by
+                             //   the map picker and reaches no prompt message at all.
+                             //   See "The map grows and the prompt does not"
 }
 ```
 
@@ -1422,7 +1426,7 @@ Setup Page
       world does not declare)
       |
 Game Page (loop)
-  -> Read story -> Choose A/B/C/D or Custom -> Next round
+  -> Read story -> Choose A/B/C/D, Custom, or 📍 a place -> Next round
      (settings overlay: reasoning, story mode, time speed, theme, font,
       export, help)
 ```
@@ -1552,6 +1556,59 @@ places would be section 8; 8 is NPC rules, 9 game rules, 10 the stat system. Ins
 renumbered three sections and silently repointed the five places the prompt refers to its own sections
 by number (*the one section 4 names*, *Section 6 SPEAKER CONTRACT is binding*). Smoke derives the
 heading numbers from the rendered prompt and asserts they read 1..11 in order, each exactly once.
+
+### The map grows and the prompt does not
+
+**A place the model invents becomes map content rather than something to suppress — v1.4.1 step 5.**
+When a round's `scene` names none of the world's canon places, the client records it in
+`memory.places` as `{name, round}`, and a 📍 button beside the custom-input row lists the
+canon places and the discovered ones. Tapping one submits *"I head to \<place\>"* as the round's
+choice, so **moving costs a round** — a scene *is* a round, and the phase rules and achievements are
+all driven by the round counter.
+
+**`memory.places` reaches no prompt message, and that is the invariant rather than a detail.** A
+list that gains a row mid-game changes the static prefix the round it changes, which costs the whole
+~5,500 tokens — the same class of defect the ex-girlfriend backstory's `Math.random()` was, and
+that one measured **26.7 points** of cache hit rate. The model needs no list: *where she went* arrives
+in the **choice string**, which is in the always-miss tail, and the ledger already holds the round that
+invented the place. Smoke asserts a sentinel place reaches **none** of the three messages.
+
+**The step-5 plan row asked for a mutation that cannot be written**, and the fix generalises:
+*mutation-verify by making `buildSystemPrompt` read `memory.places`* — it takes no
+`memory` argument at all, so a check built that way would be vacuous. **Put the guard where the
+value could actually leak**: the two builders that do take memory, and `memoryContext`, which is
+the static prompt's only text input and which `executeRound` passes the empty string.
+
+**A discovery is recognised from prose, so it is a heuristic, and the two rules it needs are stated
+rather than left to be found.** A trailing comma-segment containing a **digit** is dropped, because
+section 11 asks `scene` for *a place and a time* and without stripping *Rooftop, 2am* and
+*Rooftop, 3am* are two rows on one map; a name with **no letter in it** is not a place, which is how
+`22:00` is rejected without a per-language list of time words. A time spelled out (`10PM`)
+is therefore recorded as written — accepted, because telling those from place names needs exactly the
+hand-maintained list this avoids. Near-duplicates the normaliser cannot fold (*Rooftop* vs *the rooftop
+stairwell*) are map clutter and cost a row and nothing else.
+
+**At the cap (`PLACES_MAX` = 30) a new place is REFUSED, not swapped for the oldest** —
+`addSaveSlot`'s choice for `addSaveSlot`'s reason: an evicted place is somewhere the player
+can no longer go back to. The guard asserts on the **contents**, because refusing and evicting both
+leave thirty rows and a length check passes against the bug.
+
+**`updateMemory` is the single writer**, beside `memberAppearances` and for the same
+reason — two writers of one record is how the tail's member lines came to disagree. Smoke scans
+`App.jsx` for a write to `.places` and fails on one. And **no migration**:
+`memory.places` is absent from every older save, every reader takes `|| []`, and
+`isLegacyMemory` keys on `history`.
+
+**The picker supplements the four options rather than replacing them.** The plan calls it *an
+alternative to the four options*, which is what it is from the player's side — but the options are
+generated per round and this list is the same every round, so making them exclusive would hide a
+round's own options behind a fixture.
+
+**The sentence it submits is a per-language template, not a concatenation.** `t.map.go` carries
+`{place}`, and ko carries the `으로/로` pair for `resolveKoreanParticles` to
+pick — the word in front of a Korean particle is a variable here, which is the whole reason that
+function exists. A Latin place name in a ko game resolves to the parenthetical dual
+(`Rooftop으로(로)`), which is never wrong. It is inert on zh and en, and smoke asserts that.
 
 Composed lore does **not** repeat the prose fields; section 5 carries them for exactly the members
 present. The single-group lore duplicates them and that is inherited token cost, not a pattern to

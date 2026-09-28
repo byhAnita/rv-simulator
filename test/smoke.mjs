@@ -1671,7 +1671,8 @@ async function layerI() {
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules,
-          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn } =
+          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
+          createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
 
   // Real group data, loaded the way the app loads it. Reading the JSON straight
@@ -3464,6 +3465,158 @@ async function layerI() {
     /\u{1F308}Self-Identity: /u.test(pEn) && /\u{1F512}Secrecy: /u.test(pEn)
       && /\u{1F4AB}Mood: /u.test(pEn),
     "the notes list and the editable-stats line must use one face per stat");
+
+  // --- v1.4.1 step 5: discovered places, and the one thing they must never do --
+  //
+  // 6.1's hard invariant: a list that grows mid-game must never enter the static
+  // system prompt, because the round it changed would invalidate the whole
+  // ~5,500-token cached prefix. The plan's step-5 row said to mutation-verify this by
+  // "making buildSystemPrompt read memory.places" - it takes no `memory` argument at
+  // all, so that mutation cannot be written, and a check built on it would be vacuous.
+  // The guard therefore sits on every route by which the value COULD leak: the two
+  // builders that do take memory, and the one argument through which memory text
+  // reaches the cached prefix.
+  const DISCOVERED = "Noraebang basement B2";
+  const memPlaces = {
+    playerStats: null, affections: { irene: 40 }, kktMessages: {}, stageChanges: [],
+    memberAppearances: {}, places: [{ name: DISCOVERED, round: 7 }],
+    history: [{ round: 1, type: "full", text: "a story", choice: "A. go", summary: "gist" }],
+  };
+  check("a discovered place does not reach the history ledger",
+    !buildHistoryLedger(memPlaces).includes(DISCOVERED),
+    "the ledger is the cacheable prefix; a growing list in it breaks every entry after it");
+  check("a discovered place does not reach the dynamic tail either",
+    !buildDynamicTail(memPlaces, members, ["irene"], "en").includes(DISCOVERED),
+    "the tail is cheap, but the choice string already says where she went - a second copy drifts");
+  // `memoryContext` is the static prompt's only text input, and executeRound passes it
+  // the empty string. That is the route a future edit would reach for.
+  const mainAgentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+  check("executeRound builds the system prompt with no memory text at all",
+    /buildSystemPrompt\(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world\)/
+      .test(mainAgentSrc),
+    "the third-from-last argument is the only way a client-side list could reach the cached prefix");
+
+  // The discovery rule, per language and against the REAL world data: a scene is a
+  // discovery when it names none of that language's canon places. Both sides are the
+  // player's language, so this is never a cross-language comparison.
+  for (const lang of ["zh", "en", "ko"]) {
+    const canonNames = worlds[lang].places.map((pl) => pl.name);
+    const canonMissed = canonNames.filter((n) => discoveredPlaceIn(n, worlds[lang]) !== "");
+    check(`[${lang}] a scene naming a canon place discovers nothing`,
+      canonMissed.length === 0, canonMissed.join(", "));
+  }
+  check("a canon place is still canon with a time on the end of it",
+    discoveredPlaceIn("Practice room B, 10PM", worlds.en) === ""
+      && discoveredPlaceIn("\u7ec3\u4e60\u5ba4\uff0c\u51cc\u66682\u70b9", worlds.zh) === "",
+    "section 11 asks for a place AND a time, so the time is on almost every scene");
+  check("a scene the world does not declare is recorded as a discovery",
+    discoveredPlaceIn("Noraebang basement, 1am", worlds.en) === "Noraebang basement",
+    discoveredPlaceIn("Noraebang basement, 1am", worlds.en));
+  // Without this, `Rooftop, 2am` and `Rooftop, 3am` are two rows on one map.
+  check("...with the time stripped, so one place is one row whatever hour it is",
+    discoveredPlaceIn("Noraebang basement, 1am", worlds.en)
+      === discoveredPlaceIn("Noraebang basement, 3am", worlds.en)
+      && discoveredPlaceIn("\u70e7\u8089\u5e97\u5305\u623f\uff0c\u51cc\u66682\u70b9", worlds.zh)
+        === "\u70e7\u8089\u5e97\u5305\u623f",
+    "the trailing segment carrying a digit is the time");
+  // A word list of time words per language is exactly what this avoids, so a spelled-out
+  // time survives - deliberately, and stated in the plan rather than left to be found.
+  check("...and a time that is only digits is not recorded as a place at all",
+    discoveredPlaceIn("22:00", worlds.en) === "" && discoveredPlaceIn("", worlds.en) === "",
+    "a place has a name; a name has at least one letter in it");
+
+  // recordPlace is pure and exported for the reason addSaveSlot is: the alternative is
+  // reaching the cap by playing thirty rounds by hand.
+  check("a new place is appended with the round it was found in",
+    JSON.stringify(recordPlace([], "Rooftop bar", 4)) === JSON.stringify([{ name: "Rooftop bar", round: 4 }]),
+    JSON.stringify(recordPlace([], "Rooftop bar", 4)));
+  const placeOnce = recordPlace([], "Rooftop bar", 4);
+  check("...and the same place found again is not a second row",
+    recordPlace(placeOnce, "rooftop bar.", 9) === placeOnce,
+    "case and punctuation are not identity; the same array object is returned");
+  check("placeKey folds case, spacing and punctuation and nothing else",
+    placeKey("Rooftop, B2") === placeKey("rooftop b2")
+      && placeKey("Rooftop") !== placeKey("Rooftop stairwell"),
+    "two spellings of one place is one row; two places are two");
+  // Eviction would take away somewhere the player can currently tap. addSaveSlot's
+  // choice, for addSaveSlot's reason - and asserted on the CONTENTS, because refusing
+  // and evicting both leave PLACES_MAX rows and a length check passes against the bug.
+  const placesAtCap = Array.from({ length: PLACES_MAX }, (_, i) => ({ name: `P${i}`, round: i }));
+  const placesRefused = recordPlace(placesAtCap, "One more", 99);
+  check("at the cap a new place is refused rather than evicting the oldest",
+    placesRefused === placesAtCap && placesRefused[0].name === "P0"
+      && !placesRefused.some((p) => p.name === "One more"),
+    "an evicted place is one the player can no longer go back to");
+
+  check("a new game starts with an empty discovered list",
+    Array.isArray(createEmptyMemory().places) && createEmptyMemory().places.length === 0,
+    "the map has to have somewhere to put them");
+  // Every save written before step 5 has no `places` key at all, which is why there is
+  // no schema bump and no saveMigrator row: the readers take `|| []` and recordPlace
+  // accepts undefined.
+  const placeLegacyMem = { ...memPlaces };
+  delete placeLegacyMem.places;
+  let placeLegacyOk = false;
+  try {
+    updateMemory(placeLegacyMem, { discoveredPlace: { name: "Old bridge", round: 2 } });
+    placeLegacyOk = placeLegacyMem.places.length === 1 && placeLegacyMem.places[0].name === "Old bridge";
+  } catch { placeLegacyOk = false; }
+  check("a save written before step 5 gains a place without a migration",
+    placeLegacyOk, JSON.stringify(placeLegacyMem.places));
+
+  // updateMemory is the single writer, the same rule memberAppearances follows. Two
+  // writers of one record is how the tail's member lines came to disagree.
+  check("executeRound hands the discovery to updateMemory rather than writing it",
+    /discoveredPlace: foundPlace \? \{ name: foundPlace, round: roundNum \} : null/.test(mainAgentSrc)
+      && /const foundPlace = discoveredPlaceIn\(parsed.scene, world\)/.test(mainAgentSrc),
+    "`parsed.scene` rather than newStats.scene: that one falls back to the previous round");
+  const appSrcPlaces = readFileSync(join(ROOT, "src/App.jsx"), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  check("App.jsx never writes memory.places itself",
+    !/\.places\s*=[^=]/.test(appSrcPlaces),
+    "the round path owns the record; the UI only reads it");
+
+  // The picker rides the existing choice channel (7.1): no schema field, no tail entry.
+  check("the map submits an ordinary choice through sendMessage",
+    /onPick=\{\(name\) => \{ setOverlay\(null\); sendMessage\(placeChoiceText\(name\)\); \}\}/.test(appSrcPlaces),
+    "a second input path per round is what 7.1 exists to avoid");
+  check("...and it is handed the world's canon list and the save's discovered one",
+    /canon=\{world\?\.places \|\| \[\]\}/.test(appSrcPlaces)
+      && /discovered=\{memoryRef\.current\?\.places \|\| \[\]\}/.test(appSrcPlaces),
+    "canon comes from the world, discovered from the save, and neither from the other");
+  check("the map button sits in the input row and is disabled until the world loads",
+    /setOverlay\(\{ type: \"map\" \}\)/.test(appSrcPlaces)
+      && /disabled=\{loading \|\| !world\}/.test(appSrcPlaces),
+    "a picker with no world behind it has nothing to list");
+
+  // The sentence is a per-language template, because Korean needs a particle and the
+  // word in front of a particle is a variable here. Composing it at the call site is the
+  // unresolved-particle defect one layer out from where it was fixed.
+  const i18nPacks = {};
+  for (const lang of ["zh", "en", "ko"]) {
+    i18nPacks[lang] = (await import("file://" + join(ROOT, `src/i18n/${lang}.js`)
+      .replace(/\\/g, "/"))).default;
+  }
+  const goFor = (lang) => i18nPacks[lang].map.go;
+  for (const lang of ["zh", "en", "ko"]) {
+    check(`[${lang}] the place sentence is a template naming the place`,
+      typeof goFor(lang) === "string" && goFor(lang).includes("{place}"),
+      String(goFor(lang)));
+  }
+  const goIn = (lang, place) =>
+    loader.resolveKoreanParticles(goFor(lang).replace("{place}", place));
+  check("ko picks the particle from the place name's last syllable",
+    goIn("ko", "\uc5f0\uc2b5\uc2e4") === "\uc5f0\uc2b5\uc2e4\ub85c \ud5a5\ud55c\ub2e4"
+      && goIn("ko", "\uc624\uc0c1") === "\uc624\uc0c1\uc73c\ub85c \ud5a5\ud55c\ub2e4",
+    `${goIn("ko", "\uc5f0\uc2b5\uc2e4")} / ${goIn("ko", "\uc624\uc0c1")}`);
+  check("...and leaves no unresolved pair in any language",
+    ["zh", "en", "ko"].every((lang) =>
+      worlds[lang].places.every((pl) => !goIn(lang, pl.name).includes("/"))),
+    "a literal \uc73c\ub85c/\ub85c in the player's own choice string is the defect this function fixes");
+  check("the resolver is inert on zh and en, which carry no pair",
+    goIn("zh", "\u5c4b\u9876") === goFor("zh").replace("{place}", "\u5c4b\u9876")
+      && goIn("en", "Rooftop") === goFor("en").replace("{place}", "Rooftop"),
+    "a resolver that can rewrite a language it was not written for is worse than none");
 
   // --- background rendering: stable for one save, varied across saves -------
   const exGf = (seed, lang = "zh") =>

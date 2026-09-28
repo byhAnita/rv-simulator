@@ -561,6 +561,39 @@ export function membersNamedIn(story, members = []) {
   return found;
 }
 
+// Section 11 asks the model to prefer the world's canon places and to invent one only when
+// the story genuinely needs somewhere the list does not have. When it does invent one, that
+// is map content rather than something to suppress — so a `scene` naming no canon place is
+// recorded as a DISCOVERED place. Returns "" when the scene is canon, empty, or carries no
+// letter at all — "22:00" is a time the model put where a place belongs. A scene that is a
+// time SPELLED OUT ("10PM") is recorded as written, because telling those from place names
+// needs the per-language word list this function exists to avoid.
+//
+// Both sides are the player's own language: `scene` is written in it and so are the world's
+// place names, so this is never a cross-language comparison.
+export function discoveredPlaceIn(scene, world) {
+  const raw = String(scene || "").trim();
+  if (!raw) return "";
+  const hay = raw.toLowerCase();
+  const isCanon = (world?.places || []).some((p) => {
+    const n = String(p?.name || "").trim().toLowerCase();
+    return n.length > 0 && hay.includes(n);
+  });
+  if (isCanon) return "";
+  // Section 11 asks `scene` for a place AND a time, so almost every one carries one, and
+  // "Rooftop, 2am" and "Rooftop, 3am" would otherwise be two rows on the map. A trailing
+  // segment containing a digit is the time. `midnight` and 深夜 survive on purpose: that is
+  // what the model wrote and what the player will recognise, and a list of time words per
+  // language is the kind of hand-maintained list this repo keeps regretting.
+  let name = raw, m;
+  // Greedy, so it splits on the LAST separator rather than the first.
+  while ((m = name.match(/^(.*)[,，、·]\s*([^,，、·]*)$/)) && /\d/.test(m[2])) {
+    name = m[1].trim();
+  }
+  name = name.replace(/[\s,，、·:：]+$/, "").slice(0, 40);
+  return /\p{L}/u.test(name) ? name : "";
+}
+
 export function createInitialStats(mainId, subIds) {
   const multiAff = {};
   subIds.forEach(id => {
@@ -930,6 +963,10 @@ export async function executeRound({
   pendingNotifications = roundNotifs;
 
   const namedInStory = membersNamedIn(parsed.story || "", members);
+  // `parsed.scene` rather than `newStats.scene`: that one falls back to the previous
+  // round's scene when the model omits the field, and a round that produced no scene has
+  // discovered nothing.
+  const foundPlace = discoveredPlaceIn(parsed.scene, world);
 
   // Update memory — append new full-story entry to history ledger
   const updatedMemory = updateMemory(memory, {
@@ -939,6 +976,7 @@ export async function executeRound({
     kktMessages: filteredKkt,
     stageChanges,
     memberAppearances: Object.fromEntries(namedInStory.map(id => [id, [roundNum]])),
+    discoveredPlace: foundPlace ? { name: foundPlace, round: roundNum } : null,
   });
 
   return {

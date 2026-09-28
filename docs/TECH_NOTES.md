@@ -703,6 +703,43 @@ it is panned and zoomed by transform and genuinely must be a child.
 And when the failing platform is out of reach, reproduce the *failure mode* rather than the cause:
 disable the mechanism you suspect and look at what the component does without it.
 
+### A list that grows, kept out of the cached prefix — v1.4.1
+
+**What it is.** Places the model invents become map content the player can revisit, while the static
+system prompt stays byte-identical for the whole run.
+
+**The obvious thing, and what it costs.** Put the discovered list in the prompt, so the model knows
+the map. The static prompt is ~5,500 tokens and is cached after round 1; a list that gains a row
+mid-game changes the prefix **the round it changes**, so that round pays full input price on all of
+it. This repo has already measured that class of mistake: the ex-girlfriend backstory re-rolling per
+round cost **26.7 points** of cache hit rate, A/B, same model both arms. One row on a map is not
+worth that, and the cost recurs every time the player finds somewhere new.
+
+**What replaced it.** The fact travels in the **choice string** — *"I head to the noraebang
+basement"* — which is in the always-miss dynamic tail, and the history ledger already contains the
+round that invented the place. So the model needs no enumeration to understand a revisit.
+`memory.places` is client state, read only by the picker, and asserted to reach none of the three
+messages.
+
+**What it bought.** The map grows for a whole run at zero prompt cost. `update-golden.mjs` was not
+run at all in the step that added the feature — the rendered prompt is byte-identical to the previous
+step's, which is the step's gate in its strongest form.
+
+**What it costs.** Two things, both real. The model cannot be *asked* to return to a discovered
+place, because nothing in its context lists them — only the player can bring one back, and only
+through the picker. And the client has to recognise a discovery from prose, which is a heuristic: the
+scene is matched against the canon names, a trailing segment carrying a digit is dropped as the time,
+and a name with no letter in it is rejected. Two spellings of one invented place can still be two
+rows on the map.
+
+**Where the guard goes when the obvious mutation does not exist.** The plan asked for
+*mutation-verify by making `buildSystemPrompt` read `memory.places`*. It takes no `memory` argument,
+so that mutation cannot be written and a byte-equality check across a discovery would be vacuous.
+The guard sits on every route by which the value could leak instead: `buildHistoryLedger` and
+`buildDynamicTail`, which do take memory, and `memoryContext`, the static prompt's only text input.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

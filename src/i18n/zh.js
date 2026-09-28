@@ -166,6 +166,17 @@ const zh = {
     pressure: "🔥 高压 — 舆论与丑闻压力，保密度变化加倍",
     dramatic: "🎭 修罗 — 主线与支线成员公开争夺你的好感",
   },
+  // v1.4.1 step 5 - the place picker. `go` is a TEMPLATE rather than a sentence composed
+  // at the call site: Korean needs a particle after the place name, and the word in front
+  // of a particle is a variable - so ko carries the 으로/로 pair and resolveKoreanParticles
+  // picks. zh and en carry no pair, so the resolver is inert on them.
+  map: {
+    title: "去哪里？",
+    costsRound: "去一个地方会推进一轮 —— 一个场景就是一轮。",
+    discovered: "已发现",
+    foundIn: (r) => `第 ${r} 轮发现`,
+    go: "我去{place}",
+  },
   game: {
     generating: "生成开局剧情...",
     progressing: "剧情推进中...",

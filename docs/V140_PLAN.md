@@ -1683,10 +1683,79 @@ all three languages, and smoke should assert that no world's display name equals
 | **2** | ✅ Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail via `buildTailRules`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` / `world.paces` deleted, legacy seeding through `resolveStoryMode` | ✅ **Done.** Goldens moved **once** — 3 files, 3 deletions, 0 insertions, all the `[Pace: …]` line — diff read. Layer J asserts the paired invariant. Smoke **1232 → 1262**, **24 mutations RED** across two rounds |
 | **3** | ✅ Setup page: pace picker out, **world picker in** at the same slot, reading `loadWorldIndex` so step 7 adds worlds as **data**; order becomes name / birth year / world / identity; the identity grid is the **world's own** `identities` plus `H`; a world change clears `identity`/`customIdentity` **only when the new world does not declare the id**; `rv_sim_world` persists the pick; `loadSave` restores the save's `worldId` | ✅ **Done.** Goldens byte-identical and untouched. `IDENTITIES` and the seven `t.identities` rows **deleted** — see *What step 3 deleted*. Asserted on what Setup **forwards**, not on its source |
 | **4** | ✅ Section **11** (not 8 — see §6) + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` in the cached prefix, `statNotes` into section 10, `castLore.composed`/`subset` rendered by `renderCastLore` in place of four string literals, `useGroupLore` honoured, `resolveRoster` taking a required `world`, `loadSave` fetching the **save's own** world, and `castLore.useRole` filtering the idol `role` out of a non-idol world's prompt | ✅ **Done.** Section 4 and section 5 did **not** move: the only golden diff is section 10's three notes, all of section 11, and the `scene` rule's pointer at it. `update-golden.mjs` run once and the diff read. Smoke **1304 → 1356**, **36 mutations RED**. The token delta is **still unmeasured** — see below |
-| **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design). **§7.4 is the half that is NOT here:** the affinity engine stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
+| **5** | ✅ Discovered places + map picker: `memory.places` client-side (`recordPlace` / `placeKey` / `PLACES_MAX`), `discoveredPlaceIn` reading the model's own `scene` line, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting the world-language `t.map.go` template as the round's choice (§7.1 — moving costs a round, by design). **§7.4's engine is NOT here:** the affinity matrix stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | ✅ **Done.** The goldens did not move and `update-golden.mjs` was **not run at all** — nothing in step 5 is prompt-facing, which is §6.1's point. A sentinel place is asserted to reach **none** of the three messages; the row's own mutation was not expressible, so the guard sits on every route by which the value could leak (see above). Smoke **1356 → 1383**, **23 mutations RED, 0 GREEN** |
 | **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
 | **7** | Content: campus, office, chaebol — each with the ex-girlfriend identity (see below) and six structural ones. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+#### Step 5's design, written before any code — seven decisions, and one the row got wrong
+
+**1. `memory.places` is written by `updateMemory`, from a value `executeRound` derives.**
+Shape `[{name, round}]`. That is the same place and the same function that derives
+`memberAppearances` from the prose, and `updateMemory` is already the single writer of
+memory. Deriving it in `App.jsx` instead would make two writers of one record, which is how
+`[Stage Changes]` and `[NPC Appearances]` came to disagree with the lines beside them.
+
+**2. A discovery is a `scene` that names no canon place.** `parsed.scene` is matched against
+`world.places[].name` for the **current language** — both sides are the player's language, so this is
+never a cross-language comparison.
+
+- **The time is stripped, and a digit is the tell.** Section 11 asks `scene` for *a place and a
+  time*, so almost every scene carries one, and without stripping *Rooftop, 2am* and *Rooftop, 3am*
+  are two entries on the map. A trailing comma-segment containing a digit is dropped. *midnight* and
+  *深夜* survive on purpose: that is what the model wrote and what the player will recognise, and a
+  hand-maintained list of time words per language is exactly the kind of list this repo keeps
+  regretting.
+- **A name with no letter in it is not a place** — `22:00` is a time where a place belongs. That
+  rule needs no word list, which is why it is in and a `midnight` rule is not: a scene that is a
+  time spelled out (`10PM`) is recorded as written. Corrected after the first run of the rule,
+  which returned `10PM` as a place while this section claimed it would not.
+- **Dedupe on a normalised key** (lowercased, whitespace and punctuation stripped), capped at 30. At the
+  cap it **refuses** rather than dropping the oldest — `addSaveSlot`'s choice, for
+  `addSaveSlot`'s reason: eviction takes away somewhere the player can currently tap. The cap is
+  a display bound, not a quota; the list gains at most one entry per round.
+- Near-duplicates the normaliser cannot see (*Rooftop* vs *the rooftop stairwell*) are accepted as map
+  clutter. They cost nothing but a row, because a discovered place reaches the model only as the text
+  of a choice the player tapped.
+
+**3. The map shows canon always, discovered under a divider, and nothing is greyed.** §7.2 says a
+discovered place is *greyed until found*; that sentence predates the decision that `memory.places`
+holds only what has already been found, so there is nothing left to grey. §14.4's own sketch has no
+greyed row either. Recorded as resolved rather than quietly dropped.
+
+**4. 📍 supplements the four options; it does not replace them.** §7.4 calls the picker *an alternative
+to the four options*, which is what it is from the player's side — but the options are generated per
+round and the map is not, so making them exclusive would hide a round's own options behind a list that
+is the same every round. It rides `sendMessage`, the existing channel: no new schema field, no
+new tail entry, no second input per round (§7.1).
+
+**5. The choice sentence is authored per language and Korean needs a particle.**
+`t.map.go` carries `I head to {place}` / `我去{place}` /
+`{place}(으)로 향한다`, and the ko one runs through `resolveKoreanParticles` — the
+function that exists because the word in front of a particle is a variable. Composing the sentence at
+the call site would put `(으)로` into the player's own choice string, which is the unresolved-particle
+defect one layer out from where it was fixed.
+
+**6. The step-5 row's own mutation is not expressible, and the guard is wider than the row asks.**
+The row says *mutation-verify by making `buildSystemPrompt` read `memory.places`*. It takes
+no `memory` argument at all, so that mutation cannot be written — the same shape as step 4's
+round-number guard, and the same resolution: **put the guard where the value could actually leak.**
+Build all three messages from a memory carrying a sentinel place name and assert the sentinel reaches
+**none** of them. Three mutations must go RED: a `[Discovered Places]` line in
+`buildDynamicTail`; the places rendered into `buildHistoryLedger`; and `executeRound`
+passing them into `memoryContext`, which is the one route by which they could reach the cached
+prefix at all.
+
+**7. No golden may move, and that is checkable by `update-golden.mjs` not being run.** Nothing in
+step 5 is prompt-facing — that is the whole point of §6.1. Files: `memoryPool.js`
+(`createEmptyMemory` + `updateMemory`), `mainAgent.js` (discovery in
+`executeRound`), a new `src/platforms/MapOverlay.jsx`, `App.jsx` (the button and the
+overlay), `src/i18n/{zh,en,ko}.js`, `test/smoke.mjs`, `CLAUDE.md`.
+
+**Legacy saves need no migration.** `memory.places` is `undefined` on every save written
+before step 5, every reader takes `memory.places || []`, and `isLegacyMemory` keys on
+`history` — so no schema bump and no `saveMigrator` row. An old save simply opens with an
+empty discovered list, which is true of it.
 
 #### Step 4 is done, and the token estimate it was asked to check was low by about 4x
 

@@ -166,6 +166,17 @@ const ko = {
     pressure: "🔥 고압 — 스캔들과 여론 압박, 비밀 변화 2배",
     dramatic: "🎭 수라 — 메인과 서브가 당신의 호감을 두고 경쟁",
   },
+  // v1.4.1 step 5 - the place picker. `go` is a TEMPLATE rather than a sentence composed
+  // at the call site: Korean needs a particle after the place name, and the word in front
+  // of a particle is a variable - so ko carries the 으로/로 pair and resolveKoreanParticles
+  // picks. zh and en carry no pair, so the resolver is inert on them.
+  map: {
+    title: "어디로 갈까요?",
+    costsRound: "어딘가로 가면 한 라운드가 진행됩니다 — 한 장면이 한 라운드입니다.",
+    discovered: "발견한 장소",
+    foundIn: (r) => `${r}라운드에서 발견`,
+    go: "{place}으로/로 향한다",
+  },
   game: {
     generating: "오프닝 스토리 생성 중...",
     progressing: "스토리 진행 중...",
