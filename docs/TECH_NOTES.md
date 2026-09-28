@@ -595,6 +595,39 @@ the player can see the results of.
 
 ---
 
+### An avatar shaped by a clip path rather than by a rounded overflow box — v1.4.0
+
+**What it is.** `MemberFace` gives its frame `clip-path: circle(50%)` (or `inset(0 round Npx)`
+for the cast screens' rounded squares) and carries **no** `overflow: hidden` and no
+`isolation: isolate`. `border-radius` stays, but only because it is what rounds the border itself.
+
+**What it replaced, and how that fell short.** The obvious construction is `border-radius` +
+`overflow: hidden` on the parent, which is what this component shipped with. On iOS WebKit the
+photo came out **square inside the round ring** on Bubble, KakaoTalk and Weverse — and correct on
+Instagram. The second attempt put the radius on the `<img>` itself, which fixed Instagram, the one
+surface that had never been broken, and nothing else: the gradient-and-emoji default has no `<img>`
+to put a radius on and was square too.
+
+The three broken panels are exactly the avatars inside a **scrolling container carrying a background
+image**. Such a scroller is composited on iOS, and a rounded overflow clip is not applied across that
+boundary. The cause is **unverified** — it is inferred from which three failed and which one did not,
+with no repro on hand — which is the argument for the fix rather than against it: `clip-path` does
+not clip by overflow, so it is indifferent to whatever the compositor decides.
+
+**What it bought.** One mechanism instead of three cooperating ones, on a component consumed by six
+surfaces, and a shape that cannot depend on an ancestor. Same-day: the three scrollers also dropped
+`background-attachment: local`, which was sizing `cover` against the **scrollable content** rather
+than the panel — so a long KakaoTalk thread displayed a crop the player never framed, defeating the
+cropper one release after it was built.
+
+**What it costs.** `clip-path` clips the border too, so a border must be drawn on the clipped
+element rather than outside it; and there is no fallback on a browser without `clip-path`, where
+the photo would simply be square. Both are acceptable for a PWA whose only target is a modern phone.
+
+**Short form.** When a shape depends on an ancestor honouring a clip, stop depending on the
+ancestor. And validate a device fix against the surfaces that were broken, never against the one
+that already worked.
+
 ## To backfill
 
 Not yet written; add when next touched.

@@ -1793,22 +1793,28 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 **Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
 **578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
 
-### Pick up here — step 8, 2026-09-28
+### Pick up here — step 8, third hand-test pass, 2026-09-28
 
 **Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
-**1161 passed / 0 failed**. Nothing is running. Goldens untouched throughout — nothing since the
+**1192 passed / 0 failed**, and `package.json` now reads **1.4.0**. Nothing is running. Goldens
+untouched throughout — nothing since the
 re-validation is prompt-facing, step 8 included.
 
 **Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
 Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
-Three batches are now waiting on that one test:
+Four batches are now waiting on that one test:
 
 - **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
   not by member*;
 - **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
   see *The photo store shipped with no reader* and *A birth year is stated once*;
 - **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs**, from
-  his hand test of step 8 — see *Four of those six surfaces were wrong on a phone*.
+  his hand test of step 8 — see *Four of those six surfaces were wrong on a phone*;
+- **step 8's third pass: the avatar clip path, Instagram fitting its panel, the wheel on the name
+  field's line, and `npm run bump 1.4.0`** — see *The first fix cured the one surface that was
+  never broken*. **18 mutations, all RED, none needing a fix first.** The version strings are bumped
+  and README carries a hand-written *What's New in v1.4.0*, so the release flow resumes at
+  `git checkout main`.
 
 **Step 8's one unmeasured number is still unmeasured, and it moved.** Canvas WebP cannot be encoded
 outside a browser, so the wallpaper's ~46 KB is calculated and the storage budget it feeds (~2.4 MB
@@ -2124,6 +2130,29 @@ surface of its own, sitting in Setup beside a 38px name field — so it read as 
 page rather than as one control. Three rows at 34px inside a bordered, rounded, clipped box, and
 the viewport is `ROW_H * VISIBLE_ROWS + 2` so the border does not cost the pixel that would put
 `scrollSnapAlign: center` permanently one off from `scrollTop = index * ROW_H`.
+
+### The first fix cured the one surface that was never broken — the third hand test
+
+Three more from the phone, and the first of them is the instructive one.
+
+**A fix validated against the working case is a fix validated against nothing.** The square-photo-in-a-round-frame fix of the second pass gave the `<img>` a radius of its own, and the reasoning was sound: the tab strip puts the radius on the `<img>` and the tab strip was never broken. It shipped, and the avatars were still square in Bubble, KakaoTalk and Weverse — and correct on Instagram, *which is the one surface whose shape that fix could reach*. The delta I had used as the diagnosis was a delta between two working copies.
+
+The real discriminator is one line away and was in the diff of the same batch: **Bubble, KakaoTalk and Weverse are exactly the avatars sitting inside a scrolling container that carries a background image, and Instagram's is not.** A scroller with a background becomes its own composited layer on iOS WebKit, and a rounded `overflow` clip on a descendant is not applied across that boundary — which is why the *gradient-and-emoji* default came out square too, and no radius on an `<img>` could ever have helped it. Still **unverified** as a mechanism: it is inferred from which three broke and which one did not, not from a repro. The fix does not rest on it, because `clip-path` does not clip by overflow at all.
+
+- **The shape is a `clip-path`** — `circle(50%)`, or `inset(0 round Npx)` for the cast screens' rounded squares — and `overflow: hidden` plus `isolation: isolate` are **gone** rather than kept beside it. `border-radius` stays because it is what rounds the *border*. A shape enforced twice is a shape neither enforcement can be shown to hold, which is what `cropRect`'s double clamp cost an hour of mutation testing to find one release ago.
+- **The three scrollers drop `background-attachment: local`**, which was a second, separate bug hiding in the same line. With `local`, `cover` sizes the wallpaper against the whole **scrollable content**, so a long KakaoTalk thread displayed a crop the player never framed — the exact promise the cropper exists to keep. Default attachment pins it to the padding box, which is what a chat wallpaper does anyway: the messages move over it, not with it.
+
+**A fixed aspect ratio decides the layout before the container does.** Instagram's post was 4:5 — a real portrait ratio, chosen to waste less of a 2:3 upload — which is 450px of a 600px panel that has already spent ~115 on its title bar, tab strip and post header. So the caption and the like count sat below the fold on **every** post, and the player had to scroll to read the thing the round actually generated. The frame now takes what the panel has left (`flex: 1 1 0` against siblings that cannot shrink) and `cover` trims the rest. The scroll survives only as a backstop for an unusually long caption; KakaoTalk keeps its scroll on purpose, because a thread is history.
+
+**A caption inside a control's own column moves the control.** Setup's year wheel was in a flex row with the name field and looked like a second row, because the "Birth year" caption above it pushed the wheel down by the caption's own height. The captions are lifted into the section label, so the row holds exactly two boxes and centres them — and the wheel box's centre *is* the selected year, since the band sits at the middle row by construction.
+
+### `npm run bump` would have rewritten this file's own history, in `src/`
+
+Found by running `npm run bump 1.4.0`: smoke reported **five** cover strings in `App.jsx` where `EXPECTED` declares three, and two in each `src/i18n/*.js` where it declares one.
+
+Nothing had drifted. `bumpFile` rewrites every **line** containing the old version, and `src/` is now full of comments that say `v1.4.0 step 6 - the custom cast` and `a pre-v1.4.0 save`. **This is the CLAUDE.md anchoring lesson, one directory over, and it had never bitten because v1.4.0 is the first version this code documents itself against while also being the version being bumped to.** Left alone, the next bump would have relabelled every one of those comments as a thing that happened in v1.4.1.
+
+In `src/`, the only version string that is **state** is a cover description, so a line must contain `desc:` to be eligible; every other mention is history. Guarded by probing `bumpFile` with a literal comment line rather than with the real file — the real file is what the count check already reads, and the rule has to hold for a comment nobody has written yet.
 
 ### A birth year is stated once, and the control cannot express a wrong one
 
