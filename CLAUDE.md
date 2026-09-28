@@ -1796,13 +1796,13 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 ### Pick up here — step 8, third hand-test pass, 2026-09-28
 
 **Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
-**1192 passed / 0 failed**, and `package.json` now reads **1.4.0**. Nothing is running. Goldens
+**1204 passed / 0 failed**, and `package.json` now reads **1.4.0**. Nothing is running. Goldens
 untouched throughout — nothing since the
 re-validation is prompt-facing, step 8 included.
 
 **Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
 Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
-Four batches are now waiting on that one test:
+Five batches are now waiting on that one test:
 
 - **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
   not by member*;
@@ -1815,6 +1815,10 @@ Four batches are now waiting on that one test:
   never broken*. **18 mutations, all RED, none needing a fix first.** The version strings are bumped
   and README carries a hand-written *What's New in v1.4.0*, so the release flow resumes at
   `git checkout main`.
+- **step 8's fourth pass: an avatar with nothing to clip, and release notes inside the game** —
+  see *The second fix made the square reachable*. **16 mutations, all RED, none needing a fix
+  first.** The Help Center's last tab is now **More Info** and carries `RELEASE_NOTES`, whose
+  newest entry smoke ties to `package.json`.
 
 **Step 8's one unmeasured number is still unmeasured, and it moved.** Canvas WebP cannot be encoded
 outside a browser, so the wallpaper's ~46 KB is calculated and the storage budget it feeds (~2.4 MB
@@ -2139,12 +2143,89 @@ Three more from the phone, and the first of them is the instructive one.
 
 The real discriminator is one line away and was in the diff of the same batch: **Bubble, KakaoTalk and Weverse are exactly the avatars sitting inside a scrolling container that carries a background image, and Instagram's is not.** A scroller with a background becomes its own composited layer on iOS WebKit, and a rounded `overflow` clip on a descendant is not applied across that boundary — which is why the *gradient-and-emoji* default came out square too, and no radius on an `<img>` could ever have helped it. Still **unverified** as a mechanism: it is inferred from which three broke and which one did not, not from a repro. The fix does not rest on it, because `clip-path` does not clip by overflow at all.
 
-- **The shape is a `clip-path`** — `circle(50%)`, or `inset(0 round Npx)` for the cast screens' rounded squares — and `overflow: hidden` plus `isolation: isolate` are **gone** rather than kept beside it. `border-radius` stays because it is what rounds the *border*. A shape enforced twice is a shape neither enforcement can be shown to hold, which is what `cropRect`'s double clamp cost an hour of mutation testing to find one release ago.
+- **The shape is a `clip-path`** — **this was also wrong; see *The second fix made the square reachable* below, where removing `overflow: hidden` is what let the square through.** `circle(50%)`, or `inset(0 round Npx)` for the cast screens' rounded squares — and `overflow: hidden` plus `isolation: isolate` are **gone** rather than kept beside it. `border-radius` stays because it is what rounds the *border*. A shape enforced twice is a shape neither enforcement can be shown to hold, which is what `cropRect`'s double clamp cost an hour of mutation testing to find one release ago.
 - **The three scrollers drop `background-attachment: local`**, which was a second, separate bug hiding in the same line. With `local`, `cover` sizes the wallpaper against the whole **scrollable content**, so a long KakaoTalk thread displayed a crop the player never framed — the exact promise the cropper exists to keep. Default attachment pins it to the padding box, which is what a chat wallpaper does anyway: the messages move over it, not with it.
 
 **A fixed aspect ratio decides the layout before the container does.** Instagram's post was 4:5 — a real portrait ratio, chosen to waste less of a 2:3 upload — which is 450px of a 600px panel that has already spent ~115 on its title bar, tab strip and post header. So the caption and the like count sat below the fold on **every** post, and the player had to scroll to read the thing the round actually generated. The frame now takes what the panel has left (`flex: 1 1 0` against siblings that cannot shrink) and `cover` trims the rest. The scroll survives only as a backstop for an unusually long caption; KakaoTalk keeps its scroll on purpose, because a thread is history.
 
 **A caption inside a control's own column moves the control.** Setup's year wheel was in a flex row with the name field and looked like a second row, because the "Birth year" caption above it pushed the wheel down by the caption's own height. The captions are lifted into the section label, so the row holds exactly two boxes and centres them — and the wheel box's centre *is* the selected year, since the band sits at the middle row by construction.
+
+### The second fix made the square reachable — the fourth hand test
+
+**Three fixes for one bug, and the first two were the same mistake in different syntax.** The
+avatar came out square inside its round ring on Bubble, KakaoTalk and Weverse. Attempt one put a
+radius on the `<img>` and cured Instagram, which was never broken. Attempt two moved the frame to
+`clip-path` and **removed `overflow: hidden`**, reasoning that one enforcement is better than two.
+It was still square.
+
+**Attempt two did not merely fail; it made the failure worse, and the report said so in words this
+file had not read carefully enough.** "The square edge **inside** the circle" is not "the frame is
+square" — it is a circle with a square in it. That is precisely what the component does when its
+clip does not apply: `border-radius` still clips the element's **own** background, so the gradient
+frame is a clean circle, while the `<img>` child — no longer held by any overflow clip — paints as
+a full square on top of it. **Measured**, in Chromium with `clip-path` forced off: the current
+component renders a full square, and the fix renders a circle.
+
+**The fix is to delete the child.** Her photo is the frame's own `background-image`, sized with
+`background-size: cover` and `background-origin: border-box`. There is no descendant, so no
+clipping mechanism can fail; `border-radius` clipping an element's own background is the most
+basic rounding in CSS. `overflow`, `clip-path` and `isolation` are all gone.
+
+**`photoFill` is the one definition and it has three consumers**, because `MemberPicker` and
+`RosterBuilder` were clipping an `<img>` the same way — not in the configuration that has ever
+failed, but the same shape, and *count the call sites* is the standing rule here. `MemberSelector`
+keeps its `<img>`: that one carries its **own** `border-radius`, which is why the tab strip has
+never been reported square, and it is the difference the guard is written on. `ImageCropper` keeps
+its `<img>` too, because the preview is panned by transform and must be a child.
+
+**How it was finally diagnosed, after two fixes reasoned from the wrong evidence.** A repro
+harness in the scratchpad: esbuild bundles the *real* `memberFace.jsx` and the *real* crop pipeline
+into a page, headless Chrome screenshots it, and the image is read. Chromium cannot reproduce an
+iOS compositing bug — so the harness reproduces the **consequence** instead, by forcing
+`clip-path: none` and looking at what is left standing. Test images are **generated** (a flat red
+fill, and a checkerboard inside a 20px magenta frame so any letterboxing is unmissable) rather
+than downloaded: a real face hides an edge artefact that a hard frame cannot, and nothing about a
+real photo needs to touch this machine or this repo.
+
+The first thing that harness did was clear a hypothesis out of the way. Yuhan's own reading was
+that the saved crop might be wrong — "check if the scale/ratio is wrong". It is not: the pipeline
+writes a 256x256 WebP with `sx=0 sy=150 sw=900 sh=900` from a 900x1200 source, which is exactly
+the centred square, and the decoded image has no transparent margin. **Ten minutes of rendering
+settled a question two rounds of reasoning had not.**
+
+**The guards moved from the mechanism to the requirement.** They used to assert
+`clipPath: clip, WebkitClipPath: clip` — today's CSS, pinned. They now assert that the component
+**renders no child**, that its shape is its own `border-radius`, and — derived from a scan of
+`src/` — that no screen shows a stored photo as a child something else has to clip. A fourth
+screen cannot quietly reintroduce it.
+
+### What's New belongs in the game, not only in README
+
+**A player opens the game; she does not open the repository.** Every release note this project has
+written has lived in `README.md`, which is on GitHub, behind a link in the Help Center's last tab.
+Reported by Yuhan: put it where she already is.
+
+The Help Center's fourth tab is therefore **More Info** (`更多` / `더보기`) rather than Contact, and
+it renders one or two sentences per release, newest first, above the contact details it already
+carried. The panel's content area already scrolled, so the list can grow a release at a time.
+
+- **`src/config/releaseNotes.js` is ONE array with all three languages side by side**, not three
+  copies in `src/i18n/*.js`. A missing translation in an i18n file is invisible until a Korean
+  player opens the tab; here it is a hole in a row. Smoke asserts every entry carries all three.
+- **Smoke ties `RELEASE_NOTES[0].version` to `package.json`.** Without that the list silently stops
+  at whichever release last remembered to add a line — the failure README's *What's New* heading
+  already has a guard for, one file over. It also makes the tab's "you are playing this" badge on
+  the top entry true by construction rather than by hope.
+- **A version number in that file is history, so `npm run bump` must not touch it** — the same rule
+  as README's old headings and this file's post-mortems. The guard probes a version the notes
+  actually *name*, because bumping the current version would find nothing to rewrite and pass
+  vacuously. That is the second vacuous guard caught in this batch by asking what it would take to
+  fail.
+- **Renaming a tab strands the prose that points at it.** The unrecognised-error line told the
+  player to "report it from the Contact tab", in all three languages, and Contact no longer exists.
+  This is `pickMainHint` again — a control described in three languages that had been deleted two
+  redesigns earlier. The guard is derived from `TABS`: the line must name the tab that is actually
+  last, so the next rename fails the suite until the prose follows.
 
 ### `npm run bump` would have rewritten this file's own history, in `src/`
 

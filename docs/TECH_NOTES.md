@@ -595,38 +595,60 @@ the player can see the results of.
 
 ---
 
-### An avatar shaped by a clip path rather than by a rounded overflow box — v1.4.0
+### An avatar with nothing to clip — v1.4.0
 
-**What it is.** `MemberFace` gives its frame `clip-path: circle(50%)` (or `inset(0 round Npx)`
-for the cast screens' rounded squares) and carries **no** `overflow: hidden` and no
-`isolation: isolate`. `border-radius` stays, but only because it is what rounds the border itself.
+**What it is.** `MemberFace` paints her photo as the frame's **own background** —
+`background-image`, `background-size: cover`, `background-origin: border-box` — and renders no
+child element at all. The shape is `border-radius`, full stop: no `overflow: hidden`, no
+`clip-path`, no `isolation`. `photoFill` is the one definition of that fill and is used by
+`MemberFace`, `MemberPicker` and `RosterBuilder`.
 
-**What it replaced, and how that fell short.** The obvious construction is `border-radius` +
-`overflow: hidden` on the parent, which is what this component shipped with. On iOS WebKit the
-photo came out **square inside the round ring** on Bubble, KakaoTalk and Weverse — and correct on
-Instagram. The second attempt put the radius on the `<img>` itself, which fixed Instagram, the one
-surface that had never been broken, and nothing else: the gradient-and-emoji default has no `<img>`
-to put a radius on and was square too.
+**What it replaced, and how that fell short. This entry has been rewritten twice, and the two
+failures are the content.** The obvious construction is `border-radius` + `overflow: hidden` on a
+parent wrapping an `<img>`, which is what shipped. On iOS the photo came out **square inside the
+round ring** on Bubble, KakaoTalk and Weverse, and correct on Instagram.
 
-The three broken panels are exactly the avatars inside a **scrolling container carrying a background
-image**. Such a scroller is composited on iOS, and a rounded overflow clip is not applied across that
-boundary. The cause is **unverified** — it is inferred from which three failed and which one did not,
-with no repro on hand — which is the argument for the fix rather than against it: `clip-path` does
-not clip by overflow, so it is indifferent to whatever the compositor decides.
+- **Attempt one** put the radius on the `<img>`. It fixed Instagram — the one surface that had
+  never been broken — and nothing else. The gradient-and-emoji default has no `<img>` to put a
+  radius on, and it was square too.
+- **Attempt two** moved the frame to `clip-path` and removed `overflow: hidden`, on the reasoning
+  that a clip path does not clip by overflow and so is indifferent to compositing. The three
+  panels were still square. **And it made the failure worse**: measured in Chromium with
+  `clip-path` forced off, `border-radius` still draws the frame as a circle while the `<img>`
+  renders as a **full, unclipped square on top of it** — which is exactly the symptom the report
+  used the words "a square edge inside the circle" for. Removing the overflow clip removed the
+  thing that had been holding the square in.
 
-**What it bought.** One mechanism instead of three cooperating ones, on a component consumed by six
-surfaces, and a shape that cannot depend on an ancestor. Same-day: the three scrollers also dropped
-`background-attachment: local`, which was sizing `cover` against the **scrollable content** rather
-than the panel — so a long KakaoTalk thread displayed a crop the player never framed, defeating the
-cropper one release after it was built.
+Both attempts argued about *how* to clip a child. Neither questioned whether there should be a
+child. An element's own background is clipped by its own `border-radius` — the most basic
+rounding in CSS, painted by the element into its own border box, with no layer boundary to get
+wrong. So the third fix deletes the `<img>`.
 
-**What it costs.** `clip-path` clips the border too, so a border must be drawn on the clipped
-element rather than outside it; and there is no fallback on a browser without `clip-path`, where
-the photo would simply be square. Both are acceptable for a PWA whose only target is a modern phone.
+**Why this was diagnosable at all, after two blind fixes.** A repro harness: esbuild bundles the
+real `memberFace.jsx` and the real `cropRect`/`renderCrop` into a page, headless Chrome renders
+it at 300px against a lime background with a flat-red photo, and the screenshot is read. Chromium
+cannot reproduce an iOS compositing bug — but it can be made to reproduce the *consequence*, by
+forcing `clip-path: none` and looking at what is left. That turned "which CSS does iOS dislike"
+(unanswerable here) into "what does this component look like when its clip fails" (answerable in
+one screenshot). The harness lives in the scratchpad; nothing about it is committed, and the test
+images are generated rather than downloaded.
 
-**Short form.** When a shape depends on an ancestor honouring a clip, stop depending on the
-ancestor. And validate a device fix against the surfaces that were broken, never against the one
-that already worked.
+**What it bought.** A shape that cannot depend on an ancestor, one mechanism instead of three
+cooperating ones, and two fewer elements on a component consumed by six surfaces. The guards moved
+with it: they now assert the component renders **no child**, rather than asserting today's clip
+syntax, and a derived scan fails if any screen in `src/` shows a stored photo as a child something
+else has to clip. An `<img>` carrying its **own** radius still passes — the tab strip has always
+done that, and the tab strip is the one surface never reported square.
+
+**What it costs.** A background image is not an `<img>`: no `alt`, no `loading`, no `onError`. All
+three are irrelevant here (the avatar is decorative, the photo is a data URL already in memory, and
+the gradient sits underneath as the fallback layer), but a future avatar that needs any of them
+cannot use this. `ImageCropper`'s preview is the standing exception and keeps its `<img>`, because
+it is panned and zoomed by transform and genuinely must be a child.
+
+**Short form.** Two fixes argued about how to clip the child. The answer was not to have one.
+And when the failing platform is out of reach, reproduce the *failure mode* rather than the cause:
+disable the mechanism you suspect and look at what the component does without it.
 
 ## To backfill
 
