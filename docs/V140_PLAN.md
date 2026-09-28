@@ -358,8 +358,8 @@ ask what a check would look like if the behaviour were wrong.
 - **The golden blind spot, measured rather than asserted**: reverting that to unconditional leaves
   **0 of 3 goldens moved while 8 Layer I checks fail**. All 175 library member records are
   complete, so the empty branch appears in no snapshot.
-- **Three storage keys, not §4.3's five.** `rv_sim_worlds_custom_v14` and `rv_sim_world` are v1.4.1
-  work; this repo already carries `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` as a standing
+- **Three storage keys, not §4.3's five.** `rv_sim_world` is v1.4.1 step 7 and
+  `rv_sim_worlds_custom_v14` is deferred with the world builder; this repo already carries `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` as a standing
   example of what declaring ahead of the reader costs.
 - **Nine card fields, not §4.5's seven.** `name` and `birthday` are generated too, or the player
   still hand-fills two required fields and the fast path is pointless. `mbti`, `role`, `name_kr`
@@ -504,8 +504,8 @@ first, with no new player-visible worlds riding along.
 | Release | Contents | Risk |
 | --- | --- | --- |
 | **v1.4.0** | Cast library + cross-group roster builder + custom members + card generation + `habit` + save migration + usage panel + affection clamp | High — touches saves |
-| **v1.4.1** | The three new worlds + custom world builder + per-world platforms + place map (picker, canon, discoveries) | Medium — new data, no migration |
-| **v1.4.2** | Player-side KKT/IG, cast relations, opening scenario, place→member affinity prior | Low — additive |
+| **v1.4.1** | Country as a world field + shared address registers + the three new worlds + per-world platforms + place map (picker, canon, discoveries) + opening scenario. **Scoped 2026-09-28** — see §15 | Medium — new data, no migration |
+| **v1.4.2** | Unified game entry, custom world builder, player-side KKT/IG, cast relations, place→member affinity prior | Low — additive |
 | **v1.5.0** | Story archive + BM25 retrieval into the dynamic tail | Own release; changes what the model remembers |
 
 Each release is validated with `npm run build` + `node test/smoke.mjs` and, for v1.4.0 and
@@ -608,7 +608,7 @@ src/
   platforms/
     RosterBuilder.jsx     NEW
     MemberEditor.jsx      NEW
-    WorldBuilder.jsx      NEW (v1.4.1)
+    WorldBuilder.jsx      deferred past v1.4.1 — see §15
     MapOverlay.jsx        NEW (v1.4.1)
     UsagePanel.jsx        NEW
   utils/
@@ -707,8 +707,8 @@ All go in `STORAGE_KEYS`, per the existing note that inline literals are the wro
 | `rv_sim_cast_custom_v14` | `[{id, lang, createdAt, profile}]` — custom member palette | ✅ step 6 |
 | `rv_sim_rosters_v14` | `[{id, name, createdAt, roster}]` — player-saved rosters | ✅ step 6 |
 | `rv_sim_cast_photos_v14` | `{memberId: dataUrl}` — 256×256 WebP | ✅ step 6 |
-| `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds | ⬜ v1.4.1 |
-| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) | ⬜ v1.4.1 |
+| `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds | ⬜ deferred with `WorldBuilder.jsx` |
+| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) | ⬜ v1.4.1 step 7 |
 
 **Only the three v1.4.0 keys are declared.** The other two are not added until something reads
 them: `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` have sat unimported in `constants.js` for
@@ -1251,13 +1251,202 @@ data instead of an inherited figure.
 
 ### v1.4.1
 
-Three world JSONs × 3 languages; world builder UI; platform-aware schema and overlays; place
-canon in §8; map picker; discovered places.
+**Scoped 2026-09-28 on Yuhan's answers.** Four worlds, not three — `kpop_idol` is brought up to the
+same shape rather than left as the special case. **Country becomes a field** on every world, Korea by
+default, fictional allowed. **Pacing stays.** The unified game entry is deliberately *after* this
+release. `WorldBuilder.jsx` is dropped from it; see *What is not in this release*.
+
+#### Country is a field, and it costs almost nothing — because the mechanism already exists
+
+§6 argued that a background country ships *as* a world, on the grounds that Korean seniority is a
+birth-year boundary while a Japanese setting ranks by school year. The decision is the other way, and
+it is cheaper than §6 feared for a reason §6 did not notice: **the address protocol already has a
+rank override.** `workTitle` makes a `Staff` player `매니저님` and a `财阀` player `회장님` *regardless
+of who was born first* — so a professor addressed as `교수님` by her student, or a `팀장님` by her
+report, is that existing mechanism with new strings. **No `seniority` field is needed for these four
+worlds**, and none is added.
+
+`country` therefore supplies two things and no logic:
+
+- **A name for the setting**, which §4's `setting` paragraph needs anyway.
+- **`register`** — which address-form table is spoken. Today there is exactly one value, `korea`.
+
+So `addressForms` moves **out** of the world file into one shared table per language,
+`public/worlds/_registers/<lang>.json`, keyed by register. Four worlds all pointing at `korea` must
+not become four copies of one table — that is `extractStoryText` and `castTheme.js` again, where
+copies drifted and the guard had been written against the one that was still correct. A second
+register is one more entry in an existing file, **not** a fourth mirrored tree: `_registers/` stays
+inside `worlds/` until a second country actually ships.
+
+**A fictional country inherits a real register**: `{ name: "<player's text>", register: "korea" }`.
+Inventing honorifics is not a default. The `呀` bug is what happens when a form is transplanted into
+a language that already has a use for the syllable — and that was a real language, with a real
+grammar to check the transplant against. A made-up one has nothing to check.
+
+#### Pacing stays, and it is the one world knob with a measurement behind it
+
+The high-pressure run drove secrecy 100 → 11 in 25 rounds where the slow-burn run fell only to 91 in
+20 — an 89-point drop against 9, from nothing but the pace's authored rule. Removing the setting
+would delete a feature that demonstrably works and move the kpop goldens for no gain.
+
+What changes is that each world authors its own four, against four fixed **roles**, so the picker's
+shape is constant and the mechanical effect stays comparable across worlds:
+
+| Role | What the rule does | `kpop_idol` (frozen ids) | campus | office | chaebol |
+| --- | --- | --- | --- | --- | --- |
+| slow | affection grows slowly; detail over event | `慢热现实向` | `slow_burn` | `slow_burn` | `slow_burn` |
+| romantic | natural mutual progression | `浪漫情感向` | `romantic` | `romantic` | `romantic` |
+| pressure | **secrecy changes doubled**; the fiction differs | `高压舆论向` | `rumour` — gossip, faculty discipline | `hr_risk` — HR, hierarchy, a transfer | `press` — the press, the family, the board |
+| multi | several routes live at once | `修罗海王向` | `harem` | `harem` | `harem` |
+
+`kpop_idol`'s four ids are **stored values in every save and cannot be renamed** (§4.1). New worlds
+use ASCII ids, which is what the rest of `src/` is held to anyway.
+
+> ⚠️ **`paces` must gain a `name` per language, and that is a code change, not a data one.** Setup
+> renders `t.paces[i]` against a hardcoded `PACES[i]`
+> ([App.jsx:1436-1438](../src/App.jsx#L1436-L1438)) — **coupled by position**, to a list that exists
+> in a fourth place. A campus world whose paces are `slow_burn`/`romantic`/`rumour`/`harem` would
+> have the picker write `慢热现实向` into `form.pace`, `getPaceRule` would resolve nothing, and the
+> prompt would carry a bare Chinese id — **which is exactly the dead-code bug step 3 of v1.4.0
+> fixed, returning through a different door.** Paces were given no `name` because their `rule` opens
+> with a self-describing `[Pace: …]`; that is true for the *model* and was never true for *Setup*.
+
+#### `statLabels` is deferred; `statNotes` is taken
+
+None of the four worlds needs relabelled stats. A hidden relationship is a hidden relationship in a
+lecture hall, an office or a family compound, and self-identity and mood read correctly in all of
+them. §4.1 lists `statLabels`, and the trap is real — the names live in `src/i18n/*.js`
+(`t.stats.selfId.label`) with their icons hardcoded in `buildStatsBox`
+([App.jsx:261-262](../src/App.jsx#L261-L262)), so a world-supplied label makes the world file a
+**second copy of a string i18n owns**, exactly the `identity.name` vs Setup-label case. It therefore
+arrives with the first world that genuinely needs it, per §4.3's rule that a field arrives with its
+reader.
+
+`statNotes` is the opposite case and is worth having now: *what raises and lowers secrecy in THIS
+world* is world-specific prose with no second writer anywhere.
+
+#### `STAR_LEVELS` is dead, and CLAUDE.md overstates its coverage
+
+`STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"]` sits at
+[App.jsx:58](../src/App.jsx#L58) and **is referenced nowhere.** `form.starLevel` is initialised to
+`""`, written by no control, read by no prompt code, and copied into every save. CLAUDE.md's *Known
+Inconsistencies* says of `PACES` and `STAR_LEVELS` that "both are now checked against the world" —
+**only `PACES` is**; no world file carries `starLevels` and no guard mentions it.
+
+This is the same shape the project already tracks three times — `npcAppearances`, bubble `photoDesc`,
+cast photos — a field complete on one side of a boundary and connected to nothing on the other. It is
+the **fourth**, and unlike the others it never had a reader at all.
+
+**Recommendation: delete the constant, leave the save field.** Removing `starLevel` from the save
+shape is a migration for a value that is always `""`; leaving a dead empty string costs nothing and
+`migrateSave` already copies it untouched. Correct the CLAUDE.md sentence in the same commit.
+
+#### Identities per world — proposed, for Yuhan to cut
+
+Seven plus `H` in each, matching `kpop_idol`'s count. **`H` is the custom id in every world**, not a
+per-world spelling: `formForRound()` branches on the literal `"H"` and that function had already
+drifted across four call sites once (*Known Inconsistencies 2*). New-world ids are ASCII.
+
+**Campus** — a Korean university by default. `workTitle` carries the rank override where there is one.
+
+| id | The player is | Title direction |
+| --- | --- | --- |
+| `student_of_cast` | a student; the cast are her professors | she uses `교수님` **for** them |
+| `prof_of_cast` | faculty; the cast are her students | they use `교수님` **for** her |
+| `peer_student` | same year, same cohort | none — pure age register |
+| `senior_student` | an upperclassman | they use `선배님` for her |
+| `junior_student` | a `후배` | she uses `선배님` for them |
+| `ta` | a teaching assistant — authority without rank | mixed, and that is the point |
+| `exchange_student` | an international student; outsider register, language friction | none |
+| `H` | custom | — |
+
+**Office** — a Korean company by default.
+
+| id | The player is | Title direction |
+| --- | --- | --- |
+| `peer_colleague` | same level, same team | none |
+| `manager_of_cast` | their team lead | they use `팀장님` for her |
+| `report_to_cast` | reporting to them | she uses `팀장님` for them |
+| `ceo` | the company's head | they use `대표님` for her |
+| `new_hire` | the newest hire; everyone is `선배` | she uses `선배님` for them |
+| `contractor` | external — a vendor or consultant, in the building but not of it | none |
+| `hr` | in HR, which makes a relationship a policy problem | none — the secrecy stat *is* the plot |
+| `H` | custom | — |
+
+**Chaebol** — Korean conglomerate families.
+
+| id | The player is | Title direction |
+| --- | --- | --- |
+| `rival_heiress` | a daughter of a **different** chaebol family, in commercial competition | peer; `회장님` upward only |
+| `heiress_fallen` | from a family that lost everything, now in the rival's orbit | none |
+| `lawyer` | the family's counsel | they use `변호사님` for her |
+| `secretary` | the heiress's executive aide | she uses `회장님` / `실장님` |
+| `bodyguard` | security — physical proximity, no social standing | she uses the title; nobody uses hers |
+| `journalist` | investigating the family | none — secrecy is the plot |
+| `tutor` | tutoring the younger members, living in the house | mixed |
+| `H` | custom | — |
+
+> ⚠️ **No same-family option.** A cousin or adopted-sibling route is a standard K-drama shape and is
+> deliberately left out rather than quietly included; ask for it explicitly if you want it.
+
+**`chaebol` as a world still collides with `财阀` as a kpop identity** — the identity means *the
+player is a chairman in the idol world*, the world means *the conglomerate is the setting*. Two
+things, one name, one picker: the `[Stage Changes]` id-vs-name problem one layer up. The world id can
+stay `chaebol` since it is ASCII and the identity id is CJK, but the **display names must differ** in
+all three languages, and smoke should assert that no world's display name equals an identity's.
+
+#### Steps
+
+| Step | Work | Gate before moving on |
+| --- | --- | --- |
+| **1** | Registers + country + schema, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`; `paces[].name`; `public/worlds/index.json`; `parseWorld` validates and **throws** per field. Root `worlds/` mirror re-synced. Nothing renders the new fields yet | **Goldens byte-identical**, Layer C mirror green. The whole gate, exactly as step 3 of v1.4.0 |
+| **2** | Setup reads paces from the world: `PACES` and `t.paces` stop being the source, `name` per language is what renders | A world whose pace ids differ from kpop's shows the right labels **and forwards an id `getPaceRule` resolves** — asserted on the `executeRound` call, not on the picker's source, per *Known Inconsistencies 2* |
+| **3** | Section 8 of the prompt: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, `world.scenario` seeding round 1, `statNotes` | `update-golden.mjs` run **once**, diff read line by line. §6 estimates +140 tokens; **measure** it |
+| **4** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design) | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
+| **5** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
+| **6** | Content: campus, office, chaebol. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 found seven defects zh could not express | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
+| **7** | World picker in the roster builder, `rv_sim_world`, and the save carrying its own `worldId` for life | A game started in one world keeps it across save/load and across a later world switch on the cover |
+| **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+**Steps 1–5 are the engine and add no content; 6–8 are the worlds.** If this runs long, step 5 is the
+safe place to cut and ship — the map and the platform trim are player-visible on `kpop_idol` alone.
+
+**Step 5 is the one that can break a game in flight.** A run started under `kpop_idol` must keep all
+four platforms for its whole life, so platforms resolve from the **save's** `worldId`, never from
+whichever world is currently selected. Same rule as the roster, and for the same reason.
+
+#### Golden coverage for three new worlds — an accepted gap, stated
+
+Nine new fixtures (3 worlds × 3 languages) is the complete answer and is more snapshot than this
+suite can usefully carry. **Proposal: three new fixtures, one per world, rotating the language** —
+`campus-ko`, `office-en`, `chaebol-zh`. That covers every language once and every world once.
+
+**It leaves six (world, language) pairs unpinned**, and that is a real gap rather than a technicality:
+step 7's lesson is that seven of nine defects were invisible to zh because zh is where the content is
+authored. The mitigation is the hand read in step 6's gate, not the fixtures — a fixture stops a
+defect recurring, reading is what finds it. Say so in `test/README.md` rather than leaving the
+rotation looking like full coverage.
+
+#### What is not in this release
+
+- **`WorldBuilder.jsx` and `rv_sim_worlds_custom_v14`.** §1 bundled a custom-world builder with the
+  authored worlds; they are separable, and three authored worlds each carrying an `H` custom identity
+  is the player-facing value. A builder that emits a *valid* world — identities with `workTitle`
+  direction, four paces, four phase lines, places — is a larger UI than the member editor. Say if you
+  want it in; otherwise it follows the entry merge.
+- **The unified game entry** (groups & custom cast & world on one screen), by Yuhan's call, after the
+  worlds exist. This **answers §18 decision 2**: the classic path does get worlds, through the merged
+  entry rather than by bolting a second picker onto the cover.
+- ⚠️ **Consequence to accept knowingly: until the merge, the three new worlds are reachable only
+  through the Custom door.** A player who only ever uses Classic will not see them. Step 7 puts the
+  picker in the roster builder, which is the cheapest place it can live without redesigning the cover
+  twice.
 
 ### v1.4.2
 
-Player KKT/IG composers; `playerPostReactions` in the schema and parser; relations in §4;
-opening scenario; affinity matrix call + `BETA` prior in `probabilityEngine.js`; **plot mode
+Unified game entry (groups & cast & world on one screen); `WorldBuilder.jsx` +
+`rv_sim_worlds_custom_v14`; player KKT/IG composers; `playerPostReactions` in the schema and
+parser; relations in §4; affinity matrix call + `BETA` prior in `probabilityEngine.js`; **plot mode
 (§19)** — authored story beats, offered as option D, injected into the tail.
 
 ### v1.5.0
@@ -1343,6 +1532,26 @@ None blocking v1.4.0. Carried forward:
    so the feature is discoverable without work from the player.
 4. **`BETA` value** needs one live playthrough sweep to settle; 1.5 is a starting point, not a
    measurement.
+
+**Decisions 1–4 above predate v1.4.1's scoping.** Decision 2 — *does the classic path get worlds?* —
+is **answered**: yes, through the unified game entry, which lands after the three worlds rather than
+as a second picker on the cover. See v1.4.1, *What is not in this release*.
+
+Answered 2026-09-28 and recorded under v1.4.1 rather than here: country as a world **field** with
+Korea as the default; pacing **kept**, authored per world against four fixed roles; all three new
+worlds built, plus `kpop_idol` brought up to the same shape.
+
+Still open, and none of it blocks starting step 1:
+
+5. **The identity sets for campus, office and chaebol are proposals, not decisions** — seven plus `H`
+   each, tabled under v1.4.1. Cut or add before step 6 authors their backgrounds, because a
+   background is a paragraph per language and reworking the list afterwards is three times the edit.
+   A same-family chaebol route is deliberately absent.
+6. **`STAR_LEVELS` — delete the constant, or give it a world field?** It is dead today: defined at
+   [App.jsx:58](../src/App.jsx#L58), referenced nowhere, and `form.starLevel` is `""` in every save.
+   Deleting is recommended. Wiring it as *prior relationship to the cast* (fan level in kpop, family
+   standing in chaebol) is coherent, but that is a new feature wearing a dead field's name.
+7. **Is `WorldBuilder.jsx` in or out?** Out as scoped. In, it roughly doubles the release's UI work.
 
 ---
 
