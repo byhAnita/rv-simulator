@@ -5,6 +5,41 @@
     "emoji": "🎤",
     "color": "#e887b0"
   },
+  "country": {
+    "id": "korea",
+    "name": "대한민국",
+    "register": "korea"
+  },
+  "setting": "이야기는 현대 서울의 아이돌 산업을 배경으로 한다. 연습생 제도, 숙소 생활, 음악방송 무대, 그리고 팬과 언론의 끊이지 않는 시선이 하루를 이룬다. 연애는 금지된 것이 아니라 숨겨야 하는 것이고, 계약과 여론 사이의 그 경계가 이 이야기의 긴장이 사는 자리다.",
+  "tone": "slow-burn, industry pressure, secrecy",
+  "statNotes": {
+    "selfId": "Rises when she acts on what she actually wants in front of someone. Falls when she performs the version of herself the industry expects.",
+    "secrecy": "Falls when the relationship becomes legible to anyone outside it — a staffer, a fan-cam, a reporter, a leaked schedule. Rises when a near-miss is contained.",
+    "mood": "Driven by schedule load, comeback pressure, and how the last interaction with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "bubble",
+      "instagram",
+      "weverse"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "agencySuffix": "Entertainment",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a {n}-member group under {agency}.",
+      "{name} exists only in this story. These {n} debuted together as {name}. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are in this group. No other idol exists in this story, and none may be named or referred to, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "This story follows part of {label}.",
+      "ONLY these members of {label} exist in this story: {members}. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": true,
   "identities": [
     {
       "id": "练习生",
@@ -86,6 +121,12 @@
       "rule": "[Pace: Harem Route] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
     }
   ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events — the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
   "phases": [
     {
       "from": 1,
@@ -108,16 +149,94 @@
       "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
     }
   ],
-  "addressForms": {
-    "tokens": {
-      "unnie": "언니",
-      "ya": "야",
-      "nim": "님",
-      "ssi": "씨",
-      "sep": " "
+  "places": [
+    {
+      "id": "practice_room",
+      "name": "연습실",
+      "emoji": "💃",
+      "desc": "거울 벽, 테이프를 붙인 바닥, 누구든 열 수 있는 문.",
+      "draws": [
+        "dancer",
+        "leader"
+      ]
     },
-    "guide": "  언니 / 씨 / 님 / 야 / 아 / 선배님 을 그대로 쓴다. 존댓말과 반말의 차이를 어미로 드러낸다."
-  },
+    {
+      "id": "recording_booth",
+      "name": "녹음실",
+      "emoji": "🎙️",
+      "desc": "유리 하나를 사이에 두고 목소리는 선명하고 표정은 흐리다.",
+      "draws": [
+        "main vocal",
+        "producer"
+      ]
+    },
+    {
+      "id": "dorm",
+      "name": "숙소",
+      "emoji": "🏠",
+      "desc": "가장 사적인 공간이면서 사생활이 가장 없는 곳.",
+      "draws": []
+    },
+    {
+      "id": "company_lobby",
+      "name": "회사 로비",
+      "emoji": "🏢",
+      "desc": "모두 카드를 찍고 들어오고, 누가 같이 왔는지는 보인다.",
+      "draws": [
+        "staff",
+        "manager"
+      ]
+    },
+    {
+      "id": "backstage",
+      "name": "음악방송 대기실",
+      "emoji": "🎬",
+      "desc": "복도는 붐비고 다른 팀과 스태프와 카메라가 있다.",
+      "draws": [
+        "performer"
+      ]
+    },
+    {
+      "id": "hair_makeup",
+      "name": "헤어메이크업실",
+      "emoji": "💄",
+      "desc": "거울은 너무 많고 거리는 너무 가까워 목소리를 낮춘다.",
+      "draws": [
+        "visual"
+      ]
+    },
+    {
+      "id": "rooftop",
+      "name": "옥상",
+      "emoji": "🌃",
+      "desc": "카메라가 없는 유일한 곳이자 가장 추운 곳.",
+      "draws": []
+    },
+    {
+      "id": "van",
+      "name": "밴",
+      "emoji": "🚐",
+      "desc": "뒷좌석, 이어폰, 앞자리의 매니저.",
+      "draws": [
+        "manager"
+      ]
+    },
+    {
+      "id": "convenience_store",
+      "name": "편의점",
+      "emoji": "🏪",
+      "desc": "새벽 두 시, 마스크와 모자, 점원은 고개를 들지 않는다.",
+      "draws": []
+    },
+    {
+      "id": "han_river",
+      "name": "한강공원",
+      "emoji": "🌊",
+      "desc": "트여 있고 공개돼 있어 위험하지만 바람이 좋다.",
+      "draws": []
+    }
+  ],
+  "scenario": "또 늦게까지 이어진 밤. 복도 조명은 절반만 켜져 있고 다른 사람들은 하나둘 돌아갔는데, 사소한 일 하나 때문에 둘만 남았다. 아무도 보지 않는 곳에서 이야기를 나누는 건 처음이다.",
   "npcArchetypes": [
     "manager",
     "assistant",

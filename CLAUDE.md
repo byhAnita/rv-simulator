@@ -157,7 +157,7 @@ Player choice
 | `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
-| `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: identities, paces, phase beats, address forms |
+| `src/rag/worldLoader.js` | `loadWorldIndex()`, `loadWorld(id, lang)`, `parseWorld`, `MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: country, identities, paces, story modes, phase beats, places, and the address register it resolves |
 | `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()`, `composeRosterLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group |
 | `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
@@ -922,16 +922,28 @@ the model to write the parenthetical into prose.
 
 The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. The prompt carries a token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
 
-**Since v1.4.0 that table lives in the world file, not in `buildSystemPrompt`** —
-`public/worlds/kpop_idol/<lang>.json`, under `addressForms`. It reads like a per-*language* table
-and it is not: it is keyed on **(world, language)**. These forms encode Korean seniority, which is
-a birth-year boundary; a Japanese setting needs 先輩/さん/ちゃん and seniority by *school year*,
-and a Chinese one has almost no formal peer register to carry at all. Keeping `unnie`/`xi` while
-changing the country would put Korean grammar in a Tokyo scene.
+**Since v1.4.0 that table is data rather than code**, and since v1.4.1 step 1 it lives in
+`public/worlds/_registers/<lang>.json`, keyed by **register**, with each world naming the register
+its `country` speaks. It reads like a per-*language* table and it is not: it is keyed on
+**(register, language)**. These forms encode Korean seniority, which is a birth-year boundary; a
+Japanese setting needs 先輩/さん/ちゃん and seniority by *school year*, and a Chinese one has almost
+no formal peer register to carry at all. Keeping `unnie`/`xi` while changing the country would put
+Korean grammar in a Tokyo scene.
 
-**So a background country ships *as a world*, never as a second axis crossed with one.** Only the
-tokens are data; the *logic* — direction fixed by birth year, register blended from stage and
-Private Personality — stays in code, because it is behaviour rather than content.
+**A country is a FIELD on the world, not a world of its own** — corrected in v1.4.1, where the
+earlier rule ("a background country ships *as a world*") turned out to be over-cautious. The
+address protocol already has a rank override: `workTitle` makes a `Staff` player `매니저님`
+*regardless of who was born first*, so a professor addressed as `교수님` by her student is that
+same mechanism with new strings, not a second seniority axis. `country` therefore carries a name
+and a `register` pointer and no logic at all.
+
+**Four worlds set in Korea must not carry four copies of one table.** That is why the register is
+resolved rather than duplicated: `parseWorld` looks up `country.register` and attaches the result
+as `world.addressForms`, so `buildSystemPrompt` reads exactly what it always read while exactly
+one copy exists on disk. A world naming a register nobody ships **throws**; it does not fall back,
+because a prompt with no address protocol in it reads as the model simply declining to use
+honorifics. Only the tokens are data; the *logic* — direction fixed by birth year, register blended
+from stage and Private Personality — stays in code, because it is behaviour rather than content.
 
 | | 언니 | 님 | 씨 | 야/아 |
 | --- | --- | --- | --- | --- |
@@ -2693,8 +2705,17 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
    in `smoke.mjs` pass the raw id, which is the one thing the app does not pass. The guard is therefore
    written as *what App.jsx forwards must be an id the world declares*, not as "label equals id".
 
-   `PACES` and `STAR_LEVELS` are the same shape one field over — a fourth copy of a list the world
-   file owns, coupled to `t.paces` **by position**. Both are now checked against the world.
+   `PACES` is the same shape one field over — a fourth copy of a list the world file owns, coupled
+   to `t.paces` **by position** — and is checked against the world.
+
+   **`STAR_LEVELS` is not, and the sentence that used to claim it was wrong.** It is
+   `["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"]` at `App.jsx:58` and it is **referenced
+   nowhere**: `form.starLevel` is initialised to `""`, written by no control, read by no prompt
+   code, and copied into every save. No world file carries `starLevels` and no guard mentions it.
+   That makes it the **fourth** instance of the shape this file already tracks three times —
+   `npcAppearances`, bubble `photoDesc`, cast photos — a field complete on one side of a boundary
+   and connected to nothing on the other, except that this one never had a reader at all. Either
+   delete the constant or give it one; `docs/V140_PLAN.md` §18 carries the decision.
 
 ### Cost strings must track README
 

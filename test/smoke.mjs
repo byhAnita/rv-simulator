@@ -3070,11 +3070,31 @@ async function layerI() {
   // Blocks that are English rule text in every language file. Triplicating them
   // is what `public/worlds/<id>/<lang>.json` costs; this is what stops the three
   // copies drifting apart.
-  const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes]);
-  check("phases and npcArchetypes are identical across zh/en/ko",
+  //
+  // `places` is half and half: the id, emoji and draws are structure, while the
+  // name and the one-line description are what the model writes `scene` from, so
+  // only the structural half is compared.
+  const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes, w.tone,
+    w.statNotes, w.platforms, w.castLore, w.useGroupLore, w.modes,
+    w.places.map((p) => [p.id, p.emoji, p.draws])]);
+  check("the language-independent half of the world is identical across zh/en/ko",
     langIndependent(worlds.zh) === langIndependent(worlds.en)
       && langIndependent(worlds.en) === langIndependent(worlds.ko),
     "the three world files disagree on language-independent rule text");
+  // ...and the localized half must actually BE localized, or a field was pasted
+  // into all three files and never translated. `setting` and `scenario` are prose
+  // the model reads as story material, like an identity's background.
+  for (const key of ["setting", "scenario"]) {
+    check(`"${key}" is authored per language, not triplicated`,
+      new Set(["zh", "en", "ko"].map((l) => worlds[l][key])).size === 3,
+      `${key} is the same string in at least two of the three world files`);
+  }
+  check("every place is named and described in the player's language",
+    ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name && p.desc)),
+    "a place with no name renders as a blank line in the canon list");
+  check("place ids are unique within a world",
+    new Set(worlds.zh.places.map((p) => p.id)).size === worlds.zh.places.length,
+    worlds.zh.places.map((p) => p.id).join(", "));
   check("the world covers all four round phases",
     worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
     JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
@@ -3108,27 +3128,98 @@ async function layerI() {
   // two releases. parseWorld throws instead, so this asserts it actually does.
   const good = JSON.parse(readFileSync(
     join(ROOT, "public", "worlds", "kpop_idol", "zh.json"), "utf8"));
-  for (const key of ["identities", "paces", "phases", "addressForms", "npcArchetypes"]) {
+  // Address forms left the world file in v1.4.1: a world names a REGISTER and the
+  // tables live in one place, so four worlds set in Korea are not four copies.
+  const registers = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "_registers", "zh.json"), "utf8"));
+  const parseW = (cfg, reg = registers) => loader.parseWorld(cfg, "kpop_idol", "zh", reg);
+
+  for (const key of ["country", "setting", "tone", "statNotes", "platforms", "castLore",
+    "useGroupLore", "identities", "paces", "modes", "phases", "places", "scenario",
+    "npcArchetypes"]) {
     const broken = { ...good };
     delete broken[key];
     let msg = null;
-    try { loader.parseWorld(broken); } catch (e) { msg = e.message; }
+    try { parseW(broken); } catch (e) { msg = e.message; }
     check(`parseWorld rejects a world missing "${key}"`,
       msg !== null && msg.includes(key), msg || "parsed without complaint");
   }
   for (const tok of ["unnie", "ya", "nim", "ssi", "sep"]) {
-    const broken = JSON.parse(JSON.stringify(good));
-    delete broken.addressForms.tokens[tok];
+    const brokenReg = JSON.parse(JSON.stringify(registers));
+    delete brokenReg.korea.tokens[tok];
     let msg = null;
-    try { loader.parseWorld(broken); } catch (e) { msg = e.message; }
+    try { parseW(good, brokenReg); } catch (e) { msg = e.message; }
     check(`parseWorld rejects a token table missing "${tok}"`,
       msg !== null && msg.includes(tok), msg || "parsed without complaint");
   }
+  for (const id of loader.MODE_IDS) {
+    const brokenModes = JSON.parse(JSON.stringify(good));
+    delete brokenModes.modes[id];
+    let msg = null;
+    try { parseW(brokenModes); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects a world missing story mode "${id}"`,
+      msg !== null && msg.includes(id), msg || "parsed without complaint");
+  }
+  // A world pointing at a register nobody ships must fail loudly. The alternative
+  // is a prompt with no address protocol in it at all, which throws no error and
+  // reads as the model simply choosing not to use honorifics.
+  let noReg = null;
+  try { parseW({ ...good, country: { ...good.country, register: "tokyo" } }); }
+  catch (e) { noReg = e.message; }
+  check("parseWorld rejects a world naming a register that does not exist",
+    noReg !== null && noReg.includes("tokyo"), noReg || "parsed without complaint");
+  let noField = null;
+  try { parseW({ ...good, country: { id: "korea", name: "x" } }); }
+  catch (e) { noField = e.message; }
+  check("parseWorld rejects a country that names no register",
+    noField !== null && noField.includes("country.register"),
+    noField || "parsed without complaint");
+  // ...and it resolves the table ONTO the world, because buildSystemPrompt reads
+  // `world.addressForms` and must not learn that the data moved.
+  check("parseWorld resolves the register onto world.addressForms",
+    parseW(good).addressForms.tokens.unnie === registers.korea.tokens.unnie
+      && parseW(good).addressForms.guide === registers.korea.guide,
+    "the resolved table is not the one the register ships");
   // `ya: null` is meaningful data, not a missing field — the zh table ships it.
   let nullYa = null;
-  try { loader.parseWorld(good); } catch (e) { nullYa = e.message; }
+  try { parseW(good); } catch (e) { nullYa = e.message; }
   check("parseWorld accepts a null ya, which is a real value and not an absence",
     nullYa === null, nullYa || "");
+
+  // --- the world index ----------------------------------------------------
+  //
+  // The index is the picker's lazy-load boundary. Both halves are checked, and
+  // the second is the one that keeps going wrong elsewhere in this repo: a list
+  // a human has to remember to update. It is DERIVED from the folders instead.
+  const worldIndex = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "index.json"), "utf8"));
+  check("the world index is a non-empty array",
+    Array.isArray(worldIndex) && worldIndex.length > 0, JSON.stringify(worldIndex).slice(0, 60));
+  for (const row of worldIndex) {
+    check(`world index row "${row.id}" has a folder carrying all three languages`,
+      ["zh", "en", "ko"].every((l) =>
+        existsSync(join(ROOT, "public", "worlds", row.id, `${l}.json`))),
+      "the picker would offer a world that 404s on tap");
+    check(`world index row "${row.id}" names and describes itself in all three languages`,
+      ["zh", "en", "ko"].every((l) => row.name?.[l] && row.blurb?.[l]),
+      JSON.stringify(row.name));
+  }
+  check("every world folder is listed in the index",
+    readdirSync(join(ROOT, "public", "worlds"), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith("_"))
+      .every((d) => worldIndex.some((r) => r.id === d.name)),
+    "a world with files and no index row is a world no player can choose");
+  // Every register a world names must exist in all three language files, or a
+  // Korean player gets an address protocol an English player does not.
+  const registerIds = new Set(["zh", "en", "ko"].map((l) => worlds[l].country.register));
+  check("every language resolves the same register for a given world",
+    registerIds.size === 1, [...registerIds].join(", "));
+  for (const l of ["zh", "en", "ko"]) {
+    const table = JSON.parse(readFileSync(
+      join(ROOT, "public", "worlds", "_registers", `${l}.json`), "utf8"));
+    check(`[${l}] the register file carries "${worlds[l].country.register}"`,
+      Boolean(table[worlds[l].country.register]), Object.keys(table).join(", "));
+  }
 
   // --- roster resolver (v1.4.0 step 3) ------------------------------------
   //

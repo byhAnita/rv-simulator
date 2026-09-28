@@ -5,6 +5,41 @@
     "emoji": "🎤",
     "color": "#e887b0"
   },
+  "country": {
+    "id": "korea",
+    "name": "South Korea",
+    "register": "korea"
+  },
+  "setting": "The story is set in the present-day idol industry in Seoul. Trainee systems, dorm life, music-show stages and the unbroken attention of fans and press are the texture of an ordinary day. Romance is not forbidden — it is something that has to be hidden, and that line between contract and public opinion is where the whole story's tension lives.",
+  "tone": "slow-burn, industry pressure, secrecy",
+  "statNotes": {
+    "selfId": "Rises when she acts on what she actually wants in front of someone. Falls when she performs the version of herself the industry expects.",
+    "secrecy": "Falls when the relationship becomes legible to anyone outside it — a staffer, a fan-cam, a reporter, a leaked schedule. Rises when a near-miss is contained.",
+    "mood": "Driven by schedule load, comeback pressure, and how the last interaction with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "bubble",
+      "instagram",
+      "weverse"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "agencySuffix": "Entertainment",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a {n}-member group under {agency}.",
+      "{name} exists only in this story. These {n} debuted together as {name}. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are in this group. No other idol exists in this story, and none may be named or referred to, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "This story follows part of {label}.",
+      "ONLY these members of {label} exist in this story: {members}. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": true,
   "identities": [
     {
       "id": "练习生",
@@ -86,6 +121,12 @@
       "rule": "[Pace: Harem Route] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
     }
   ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events — the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
   "phases": [
     {
       "from": 1,
@@ -108,16 +149,94 @@
       "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
     }
   ],
-  "addressForms": {
-    "tokens": {
-      "unnie": "unnie",
-      "ya": "ya",
-      "nim": "nim",
-      "ssi": "ssi",
-      "sep": "-"
+  "places": [
+    {
+      "id": "practice_room",
+      "name": "Practice room",
+      "emoji": "💃",
+      "desc": "Mirrored walls, taped floor, a door anyone can open.",
+      "draws": [
+        "dancer",
+        "leader"
+      ]
     },
-    "guide": "  언니 -> \"unnie\" (e.g. \"Irene-unnie\") — NEVER \"big sister\", \"sis\" or \"miss\"\n  씨 -> \"-ssi\" (e.g. \"Ju-hyun-ssi\")\n  님 -> \"-nim\" (e.g. \"Manager-nim\")\n  야/아 -> \"-ya\"/\"-ah\" (e.g. \"Yerim-ah\") — warm and close, or a flash of irritation\n  선배 -> \"sunbae\"\n  존댓말 vs 반말 — show the difference in how formal the phrasing feels"
-  },
+    {
+      "id": "recording_booth",
+      "name": "Recording booth",
+      "emoji": "🎙️",
+      "desc": "Glass between you: the voice is clear, the face is not.",
+      "draws": [
+        "main vocal",
+        "producer"
+      ]
+    },
+    {
+      "id": "dorm",
+      "name": "Dorm",
+      "emoji": "🏠",
+      "desc": "The most private place she has, and the one with the least privacy.",
+      "draws": []
+    },
+    {
+      "id": "company_lobby",
+      "name": "Company lobby",
+      "emoji": "🏢",
+      "desc": "Everyone badges in, and who arrives together is seen.",
+      "draws": [
+        "staff",
+        "manager"
+      ]
+    },
+    {
+      "id": "backstage",
+      "name": "Music-show backstage",
+      "emoji": "🎬",
+      "desc": "Crowded corridors, other groups, staff, cameras.",
+      "draws": [
+        "performer"
+      ]
+    },
+    {
+      "id": "hair_makeup",
+      "name": "Hair & makeup room",
+      "emoji": "💄",
+      "desc": "Too many mirrors, too little distance, low voices.",
+      "draws": [
+        "visual"
+      ]
+    },
+    {
+      "id": "rooftop",
+      "name": "Rooftop",
+      "emoji": "🌃",
+      "desc": "The one place with no camera on it, and the coldest.",
+      "draws": []
+    },
+    {
+      "id": "van",
+      "name": "Company van",
+      "emoji": "🚐",
+      "desc": "Back seat, earphones in, the manager up front.",
+      "draws": [
+        "manager"
+      ]
+    },
+    {
+      "id": "convenience_store",
+      "name": "Convenience store",
+      "emoji": "🏪",
+      "desc": "Two in the morning, mask and cap, the clerk never looks up.",
+      "draws": []
+    },
+    {
+      "id": "han_river",
+      "name": "Han River park",
+      "emoji": "🌊",
+      "desc": "Open, public, risky — and the air is good.",
+      "draws": []
+    }
+  ],
+  "scenario": "Another night that ran long. Half the corridor lights are off, the others have drifted home, and some small thing has kept the two of you behind. It is the first time you have spoken anywhere nobody else is watching.",
   "npcArchetypes": [
     "manager",
     "assistant",

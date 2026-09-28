@@ -5,6 +5,41 @@
     "emoji": "🎤",
     "color": "#e887b0"
   },
+  "country": {
+    "id": "korea",
+    "name": "韩国",
+    "register": "korea"
+  },
+  "setting": "故事发生在当代首尔的偶像产业。练习生制度、宿舍生活、打歌舞台，以及粉丝与媒体不间断的注视，构成她们的日常。恋爱不是被禁止的事，而是必须藏起来的事——合约与舆论之间的这条界线，就是整个故事的张力所在。",
+  "tone": "slow-burn, industry pressure, secrecy",
+  "statNotes": {
+    "selfId": "Rises when she acts on what she actually wants in front of someone. Falls when she performs the version of herself the industry expects.",
+    "secrecy": "Falls when the relationship becomes legible to anyone outside it — a staffer, a fan-cam, a reporter, a leaked schedule. Rises when a near-miss is contained.",
+    "mood": "Driven by schedule load, comeback pressure, and how the last interaction with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "bubble",
+      "instagram",
+      "weverse"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "agencySuffix": "Entertainment",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a {n}-member group under {agency}.",
+      "{name} exists only in this story. These {n} debuted together as {name}. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are in this group. No other idol exists in this story, and none may be named or referred to, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "This story follows part of {label}.",
+      "ONLY these members of {label} exist in this story: {members}. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": true,
   "identities": [
     {
       "id": "练习生",
@@ -86,6 +121,12 @@
       "rule": "[Pace: Harem Route] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
     }
   ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events — the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Media and fan scrutiny higher, secrecy changes doubled. Public interaction may carry attention, dissected by CP fans and solo stans.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
   "phases": [
     {
       "from": 1,
@@ -108,16 +149,94 @@
       "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
     }
   ],
-  "addressForms": {
-    "tokens": {
-      "unnie": "欧尼",
-      "ya": null,
-      "nim": "nim",
-      "ssi": "xi",
-      "sep": ""
+  "places": [
+    {
+      "id": "practice_room",
+      "name": "练习室",
+      "emoji": "💃",
+      "desc": "镜墙、地板胶、随时可能被推开的门。",
+      "draws": [
+        "dancer",
+        "leader"
+      ]
     },
-    "guide": "Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.\n  언니 -> \"欧尼\"  (NEVER \"姐\"/\"姐姐\"/\"姐妹\" — that reads as a Chinese family drama, not K-pop)\n  님 -> \"nim\" in Latin letters (e.g. \"会长nim，早上好\") — NEVER \"尼姆\"\n  씨 -> \"xi\" in Latin letters (e.g. \"珠泫xi\") — NEVER \"西\"\n  야 -> \"呀\" ONLY as a standalone exclamation opening a line (\"呀！你胆子真大了\") — surprise, embarrassment, mock indignation. NEVER as a suffix on a name: \"小饼呀\" reads as Chinese grammar, not Korean warmth, and a plain \"小饼，你来了\" is what a native speaker writes. Closeness in Chinese is the bare given name or a nickname, never an added particle\n  선배 -> \"前辈\" (or \"前辈nim\")\n  존댓말 vs 반말 — show the difference in how formal the sentence endings feel"
-  },
+    {
+      "id": "recording_booth",
+      "name": "录音棚",
+      "emoji": "🎙️",
+      "desc": "隔音玻璃两侧，声音清楚而表情不清楚。",
+      "draws": [
+        "main vocal",
+        "producer"
+      ]
+    },
+    {
+      "id": "dorm",
+      "name": "宿舍",
+      "emoji": "🏠",
+      "desc": "最私密也最没有隐私的地方，门永远虚掩着。",
+      "draws": []
+    },
+    {
+      "id": "company_lobby",
+      "name": "公司大厅",
+      "emoji": "🏢",
+      "desc": "进出都要刷卡，谁和谁一起来会被看见。",
+      "draws": [
+        "staff",
+        "manager"
+      ]
+    },
+    {
+      "id": "backstage",
+      "name": "打歌节目后台",
+      "emoji": "🎬",
+      "desc": "走廊拥挤，别的团、工作人员和摄影机都在。",
+      "draws": [
+        "performer"
+      ]
+    },
+    {
+      "id": "hair_makeup",
+      "name": "发型化妆间",
+      "emoji": "💄",
+      "desc": "镜子太多，距离太近，说话要压低声音。",
+      "draws": [
+        "visual"
+      ]
+    },
+    {
+      "id": "rooftop",
+      "name": "天台",
+      "emoji": "🌃",
+      "desc": "唯一没有摄像头的地方，也是最冷的地方。",
+      "draws": []
+    },
+    {
+      "id": "van",
+      "name": "保姆车",
+      "emoji": "🚐",
+      "desc": "后座、耳机、经纪人在前排。",
+      "draws": [
+        "manager"
+      ]
+    },
+    {
+      "id": "convenience_store",
+      "name": "便利店",
+      "emoji": "🏪",
+      "desc": "凌晨两点，口罩和帽檐，收银员没有抬头。",
+      "draws": []
+    },
+    {
+      "id": "han_river",
+      "name": "汉江公园",
+      "emoji": "🌊",
+      "desc": "开阔、公开、危险，但风很好。",
+      "draws": []
+    }
+  ],
+  "scenario": "又一个练习到深夜的日子。走廊的灯只剩一半亮着，其他人陆续离开，而你和她因为某件小事被留了下来。这是你们第一次，在没有其他人看着的地方说话。",
   "npcArchetypes": [
     "manager",
     "assistant",

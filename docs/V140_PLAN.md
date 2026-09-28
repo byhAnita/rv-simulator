@@ -1460,7 +1460,7 @@ all three languages, and smoke should assert that no world's display name equals
 
 | Step | Work | Gate before moving on |
 | --- | --- | --- |
-| **1** | Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | **Goldens byte-identical**, Layer C mirror green. The whole gate, exactly as step 3 of v1.4.0 |
+| **1** | ✅ Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | ✅ **Done.** Goldens byte-identical and untouched on disk, mirrors in sync, smoke **1204 → 1232**, 14 mutations RED |
 | **2** | Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail as `[Story Mode]`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` deleted, legacy seeding from `form.pace` | Goldens move **once** — the pace line leaving section 6 — diff read. Layer J builds the static prompt across a mode change and asserts it is byte-identical, which is the claim the tail move rests on |
 | **3** | Setup page: pace picker out, **world picker in** at the same slot; order becomes name / birth year / world / identity; changing world clears `identity` and `customIdentity` to empty | Both doors already converge on Setup ([App.jsx:1285](../src/App.jsx#L1285)), so both get worlds. A world change leaves no id the new world does not declare — asserted on what Setup **forwards**, not on its source |
 | **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
@@ -1468,6 +1468,25 @@ all three languages, and smoke should assert that no world's display name equals
 | **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
 | **7** | Content: campus, office, chaebol. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+**Step 1 is done.** `public/worlds/_registers/{zh,en,ko}.json` carries the Korean table once
+instead of once per world; `public/worlds/index.json` is the picker's lazy-load boundary;
+`kpop_idol` gained `country`, `setting`, `tone`, `statNotes`, `platforms`, `castLore`,
+`useGroupLore`, `modes` and ten `places`; `parseWorld` validates every one and throws.
+`paces` is untouched and nothing renders the new fields, which is what let the goldens hold.
+
+**`roleLabel` from §4.1 was deliberately NOT added** — that sketch lists it with no stated reader,
+and this repo carries `NPC_APPEARANCE_CHANCE` as the standing example of what declaring ahead of a
+reader costs. It arrives with whatever prints it.
+
+**Two of the first-round mutations went GREEN and reading why was the useful part.** Dropping
+`castLore` from `REQUIRED`, and deleting the unknown-register throw, both left the suite green —
+because in each case a *different* check fired and its message happened to contain the string the
+assertion matched on. The requirement held both times, so those were not guard failures; they were
+mutations that did not test what their labels claimed. Re-run as plausible **fallbacks** rather than
+deleted throws — `registers?.[id] || Object.values(registers)[0]`, `country?.register || "korea"` —
+both went RED, and one assertion was tightened from `.includes("register")` to
+`.includes("country.register")` because the neighbouring message also satisfied the loose form.
 
 **Steps 1–6 are the engine and add no new world content; 7–8 are the worlds.** If this runs long,
 step 6 is the safe place to cut and ship — the story-mode switch, the map and the platform trim are

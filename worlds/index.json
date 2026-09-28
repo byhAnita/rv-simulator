@@ -1,0 +1,17 @@
+[
+  {
+    "id": "kpop_idol",
+    "name": {
+      "zh": "韩娱偶像",
+      "en": "K-pop Idol",
+      "ko": "K-pop 아이돌"
+    },
+    "emoji": "🎤",
+    "color": "#e887b0",
+    "blurb": {
+      "zh": "练习室、打歌舞台和一段必须藏起来的关系。",
+      "en": "Practice rooms, music-show stages, and a relationship that has to stay hidden.",
+      "ko": "연습실과 음악방송 무대, 그리고 숨겨야 하는 관계."
+    }
+  }
+]

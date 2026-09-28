@@ -12,6 +12,44 @@ const base = () => import.meta.env.BASE_URL;
 
 export const DEFAULT_WORLD_ID = "kpop_idol";
 
+// The four story modes. The IDS are universal across every world and the RULES
+// are each world's own, which is what lets the picker be one control in i18n
+// instead of a per-world list coupled to it by position. `PACES` in App.jsx was
+// that positional list, and a world with different ids would have written an id
+// the world does not declare into `form.pace`.
+export const MODE_IDS = ["free", "romance", "pressure", "dramatic"];
+
+/**
+ * Load the world index — the picker's lazy-load boundary, the same shape as
+ * groups/index.json: one row per world, no world document fetched until one is
+ * chosen.
+ */
+export async function loadWorldIndex() {
+  const response = await fetch(`${base()}worlds/index.json`);
+  if (!response.ok) throw new Error(`world index load failed (HTTP ${response.status})`);
+  const list = await response.json();
+  if (!Array.isArray(list) || list.length === 0) throw new Error("world index is empty");
+  return list;
+}
+
+// Address forms are keyed on (world, language), never on language alone: Korean
+// seniority is a birth-year boundary and these honorifics are how it is spoken,
+// so a Tokyo setting needs 先輩/さん/ちゃん and a different rule for who outranks
+// whom. But four worlds all set in Korea must not carry four copies of one
+// table — that is how the two copies of `extractStoryText` drifted, and the
+// guard was written against the copy that was still correct. So a world names a
+// REGISTER and the tables live together, one file per language.
+async function loadRegisters(language) {
+  const response = await fetch(`${base()}worlds/_registers/${language}.json`);
+  if (response.ok) return response.json();
+  if (language !== "zh") {
+    console.warn(`worlds/_registers/${language}.json not found, falling back to zh.json`);
+    const fallback = await fetch(`${base()}worlds/_registers/zh.json`);
+    if (fallback.ok) return fallback.json();
+  }
+  throw new Error(`address register load failed: ${language} (HTTP ${response.status})`);
+}
+
 /**
  * Load a world document.
  * @param {string} worldId - matches the folder name under public/worlds/
@@ -21,15 +59,17 @@ export const DEFAULT_WORLD_ID = "kpop_idol";
 export async function loadWorld(worldId = DEFAULT_WORLD_ID, language = "zh") {
   const url = `${base()}worlds/${worldId}/${language}.json`;
 
-  const response = await fetch(url);
-  if (response.ok) return parseWorld(await response.json(), worldId, language);
+  const [response, registers] = await Promise.all([fetch(url), loadRegisters(language)]);
+  if (response.ok) return parseWorld(await response.json(), worldId, language, registers);
 
   // A missing translation falls back to zh, the language every world is
   // authored in first. A missing world does not fall back to anything.
   if (language !== "zh") {
     console.warn(`worlds/${worldId}/${language}.json not found, falling back to zh.json`);
     const fallback = await fetch(`${base()}worlds/${worldId}/zh.json`);
-    if (fallback.ok) return parseWorld(await fallback.json(), worldId, "zh");
+    if (fallback.ok) {
+      return parseWorld(await fallback.json(), worldId, "zh", await loadRegisters("zh"));
+    }
   }
   throw new Error(`world load failed: ${worldId}/${language} (HTTP ${response.status})`);
 }
@@ -38,36 +78,66 @@ export async function loadWorld(worldId = DEFAULT_WORLD_ID, language = "zh") {
 // dropped `birthday` for two releases, so this validates instead of copying:
 // a world missing a key fails loudly at load rather than reaching
 // buildSystemPrompt as a blank section nobody notices until the writing drifts.
-const REQUIRED = ["world", "identities", "paces", "phases", "addressForms", "npcArchetypes"];
+// `addressForms` is NOT on this list any more: it no longer lives in the world
+// file at all, and is resolved from the register the world's country names.
+// `useGroupLore` is checked for `undefined` rather than truthiness, because
+// `false` is the answer for every world but this one.
+const REQUIRED = ["world", "country", "setting", "tone", "statNotes", "platforms",
+  "castLore", "useGroupLore", "identities", "paces", "modes", "phases", "places",
+  "scenario", "npcArchetypes"];
 
-export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh") {
+export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", registers = null) {
   const where = `${worldId}/${language}`;
   for (const key of REQUIRED) {
     if (config?.[key] === undefined) throw new Error(`world ${where}: missing "${key}"`);
   }
-  const { world, identities, paces, phases, addressForms, npcArchetypes } = config;
+  const { world, country, setting, tone, statNotes, platforms, castLore, useGroupLore,
+    identities, paces, modes, phases, places, scenario, npcArchetypes } = config;
 
-  if (!Array.isArray(identities) || identities.length === 0) {
-    throw new Error(`world ${where}: "identities" must be a non-empty array`);
+  for (const [key, value] of [["identities", identities], ["paces", paces],
+    ["phases", phases], ["places", places]]) {
+    if (!Array.isArray(value) || value.length === 0) {
+      throw new Error(`world ${where}: "${key}" must be a non-empty array`);
+    }
   }
-  if (!Array.isArray(paces) || paces.length === 0) {
-    throw new Error(`world ${where}: "paces" must be a non-empty array`);
+  for (const p of places) {
+    if (!p?.id || !p?.name) throw new Error(`world ${where}: every place needs an id and a name`);
   }
-  if (!Array.isArray(phases) || phases.length === 0) {
-    throw new Error(`world ${where}: "phases" must be a non-empty array`);
+  for (const id of MODE_IDS) {
+    if (typeof modes?.[id] !== "string" || !modes[id]) {
+      throw new Error(`world ${where}: "modes" is missing "${id}"`);
+    }
   }
+  // Section 4's cast framing. Hardcoded in rosterResolver.js until v1.4.1, where
+  // it described every cast as an N-member group under an Entertainment agency —
+  // true of this world and false of a lecture hall.
+  if (!Array.isArray(castLore?.composed) || !Array.isArray(castLore?.subset)) {
+    throw new Error(`world ${where}: "castLore" needs "composed" and "subset" arrays`);
+  }
+  if (!Array.isArray(platforms?.social) || typeof platforms?.private !== "string") {
+    throw new Error(`world ${where}: "platforms" needs a social array and a private string`);
+  }
+
+  // The register is resolved HERE rather than carried in the world file, so
+  // `world.addressForms` still exists for buildSystemPrompt while exactly one
+  // copy of the table exists on disk.
+  const registerId = country?.register;
+  if (!registerId) throw new Error(`world ${where}: "country.register" must name a register`);
+  const addressForms = registers?.[registerId];
+  if (!addressForms) throw new Error(`world ${where}: no address register "${registerId}"`);
+
   // The token table is what the whole address protocol reads. An absent `ya` is
   // meaningful (zh has no usable vocative particle — see CLAUDE.md), so it is
   // checked for presence of the key set rather than for truthiness.
   const tk = addressForms?.tokens;
   if (!tk || typeof tk !== "object") {
-    throw new Error(`world ${where}: "addressForms.tokens" must be an object`);
+    throw new Error(`register ${registerId}/${language}: "tokens" must be an object`);
   }
   for (const k of ["unnie", "ya", "nim", "ssi", "sep"]) {
-    if (!(k in tk)) throw new Error(`world ${where}: addressForms.tokens is missing "${k}"`);
+    if (!(k in tk)) throw new Error(`register ${registerId}/${language}: tokens is missing "${k}"`);
   }
   if (typeof addressForms.guide !== "string") {
-    throw new Error(`world ${where}: "addressForms.guide" must be a string`);
+    throw new Error(`register ${registerId}/${language}: "guide" must be a string`);
   }
 
   return {
@@ -75,9 +145,19 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh") 
     name: world?.name || worldId,
     emoji: world?.emoji || "",
     color: world?.color || "",
+    country,
+    setting,
+    tone,
+    statNotes,
+    platforms,
+    castLore,
+    useGroupLore,
     identities,
     paces,
+    modes,
     phases,
+    places,
+    scenario,
     addressForms,
     npcArchetypes,
   };

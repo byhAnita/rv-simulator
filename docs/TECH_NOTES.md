@@ -336,13 +336,39 @@ whitelist and silently dropped `birthday` for two releases — every member reac
 load, naming the key. Silence is the wrong default for a loader whose output is invisible until
 the writing drifts weeks later.
 
-**Where it lives.** `src/rag/worldLoader.js` (`loadWorld`, `parseWorld`, `getIdentity`,
-`getPaceRule`, `renderIdentityBackground`), `public/worlds/kpop_idol/*`, root `worlds/*`,
-`buildSystemPrompt` in `src/agent/mainAgent.js`, smoke Layers C, I and J.
+**v1.4.1 step 1 — the honorific table was still keyed on the wrong axis, one level up.** v1.4.0
+moved it out of `buildSystemPrompt` and into the world file, on the argument that it is a
+(world, language) table rather than a language one. That is right about the *axis* and wrong about
+the *granularity*: four worlds set in Korea would have carried four byte-identical copies of one
+Korean table, across three languages each — twelve copies of a thing that changes when the country
+changes and at no other time.
+
+So the table moved once more, to `public/worlds/_registers/<lang>.json` keyed by **register**, and
+a world names the register its `country` speaks. `parseWorld` resolves it and attaches the result
+as `world.addressForms`, which is what makes this a pure data move: `buildSystemPrompt` reads
+exactly the field it always read, and the three goldens are byte-identical across the change.
+
+**What it bought**: adding a Korean-set world is now zero new honorific data, and adding a Japanese
+one is a second key in an existing file rather than a fourth tree. **What it costs**: one extra
+fetch per game, and a world can now name a register that does not exist — which **throws**, because
+the alternative is a prompt with no address protocol in it, and that reads as the model choosing
+not to use honorifics rather than as a missing file.
+
+**The general shape.** Data that varies with A and not with B belongs in a store keyed by A. Putting
+it in the B-shaped file works until there is a second B, and then every copy is a chance for one to
+be the copy somebody forgot — which is exactly how `extractStoryText` ended up with two definitions
+and a guard written against the one that was still correct.
+
+**Where it lives.** `src/rag/worldLoader.js` (`loadWorldIndex`, `loadWorld`, `parseWorld`,
+`MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`),
+`public/worlds/_registers/*`, `public/worlds/index.json`, `public/worlds/kpop_idol/*`, root
+`worlds/*`, `buildSystemPrompt` in `src/agent/mainAgent.js`, smoke Layers C, I and J.
 
 **Short form.** The setting became data instead of code, because the honorific table was keyed on
 the wrong axis. Proved byte-identical two ways — 1,368 seeded renders and three golden prompts —
-and the goldens still found a trailing space that nothing else would have.
+and the goldens still found a trailing space that nothing else would have. Then v1.4.1 found the
+axis was still one level too coarse and moved the table again, to a register store, byte-identical
+a third time.
 
 ### Migration that reproduces rather than fixes — v1.4.0
 
