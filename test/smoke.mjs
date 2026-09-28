@@ -4870,9 +4870,19 @@ async function layerI() {
   // A custom member is a member. She could be given a photo in the editor and a
   // wallpaper NOWHERE, because the image sheet lists the chosen cast and she is
   // authored before she is chosen.
+  // THREE conjuncts, because "the editor mentions onWallChange" is presence and
+  // not behaviour: the first version of this guard matched the call site, so
+  // deleting the prop that call depends on left it green. What has to be true is
+  // that she can be ASKED for, that the frame she chose is FORWARDED, and that
+  // the caller supplies the two — the editor owns no storage.
+  const wallInEditor = [
+    [/\bwall, onWallChange,/, "the editor does not take the wallpaper and a way to change it"],
+    [/ask\("wall"\)/, "nothing on the form asks for a wallpaper"],
+    [/onWallChange\?\.\(dataUrl\)/, "the framed wallpaper is not handed back"],
+  ].filter(([re]) => !re.test(editorCode)).map(([, why]) => why);
   check("an authored member can be given a wallpaper where she is authored",
-    /onWallChange/.test(editorCode) && /wall=\{walls\[editing\.id\]\}/.test(builderSrc),
-    "the editor is the only screen that exists before she is in a cast");
+    wallInEditor.length === 0 && /wall=\{walls\[editing\.id\]\}/.test(builderSrc),
+    wallInEditor.join("; ") || "the builder does not pass her current wallpaper in");
   check("...and both of her images go through the same store the library uses",
     /onWallChange=\{\(d\) => setWallFor\(editing\.id, d\)\}/.test(builderSrc)
       && /onPhotoChange=\{\(d\) => setPhotoFor\(editing\.id, d\)\}/.test(builderSrc),
