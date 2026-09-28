@@ -253,6 +253,28 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
 📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
 Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
+What moves them in THIS world:
+- 🌈Self-Identity: Rises when she acts on what she actually wants in front of someone. Falls when she performs the version of herself the industry expects.
+- 🔒Secrecy: Falls when the relationship becomes legible to anyone outside it — a staffer, a fan-cam, a reporter, a leaked schedule. Rises when a near-miss is contained.
+- 💫Mood: Driven by schedule load, comeback pressure, and how the last interaction with the target member ended.
+
+╔══════════════════════════════════════════╗
+║ 11. PLACES & THE OPENING                 ║
+╚══════════════════════════════════════════╝
+CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
+💃 Practice room — Mirrored walls, taped floor, a door anyone can open.
+🎙️ Recording booth — Glass between you: the voice is clear, the face is not.
+🏠 Dorm — The most private place she has, and the one with the least privacy.
+🏢 Company lobby — Everyone badges in, and who arrives together is seen.
+🎬 Music-show backstage — Crowded corridors, other groups, staff, cameras.
+💄 Hair & makeup room — Too many mirrors, too little distance, low voices.
+🌃 Rooftop — The one place with no camera on it, and the coldest.
+🚐 Company van — Back seat, earphones in, the manager up front.
+🏪 Convenience store — Two in the morning, mask and cap, the clerk never looks up.
+🌊 Han River park — Open, public, risky — and the air is good.
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
+THE OPENING — round 1 begins here: Another night that ran long. Half the corridor lights are off, the others have drifted home, and some small thing has kept the two of you behind. It is the first time you have spoken anywhere nobody else is watching.
+From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -274,7 +296,7 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".

@@ -164,7 +164,7 @@ Player choice
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
 | `src/rag/worldLoader.js` | `loadWorldIndex()`, `loadWorld(id, lang)`, `parseWorld`, `MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: country, identities, paces, story modes, phase beats, places, and the address register it resolves |
-| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()`, `composeRosterLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group |
+| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang, world)`, `buildClassicRoster()`, `composeRosterLore()`, `renderCastLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group. **`world` is required and has no default**, the same rule `buildSystemPrompt` follows: since v1.4.1 step 4 the world owns section 4's wording |
 | `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
 | `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
@@ -766,6 +766,8 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 6. **Unknown-character rule** — only members in MEMBER PROFILES may appear by name; other roles are unnamed archetypes (manager, assistant, executive, fan)
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
 8. **Speaker contract + address protocol** — who "I" and "you" are, and what each character is allowed to call the others. See below.
+9. **What moves each stat in THIS world** — section 10 prints one line per stat from `world.statNotes`. The stat *keys* are permanent and their *labels* are i18n's; the world supplies only the prose saying what raises and lowers them, which is the half no other file holds a copy of.
+10. **Canon places and the opening** — section 11, from `world.places` and `world.scenario`. See *Where she is decides who is there*.
 
 ### Who is speaking, and what she calls whom
 
@@ -1461,6 +1463,28 @@ disagree, the one with more specific detail wins.
 
 The rules now, all in `rosterResolver.js#composeRosterLore`:
 
+**Since v1.4.1 step 4 the WORDING of all three rows is the world's, not this file's.** The three
+branches below are unchanged — they are chosen by the shape of the cast — but the sentences each one
+emits come from `world.castLore.composed` and `world.castLore.subset`, rendered by
+`renderCastLore`. They used to be four string literals in `rosterResolver.js` saying
+*N-member group under X Entertainment* and *no other idol exists in this story* — true of an idol world
+and false of a lecture hall. `kpop_idol`'s template is those literals verbatim, so the goldens
+did not move.
+
+Two rules the renderer adds, both of them the conditional-field rule section 5 already follows:
+
+- **A template line whose value is absent is DROPPED**, not rendered with a gap in it. That is what
+  lets `Fandom: {fandom}.` be its own element and simply disappear for a cast whose group
+  declares no fanbase — the label lives in the world file instead of in a ternary in code.
+- **An unknown placeholder THROWS.** A template is data, so a typo in a world file would otherwise
+  reach the model as a literal `{labl}` in section 4 — the unresolved-particle class of defect,
+  which renders as plausible text nobody reads.
+
+**And `useGroupLore: false` sends EVERY cast down the composed path**, so a Red Velvet roster in
+an office world cannot inherit Red Velvet's real idol history, SM included. A whole single group then
+takes the **subset** template rather than the composed one: it really is that group, and its real name
+is what the player picked — what it loses is the group file's dated History block.
+
 | Roster shape | Section 4 |
 | --- | --- |
 | exactly one whole group | that group's own `groupLore`, **verbatim** — this is what the classic door always produces, and what keeps the goldens fixed |
@@ -1476,6 +1500,58 @@ stops one being invented.
 **Never name the origin groups in composed lore.** That is the leak: a model told the cast is
 BLACKPINK completes the group from its own knowledge. Nothing downstream needs them — a member's
 profile says who she is, and her real-world affiliation plays no part in the game.
+
+### The idol role is filtered by the world, and stays in the library
+
+A member's `role` — *Main Vocal*, *Leader*, *Maknae* — is a position in an idol **group**. It
+reaches the prompt through `memberLine`, which composes section 4; section 5's profile block
+never reads it. So a campus prompt would have described a student as a main vocal and an office prompt
+an analyst as a maknae — the `[BLACKPINK Background]` shape exactly: a specific-sounding claim
+two sections away from the rule it contradicts, which the model is entitled to build on.
+
+**`castLore.useRole` is the filter, and it filters what the MODEL sees and nothing else.**
+`role` stays on `parseGroupConfig`'s whitelist, in all 30 group files, and on every cast
+screen; stripping it at the loader would take an idol position out of the idol world too. `mbti`
+and `animal_plastic` are world-neutral and are not filtered. `kpop_idol` declares
+`true`, so nothing about today's output moves.
+
+It is a **boolean**, not a label. `roleLabel` was in `docs/V140_PLAN.md` §4.1's sketch and
+never shipped: `memberLine` joins `role` into a bare comma list and prints no label at
+all, so a world-supplied label would be a string read only for its truthiness — a field with no reader
+wearing a noun's clothes. **The goldens cannot catch a regression here**, because all 175 library
+members declare a `role`, so the filtered branch appears in no fixture.
+
+### Where she is decides who is there
+
+Section 11 carries `world.places` — ten canon places, each `emoji name — desc` — with
+the rule *prefer this list; invent somewhere new only when the story genuinely needs a place this list
+does not have*, and the schema's `scene` rule points at it.
+
+**The rule is cached and the fact is not.** Where the player actually went arrives in the **choice
+string** (*I head to the rooftop*), which is in the always-miss tail; the rule that a member whose
+Habit and personality fit a place is likelier to be there stays in section 11, which is cached. **No
+`[Place]` line is added to the tail beside it** — that is the same fact twice, and the second copy
+is the one that drifts, which is what `[NPC Appearances]` was. Fact in the tail, rule in the
+static part, rule pointing at the fact: the shape `[KKT Channels]` and `[Rounds Absent]` use.
+
+**`draws` is deliberately not rendered.** It is a tag vocabulary feeding the affinity matrix in
+`docs/V140_PLAN.md` §7.3, whose reader is v1.4.2. Printing it would hand the model a lookup
+table for exactly the judgement §7.4 argues the model makes better than a table does — *who would be in
+the recording booth at midnight* is a reasoning question.
+
+**`world.scenario` is unconditional static text, and it cannot be anything else.** Sending it on
+round 1 and dropping it afterwards would make the static system prompt differ between round 1 and round
+2, invalidating the entire ~5,500-token cached prefix on round 2 — the most expensive mistake available
+here. It ships every round, framed as the story's *first scene*: round 1 opens here, and from round 2 it
+has already happened and is never replayed. The model reads which round it is from `[Player Status]`
+`Round` in the tail. `buildSystemPrompt` takes no round argument at all, so the
+cache-unsafe version is not expressible — which is why the guard is on the tail instead.
+
+**The section is 11 because 8, 9 and 10 already exist.** `docs/V140_PLAN.md` §6's table said
+places would be section 8; 8 is NPC rules, 9 game rules, 10 the stat system. Inserting at 8 would have
+renumbered three sections and silently repointed the five places the prompt refers to its own sections
+by number (*the one section 4 names*, *Section 6 SPEAKER CONTRACT is binding*). Smoke derives the
+heading numbers from the rendered prompt and asserts they read 1..11 in order, each exactly once.
 
 Composed lore does **not** repeat the prose fields; section 5 carries them for exactly the members
 present. The single-group lore duplicates them and that is inherited token cost, not a pattern to

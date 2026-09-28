@@ -497,7 +497,7 @@ async function runWorker(model) {
     let groupConfig, members, mainId, subIds, outsiders = null;
     if (CAST) {
       const parsed = parseCastSpec(CAST);
-      const resolved = await resolveRoster(rosterFromSpec(parsed, CAST_NAME), LANG);
+      const resolved = await resolveRoster(rosterFromSpec(parsed, CAST_NAME), LANG, world);
       groupConfig = resolved.groupConfig;
       members = resolved.members;
       mainId = resolved.mainId;

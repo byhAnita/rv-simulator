@@ -203,6 +203,28 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
 📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
 Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
+What moves them in THIS world:
+- 🌈Self-Identity: Rises when she acts on what she actually wants in front of someone. Falls when she performs the version of herself the industry expects.
+- 🔒Secrecy: Falls when the relationship becomes legible to anyone outside it — a staffer, a fan-cam, a reporter, a leaked schedule. Rises when a near-miss is contained.
+- 💫Mood: Driven by schedule load, comeback pressure, and how the last interaction with the target member ended.
+
+╔══════════════════════════════════════════╗
+║ 11. PLACES & THE OPENING                 ║
+╚══════════════════════════════════════════╝
+CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
+💃 연습실 — 거울 벽, 테이프를 붙인 바닥, 누구든 열 수 있는 문.
+🎙️ 녹음실 — 유리 하나를 사이에 두고 목소리는 선명하고 표정은 흐리다.
+🏠 숙소 — 가장 사적인 공간이면서 사생활이 가장 없는 곳.
+🏢 회사 로비 — 모두 카드를 찍고 들어오고, 누가 같이 왔는지는 보인다.
+🎬 음악방송 대기실 — 복도는 붐비고 다른 팀과 스태프와 카메라가 있다.
+💄 헤어메이크업실 — 거울은 너무 많고 거리는 너무 가까워 목소리를 낮춘다.
+🌃 옥상 — 카메라가 없는 유일한 곳이자 가장 추운 곳.
+🚐 밴 — 뒷좌석, 이어폰, 앞자리의 매니저.
+🏪 편의점 — 새벽 두 시, 마스크와 모자, 점원은 고개를 들지 않는다.
+🌊 한강공원 — 트여 있고 공개돼 있어 위험하지만 바람이 좋다.
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
+THE OPENING — round 1 begins here: 또 늦게까지 이어진 밤. 복도 조명은 절반만 켜져 있고 다른 사람들은 하나둘 돌아갔는데, 사소한 일 하나 때문에 둘만 남았다. 아무도 보지 않는 곳에서 이야기를 나누는 건 처음이다.
+From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -223,7 +245,7 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".

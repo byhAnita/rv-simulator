@@ -206,6 +206,36 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Both are English rule text in every language file, so the three world files
   // must agree on them - smoke Layer I asserts they do.
   const phaseLines = world.phases.map(p => p.line).join("\n");
+
+  // Section 10: what actually moves each stat IN THIS WORLD. The stat KEYS never
+  // change (they are in the JSON schema, in validateAndFixOutput and in every
+  // save) and their display labels are i18n's - the world supplies only the prose
+  // saying what raises and lowers them, which is the half no other file holds a
+  // copy of. Secrecy in a lecture hall is broken by different things than secrecy
+  // in an agency, and until v1.4.1 step 4 the prompt said nothing about either.
+  //
+  // The icons are written as escapes rather than pasted, so this file stays ASCII;
+  // they must match the face section 10 already shows one line above, because two
+  // spellings of one quantity is what the [Stage Changes] id-vs-name bug was.
+  const STAT_FACE = {
+    selfId: "\u{1F308}Self-Identity",
+    secrecy: "\u{1F512}Secrecy",
+    mood: "\u{1F4AB}Mood",
+  };
+  const statNoteLines = ["selfId", "secrecy", "mood"]
+    .map(k => `- ${STAT_FACE[k]}: ${world.statNotes[k]}`).join("\n");
+
+  // Section 11: the canon places, and the one sentence that makes going somewhere
+  // mean something. `desc` is conditional for the same reason every member field
+  // is - an absent one renders nothing, never a dangling separator.
+  //
+  // `draws` is deliberately NOT rendered. It is a tag vocabulary feeding the
+  // affinity matrix in docs/V140_PLAN.md section 7.3, whose reader is v1.4.2;
+  // printing it would hand the model a lookup table for exactly the judgement
+  // section 7.4 argues the model makes better than a table does.
+  const placeLines = world.places
+    .map(p => `${p.emoji ? `${p.emoji} ` : ""}${p.name}${p.desc ? ` \u2014 ${p.desc}` : ""}`)
+    .join("\n");
   const a = world.npcArchetypes;
   const archetypeList = a.length > 1
     ? `${a.slice(0, -1).join(", ")}, or ${a[a.length - 1]}`
@@ -402,6 +432,17 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
 📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
 Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
+What moves them in THIS world:
+${statNoteLines}
+
+╔══════════════════════════════════════════╗
+║ 11. PLACES & THE OPENING                 ║
+╚══════════════════════════════════════════╝
+CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
+${placeLines}
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
+THE OPENING — round 1 begins here: ${world.scenario}
+From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -422,7 +463,7 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".

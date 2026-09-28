@@ -1033,7 +1033,31 @@ async function layerG(mod, MODEL_CONFIGS) {
     /if \(pendingRoster\) \{[\s\S]{0,200}return;/.test(app),
     "otherwise loadGroupConfig overwrites the builder's cast at Setup");
   check("the builder's roster is resolved so Setup sees the same members shape",
-    /resolveRoster\(pendingRoster, language\)/.test(app));
+    /resolveRoster\(pendingRoster, language, world\)/.test(app));
+  // Counted, not tested for presence. Section 4's framing is the world's since
+  // v1.4.1 step 4, so a call site that forgot the third argument does not render a
+  // lecture hall as an agency - it throws - but a call site handed the WRONG world
+  // renders plausible, wrong prose. Three sites today; a fourth must not slip in
+  // with two arguments.
+  const rosterCalls = app.match(/resolveRoster\(/g) || [];
+  const rosterCallsWithWorld = app.match(/resolveRoster\([^;]*?,\s*\w*[Ww]orld\)/g) || [];
+  check("every resolveRoster call in App.jsx is handed a world",
+    rosterCalls.length >= 3 && rosterCallsWithWorld.length === rosterCalls.length,
+    `${rosterCallsWithWorld.length} of ${rosterCalls.length} call sites`);
+  // ...and loadSave uses the SAVE's world, not whichever one the player was last
+  // looking at. `world` state still holds the previous one at this point, and it
+  // decides what section 4 says about this cast.
+  check("loadSave resolves the roster against the world the save was played in",
+    /loadWorld\(migrated\.worldId, language\)/.test(loadSaveBody)
+      && /resolveRoster\(migrated\.roster, language, saveWorld\)/.test(loadSaveBody),
+    "resolving a chaebol save against the idol world describes a family compound"
+    + " as a group under an Entertainment agency");
+  // ...and fetches it BEFORE the first setter, because it is a fetch and can fail.
+  // The load is all-or-nothing: a failure must leave the player where she was.
+  check("...and fetches it inside the try, before the FIRST setter of any kind",
+    loadSaveBody.indexOf("loadWorld(migrated.worldId")
+      < loadSaveBody.search(/\bset[A-Z]\w*\(/),
+    "a half-applied load leaves a game assembled out of two different saves");
   // Deriving the form from the roster's own slots is what lets mainMember,
   // allTargetMembers, createInitialStats and the stats bar stay untouched.
   check("...and the form's main and subs are derived from the roster's slots",
@@ -2036,7 +2060,7 @@ async function layerI() {
       { src: "custom", memberId: "c_req", slot: "sub", lang: "en", profile: REQUIRED_TIER },
     ],
   };
-  const resolvedCustom = await fromDisk(() => loader.resolveRoster(customRoster, "en"));
+  const resolvedCustom = await fromDisk(() => loader.resolveRoster(customRoster, "en", worldFor.en));
   check("resolveRoster carries a custom member through beside a library one",
     resolvedCustom.members.map((m) => m.id).join(",") === "irene,c_req"
       && resolvedCustom.mainId === "irene" && resolvedCustom.subIds.join() === "c_req",
@@ -2773,6 +2797,13 @@ async function layerI() {
   check("...and requires it to move",
     /never repeat the previous round's scene word for word/.test(p),
     "five consecutive rounds carried a byte-identical scene");
+  // ...and points at section 11's list, where the rule about preferring it lives.
+  // The schema is where the model looks when it is filling the field in, so the
+  // pointer belongs here as well as there - that is the KKT Channels shape, not a
+  // duplicated rule: the canon list and the preference are stated once, in 11.
+  check("...and points at the canon list rather than restating the rule",
+    /Take the place from section 11's canon list/.test(p),
+    "a list the schema never mentions is a list the model meets 200 lines earlier");
 
   // The summary is the collapse target, so it becomes the permanent ledger entry.
   // zh delivered a median 303 characters of 2-4 sentences against "~100".
@@ -3285,7 +3316,7 @@ async function layerI() {
   // and `orgHint` are what the PLAYER reads on Setup and are authored per language.
   const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes, w.tone,
     w.statNotes, w.platforms, w.useGroupLore, w.modes,
-    [w.castLore.composed, w.castLore.subset, w.castLore.orgSuffix],
+    [w.castLore.composed, w.castLore.subset, w.castLore.orgSuffix, w.castLore.useRole],
     w.places.map((p) => [p.id, p.emoji, p.draws])]);
   check("the language-independent half of the world is identical across zh/en/ko",
     langIndependent(worlds.zh) === langIndependent(worlds.en)
@@ -3350,6 +3381,89 @@ async function layerI() {
   check("the world covers all four round phases",
     worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
     JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
+
+  // --- section 11: the canon places and the opening, v1.4.1 step 4 ----------
+  //
+  // The list has to be a FACT in the prompt, not only a rule about one. That is the
+  // [Rounds Absent] lesson: a rule the model has no information to apply is inert,
+  // and `prefer this list` is such a rule until the list is actually there.
+  for (const lang of ["zh", "en", "ko"]) {
+    const p = prompt(form(), lang);
+    const missing = worlds[lang].places.filter((pl) => !p.includes(pl.name));
+    check(`[${lang}] every canon place the world declares reaches the prompt`,
+      missing.length === 0, missing.map((pl) => pl.id).join(", "));
+    check(`[${lang}] ...with the one-line description that tells them apart`,
+      worlds[lang].places.every((pl) => p.includes(`${pl.name} \u2014 ${pl.desc}`)),
+      "a bare list of names says nothing about which place suits which scene");
+    check(`[${lang}] the opening scenario reaches the prompt`,
+      p.includes(worlds[lang].scenario),
+      "round 1 has nothing to open on");
+    // Every note of every stat, because section 10 asks the model to move them and
+    // said nothing anywhere about what moves them in THIS world.
+    check(`[${lang}] all three stat notes reach section 10`,
+      ["selfId", "secrecy", "mood"].every((k) => p.includes(worlds[lang].statNotes[k])),
+      ["selfId", "secrecy", "mood"].filter((k) => !p.includes(worlds[lang].statNotes[k])).join(", "));
+  }
+
+  const pEn = prompt(form(), "en");
+  // The rule, and the fact it points at. Fact in the tail (the choice string says
+  // where she went), rule in the cached part, rule pointing at the fact - the shape
+  // [KKT Channels] and [Rounds Absent] both already use.
+  check("section 11 states the prefer-this-list rule, with the escape hatch",
+    /prefer this list when you choose a scene/.test(pEn)
+      && /Invent somewhere new only when the story genuinely needs/.test(pEn),
+    "a canon list with no rule is a list the model may ignore, and one with no"
+    + " escape hatch is a prohibition it will route around");
+  check("...and says that where she is decides who is there",
+    /WHERE SHE IS DECIDES WHO IS THERE/.test(pEn)
+      && /Habit and Private Personality/.test(pEn),
+    "going somewhere was supposed to be how you run into someone");
+  check("...and points that rule at [Rounds Absent] rather than restating it",
+    /a member \[Rounds Absent\] shows has been away is a reason to put her there/.test(pEn),
+    "the absence rule lives in section 3; duplicating it is how two rules disagree");
+  check("the opening is framed as the first scene, not as this round's brief",
+    /round 1 begins here/.test(pEn)
+      && /From round 2 on this has already happened and is never replayed/.test(pEn),
+    "at round 20 an unqualified opening reads as an instruction to open again");
+  // It CANNOT be round-conditional - buildSystemPrompt takes no round - and that is
+  // why it is safe in the cached prefix. What a future edit could still do is put
+  // the place in the tail as well, which is the same fact twice and the second copy
+  // is the one that drifts. That is the [NPC Appearances] failure exactly.
+  const tailSrc = readFileSync(join(ROOT, "src/agent/memoryPool.js"), "utf8");
+  check("no [Place] line is added to the dynamic tail beside the choice string",
+    !/\[Place/.test(tailSrc) && !/\[Location/.test(tailSrc),
+    "the choice string already carries where she went; a second copy drifts");
+  // `draws` is the affinity matrix's input (plan section 7.3, reader in v1.4.2), not
+  // prose. Printing it hands the model a lookup table for exactly the judgement
+  // section 7.4 argues the model makes better than a table.
+  const drawTags = [...new Set(worlds.en.places.flatMap((pl) => pl.draws || []))];
+  // Asserted as the WHOLE line rather than by hunting for a tag string: several
+  // tags are ordinary words the prompt uses elsewhere (`manager` and `staff` are
+  // npcArchetypes), so a substring search would fail for the wrong reason. A place
+  // line that renders exactly emoji + name + desc cannot be carrying anything else.
+  check("a place renders as emoji, name and description, and nothing else",
+    drawTags.length > 0 && worlds.en.places.every((pl) =>
+      pEn.includes(`\n${pl.emoji} ${pl.name} \u2014 ${pl.desc}\n`)),
+    "`draws` is the v1.4.2 affinity matrix input, not prose for the model");
+
+  // The section numbers are load-bearing: the prompt refers to its own sections by
+  // number in five places (`section 4 names`, `Section 6 SPEAKER CONTRACT`,
+  // `section 7`, `section 11`). Inserting places at 8 - which the plan's own table
+  // said - would have renumbered three sections and silently repointed all of them.
+  const headings = pEn.split("\n").map((l) => /^\u2551 (\d+)\. /.exec(l))
+    .filter(Boolean).map((m) => Number(m[1]));
+  check("the prompt's sections are numbered 1..11 in order, each exactly once",
+    JSON.stringify(headings) === JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    JSON.stringify(headings));
+  check("places sit after the stat system and before the JSON schema",
+    pEn.indexOf("10. STAT SYSTEM") < pEn.indexOf("11. PLACES")
+      && pEn.indexOf("11. PLACES") < pEn.indexOf("JSON SCHEMA"),
+    "the schema must be the last thing the model reads before the memory context");
+  // Two spellings of one quantity is what the [Stage Changes] id-vs-name bug was.
+  check("a stat note names the stat exactly as section 10 names it one line above",
+    /\u{1F308}Self-Identity: /u.test(pEn) && /\u{1F512}Secrecy: /u.test(pEn)
+      && /\u{1F4AB}Mood: /u.test(pEn),
+    "the notes list and the editable-stats line must use one face per stat");
 
   // --- background rendering: stable for one save, varied across saves -------
   const exGf = (seed, lang = "zh") =>
@@ -3425,6 +3539,43 @@ async function layerI() {
   } catch { emptySuffixOk = false; }
   check("parseWorld accepts an empty orgSuffix, which is a real value",
     emptySuffixOk, "a college's name is already the college");
+
+  // v1.4.1 step 4. Two fields whose reader arrived with them: `castLore.useRole`,
+  // which decides whether an idol position reaches the prompt at all, and the three
+  // `statNotes` keys section 10 now prints one line each from.
+  //
+  // `useRole` is checked for being a BOOLEAN, not for truthiness, so a world that
+  // simply forgot it fails rather than reading as a decision nobody made - and the
+  // mutation that proves it has to break the CONDITION, because a validator deleted
+  // while the data stays valid can fire for nothing.
+  for (const bad of [undefined, "true", 1, null]) {
+    const broken = { ...good, castLore: { ...good.castLore } };
+    if (bad === undefined) delete broken.castLore.useRole;
+    else broken.castLore.useRole = bad;
+    let msg = null;
+    try { parseW(broken); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects castLore.useRole = ${JSON.stringify(bad)}`,
+      msg !== null && msg.includes("useRole"), msg || "parsed without complaint");
+  }
+  // ...and accepts `false`, which is the answer for every world but this one. Guarded
+  // because a truthiness check would reject it while passing every other test here.
+  let falseRoleOk = false;
+  try {
+    falseRoleOk = parseW({ ...good, castLore: { ...good.castLore, useRole: false } })
+      .castLore.useRole === false;
+  } catch { falseRoleOk = false; }
+  check("parseWorld accepts castLore.useRole = false",
+    falseRoleOk, "three of the four worlds have no cast position at all");
+  for (const k of ["selfId", "secrecy", "mood"]) {
+    for (const [bad, why] of [[undefined, "missing"], ["", "empty"]]) {
+      const broken = { ...good, statNotes: { ...good.statNotes } };
+      if (bad === undefined) delete broken.statNotes[k]; else broken.statNotes[k] = bad;
+      let msg = null;
+      try { parseW(broken); } catch (e) { msg = e.message; }
+      check(`parseWorld rejects statNotes.${k} ${why}`,
+        msg !== null && msg.includes(k), msg || "parsed without complaint");
+    }
+  }
 
   for (const tok of ["unnie", "ya", "nim", "ssi", "sep"]) {
     const brokenReg = JSON.parse(JSON.stringify(registers));
@@ -3512,7 +3663,7 @@ async function layerI() {
   const rvCfg = await fromDisk(() => loader.loadGroupConfig("red_velvet", "en"));
   const allIds = rvCfg.members.map((m) => m.id);
   const classic = loader.buildClassicRoster("red_velvet", "irene", ["yeri"], allIds);
-  const resolved = await fromDisk(() => loader.resolveRoster(classic, "en"));
+  const resolved = await fromDisk(() => loader.resolveRoster(classic, "en", worldFor.en));
 
   check("a classic roster resolves to the same cast, in the same order",
     JSON.stringify(resolved.members.map((m) => m.id)) === JSON.stringify(allIds),
@@ -3557,7 +3708,7 @@ async function layerI() {
         profile: { name: "Mina K", emoji: "🎧", birthday: "1997-03-02" } },
     ],
   };
-  const xr = await fromDisk(() => loader.resolveRoster(cross, "en"));
+  const xr = await fromDisk(() => loader.resolveRoster(cross, "en", worldFor.en));
   check("a cross-group roster resolves in roster order",
     JSON.stringify(xr.members.map((m) => m.id)) === JSON.stringify(["nayeon", "irene", "c_1"]),
     JSON.stringify(xr.members.map((m) => m.id)));
@@ -3630,7 +3781,7 @@ async function layerI() {
   const twiceForWhole = await fromDisk(() => loader.loadGroupConfig("twice", "en"));
   const wholeRoster = loader.buildClassicRoster(
     "twice", "nayeon", ["jihyo"], twiceForWhole.members.map((m) => m.id));
-  const wholeGroup = await fromDisk(() => loader.resolveRoster(wholeRoster, "en"));
+  const wholeGroup = await fromDisk(() => loader.resolveRoster(wholeRoster, "en", worldFor.en));
   check("a whole single group is NOT marked composed",
     wholeGroup.groupConfig.loreComposed === false, String(wholeGroup.groupConfig.loreComposed));
   const wholePrompt = buildSystemPrompt(
@@ -3646,7 +3797,7 @@ async function layerI() {
   // loreComposed is set in a second place and needs its own assertion there.
 
   // A player-supplied name replaces the default everywhere, agency included.
-  const named = await fromDisk(() => loader.resolveRoster({ ...cross, name: "Aurora" }, "en"));
+  const named = await fromDisk(() => loader.resolveRoster({ ...cross, name: "Aurora" }, "en", worldFor.en));
   check("a named cast uses that name for the group and derives the agency from it",
     named.groupConfig.groupLore.includes("[Aurora Background]")
       && named.groupConfig.groupLore.includes("Aurora Entertainment")
@@ -3662,7 +3813,7 @@ async function layerI() {
       { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
       { src: "library", groupId: "red_velvet", memberId: "yeri", slot: "sub" },
     ],
-  }, "en"));
+  }, "en", worldFor.en));
   const sLore = subset.groupConfig.groupLore;
   check("a subset of one group keeps that group's name",
     sLore.includes("[Red Velvet Background]") && subset.groupConfig.group.name === "Red Velvet",
@@ -3673,7 +3824,143 @@ async function layerI() {
     sLore.split("\n").filter((l) => /Seulgi|Wendy|Joy/.test(l)).join(" | "));
   check("...and says out loud that nobody else exists",
     /ONLY these members of Red Velvet exist in this story/.test(sLore),
-    sLore.split("\n")[2]);
+    sLore.split("\n")[3]);
+  // The fandom is its own template ELEMENT now, not a clause appended in code, so a
+  // world with no fanbase simply does not author the line.
+  check("...and carries the fandom the group config declares",
+    /^Fandom: ReVeluv \(Luvies\)\.$/m.test(sLore),
+    sLore.split("\n").find((l) => l.startsWith("Fandom")) || "no Fandom line at all");
+
+  // --- section 4's framing is the WORLD's, v1.4.1 step 4 -------------------
+  //
+  // It was four string literals in rosterResolver.js saying `N-member group under X
+  // Entertainment` and `no other idol exists` - true of this world and false of a
+  // lecture hall. The requirement is that the world decides, so the guard changes
+  // the world and asserts the lore FOLLOWS, rather than matching today's sentences.
+  const altWorld = parseW({ ...good, castLore: { ...good.castLore,
+    composed: ["[{name} COHORT]", "{name} has {n} people enrolled at {org}."],
+    orgSuffix: "College" } });
+  const altLore = (await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol", name: "Hanseo",
+    entries: [
+      { src: "library", groupId: "twice", memberId: "nayeon", slot: "main" },
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "sub" },
+    ] }, "zh", altWorld))).groupConfig.groupLore;
+  check("a cross-source cast's lore is rendered from the WORLD's template",
+    altLore.startsWith("[Hanseo COHORT]")
+      && altLore.includes("Hanseo has 2 people enrolled at Hanseo College."),
+    altLore.split("\n").slice(0, 2).join(" / "));
+  check("...so the idol wording is not reachable from a world that does not say it",
+    !/-member group under/.test(altLore) && !/No other idol exists/.test(altLore)
+      && !/Entertainment/.test(altLore),
+    altLore.split("\n").filter((l) => /idol|Entertainment|-member/.test(l)).join(" | "));
+  // ...and the sentences are gone from src/ rather than merely unused there. A copy
+  // left behind is the one a later edit reaches for.
+  // Comments stripped FIRST. This guard failed on the comment explaining the very
+  // deletion it checks for - the fourth time in this repo a source guard has read
+  // its own documentation as code. Strip, then scan; a prose mention of a deleted
+  // string is the record of why it went, not a copy of it.
+  const rosterCode = rosterSrc
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("rosterResolver carries no copy of the sentences the world now owns",
+    !/-member group under/.test(rosterCode) && !/No other idol exists/.test(rosterCode)
+      && !/This story follows part of/.test(rosterCode),
+    "a second copy of a template is what the world file was supposed to replace");
+
+  // An unknown placeholder THROWS. A template is data, so a typo in a world file
+  // would otherwise reach the model as a literal {labl} in section 4 - the
+  // unresolved-particle class of defect, which renders as plausible text nobody reads.
+  let typoMsg = null;
+  try { loader.renderCastLore(["{labl} Background"], { label: "Red Velvet" }); }
+  catch (e) { typoMsg = e.message; }
+  check("an unknown placeholder in a cast-lore template throws",
+    typoMsg !== null && typoMsg.includes("labl"), typoMsg || "rendered a literal {labl}");
+  check("...and a line whose value is absent is dropped, not rendered with a gap",
+    JSON.stringify(loader.renderCastLore(["A {x}", "Fandom: {f}.", "B {x}"],
+      { x: "1", f: "" })) === JSON.stringify(["A 1", "B 1"]),
+    JSON.stringify(loader.renderCastLore(["A {x}", "Fandom: {f}.", "B {x}"], { x: "1", f: "" })));
+
+  // `useGroupLore: false` sends EVERY cast down the composed path, so a real group's
+  // own idol history cannot reach a lecture hall. A whole single group then takes the
+  // SUBSET template: it really is that group, and its real name is what she picked.
+  const noLoreWorld = parseW({ ...good, useGroupLore: false });
+  const wholeRv = { worldId: "kpop_idol", entries:
+    ["irene", "seulgi", "wendy", "joy", "yeri"].map((id, i) => ({
+      src: "library", groupId: "red_velvet", memberId: id,
+      slot: i === 0 ? "main" : i === 1 ? "sub" : "npc" })) };
+  const rvKept = await fromDisk(() => loader.resolveRoster(wholeRv, "zh", worlds.zh));
+  const dropped = await fromDisk(() => loader.resolveRoster(wholeRv, "zh", noLoreWorld));
+  check("a whole single group keeps its own lore when the world says it may",
+    rvKept.groupConfig.loreComposed === false, "this is what keeps the goldens fixed");
+  check("...and loses it entirely when the world says useGroupLore: false",
+    dropped.groupConfig.loreComposed === true
+      && dropped.groupConfig.groupLore !== rvKept.groupConfig.groupLore,
+    "a Red Velvet cast in an office world was inheriting SM and a discography");
+  check("...taking the subset template, which still calls her cast by its real name",
+    dropped.groupConfig.groupLore.startsWith("[Red Velvet Background]"),
+    dropped.groupConfig.groupLore.split("\n")[0]);
+
+  // --- the idol role is filtered BY THE WORLD, v1.4.1 step 4 ---------------
+  //
+  // Yuhan's call: keep `role` in the library, never let it reach the model in a world
+  // that has no such position. `Main Vocal` / `Maknae` is a position in an idol GROUP,
+  // so a campus prompt would describe a student as a main vocal - the
+  // [BLACKPINK Background] shape, a specific-sounding claim two sections from the rule
+  // it contradicts.
+  //
+  // Asserted on the member's OWN role string rather than on a sample word, because
+  // several role words (`leader`, `visual`) occur in ordinary prompt prose.
+  const roleCast = { worldId: "kpop_idol", name: "Hanseo", entries: [
+    { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
+    { src: "library", groupId: "twice", memberId: "nayeon", slot: "sub" },
+  ] };
+  // Built in a try, because a validator tightened to truthiness would otherwise
+  // THROW out of the suite here rather than failing by name - and a crash and a
+  // failure are the same line of output to whoever reads it. On failure this falls
+  // back to the real world, whose useRole is true, so the checks below fail by
+  // finding the role rather than by vanishing.
+  let noRoleWorld = null;
+  try { noRoleWorld = parseW({ ...good, castLore: { ...good.castLore, useRole: false } }); }
+  catch { noRoleWorld = null; }
+  check("a world declaring castLore.useRole: false can be parsed at all",
+    noRoleWorld !== null, "three of the four worlds have no cast position");
+  const withRole = await fromDisk(() => loader.resolveRoster(roleCast, "zh", worlds.zh));
+  const sansRole = await fromDisk(() =>
+    loader.resolveRoster(roleCast, "zh", noRoleWorld || worlds.zh));
+  const roleStrings = withRole.members.map((m) => m.role).filter(Boolean);
+  check("a cast position reaches the prompt in a world that declares one",
+    roleStrings.length === 2
+      && roleStrings.every((r) => withRole.groupConfig.groupLore.includes(r)),
+    JSON.stringify(roleStrings));
+  check("...and reaches it NOWHERE in a world whose castLore.useRole is false",
+    roleStrings.every((r) => !sansRole.groupConfig.groupLore.includes(r)),
+    roleStrings.filter((r) => sansRole.groupConfig.groupLore.includes(r)).join(" | "));
+  check("...while the world-neutral facts on the same line survive it",
+    withRole.members.every((m) => !m.mbti || sansRole.groupConfig.groupLore.includes(m.mbti)),
+    "mbti and animal_plastic are not idol positions and are not filtered");
+  // The trailing-space class, one separator over: the goldens cannot catch it here,
+  // because every one of the 175 library members declares a role.
+  check("...leaving no dangling separator where the position would have been",
+    !/ - ,/.test(sansRole.groupConfig.groupLore)
+      && !/,,/.test(sansRole.groupConfig.groupLore)
+      && !/[ ,]$/m.test(sansRole.groupConfig.groupLore),
+    sansRole.groupConfig.groupLore.split("\n").filter((l) => / - ,|,,|[ ,]$/.test(l)).join(" | "));
+  // ...and the field is still THERE. Stripping it at the loader would have taken an
+  // idol position out of the idol world too, which is the half of Yuhan's
+  // instruction a filter satisfies and a deletion does not.
+  check("`role` still reaches the app from the group library",
+    withRole.members.every((m) => typeof m.role === "string" && m.role.length > 0),
+    "the cast picker and the member editor read it; only the PROMPT is filtered");
+
+  // The world is REQUIRED, the same rule buildSystemPrompt follows. A default would
+  // be a second copy of every string in public/worlds/, and a missing-wiring bug
+  // would render a lecture hall as a K-pop agency instead of failing.
+  let noWorldMsg = null;
+  try { await loader.resolveRoster(roleCast, "zh"); } catch (e) { noWorldMsg = e.message; }
+  check("resolveRoster refuses to run without a world",
+    noWorldMsg !== null && /world is required/.test(noWorldMsg),
+    noWorldMsg || "composed section 4 out of nothing");
 
   // An all-custom cast has no group config at all. buildSystemPrompt reads
   // groupConfig.groupLore unconditionally, so this threw a TypeError before the
@@ -3682,7 +3969,7 @@ async function layerI() {
     worldId: "kpop_idol",
     entries: [{ src: "custom", memberId: "c_9", slot: "main", lang: "en",
       profile: { name: "Li Fei", birthday: "1999-01-01", private_personality: "quiet" } }],
-  }, "en"));
+  }, "en", worldFor.en));
   check("an all-custom cast resolves instead of throwing",
     allCustom.groupConfig !== null && typeof allCustom.groupConfig.groupLore === "string"
       && allCustom.groupConfig.groupLore.includes("Li Fei"),
@@ -3703,7 +3990,7 @@ async function layerI() {
     worldId: "kpop_idol",
     entries: [{ src: "library", groupId: "red_velvet", memberId: "irene",
       slot: "main", override: { public_image: "REWRITTEN" } }],
-  }, "en"));
+  }, "en", worldFor.en));
   check("an override applies to the resolved member",
     overridden.members[0].public_image === "REWRITTEN", "");
 
@@ -3718,7 +4005,7 @@ async function layerI() {
         slot: "main", override: { public_image: "REWRITTEN" } },
       { src: "library", groupId: "red_velvet", memberId: "irene", slot: "npc" },
     ],
-  }, "en"));
+  }, "en", worldFor.en));
   check("an override copies rather than writing through to the library",
     aliasing.members[0].public_image === "REWRITTEN"
       && aliasing.members[1].public_image !== "REWRITTEN",
@@ -3732,7 +4019,7 @@ async function layerI() {
       { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
       { src: "library", groupId: "red_velvet", memberId: "no_such_member", slot: "sub" },
     ],
-  }, "en"));
+  }, "en", worldFor.en));
   check("a roster entry the library no longer has is dropped, not faked",
     ghost.members.length === 1 && ghost.members[0].id === "irene",
     JSON.stringify(ghost.members.map((m) => m.id)));
@@ -3779,7 +4066,7 @@ async function layerI() {
   // THE GATE (docs/V140_PLAN.md, "Pick up here"): a pinned v1.3.8 save must
   // migrate and resolve to the same member set the app derives today.
   const twiceCfg = await fromDisk(() => loader.loadGroupConfig("twice", "en"));
-  const fromSave = await fromDisk(() => loader.resolveRoster(migrated.roster, "en"));
+  const fromSave = await fromDisk(() => loader.resolveRoster(migrated.roster, "en", worldFor.en));
   check("a migrated save resolves to exactly the cast it had, in the same order",
     JSON.stringify(fromSave.members.map((m) => m.id))
       === JSON.stringify(twiceCfg.members.map((m) => m.id)),
@@ -4830,7 +5117,7 @@ async function layerI() {
     sana: { slot: "main", src: "library", groupId: "twice" },
     irene: { slot: "sub", src: "library", groupId: "red_velvet" },
     c_9: { slot: "npc", src: "custom", lang: "en", profile: REQUIRED_TIER },
-  }), "en"));
+  }), "en", worldFor.en));
   // Note the custom member resolves as `c_9`, the PICK's id, even though the
   // profile body carries `c_req`. The pick key wins all the way down — the same
   // rule upsertMember enforces — so a profile can never rename itself onto

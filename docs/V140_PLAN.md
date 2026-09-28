@@ -651,8 +651,23 @@ src/
   ],
   "npcArchetypes": ["manager", "assistant", "executive", "fan"],
   "scenario": "Opening paragraph used to seed round 1.",
-  "roleLabel": "Role"
+  "roleLabel": "Role"          // SUPERSEDED in step 4 by `castLore.useRole` — see below
 }
+```
+
+**`roleLabel` never shipped, and step 4 replaced it with a boolean.** The sketch above assumed the
+idol position was rendered behind a *label* the world could rename. It is not: `memberLine` joins
+`role` into a bare comma list (`Leader, Main Rapper, ENFP, Rabbit`) and prints no label at all, so a
+world-supplied label would be a string read only for its **truthiness** — a field with no reader wearing a
+noun's clothes, which is the shape this project already tracks four times. `castLore.useRole` says the
+one thing the renderer actually branches on: whether a cast position exists in this world.
+
+```jsonc
+  "castLore": {
+    "useRole": true,        // false => a member's idol `role` never reaches the prompt. Top-level `useGroupLore` is its sibling in intent, not in nesting
+    "orgSuffix": "Entertainment", "orgNoun": "Group", "orgHint": "… Agency: {org}",
+    "composed": ["…"], "subset": ["…"]
+  }
 ```
 
 > ⚠️ **`kpop_idol` identity ids must stay exactly `练习生` / `Staff` / `韩娱艺人` / `粉丝` /
@@ -776,7 +791,18 @@ Section numbering is preserved so the diff stays readable.
 | 5 | Member profiles | + `Habit:` line; NPCs are explicit, not leftovers |
 | 6 | Cast identity & address | identity text from `world.identities`; token table resolved from the world's `country.register`; **protocol logic unchanged**. **The pace line LEAVES this section** for the dynamic tail as `[Story Mode]` |
 | 7 | Social platform rules | only the platforms the world declares |
-| 8 | — | **NEW** Places (canon list) + opening scenario |
+| 8 | NPC rules | unchanged |
+| 9 | Game rules | unchanged |
+| 10 | Stat system | + `world.statNotes` — what raises and lowers each stat in THIS world |
+| 11 | — | **NEW** Places (canon list) + the who-is-likely-there rule + opening scenario |
+
+**Corrected in step 4: the new section is 11, and this table used to say 8.** Sections 8, 9 and 10
+already exist in `buildSystemPrompt` (NPC rules, game rules, stat system) — the row above was
+written from §6's *design* numbering rather than from the rendered prompt. Inserting places at 8 would
+renumber three sections and every cross-reference inside the prompt that names one (*"section 7"*,
+*"Section 6 SPEAKER CONTRACT is binding"*, *"the one section 4 names"*), moving all three goldens for
+no change in content and handing a reader a diff in which nothing is findable. Places go **after** the
+stat system, immediately before the JSON schema, as **11**.
 
 **Everything added here is static and therefore cached from R1**, with one deliberate exception:
 the story-mode rule **leaves** the static prompt for the dynamic tail, so that switching mode mid-run
@@ -1561,18 +1587,29 @@ campus has `exchange_student` and chaebol has `bodyguard`, and "in the building 
 it" is what carries them. The recommendation below is reversed.
 
 **4. 🟡 `useGroupLore: false` is not enough for a non-idol world, and the leftover is in section
-5.** A member's `role` — *Main Vocal*, *Leader*, *Maknae* — is rendered on her profile line by
-[`memberLine`](../src/rag/rosterResolver.js#L76) for **every** world, and it is an idol-group
-position. A campus prompt would describe a student as a main vocal, and an office prompt an analyst
-as a maknae; the model is entitled to build on it, and this is exactly the shape of the
+4 — not 5, which is where this review first put it.** A member's `role` — *Main Vocal*, *Leader*,
+*Maknae* — is an idol-group position, and it reaches the prompt through
+[`memberLine`](../src/rag/rosterResolver.js#L88), which composes section **4**. Section 5's profile
+block renders `Animal` / `Public` / `Private` / `Queer Texture` / `Speech Style` /
+`Habit` / `Hidden Conflict` and **never reads `m.role` at all** — checked in
+[`mainAgent.js`](../src/agent/mainAgent.js#L229). Getting that wrong would have put the fix in the
+wrong function, which is the reason to name the line rather than the section.
+
+That narrows the blast radius and does not remove the defect: a campus prompt would describe a student
+as a main vocal and an office prompt an analyst as a maknae, and this is exactly the shape of the
 `[BLACKPINK Background]` leak — a richer, more specific statement two sections away from the rule
 it contradicts. `mbti` and `animal_plastic` are world-neutral and stay.
 
-**Step 4 owns the fix, since that is the step that rewires section 4 and 5's framing:** the world says
-whether a cast position exists (`castLore.useRole`, or `role` simply joins the fields that are
-conditional on content), and a world that says no renders no `Role:` and no blank label — the
-trailing-space class, which the goldens **cannot** catch here because all 175 library members declare
-a `role`.
+**Fixed in step 4 as `castLore.useRole`, on Yuhan's call of 2026-09-28** (*"add a filter of the idol
+role for each cast to keep it only in the library but never reaching LLM context"*). The world says
+whether a cast position exists; a world that says no renders no position and no empty separator — the
+trailing-space class, which the goldens **cannot** catch here because all 175 library members declare a
+`role`. `kpop_idol` says `true`, so its output does not move.
+
+**`role` is not deleted from the library, and that is the point of the word *filter*.** It is on
+`parseGroupConfig`'s whitelist, it is in all 30 group files, and the cast picker and member editor are
+free to show it — what changes is that a **world** decides whether it reaches the model. The alternative,
+stripping it at the loader, would take an idol position out of the idol world too.
 
 **Not findings, checked and cleared:** `hr` and `journalist` both reading *"secrecy is the
 plot"* is fine — they are in different worlds and `secrecy` ships in all of them (decision 9).
@@ -1645,11 +1682,67 @@ all three languages, and smoke should assert that no world's display name equals
 | **1** | ✅ Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | ✅ **Done.** Goldens byte-identical and untouched on disk, mirrors in sync, smoke **1204 → 1232**, 14 mutations RED |
 | **2** | ✅ Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail via `buildTailRules`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` / `world.paces` deleted, legacy seeding through `resolveStoryMode` | ✅ **Done.** Goldens moved **once** — 3 files, 3 deletions, 0 insertions, all the `[Pace: …]` line — diff read. Layer J asserts the paired invariant. Smoke **1232 → 1262**, **24 mutations RED** across two rounds |
 | **3** | ✅ Setup page: pace picker out, **world picker in** at the same slot, reading `loadWorldIndex` so step 7 adds worlds as **data**; order becomes name / birth year / world / identity; the identity grid is the **world's own** `identities` plus `H`; a world change clears `identity`/`customIdentity` **only when the new world does not declare the id**; `rv_sim_world` persists the pick; `loadSave` restores the save's `worldId` | ✅ **Done.** Goldens byte-identical and untouched. `IDENTITIES` and the seven `t.identities` rows **deleted** — see *What step 3 deleted*. Asserted on what Setup **forwards**, not on its source |
-| **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
+| **4** | ✅ Section **11** (not 8 — see §6) + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` in the cached prefix, `statNotes` into section 10, `castLore.composed`/`subset` rendered by `renderCastLore` in place of four string literals, `useGroupLore` honoured, `resolveRoster` taking a required `world`, `loadSave` fetching the **save's own** world, and `castLore.useRole` filtering the idol `role` out of a non-idol world's prompt | ✅ **Done.** Section 4 and section 5 did **not** move: the only golden diff is section 10's three notes, all of section 11, and the `scene` rule's pointer at it. `update-golden.mjs` run once and the diff read. Smoke **1304 → 1356**, **36 mutations RED**. The token delta is **still unmeasured** — see below |
 | **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design). **§7.4 is the half that is NOT here:** the affinity engine stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
 | **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
 | **7** | Content: campus, office, chaebol — each with the ex-girlfriend identity (see below) and six structural ones. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+#### Step 4 is done, and the token estimate it was asked to check was low by about 4x
+
+**Measured, on disk:** the three goldens grew **+22 lines** each, and **+1,828 / +2,420 / +1,965
+characters** (zh / en / ko). Smoke **1304 → 1356**; the bundle 408.83 → **410.25 kB** (gzip 143.72 →
+**144.21**). **36 mutations RED** — 31 in the first pass, and five re-posed after four turned out to be
+ill-formed rather than the guards being weak (see below).
+
+**The token figure is a CALCULATION and is marked as one.** There is no tokenizer in this repo and
+none of the four providers is being called offline, so the honest offline measurement is characters.
+At the ~4 chars/token rule of thumb for English the en fixture's +2,420 characters is roughly
+**+600 tokens** `(?)` — against §6's estimate of **+140**. Do not quote the 600 as measured; the
+real number is one live round's `usage.prompt_tokens` before and after, which the usage panel
+already shows, and it belongs in §10 beside the storage figure that is also still calculated.
+
+**Where §6's estimate went wrong is instructive, and it is not arithmetic.** It costed *Canonical
+places (~10) +80* and *Opening scenario +60* — the **data**. What actually landed is the data plus the
+rules around it: three `statNotes` sentences (~600 chars), the who-is-likely-to-be-there rule
+(~390), the prefer-this-list rule with its escape hatch (~190), the never-replay-the-opening clause
+(~140) and the schema's pointer (~110). **A list costs what the list costs; a list the model is told
+how to use costs several times that**, and the rules are the part that makes the list do anything.
+
+#### What step 4 renders, and the four decisions it had to make first
+
+Written before the code, per the docs-before-code rule. Step 4 is the step that makes the world own
+the prompt's *setting*: section 4's cast framing, section 10's stat prose, and a new section 11
+carrying the canon places and the opening.
+
+**1. The new section is 11.** §6's table said 8; 8, 9 and 10 already exist. See the correction under
+§6 — renumbering would move all three goldens and break every cross-reference the prompt makes to a
+section by number, for no change in content.
+
+**2. `scenario` is unconditional static text, and it cannot be anything else.** The obvious
+reading of *"seeds round 1"* is to send it on round 1 and drop it afterwards. That makes the static
+system prompt differ between round 1 and round 2, which invalidates the **entire** ~5,500-token cached
+prefix on round 2 — the single most expensive mistake available in this codebase (§6.1), and the exact
+defect `backstorySeed` was written to close. So the opening ships in section 11 on every round,
+framed as *the story's first scene* rather than as an instruction: round 1 opens here, and from round 2
+it has already happened. The model reads which round it is from `[Player Status] Round:` in the tail.
+
+**3. Places: the list and the rule are static, and the FACT of where she went is not.** §7.4(a) already
+settled this and step 4 must not quietly re-decide it: section 11 carries the canon list plus *prefer
+this list; invent only when the story genuinely needs somewhere new*, plus the one sentence about who
+is likely to be there. Where the player actually went arrives in the **choice string** (*"I head to the
+rooftop"*), which is in the tail. **No `[Place]` line is added to the tail** — that is the same
+fact twice, and the second copy is the one that drifts. Fact in the tail, rule in the cached part, rule
+pointing at the fact: the shape `[KKT Channels]` and `[Rounds Absent]` both already use.
+
+**4. `draws` is NOT rendered, and that is a decision rather than an omission.** It is a tag
+vocabulary (`["main vocal", "producer"]`), authored in step 1 as the input to §7.3's affinity
+matrix, whose reader is v1.4.2. Printing it would hand the model a lookup table for precisely the
+judgement §7.4 argues the model does better than a table — *who would be in the recording booth at
+midnight* is a reasoning question. Section 11 prints `emoji name — desc` and asks the model to
+reason from each member's `Habit` and personality instead. **`draws` is therefore the one
+field step 1 declared ahead of its reader**; it is recorded here rather than deleted because §7.3 names
+the reader and the date.
 
 #### What step 3 deleted, and where it departed from the row above
 

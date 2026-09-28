@@ -520,9 +520,14 @@ export default function App() {
   // `selectedGroup` when a save is loaded, so this already sees it; adding it
   // would additionally re-resolve on every new game, for a cast startNewGame
   // has in hand.
+  // `world` is a dependency because section 4's cast framing is the world's since
+  // v1.4.1 step 4 - `castLore`, `useGroupLore` and `useRole` all decide what the
+  // resolved `groupConfig.groupLore` says. It can be null for the width of a world
+  // fetch, and resolving against a missing world would throw rather than compose.
   useEffect(() => {
+    if (!world) return;
     if (phaseRef.current === "game" && roster) {
-      resolveRoster(roster, language).then(r => {
+      resolveRoster(roster, language, world).then(r => {
         setGroupConfig(r.groupConfig);
         setMembers(r.members);
       }).catch(console.error);
@@ -545,7 +550,7 @@ export default function App() {
       }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
-  }, [selectedGroup, language, pendingRoster]);
+  }, [selectedGroup, language, pendingRoster, world]);
 
   // The custom door, resolved once so Setup sees exactly the `members` shape the
   // classic door gets from a group load. Deriving form.mainMember/subMembers from
@@ -553,8 +558,8 @@ export default function App() {
   // allTargetMembers, createInitialStats, the stats bar — stay untouched: they
   // read the form, and the form now agrees with the builder.
   useEffect(() => {
-    if (!pendingRoster || phaseRef.current === "game") return;
-    resolveRoster(pendingRoster, language).then(r => {
+    if (!pendingRoster || phaseRef.current === "game" || !world) return;
+    resolveRoster(pendingRoster, language, world).then(r => {
       setGroupConfig(r.groupConfig);
       setMembers(r.members);
       setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
@@ -567,7 +572,7 @@ export default function App() {
       setPhase("cover");
       showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
     });
-  }, [pendingRoster, language]);
+  }, [pendingRoster, language, world]);
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -779,10 +784,18 @@ export default function App() {
     // carries no group id before v1.4.0, so identifying its cast means fetching
     // the library — and a half-applied load would leave the player in a game
     // assembled from two different saves.
-    let migrated, resolved;
+    // The save's OWN world is fetched here rather than read off `world` state,
+    // which still holds the world the player was last looking at - and since
+    // v1.4.1 step 4 the world decides what section 4 says about this cast, so
+    // resolving a chaebol save against the idol world would describe a family
+    // compound as a group under an Entertainment agency. It is a fetch, so it can
+    // fail, which is exactly why it belongs inside this try: every fallible step
+    // completes before the first setter runs.
+    let migrated, resolved, saveWorld;
     try {
       migrated = await migrateSave(save, language, { preferGroupId: selectedGroup });
-      resolved = await resolveRoster(migrated.roster, language);
+      saveWorld = await loadWorld(migrated.worldId, language);
+      resolved = await resolveRoster(migrated.roster, language, saveWorld);
       if (!resolved.members.length) throw new Error("roster resolved to an empty cast");
     } catch (e) {
       // Loudly, and without touching the current game. A roster that cannot be
@@ -827,6 +840,12 @@ export default function App() {
     // After `phaseRef` is pinned to "game", so the identity effect cannot clear an
     // identity this save legitimately holds.
     setSelectedWorld(migrated.worldId);
+    // ...and the already-fetched object is applied directly, not left to the load
+    // effect. That effect keeps the PREVIOUS world in place while it fetches when
+    // the phase is "game", so a round played in the gap would be built against the
+    // world the player was last looking at. It cost a fetch above; spending it is
+    // the whole reason it was made fallible there rather than here.
+    setWorld(saveWorld);
     // A save carries its own roster and that one is authoritative. Leaving the
     // builder's behind would make a later New Game silently prefer it over the
     // group the player picked.

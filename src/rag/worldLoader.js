@@ -178,8 +178,30 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
   if (!castLore.orgHint.includes("{org}")) {
     throw new Error(`world ${where}: "castLore.orgHint" must carry {org}`);
   }
+  // Whether a member's idol `role` (`Main Vocal`, `Maknae`) reaches the prompt at
+  // all. It is a position in an idol GROUP, so a campus world would otherwise
+  // describe a student as a main vocal and an office world an analyst as a maknae
+  // — the `[BLACKPINK Background]` shape, a specific-sounding claim two sections
+  // from the rule it contradicts. `role` stays in the group library either way:
+  // this filters what the model is shown, not what the app stores.
+  //
+  // Checked for being a boolean rather than for truthiness, like `useGroupLore`:
+  // `false` is the answer for every world but this one, and a missing flag must
+  // fail rather than read as a decision nobody made.
+  if (typeof castLore?.useRole !== "boolean") {
+    throw new Error(`world ${where}: "castLore.useRole" must be true or false`);
+  }
   if (!Array.isArray(platforms?.social) || typeof platforms?.private !== "string") {
     throw new Error(`world ${where}: "platforms" needs a social array and a private string`);
+  }
+  // Section 10 prints one note per stat and the three stat keys are permanent, so
+  // all three are required by name. An absent one would render as `undefined` in
+  // the cached prefix, which is the class of defect the conditional member fields
+  // exist to prevent - and there is nothing conditional about a stat every save has.
+  for (const k of ["selfId", "secrecy", "mood"]) {
+    if (typeof statNotes?.[k] !== "string" || !statNotes[k]) {
+      throw new Error(`world ${where}: "statNotes.${k}" must be a non-empty string`);
+    }
   }
 
   // The register is resolved HERE rather than carried in the world file, so

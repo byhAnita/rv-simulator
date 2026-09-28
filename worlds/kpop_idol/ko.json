@@ -26,6 +26,7 @@
     "private": "kakaotalk"
   },
   "castLore": {
+    "useRole": true,
     "orgSuffix": "Entertainment",
     "orgNoun": "그룹",
     "orgHint": "이 멤버들은 한 그룹으로 데뷔합니다. 소속사: {org}",
@@ -38,6 +39,7 @@
     "subset": [
       "[{label} Background]",
       "This story follows part of {label}.",
+      "Fandom: {fandom}.",
       "ONLY these members of {label} exist in this story: {members}. No other member of {label} appears, and none may be named or referred to."
     ]
   },

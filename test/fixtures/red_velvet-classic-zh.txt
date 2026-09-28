@@ -206,6 +206,28 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
 📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
 Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
+What moves them in THIS world:
+- 🌈Self-Identity: Rises when she acts on what she actually wants in front of someone. Falls when she performs the version of herself the industry expects.
+- 🔒Secrecy: Falls when the relationship becomes legible to anyone outside it — a staffer, a fan-cam, a reporter, a leaked schedule. Rises when a near-miss is contained.
+- 💫Mood: Driven by schedule load, comeback pressure, and how the last interaction with the target member ended.
+
+╔══════════════════════════════════════════╗
+║ 11. PLACES & THE OPENING                 ║
+╚══════════════════════════════════════════╝
+CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
+💃 练习室 — 镜墙、地板胶、随时可能被推开的门。
+🎙️ 录音棚 — 隔音玻璃两侧，声音清楚而表情不清楚。
+🏠 宿舍 — 最私密也最没有隐私的地方，门永远虚掩着。
+🏢 公司大厅 — 进出都要刷卡，谁和谁一起来会被看见。
+🎬 打歌节目后台 — 走廊拥挤，别的团、工作人员和摄影机都在。
+💄 发型化妆间 — 镜子太多，距离太近，说话要压低声音。
+🌃 天台 — 唯一没有摄像头的地方，也是最冷的地方。
+🚐 保姆车 — 后座、耳机、经纪人在前排。
+🏪 便利店 — 凌晨两点，口罩和帽檐，收银员没有抬头。
+🌊 汉江公园 — 开阔、公开、危险，但风很好。
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
+THE OPENING — round 1 begins here: 又一个练习到深夜的日子。走廊的灯只剩一半亮着，其他人陆续离开，而你和她因为某件小事被留了下来。这是你们第一次，在没有其他人看着的地方说话。
+From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -227,7 +249,7 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
