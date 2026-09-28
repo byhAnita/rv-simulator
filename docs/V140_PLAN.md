@@ -358,9 +358,10 @@ ask what a check would look like if the behaviour were wrong.
 - **The golden blind spot, measured rather than asserted**: reverting that to unconditional leaves
   **0 of 3 goldens moved while 8 Layer I checks fail**. All 175 library member records are
   complete, so the empty branch appears in no snapshot.
-- **Three storage keys, not §4.3's five.** `rv_sim_world` is v1.4.1 step 7 and
-  `rv_sim_worlds_custom_v14` is deferred with the world builder; this repo already carries `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` as a standing
-  example of what declaring ahead of the reader costs.
+- **Three storage keys, not §4.3's five.** `rv_sim_world` arrived in v1.4.1 **step 3**, with the
+  picker that reads it — not step 7, which this line used to say; `rv_sim_worlds_custom_v14` is still
+  deferred with the world builder. This repo already carries `NPC_APPEARANCE_CHANCE` and
+  `NPC_COOLDOWN_ROUNDS` as a standing example of what declaring ahead of the reader costs.
 - **Nine card fields, not §4.5's seven.** `name` and `birthday` are generated too, or the player
   still hand-fills two required fields and the fast path is pointless. `mbti`, `role`, `name_kr`
   and `tags` are excluded: for a custom member they reach **no prompt at all**, since
@@ -708,7 +709,7 @@ All go in `STORAGE_KEYS`, per the existing note that inline literals are the wro
 | `rv_sim_rosters_v14` | `[{id, name, createdAt, roster}]` — player-saved rosters | ✅ step 6 |
 | `rv_sim_cast_photos_v14` | `{memberId: dataUrl}` — 256×256 WebP | ✅ step 6 |
 | `rv_sim_worlds_custom_v14` | `[{id, createdAt, world}]` — custom worlds | ⬜ deferred with `WorldBuilder.jsx` |
-| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) | ⬜ v1.4.1 step 7 |
+| `rv_sim_world` | selected world id (mirrors `rv_sim_group`) | ✅ v1.4.1 step 3 — written only after the world it names has **loaded**, so a world that fails to fetch is not remembered |
 
 **Only the three v1.4.0 keys are declared.** The other two are not added until something reads
 them: `NPC_APPEARANCE_CHANCE` and `NPC_COOLDOWN_ROUNDS` have sat unimported in `constants.js` for
@@ -1499,6 +1500,87 @@ drifted across four call sites once (*Known Inconsistencies 2*). New-world ids a
 > ⚠️ **No same-family option.** A cousin or adopted-sibling route is a standard K-drama shape and is
 > deliberately left out rather than quietly included; ask for it explicitly if you want it.
 
+#### Read against each other, those three tables disagree — reviewed 2026-09-28
+
+Requested by Yuhan alongside the org-name field. The method is the one that found nineteen defects
+in step 7: read the tables **against each other and against the code that will consume them**, not
+one at a time. Four findings, and the first two change what the cast IS, which is why they are
+Yuhan's and not mine.
+
+**1. 🔴 The chaebol world does not say what the cast collectively is, and two of its identities
+assume opposite answers.** `secretary` is *"the **heiress's** executive aide"* — singular — and
+`tutor` is *"tutoring the **younger members**, living in **the house**"*: both require the cast to be
+one family under one roof. `rival_heiress` requires the cast to be a family **in commercial
+competition with hers**, which also implies one family. So the table's own answer is *one house* —
+and that makes the cast **sisters**.
+
+That is not a small implication. Every sub member carries her own affection score, so a harem-capable
+run in a one-house chaebol world is a romance with several sisters of the same family — a materially
+different premise from the other three worlds, arrived at by inference from two table cells rather
+than decided. It also collides with the no-same-family warning directly above: that warning is about
+the **player's** kinship, and nobody wrote the cast's.
+
+| Option | What the cast is | Cost |
+| --- | --- | --- |
+| (a) one house | sisters and cousins of a single family | sub-member routes are sisters; the warning above needs rewriting to say the ban is on the *player's* kinship only |
+| **(b) one circle** — **recommended** | daughters of **several** houses who move in one social world | `secretary` and `tutor` need rewording (aide *to the main member's* house; tutor *to her* family) |
+| (c) one household's staff | the cast are the people around one heiress | the romanceable cast stops being chaebol daughters, which is the premise |
+
+**(b) is recommended because it is the only one that changes nothing structural.** The kpop world's
+cast share a world, not a bloodline; secrecy stays the plot; `rival_heiress` keeps its edge (she
+is one of the circle, from a house that competes); and the harem question stays exactly where it is
+in every other world. **Note the dependency:** the ex-girlfriend `reason` candidates tabled below
+for chaebol — *the merger collapsed*, *an arranged engagement* — assume the two families do business
+together, which is true under (a) and (b) and false under (c).
+
+**2. 🔴 In campus, the player's identity re-casts the CAST, which happens in no other world.** In
+`kpop_idol` the cast are idols whoever the player is; her identity moves only her own position.
+Campus breaks that in both directions at once: `student_of_cast` makes the five of them
+**professors**, while `peer_student`, `junior_student` and `senior_student` make them
+**students**. Section 4 describes the cast and section 6 the player, and the two are supposed to be
+independent — here `castLore` cannot state one thing, because what the cast are depends on a
+field in section 6.
+
+There is also an arithmetic problem with the faculty reading. The library cast's birth years put them
+at **24 to 32** in `GAME_YEAR`, and five professors at that age is not a plausible faculty — it is
+the one reading `student_of_cast` requires, and the prompt renders every member's age from her
+birth year, so the model is handed the contradiction explicitly.
+
+**Recommendation: the campus cast are STUDENTS, and the cut is `student_of_cast`, not
+`peer_student`.** That revises the cut recommended below. `prof_of_cast` and `ta` both
+keep the cast as students and both work; the age axis keeps all three of its directions. If Yuhan
+prefers the student×professor fantasy instead, campus is a **faculty** cast and half the table flips
+— either is fine, but it has to be one of them, stated in `castLore`, before step 7 authors prose.
+
+**3. 🟡 The office cut should be `ceo`, not `contractor`.** Office carries three
+authority-over-the-cast identities (`manager_of_cast`, `ceo`, `hr`) where campus carries
+two and `kpop_idol` two, and `ceo` is the one that is already covered twice over: it is
+`kpop_idol`'s `财阀` with a different building, and *the whole chaebol world* is that premise
+authored properly. `contractor`'s outsider register is the thing office otherwise has none of —
+campus has `exchange_student` and chaebol has `bodyguard`, and "in the building but not of
+it" is what carries them. The recommendation below is reversed.
+
+**4. 🟡 `useGroupLore: false` is not enough for a non-idol world, and the leftover is in section
+5.** A member's `role` — *Main Vocal*, *Leader*, *Maknae* — is rendered on her profile line by
+[`memberLine`](../src/rag/rosterResolver.js#L76) for **every** world, and it is an idol-group
+position. A campus prompt would describe a student as a main vocal, and an office prompt an analyst
+as a maknae; the model is entitled to build on it, and this is exactly the shape of the
+`[BLACKPINK Background]` leak — a richer, more specific statement two sections away from the rule
+it contradicts. `mbti` and `animal_plastic` are world-neutral and stay.
+
+**Step 4 owns the fix, since that is the step that rewires section 4 and 5's framing:** the world says
+whether a cast position exists (`castLore.useRole`, or `role` simply joins the fields that are
+conditional on content), and a world that says no renders no `Role:` and no blank label — the
+trailing-space class, which the goldens **cannot** catch here because all 175 library members declare
+a `role`.
+
+**Not findings, checked and cleared:** `hr` and `journalist` both reading *"secrecy is the
+plot"* is fine — they are in different worlds and `secrecy` ships in all of them (decision 9).
+`rival_heiress` overlapping the ex-girlfriend is fine: one is a standing position and the other a
+shared past, which is the distinction the ex route is built on. And the world-name-against-identity-name
+collision this section used to warn about is **now asserted** — `chaebol` the world against
+`财阀会长` the identity, guarded per language in v1.4.1 step 3.
+
 #### The ex-girlfriend identity ships in every world — decided 2026-09-28
 
 **Yuhan's call, and it costs no code.** `主线成员前女友` is the only identity in `kpop_idol` that is a
@@ -1546,8 +1628,8 @@ overrule:
 
 | World | Cut | Why that one |
 | --- | --- | --- |
-| Campus | `peer_student` | "pure age register" is the thinnest premise in the table; `senior_student` and `junior_student` already cover the age axis *with direction*, and a same-year peer is close to what the ex route now is |
-| Office | `contractor` | "in the building but not of it" is the weakest plot engine, and `hr` already carries outsider-with-power |
+| Campus | ~~`peer_student`~~ → **`student_of_cast`** | Originally `peer_student`, on the grounds that "pure age register" is the thinnest premise and `senior_student`/`junior_student` cover the axis with direction. **Superseded by the review above:** `student_of_cast` is the one that re-casts the cast as faculty, which no other world's identity does and which their birth years contradict |
+| Office | ~~`contractor`~~ → **`ceo`** | Originally `contractor`. **Superseded by the review above:** `ceo` is `财阀` in a different building and the chaebol world is that premise authored in full, while `contractor` is the only outsider register office has |
 | Chaebol | `tutor` | "living in the house" duplicates `secretary`'s proximity, while `bodyguard` is the more distinct register — she uses the title, nobody uses hers |
 
 **`chaebol` as a world still collides with `财阀` as a kpop identity** — the identity means *the
@@ -1562,12 +1644,50 @@ all three languages, and smoke should assert that no world's display name equals
 | --- | --- | --- |
 | **1** | ✅ Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | ✅ **Done.** Goldens byte-identical and untouched on disk, mirrors in sync, smoke **1204 → 1232**, 14 mutations RED |
 | **2** | ✅ Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail via `buildTailRules`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` / `world.paces` deleted, legacy seeding through `resolveStoryMode` | ✅ **Done.** Goldens moved **once** — 3 files, 3 deletions, 0 insertions, all the `[Pace: …]` line — diff read. Layer J asserts the paired invariant. Smoke **1232 → 1262**, **24 mutations RED** across two rounds |
-| **3** | Setup page: pace picker out, **world picker in** at the same slot; order becomes name / birth year / world / identity; changing world clears `identity` and `customIdentity` to empty | Both doors already converge on Setup ([App.jsx:1285](../src/App.jsx#L1285)), so both get worlds. A world change leaves no id the new world does not declare — asserted on what Setup **forwards**, not on its source |
+| **3** | ✅ Setup page: pace picker out, **world picker in** at the same slot, reading `loadWorldIndex` so step 7 adds worlds as **data**; order becomes name / birth year / world / identity; the identity grid is the **world's own** `identities` plus `H`; a world change clears `identity`/`customIdentity` **only when the new world does not declare the id**; `rv_sim_world` persists the pick; `loadSave` restores the save's `worldId` | ✅ **Done.** Goldens byte-identical and untouched. `IDENTITIES` and the seven `t.identities` rows **deleted** — see *What step 3 deleted*. Asserted on what Setup **forwards**, not on its source |
 | **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
 | **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design). **§7.4 is the half that is NOT here:** the affinity engine stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
 | **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
 | **7** | Content: campus, office, chaebol — each with the ex-girlfriend identity (see below) and six structural ones. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+#### What step 3 deleted, and where it departed from the row above
+
+**Two deviations from the step 3 row as written, both in the direction of less state.**
+
+**1. A world change clears the identity only when the new world does not declare it.** The row said
+clear both fields unconditionally. That would make the ex-girlfriend decision below pointless: the
+whole reason `主线成员前女友` keeps **one id across all four worlds** is so switching worlds keeps a
+route every world has. Unconditional clearing throws it away and the player has to find it again,
+with no way to tell that from a reset. `H` survives every switch too — it is the app's escape
+hatch, not a world's identity, so her typed words are not collateral.
+
+The clear is keyed on **the world that actually loaded**, not on the picker's click. A world file is
+what declares the list, so a world file is what decides; a handler would additionally have to know
+what the new world says before it has been fetched.
+
+**2. `IDENTITIES` in `App.jsx` is deleted, and with it the trap CLAUDE.md's Known
+Inconsistency 2 spends twenty lines on.** The picker's options now come from `world.identities`
+plus `H`, and `formForRound` forwards `form.identity` unchanged for a non-`H` identity.
+That was **byte-identical** to the old expression the day it was written — every entry's `label`
+equalled its `id` — which is exactly what made it dangerous: it read as an id-to-label mapping,
+and localizing those labels (the obvious next edit, with `t.identities` sitting right there for it)
+would have emptied the background and the work title out of every real game, because
+`getIdentity(world, "Chaebol")` finds nothing. **A coupling deleted is worth more than a coupling
+asserted**, and this is the second one this release has deleted rather than guarded after `PACES`.
+
+**The seven non-`H` rows of `t.identities` go with it**, in all three languages. They were a second
+hand-maintained copy of `world.identities[].name`, which smoke could only tie together — and step 7
+would have owed 21 more rows across three languages for ids the world files already name per
+language. The custom label moves to `t.setup.customIdentityOption`, because `H` is the one entry
+no world declares. The tie-them-together check is **replaced**, not deleted: what Setup forwards must
+be an id the world declares, which is the requirement the old one was approximating.
+
+**A one-option picker is not a control, and that is accepted deliberately.** `index.json` ships one
+world today, so step 3's picker renders a single preselected card. It is a statement of the setting
+rather than a choice until step 7, and it is built now so that step 7 is **data only** — the same
+order as `habit` reaching `parseGroupConfig`'s whitelist before any file declared one, which is
+how `birthday` was lost by doing it the other way round.
 
 **Step 1 is done.** `public/worlds/_registers/{zh,en,ko}.json` carries the Korean table once
 instead of once per world; `public/worlds/index.json` is the picker's lazy-load boundary;

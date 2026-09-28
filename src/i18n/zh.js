@@ -17,13 +17,18 @@ const zh = {
   },
   setup: {
     title: "💗 角色创建",
-    ragLoading: "组合 加载:",
     keyConfigured: "🔑 Key 已配置",
     keyMissing: "⚠️ Key 未配置",
     change: "修改",
     mainMember: (aff) => `🌸 主线成员 (初始好感${aff})`,
     subMember: (min, max, total) => `🌿 支线成员 (可选0~${total}位，初始好感${min}~${max})`,
     npcHint: "🤝 NPC:",
+    // The world picker took the slot the pace picker vacated - v1.4.1 step 3.
+    world: "🌍 世界观",
+    // The one identity option no world declares: `H` is the app's escape hatch.
+    // The other seven labels come from `world.identities[].name`, which is also
+    // the string section 6 of the prompt prints, so there is one copy of each.
+    customIdentityOption: "[自定义]",
     identity: "💼 身份",
     customIdentity: "自定义身份...",
     basicInfo: "📝 基础信息",
@@ -140,20 +145,15 @@ const zh = {
     clearCast: "清空卡司",
     badYear: "请输入 1980 到 2012 之间的年份",
     confirmDelete: (name) => `删除「${name}」？此操作无法撤销。`,
-    castName: "组合名",
-    castNamePlaceholder: "X",
-    castNameHint: (agency) => `这些成员将作为一个组合出道。经纪公司：${agency}`,
+    // The world owns the NOUN and the language owns the grammar around it, so
+    // a college or a company needs no new string here. The hint is the world's
+    // own sentence (`castLore.orgHint`): "they debut as one group" is a
+    // different claim from "they study here", not one sentence with a
+    // different word in it. The placeholder is DEFAULT_CAST_NAME.
+    orgName: (noun) => `${noun}名`,
+    orgLoaded: (noun) => `已加载${noun}: `,
+
     fictionNote: "自定义成员是虚构角色，与任何真实人物无关。",
-  },
-  identities: {
-    "练习生": "练习生",
-    "Staff": "助理",
-    "韩娱艺人": "韩娱艺人",
-    "粉丝": "粉丝",
-    "留学生": "留学生",
-    "财阀": "财阀会长",
-    "主线成员前女友": "主线成员前女友",
-    "H": "[自定义]",
   },
   // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
   // laid out in a parallel array. `paces` used to sit here and was read as

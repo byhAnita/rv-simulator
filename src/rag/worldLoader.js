@@ -156,6 +156,28 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
   if (!Array.isArray(castLore?.composed) || !Array.isArray(castLore?.subset)) {
     throw new Error(`world ${where}: "castLore" needs "composed" and "subset" arrays`);
   }
+  // What the cast's organisation IS, in the player's language, for the one Setup
+  // field that names it. `orgNoun` is a single word so the i18n templates can
+  // supply the grammar around it (zh `${noun}名`, en `${noun} name`, ko
+  // `${noun} 이름`) — the world owns the noun, the language owns the sentence.
+  // `orgHint` cannot be derived that way: "they debut as one group" and "they
+  // study at the same school" are different claims, not one sentence with a
+  // different noun in it.
+  //
+  // `orgSuffix` MAY be empty (a university's name is already the university), so
+  // it is checked for being a string and not for truthiness — the `ya` rule one
+  // block down, where an absent token is meaningful.
+  for (const k of ["orgNoun", "orgHint"]) {
+    if (typeof castLore?.[k] !== "string" || !castLore[k]) {
+      throw new Error(`world ${where}: "castLore.${k}" must be a non-empty string`);
+    }
+  }
+  if (typeof castLore?.orgSuffix !== "string") {
+    throw new Error(`world ${where}: "castLore.orgSuffix" must be a string ("" is legal)`);
+  }
+  if (!castLore.orgHint.includes("{org}")) {
+    throw new Error(`world ${where}: "castLore.orgHint" must carry {org}`);
+  }
   if (!Array.isArray(platforms?.social) || typeof platforms?.private !== "string") {
     throw new Error(`world ${where}: "platforms" needs a social array and a private string`);
   }

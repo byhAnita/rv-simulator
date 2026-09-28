@@ -17,13 +17,18 @@ const ko = {
   },
   setup: {
     title: "💗 캐릭터 생성",
-    ragLoading: "그룹 로드:",
     keyConfigured: "🔑 키 설정됨",
     keyMissing: "⚠️ 키 없음",
     change: "변경",
     mainMember: (aff) => `🌸 메인 멤버 (초기 호감도: ${aff})`,
     subMember: (min, max, total) => `🌿 서브 멤버 (0~${total}명 선택, 초기: ${min}~${max})`,
     npcHint: "🤝 NPC:",
+    // The world picker took the slot the pace picker vacated - v1.4.1 step 3.
+    world: "🌍 세계관",
+    // The one identity option no world declares: `H` is the app's escape hatch.
+    // The other seven labels come from `world.identities[].name`, which is also
+    // the string section 6 of the prompt prints, so there is one copy of each.
+    customIdentityOption: "[사용자 지정]",
     identity: "💼 신분",
     customIdentity: "직접 입력...",
     basicInfo: "📝 기본 정보",
@@ -140,20 +145,15 @@ const ko = {
     clearCast: "캐스트 비우기",
     badYear: "1980년부터 2012년 사이로 입력해주세요",
     confirmDelete: (name) => `"${name}"을(를) 삭제할까요? 되돌릴 수 없습니다.`,
-    castName: "그룹 이름",
-    castNamePlaceholder: "X",
-    castNameHint: (agency) => `이 멤버들은 한 그룹으로 데뷔합니다. 소속사: ${agency}`,
+    // The world owns the NOUN and the language owns the grammar around it, so
+    // a college or a company needs no new string here. The hint is the world's
+    // own sentence (`castLore.orgHint`): "they debut as one group" is a
+    // different claim from "they study here", not one sentence with a
+    // different word in it. The placeholder is DEFAULT_CAST_NAME.
+    orgName: (noun) => `${noun} 이름`,
+    orgLoaded: (noun) => `${noun} 로드됨: `,
+
     fictionNote: "커스텀 멤버는 가상의 인물이며 실제 인물과 무관합니다.",
-  },
-  identities: {
-    "练习生": "연습생",
-    "Staff": "직원",
-    "韩娱艺人": "K-pop 아티스트",
-    "粉丝": "팬",
-    "留学生": "유학생",
-    "财阀": "재벌",
-    "主线成员前女友": "전 여자친구",
-    "H": "[직접 입력]",
   },
   // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
   // laid out in a parallel array. `paces` used to sit here and was read as

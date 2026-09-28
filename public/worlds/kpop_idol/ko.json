@@ -26,10 +26,12 @@
     "private": "kakaotalk"
   },
   "castLore": {
-    "agencySuffix": "Entertainment",
+    "orgSuffix": "Entertainment",
+    "orgNoun": "그룹",
+    "orgHint": "이 멤버들은 한 그룹으로 데뷔합니다. 소속사: {org}",
     "composed": [
       "[{name} Background]",
-      "{name} is a {n}-member group under {agency}.",
+      "{name} is a {n}-member group under {org}.",
       "{name} exists only in this story. These {n} debuted together as {name}. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
       "ONLY the members listed in MEMBER PROFILES are in this group. No other idol exists in this story, and none may be named or referred to, not even in passing or over a phone."
     ],

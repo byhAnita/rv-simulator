@@ -17,13 +17,18 @@ const en = {
   },
   setup: {
     title: "💗 Character Creation",
-    ragLoading: "Group loaded:",
     keyConfigured: "🔑 Key configured",
     keyMissing: "⚠️ Key missing",
     change: "Change",
     mainMember: (aff) => `🌸 Main Member (Initial Affection: ${aff})`,
     subMember: (min, max, total) => `🌿 Sub Members (0~${total} selectable, Initial: ${min}~${max})`,
     npcHint: "🤝 NPC:",
+    // The world picker took the slot the pace picker vacated - v1.4.1 step 3.
+    world: "🌍 World",
+    // The one identity option no world declares: `H` is the app's escape hatch.
+    // The other seven labels come from `world.identities[].name`, which is also
+    // the string section 6 of the prompt prints, so there is one copy of each.
+    customIdentityOption: "[Custom]",
     identity: "💼 Identity",
     customIdentity: "Custom identity...",
     basicInfo: "📝 Basic Info",
@@ -145,20 +150,15 @@ const en = {
     clearCast: "Clear cast",
     badYear: "Enter a year between 1980 and 2012",
     confirmDelete: (name) => `Delete "${name}"? This cannot be undone.`,
-    castName: "Group name",
-    castNamePlaceholder: "X",
-    castNameHint: (agency) => `Your cast debuts as one group. Agency: ${agency}`,
+    // The world owns the NOUN and the language owns the grammar around it, so
+    // a college or a company needs no new string here. The hint is the world's
+    // own sentence (`castLore.orgHint`): "they debut as one group" is a
+    // different claim from "they study here", not one sentence with a
+    // different word in it. The placeholder is DEFAULT_CAST_NAME.
+    orgName: (noun) => `${noun} name`,
+    orgLoaded: (noun) => `${noun} loaded: `,
+
     fictionNote: "Custom members are fictional characters and describe no real person.",
-  },
-  identities: {
-    "练习生": "Trainee",
-    "Staff": "Staff",
-    "韩娱艺人": "K-pop Artist",
-    "粉丝": "Fan",
-    "留学生": "Student",
-    "财阀": "Chaebol",
-    "主线成员前女友": "Ex-Girlfriend",
-    "H": "[Custom]",
   },
   // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
   // laid out in a parallel array. `paces` used to sit here and was read as

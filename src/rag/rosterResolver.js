@@ -69,8 +69,20 @@ export function buildClassicRoster(groupId, mainId, subIds = [], memberIds = [],
  * function of the save.
  */
 export const DEFAULT_CAST_NAME = "X";
-/** The agency is derived, not asked for: one field to name, not two. */
-export const agencyFor = (castName) => `${castName || DEFAULT_CAST_NAME} Entertainment`;
+/**
+ * The umbrella organisation, derived from the one name the player gives rather
+ * than asked for twice. The SUFFIX is the world's, because "Entertainment" is
+ * true of an idol agency and false of a university, a company or a family firm
+ * — `world.castLore.orgSuffix` — and it is REQUIRED rather than defaulted: a
+ * default would render a campus cast "under Hanseo Entertainment", which is
+ * plausible-looking and wrong, the failure mode this repo bans fallbacks for.
+ *
+ * Empty suffix is legal and is why this joins rather than concatenates: a world
+ * whose org name IS the name it was given must not come out with a trailing
+ * space, which is the one byte the goldens have already caught once.
+ */
+export const orgNameFor = (castName, suffix) =>
+  [castName || DEFAULT_CAST_NAME, suffix].filter(Boolean).join(" ");
 
 /** The one-line member header, with every absent field omitted rather than blank. */
 function memberLine(m) {
@@ -102,7 +114,11 @@ export function composeRosterLore(entries, configs, members, castName) {
     // in any file; it was inferred from being told the cast was BLACKPINK.
     const name = castName || DEFAULT_CAST_NAME;
     lines.push(`[${name} Background]`);
-    lines.push(`${name} is a ${members.length}-member group under ${agencyFor(name)}.`);
+    // The suffix is spelled here, at the call site, rather than defaulted inside
+    // `orgNameFor`: v1.4.1 step 4 renders `world.castLore.composed` instead of this
+    // sentence and reads `orgSuffix` from the world, and a visible literal is what
+    // makes that edit findable. `resolveRoster` has no world to read today.
+    lines.push(`${name} is a ${members.length}-member group under ${orgNameFor(name, "Entertainment")}.`);
     // The origin groups are deliberately NOT named. Naming them is what leaked
     // Jennie, Rose and Lisa into round 1 — the model completes a group it has been
     // told about. Nothing downstream needs them: a member's profile carries who she

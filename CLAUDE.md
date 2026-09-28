@@ -206,6 +206,7 @@ Player choice
 | `rv_sim_fontscale` | inline literal | `1` / `1.25` |
 | `rv_sim_language` | inline literal | `zh` / `en` / `ko` |
 | `rv_sim_group` | inline literal | Selected group id |
+| `rv_sim_world` | inline literal | Selected world id, from the Setup picker (v1.4.1 step 3). Written **only after that world has loaded**, so a world that fails to fetch is not the one the next session opens on; an id the index no longer lists falls back to `DEFAULT_WORLD_ID` |
 | `rv_sim_cast_custom_v14` | `STORAGE_KEYS.CAST_CUSTOM` | Player-authored member palette, capped at 20 |
 | `rv_sim_rosters_v14` | `STORAGE_KEYS.ROSTERS` | Player-saved rosters, capped at 20 |
 | `rv_sim_cast_photos_v14` | `STORAGE_KEYS.CAST_PHOTOS` | `{memberId: dataUrl}`, 256x256 WebP, capped at 30 |
@@ -1410,10 +1411,13 @@ Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
 Setup Page
-  -> Main member + Sub members + Identity (7+1) + Name/Birth year
-     (the pace picker was here until v1.4.1 step 2; step 3 puts the world
+  -> Main member + Sub members + Name/Birth year + World + Identity
+     (the pace picker was here until v1.4.1 step 2; step 3 put the WORLD
       picker in the slot it vacated, which is how BOTH cover doors get
-      worlds - they both pass through this page)
+      worlds - they both pass through this page. Identity follows the world
+      because an identity is a position INSIDE one: the grid is that world's
+      own `identities` plus `H`, and a world change clears an id the new
+      world does not declare)
       |
 Game Page (loop)
   -> Read story -> Choose A/B/C/D or Custom -> Next round
@@ -1501,9 +1505,19 @@ for why that distinction is not pedantic.
 **An identity carries a `name` as well as an `id`, and a story mode carries only a rule.** The `id` is
 a *stored* value sitting in every save on every device, so it can never be renamed — which is why it is
 Chinese in all three languages and why the prompt must not print it. `name` is what section 6 prints,
-authored per language, and **smoke asserts it equals the Setup label in `src/i18n/<lang>.js`**, since
-it is a second copy of that string and both sides render something plausible when they drift. It falls
-back to the id, so a world file lacking one still renders something true rather than a blank line.
+authored per language. It falls back to the id, so a world file lacking one still renders something
+true rather than a blank line.
+
+**Since v1.4.1 step 3 that `name` is also the Setup label, and there is exactly one copy of it.**
+This file used to say smoke asserted the world's `name` equalled a `t.identities[id]` row in
+`src/i18n/<lang>.js` — true, and the wrong remedy: two hand-maintained copies of one string, tied
+together by a check, where the drift is invisible because both sides render something plausible. The
+seven UI rows are **deleted**; the picker reads `world.identities[].name`, so what the player
+picked and what the prompt prints are the same characters by construction, and step 7's three worlds
+owe no i18n rows at all. Only `H` has a label in `t.setup.customIdentityOption`, because it is
+the app's escape hatch and no world declares it. What smoke asserts now is what the old check was
+approximating: the name is present, is not the CJK id showing through in en/ko, and is short enough
+to be a button in a two-column grid at 390px.
 
 **A story mode needs no `name` for two reasons, and the second is the one that matters.** Its rule
 already opens with a self-describing `[Story Mode: Pressure]`, which is what the model needs — and the
@@ -2753,14 +2767,22 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
    whole run builds toward — with the literal placeholder `[自定义]` in section 6 where her words
    belong. It is one function now, and smoke counts `executeRound` call sites against uses of it.
 
-   **The trap beside it is worse and is still there.** `IDENTITIES` in `App.jsx` gives every entry a
-   `label` equal to its `id`, so `IDENTITIES.find(...).label` is an identity function today.
-   Localizing those labels is the obvious next thing anyone would do — `src/i18n/*.js` already carries
-   an `identities` table for exactly that — and it would silently empty the identity **background** and
-   the **work title** out of every real game, because `getIdentity(world, "Chaebol")` finds nothing.
+   **The trap beside it was worse, and v1.4.1 step 3 DELETED it.** `IDENTITIES` in `App.jsx` gave
+   every entry a `label` equal to its `id`, so `IDENTITIES.find(...).label` was an identity
+   function — which is what made it dangerous rather than merely redundant. Localizing those labels is
+   the obvious next thing anyone would do, with `src/i18n/*.js` already carrying an `identities`
+   table for exactly that, and it would have silently emptied the identity **background** and the
+   **work title** out of every real game, because `getIdentity(world, "Chaebol")` finds nothing.
    **No test written before step 7 would have noticed**: the goldens, the live harness and every check
-   in `smoke.mjs` pass the raw id, which is the one thing the app does not pass. The guard is therefore
-   written as *what App.jsx forwards must be an id the world declares*, not as "label equals id".
+   in `smoke.mjs` pass the raw id, which is the one thing the app did not pass.
+
+   The list is now `world.identities` plus one named constant, `CUSTOM_IDENTITY_ID`, and
+   `formForRound` forwards `form.identity` unchanged for anything else — so *what App.jsx
+   forwards is an id the world declares* is true by construction and not by assertion. The old guard
+   was written from that requirement rather than from "label equals id", which is why it survived the
+   deletion as a source check on the construction instead of needing to be rewritten from scratch.
+   **Byte-identical the day it shipped**, since every label already equalled its id: the goldens did
+   not move and could not have.
 
    `PACES` was the same shape one field over — a fourth copy of a list the world file owns, coupled
    to `t.paces` **by position** — and it is **deleted** in v1.4.1 step 2 rather than guarded. The four

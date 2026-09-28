@@ -948,9 +948,55 @@ async function layerG(mod, MODEL_CONFIGS) {
     /name: castName\.trim\(\) \|\| DEFAULT_CAST_NAME/.test(app)
       && !/setPendingRoster\(\{ \.\.\.pendingRoster, name/.test(app),
     "re-resolving per keystroke would refetch every group in the cast");
-  check("Setup lets the player name the cast, and shows the agency it derives",
-    /t\.cast\.castName\b/.test(app) && /agencyFor\(castName/.test(app),
-    "naming the agency is what stops the model inventing one");
+  // v1.4.1 step 3: the field still asks for one name, and WHAT that name names is
+  // the world's. Written on the world fields rather than on a label string: a
+  // guard reading `t.cast.orgName` would pass while the noun came from a literal,
+  // which is the whole defect - "Group name" is right for one world of four.
+  check("Setup names the cast's organisation, with the noun the WORLD supplies",
+    /t\.cast\.orgName\(world\.castLore\.orgNoun\)/.test(app)
+      && /world\.castLore\.orgHint\.replace\("\{org\}"/.test(app)
+      && /orgNameFor\(castName\.trim\(\), world\.castLore\.orgSuffix\)/.test(app),
+    "naming the organisation is what stops the model inventing one");
+  // Comments stripped first. The prose explaining this fix names the very strings
+  // the check bans, and a guard that fails on its own documentation has now cost
+  // this suite three separate debugging sessions.
+  const appCode = app
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("...and no screen carries a hardcoded word for it",
+    !/t\.cast\.castName\b/.test(appCode) && !/agencyFor\(/.test(appCode)
+      && !/已加载组合/.test(appCode) && !/Group loaded/.test(appCode),
+    "a literal noun here is right for kpop_idol and wrong for the other three");
+  // --- the world picker, v1.4.1 step 3 -------------------------------------
+  // It took the slot the pace picker vacated, which is WHY both cover doors get
+  // worlds without merging the entry pages: they both pass through Setup.
+  check("Setup carries a world picker fed by the world INDEX",
+    /loadWorldIndex\(\)\.then\(list => \{/.test(app) && /worldList\.map\(w =>/.test(app)
+      && /setSelectedWorld\(w\.id\)/.test(app),
+    "a hardcoded world list is what step 7 would then have to edit in code");
+  // Same correction the group index gets: a remembered id the index no longer
+  // carries must not be left pointing at a world that cannot be fetched.
+  check("...and a remembered world the index no longer lists falls back",
+    /if \(!list\.find\(w => w\.id === selectedWorld\)\) setSelectedWorld\(DEFAULT_WORLD_ID\)/.test(app),
+    "rv_sim_world can hold whatever a previous build left there");
+  // Persisted only AFTER the world it names has loaded, so a world that cannot be
+  // fetched is not the one the next session opens on.
+  check("...and the pick persists only once that world has actually loaded",
+    /loadWorld\(selectedWorld, language\)\.then\(w => \{[\s\S]{0,400}?saveToStorage\("rv_sim_world", selectedWorld\)/.test(app),
+    "persisting on click remembers a world the player never reached");
+  check("...and the world load is keyed on the SELECTION, not on the default",
+    !/loadWorld\(DEFAULT_WORLD_ID, language\)/.test(app)
+      && /\}, \[selectedWorld, language\]\);/.test(app),
+    "a picker whose value nothing loads is a control that does nothing");
+  // A save records its worldId. Loading it under whichever world is selected now
+  // hands it another world's identities, phase beats and address register - the
+  // same bug as a TWICE save loaded under Red Velvet's config, one field over.
+  check("loadSave restores the world the save was played in",
+    /setSelectedWorld\(migrated\.worldId\)/.test(app)
+      && app.indexOf("phaseRef.current = \"game\"") < app.indexOf("setSelectedWorld(migrated.worldId)"),
+    "and after phaseRef is pinned, or the identity effect clears a valid identity");
+
   // The classic door must still be able to start: leaving a builder roster in
   // place would make a group pick silently resolve to the previous custom cast.
   check("choosing the classic door clears any roster the builder left behind",
@@ -2374,19 +2420,27 @@ async function layerI() {
           .find((l) => l.includes("'s identity:")) || "").slice(0, 80));
     }
   }
-  // The names are a second copy of what Setup already shows. Tie them together or
-  // they drift, and the drift is invisible: both sides render something plausible.
+  // This used to tie `t.identities[id]` to `world.identities[].name` — two
+  // hand-maintained copies of one string, whose drift is invisible because both
+  // sides render something plausible. v1.4.1 step 3 **deleted the second copy**:
+  // Setup renders the world's own `name`, so what the player picked and what
+  // section 6 prints are the same characters by construction. What is left worth
+  // asserting is that the string is fit to be a button label at 390px, which the
+  // old check got for free from the UI table it compared against.
   for (const lang of ["zh", "en", "ko"]) {
-    const uiLabels = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8")
-      .match(/identities:\s*\{([\s\S]*?)\n  \}/)?.[1] || "";
-    const fromUi = Object.fromEntries([...uiLabels.matchAll(/"([^"]+)":\s*"([^"]+)"/g)]
-      .map((m) => [m[1], m[2]]));
-    const mismatched = worldFor[lang].identities
-      .filter((i) => fromUi[i.id] !== i.name)
-      .map((i) => `${i.id}: world "${i.name}" vs UI "${fromUi[i.id]}"`);
-    check(`[${lang}] every world identity name matches the Setup label`,
-      worldFor[lang].identities.length > 0 && mismatched.length === 0,
-      mismatched.join(" | "));
+    const unlabelled = worldFor[lang].identities.filter((i) => !i.name);
+    check(`[${lang}] every world identity carries the name Setup shows`,
+      worldFor[lang].identities.length > 0 && unlabelled.length === 0,
+      unlabelled.map((i) => i.id).join(", ") || "an identity with no name falls back to its id");
+    // The id is CJK in every language (it is stored in every save and can never be
+    // renamed), so a missing `name` renders Chinese into an English player's picker.
+    const untranslated = lang === "zh" ? []
+      : worldFor[lang].identities.filter((i) => i.name === i.id && /[\u4e00-\u9fff]/.test(i.id));
+    check(`[${lang}] ...and it is not the stored id showing through`,
+      untranslated.length === 0, untranslated.map((i) => i.id).join(", "));
+    const tooLong = worldFor[lang].identities.filter((i) => i.name.length > 24);
+    check(`[${lang}] ...short enough to be a button in a two-column grid`,
+      tooLong.length === 0, tooLong.map((i) => `${i.name} (${i.name.length})`).join(", "));
   }
 
   // A custom identity resolves to no world entry at all, and must still print.
@@ -3043,20 +3097,41 @@ async function layerI() {
   //
   // So the requirement is not "label equals id". It is: whatever App.jsx forwards
   // must be an id the world declares.
+  // v1.4.1 step 3 DELETED that list rather than guarding it, which is the `PACES`
+  // lesson one field over: the picker's options are `world.identities` plus the one
+  // id no world declares, and `formForRound` forwards `form.identity` unchanged. So
+  // "what App.jsx forwards is an id the world declares" is true by construction,
+  // and what is left to assert is that the construction is still the one in place.
   const setupSrc = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
-  const identityList = (setupSrc.match(/const IDENTITIES = \[[\s\S]*?\n\];/) || [""])[0];
-  const forwarded = [...identityList.matchAll(/\{\s*id:\s*"([^"]+)",\s*label:\s*"([^"]+)"\s*\}/g)]
-    .map(([, id, label]) => ({ id, label }));
-  check("App.jsx declares every identity the world does, plus H",
-    forwarded.length === SAVED_IDENTITY_IDS.length + 1
-      && SAVED_IDENTITY_IDS.every((id) => forwarded.some((f) => f.id === id))
-      && forwarded.some((f) => f.id === "H"),
-    forwarded.map((f) => f.id).join(", ") || "IDENTITIES literal not found — the anchor moved");
-  const unresolvable = forwarded.filter((f) => f.id !== "H")
-    .filter((f) => !worlds.zh.identities.some((w) => w.id === f.label));
-  check("what App.jsx forwards as the identity is an id the world can resolve",
-    forwarded.length > 0 && unresolvable.length === 0,
-    unresolvable.map((f) => `${f.id} -> "${f.label}", which no world identity is called`).join(" | "));
+  check("Setup no longer carries its own copy of the identity list",
+    !/const IDENTITIES = \[/.test(setupSrc) && !/t\.identities\[/.test(setupSrc),
+    "a second list of identity ids is exactly what PACES was");
+  check("...and the picker's options come from the world, plus the custom id",
+    /world\.identities\.map\(i => \(\{ id: i\.id, label: i\.name \|\| i\.id \}\)\)/.test(setupSrc)
+      && /\{ id: CUSTOM_IDENTITY_ID, label: t\.setup\.customIdentityOption \}/.test(setupSrc),
+    "the option list is the world's list or it is a second copy of it");
+  check("...and what it forwards for a world identity is that id, unchanged",
+    /identity: form\.identity === CUSTOM_IDENTITY_ID\s*\r?\n?\s*\? \(form\.customIdentity \|\| "Custom"\)\s*\r?\n?\s*: form\.identity,/.test(setupSrc),
+    "an id-to-label mapping here is what emptied the background out of every game");
+  // The one id the app owns, named once. A literal "H" in a second place is how
+  // the four copies of the `formForRound` expression drifted in the first place.
+  check("...and the custom id is a named constant, not a literal in four places",
+    /const CUSTOM_IDENTITY_ID = "H";/.test(setupSrc)
+      && (setupSrc.match(/=== "H"/g) || []).length === 0,
+    (setupSrc.match(/=== "H"/g) || []).length + ' literal === "H" comparisons remain');
+  // A world change can leave `form.identity` holding an id the new world never
+  // declares, which renders no background and no work title while still looking
+  // chosen. Cleared against the world that LOADED - and only when genuinely
+  // absent, because 主线成员前女友 keeps one id across all four worlds so that
+  // switching keeps a route every world has.
+  check("a world change clears an identity the new world does not declare",
+    /world\.identities\.some\(i => i\.id === f\.identity\)/.test(setupSrc)
+      && /\{ \.\.\.f, identity: "", customIdentity: "" \}/.test(setupSrc)
+      && /\}, \[world\]\);/.test(setupSrc),
+    "an id no world declares prints an empty identity block");
+  check("...and keeps one it does, so a shared route survives the switch",
+    /!f\.identity \|\| f\.identity === CUSTOM_IDENTITY_ID\s*\r?\n?\s*\|\| world\.identities\.some/.test(setupSrc),
+    "clearing unconditionally is what the ex-girlfriend's single id exists to avoid");
   // Counted, and counted against the number of call sites. This was four copies of
   // one expression, and the count is what found that the fourth had drifted: the
   // epilogue omitted the `"H"` branch, so a player who wrote her own identity
@@ -3073,7 +3148,7 @@ async function layerI() {
   // an over-wide pattern in this suite has matched something other than its subject.
   const helperBody = (setupSrc.match(/const formForRound = \(\) => \(\{[\s\S]*?\n  \}\);/) || [""])[0];
   check("...and that one way resolves the custom-identity escape hatch",
-    helperBody.includes('form.identity === "H"') && helperBody.includes("form.customIdentity"),
+    helperBody.includes("form.identity === CUSTOM_IDENTITY_ID") && helperBody.includes("form.customIdentity"),
     helperBody.replace(/\s+/g, " ").slice(0, 160) || "formForRound not found — the anchor moved");
 
   // PACES AND t.paces ARE GONE, and these guards are written so that bringing
@@ -3089,6 +3164,22 @@ async function layerI() {
     const i18nSrc = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8");
     check(`[${lang}] i18n carries no positional pace array`,
       !/^\s*paces:\s*\[/m.test(i18nSrc), "t.paces is the list PACES was coupled to");
+    // The identity labels were a second copy of `world.identities[].name`, which a
+    // check could only tie together - and step 7 would have owed 21 more rows
+    // across three languages for ids the world files already name per language.
+    // A coupling deleted is worth more than a coupling asserted.
+    check(`[${lang}] i18n carries no second copy of the identity names`,
+      !/^\s*identities:\s*\{/m.test(i18nSrc) && /customIdentityOption: "/.test(i18nSrc),
+      "t.identities duplicated the world's own per-language names");
+    // The label the world's noun is dropped into, and the stale copy of the line
+    // that used to hardcode it. `ragLoading` said "Group loaded" in all three and
+    // was already read by nothing - pickMainHint's shape, one file over.
+    check(`[${lang}] the cast field's label is a template around the world's noun`,
+      /orgName: \(noun\) => `/.test(i18nSrc) && /orgLoaded: \(noun\) => `/.test(i18nSrc)
+        && !/castName: "/.test(i18nSrc) && !/ragLoading:/.test(i18nSrc),
+      "a fixed noun here is right for one world of four");
+    check(`[${lang}] the world picker has a label`,
+      /\n\s*world: "[^"]{2,}"/.test(i18nSrc), "the picker renders t.setup.world");
     // Keyed by id instead, so a missing translation is a hole in a row rather
     // than a silent off-by-one in every label after it. Same argument as
     // RELEASE_NOTES holding all three languages side by side.
@@ -3189,8 +3280,12 @@ async function layerI() {
   // `places` is half and half: the id, emoji and draws are structure, while the
   // name and the one-line description are what the model writes `scene` from, so
   // only the structural half is compared.
+  // `castLore` is half and half for the same reason `places` is: `composed`,
+  // `subset` and `orgSuffix` are prompt-facing English rule text, while `orgNoun`
+  // and `orgHint` are what the PLAYER reads on Setup and are authored per language.
   const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes, w.tone,
-    w.statNotes, w.platforms, w.castLore, w.useGroupLore, w.modes,
+    w.statNotes, w.platforms, w.useGroupLore, w.modes,
+    [w.castLore.composed, w.castLore.subset, w.castLore.orgSuffix],
     w.places.map((p) => [p.id, p.emoji, p.draws])]);
   check("the language-independent half of the world is identical across zh/en/ko",
     langIndependent(worlds.zh) === langIndependent(worlds.en)
@@ -3204,6 +3299,48 @@ async function layerI() {
       new Set(["zh", "en", "ko"].map((l) => worlds[l][key])).size === 3,
       `${key} is the same string in at least two of the three world files`);
   }
+  // ...and the player-facing half must actually be translated, or it was pasted
+  // into all three files. `orgSuffix` is the opposite case and is compared above:
+  // it reaches the PROMPT, where section 4 is English in every language.
+  for (const key of ["orgNoun", "orgHint"]) {
+    check(`"castLore.${key}" is authored per language, not triplicated`,
+      new Set(["zh", "en", "ko"].map((l) => worlds[l].castLore[key])).size === 3,
+      `${key} is the same string in at least two of the three world files`);
+  }
+  // The suffix is REQUIRED, not defaulted. A default would render a campus cast
+  // "under Hanseo Entertainment": plausible, wrong, and silent - the failure mode
+  // this repo bans fallbacks for.
+  const rosterSrc = readFileSync(join(ROOT, "src/rag/rosterResolver.js"), "utf8");
+  check("orgNameFor takes the suffix from its caller rather than defaulting",
+    /export const orgNameFor = \(castName, suffix\) =>/.test(rosterSrc)
+      && !/orgNameFor = \(castName, suffix = /.test(rosterSrc),
+    "a default suffix is a fallback that returns plausible data");
+  check("...and joins, so a world whose name IS its org leaves no trailing space",
+    loader.orgNameFor("Hanseo", "") === "Hanseo"
+      && loader.orgNameFor("X", "Entertainment") === "X Entertainment"
+      && loader.orgNameFor("", "Entertainment") === "X Entertainment",
+    `"${loader.orgNameFor("Hanseo", "")}" / "${loader.orgNameFor("X", "Entertainment")}"`);
+
+  // The noun is dropped into three sentence templates (`${noun}名`, `${noun} name`,
+  // `${noun} 伍讠`), so a trailing space or a full sentence here renders as one.
+  check("the org noun is one word, so the i18n templates can build the grammar",
+    ["zh", "en", "ko"].every((l) => {
+      const n = worlds[l].castLore.orgNoun;
+      return n === n.trim() && !/[\s。.:：]/.test(n) && n.length <= 12;
+    }),
+    ["zh", "en", "ko"].map((l) => JSON.stringify(worlds[l].castLore.orgNoun)).join(" "));
+  // A world's display name and an identity's must differ, or the Setup page offers
+  // the same word twice for two different things - `chaebol` the world against
+  // 财阀会长 the identity. The `[Stage Changes]` id-vs-name problem one layer up.
+  for (const lang of ["zh", "en", "ko"]) {
+    const wname = JSON.parse(readFileSync(join(ROOT, "public/worlds/index.json"), "utf8"))
+      .map((w) => w.name?.[lang]).filter(Boolean);
+    const collide = worlds[lang].identities.filter((i) => wname.includes(i.name));
+    check(`[${lang}] no world's display name is also an identity's`,
+      wname.length > 0 && collide.length === 0,
+      collide.map((i) => i.name).join(", "));
+  }
+
   check("every place is named and described in the player's language",
     ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name && p.desc)),
     "a place with no name renders as a blank line in the canon list");
@@ -3259,6 +3396,36 @@ async function layerI() {
     check(`parseWorld rejects a world missing "${key}"`,
       msg !== null && msg.includes(key), msg || "parsed without complaint");
   }
+  // The Setup field's three strings, v1.4.1 step 3. `orgSuffix` MAY be empty - a
+  // university's name is already the university - so it is rejected for not being
+  // a string rather than for being falsy, which is the `ya: null` distinction two
+  // blocks down. A missing `{org}` is rejected because the hint is the only place
+  // the player is shown the organisation name the model will be given.
+  for (const [key, bad, why] of [
+    ["orgNoun", undefined, "missing"], ["orgNoun", "", "empty"],
+    ["orgHint", undefined, "missing"], ["orgHint", "debuts as one group", "carrying no {org}"],
+    ["orgSuffix", undefined, "missing"], ["orgSuffix", 7, "not a string"],
+  ]) {
+    const broken = { ...good, castLore: { ...good.castLore } };
+    if (bad === undefined) delete broken.castLore[key]; else broken.castLore[key] = bad;
+    let msg = null;
+    try { parseW(broken); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects castLore.${key} ${why}`,
+      msg !== null && msg.includes(key), msg || "parsed without complaint");
+  }
+  // ...and an EMPTY suffix is accepted, because rejecting it would force every
+  // non-idol world to invent a second word for its own name.
+  // Caught, so tightening the check above to truthiness fails THIS check by name
+  // instead of throwing out of the suite. A guard that reports a stack trace is
+  // a guard whose subject nobody can read off the output.
+  let emptySuffixOk = false;
+  try {
+    emptySuffixOk = parseW({ ...good, castLore: { ...good.castLore, orgSuffix: "" } })
+      .castLore.orgSuffix === "";
+  } catch { emptySuffixOk = false; }
+  check("parseWorld accepts an empty orgSuffix, which is a real value",
+    emptySuffixOk, "a college's name is already the college");
+
   for (const tok of ["unnie", "ya", "nim", "ssi", "sep"]) {
     const brokenReg = JSON.parse(JSON.stringify(registers));
     delete brokenReg.korea.tokens[tok];

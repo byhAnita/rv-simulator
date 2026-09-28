@@ -3,8 +3,8 @@ import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
-import { loadWorld, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode } from "./rag/worldLoader";
-import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, agencyFor } from "./rag/rosterResolver";
+import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode } from "./rag/worldLoader";
+import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor } from "./rag/rosterResolver";
 import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
@@ -45,16 +45,17 @@ const storyPartOf = (content) => {
   return body.replace(/\n?[ABCD][.、．]\s*.+/g, "").trim();
 };
 
-const IDENTITIES = [
-  { id: "练习生", label: "练习生" },
-  { id: "Staff", label: "Staff" },
-  { id: "韩娱艺人", label: "韩娱艺人" },
-  { id: "粉丝", label: "粉丝" },
-  { id: "留学生", label: "留学生" },
-  { id: "财阀", label: "财阀" },
-  { id: "主线成员前女友", label: "主线成员前女友" },
-  { id: "H", label: "[自定义]" },
-];
+// The identity list is the WORLD's (`world.identities`), plus this one id. `H` is
+// the app's escape hatch — the player typing her own — so no world declares it and
+// every world has it; `formForRound` branches on the literal.
+//
+// `IDENTITIES` used to live here: eight `{id, label}` rows whose label equalled its
+// id, which read as an id-to-label mapping and was an identity function. Localizing
+// those labels is the obvious next edit and would have emptied the identity
+// background and the work title out of every real game, because
+// `getIdentity(world, "Chaebol")` finds nothing. Deleted in v1.4.1 step 3 rather
+// than guarded — the second coupling this release deletes after `PACES`.
+const CUSTOM_IDENTITY_ID = "H";
 const STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"];
 
 // The rule itself is `resolveStoryMode` in worldLoader.js, pure and tested. This
@@ -317,10 +318,17 @@ export default function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [groupConfig, setGroupConfig] = useState(null);
-  // The setting the cast lives in: identities, paces, phase beats, address
-  // forms. One world ships today, so it is not yet a player choice; the save
-  // records its id on the roster, so it can become one without a migration.
+  // The setting the cast lives in: identities, story-mode rules, phase beats,
+  // places and the address register. Chosen on Setup since v1.4.1 step 3, and
+  // recorded on the roster — which is what lets a save be loaded back into the
+  // world it was played in rather than whichever one is selected now.
   const [world, setWorld] = useState(null);
+  // The picker's rows. `index.json` is the lazy-load boundary: no world document
+  // is fetched until one is chosen, so adding three worlds in step 7 adds three
+  // rows and no code.
+  const [worldList, setWorldList] = useState([]);
+  const [selectedWorld, setSelectedWorld] = useState(() =>
+    loadFromStorage("rv_sim_world") || DEFAULT_WORLD_ID);
   // Who is in THIS run, and in what slot. Set when a game starts and when one
   // is loaded; it is the thing a save records, and from v1.4.1 the thing the
   // roster builder produces directly. Null outside a game: at Setup there is no
@@ -454,13 +462,53 @@ export default function App() {
     }).catch(console.error);
   }, []);
 
+  // Same shape as the group index, and the same correction: a remembered id that
+  // the index no longer carries falls back to the default rather than being left
+  // pointing at a world that cannot be fetched.
+  useEffect(() => {
+    loadWorldIndex().then(list => {
+      setWorldList(list);
+      if (!list.find(w => w.id === selectedWorld)) setSelectedWorld(DEFAULT_WORLD_ID);
+    }).catch(console.error);
+  }, []);
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // Reloads on language change, like the group config: the world file is
   // per-language and carries the identity backgrounds the prompt renders.
+  //
+  // A world SWITCH drops the loaded world first, because the identity grid is its
+  // option list and Setup's gate needs `world` — so the player is offered nothing
+  // to start with rather than the previous world's identities while the new file
+  // is in flight. In game the effect only ever re-fetches the SAME world in a new
+  // language, and dropping it there would hand `executeRound` a null world if she
+  // tapped an option inside that window.
   useEffect(() => {
-    loadWorld(DEFAULT_WORLD_ID, language).then(setWorld).catch(console.error);
-  }, [language]);
+    let live = true;
+    if (phaseRef.current !== "game") setWorld(w => (w && w.id !== selectedWorld ? null : w));
+    loadWorld(selectedWorld, language).then(w => {
+      if (!live) return;   // a second switch already won; a stale world must not land
+      setWorld(w);
+      saveToStorage("rv_sim_world", selectedWorld);
+    }).catch(console.error);
+    return () => { live = false; };
+  }, [selectedWorld, language]);
+
+  // A world owns its identity list, so a switch can leave `form.identity` holding
+  // an id the new world never declares — which renders no background and no work
+  // title while still looking chosen, the empty-value class of defect.
+  //
+  // Keyed on the world that actually LOADED, not on the picker's click: the file is
+  // what declares the list, so the file is what decides. And cleared only when the
+  // id is genuinely absent, which is the whole point of `主线成员前女友` keeping
+  // one id across every world — a route every world has must survive the switch.
+  useEffect(() => {
+    if (!world || phaseRef.current === "game") return;
+    setForm(f => (!f.identity || f.identity === CUSTOM_IDENTITY_ID
+      || world.identities.some(i => i.id === f.identity)
+      ? f
+      : { ...f, identity: "", customIdentity: "" }));
+  }, [world]);
 
   // Two doors, one engine. At Setup this loads a group as a PALETTE to choose
   // from; in game the roster is authoritative and says who was actually chosen,
@@ -545,9 +593,9 @@ export default function App() {
   // should be. Smoke now counts executeRound call sites against uses of this helper.
   const formForRound = () => ({
     ...form,
-    identity: form.identity === "H"
+    identity: form.identity === CUSTOM_IDENTITY_ID
       ? (form.customIdentity || "Custom")
-      : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity),
+      : form.identity,
   });
 
   const aliyunOptions = () => selectedModel === "qwen"
@@ -772,6 +820,13 @@ export default function App() {
     // config with TWICE member ids in `form` — no crash, just a prompt whose
     // main member was undefined.
     setSelectedGroup(migrated.groupId);
+    // ...and the world, for exactly the reason one line up. A save records its
+    // `worldId`, and playing it in whichever world happens to be selected would
+    // hand it another world's identities, phase beats and address register — the
+    // same bug as a TWICE save loaded under Red Velvet's config, one field over.
+    // After `phaseRef` is pinned to "game", so the identity effect cannot clear an
+    // identity this save legitimately holds.
+    setSelectedWorld(migrated.worldId);
     // A save carries its own roster and that one is authoritative. Leaving the
     // builder's behind would make a later New Game silently prefer it over the
     // group the player picked.
@@ -1316,6 +1371,13 @@ export default function App() {
     // It is fetched on mount and the player cannot reach this screen faster
     // than that, but a start with no world would throw rather than degrade.
     const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && world;
+    // ...and since step 3 the page RENDERS from it too: the identity grid is the
+    // world's list and the cast field's label is the world's noun. A world switch
+    // nulls it for the length of one fetch, so this is a real state and not only
+    // the first paint.
+    if (!world) return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+    );
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
@@ -1323,7 +1385,9 @@ export default function App() {
           <style>{th.setupCss}</style>
           <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
             <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>{language === "zh" ? "创建角色" : language === "ko" ? "캐릭터 생성" : "Character Creation"}</h2>
-            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</p>
+            {/* The noun is the world's too. This line said "Group loaded" in all
+                three languages, which is the cast's kind and not a fixed word. */}
+            <p style={{ fontSize: 10, color: th.textMuted }}>{t.cast.orgLoaded(world.castLore.orgNoun)}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</p>
             <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
               <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
               <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
@@ -1354,16 +1418,23 @@ export default function App() {
                   {t.cast.changeCast}
                 </button>
               </div>
-              {/* The cast debuts as a group, so it needs a name — and naming the
-                  agency after it is what stops the model inventing one. A
+              {/* The cast belongs to something, so it needs a name — and naming the
+                  organisation after it is what stops the model inventing one. A
                   cross-group cast was previously described as the main member's
-                  group, which is how a BLACKPINK main produced "YG". */}
-              <div className="s-l">{t.cast.castName}</div>
+                  group, which is how a BLACKPINK main produced "YG".
+
+                  WHAT that organisation is comes from the world, not from here:
+                  an idol agency, a university, a company, a family firm. The world
+                  supplies one noun and the sentence around it, because "they debut
+                  as one group" is a different claim from "they study here" rather
+                  than the same sentence with a different word in it. */}
+              <div className="s-l">{t.cast.orgName(world.castLore.orgNoun)}</div>
               <input className="s-in" value={castName} maxLength={24}
                 onChange={e => setCastName(e.target.value)}
-                placeholder={t.cast.castNamePlaceholder} style={{ marginBottom: 3 }} />
+                placeholder={DEFAULT_CAST_NAME} style={{ marginBottom: 3 }} />
               <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-                {t.cast.castNameHint(agencyFor(castName.trim() || DEFAULT_CAST_NAME))}
+                {world.castLore.orgHint.replace("{org}",
+                  orgNameFor(castName.trim(), world.castLore.orgSuffix))}
               </p>
             </>
           ) : (
@@ -1408,18 +1479,10 @@ export default function App() {
           </>
           )}
 
-          <div className="s-l">{t.setup.identity}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {IDENTITIES.map(id => (
-              <div key={id.id} onClick={() => setForm(f => ({ ...f, identity: id.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === id.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === id.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === id.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {t.identities[id.id] || id.label}
-              </div>
-            ))}
-          </div>
-          {form.identity === "H" && (
-            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
-          )}
+          {/* THE IDENTITY PICKER MOVED BELOW THE WORLD PICKER — v1.4.1 step 3.
+              An identity is a position inside a world, so the list means nothing
+              until the world is chosen: Setup now reads name / birth year / world
+              / identity. */}
 
           {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
               second hand test. A caption inside the wheel's own column pushes
@@ -1454,9 +1517,47 @@ export default function App() {
           {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
               Settings as the four-way story mode, because a choice frozen at
               character setup cannot be a choice about how the story is driven -
-              and the tail is where a live one costs nothing. Step 3 puts the
+              and the tail is where a live one costs nothing. Step 3 put the
               WORLD picker in this slot, which is why both cover doors get worlds
-              without the entry merge: they both pass through this page. */}
+              without the entry merge: they both pass through this page.
+
+              One row per world from `index.json`, so step 7 ships three worlds
+              as data. Only the SELECTED world's blurb renders: four blurbs at
+              390px is a wall of text under a control, and the blurb's job is to
+              say what the choice she has made means. */}
+          <div className="s-l">{t.setup.world}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 3 }}>
+            {worldList.map(w => (
+              <div key={w.id} onClick={() => setSelectedWorld(w.id)}
+                style={{ padding: "7px 8px", borderRadius: 10, textAlign: "center", border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                {w.emoji} {w.name?.[language] || w.name?.zh || w.id}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+            {worldList.find(w => w.id === selectedWorld)?.blurb?.[language]
+              || worldList.find(w => w.id === selectedWorld)?.blurb?.zh || ""}
+          </p>
+
+          {/* The world's own identities, plus the custom escape hatch. Not a list
+              in this file: `world.identities` is where they are declared, and the
+              copy that used to live here read as an id-to-label mapping that was
+              an identity function. The label is the world's `name`, which is the
+              same string section 6 of the prompt prints — one copy, so the two
+              cannot disagree about what the player picked. */}
+          <div className="s-l">{t.setup.identity}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
+              { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
+              <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
+                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                {it.label}
+              </div>
+            ))}
+          </div>
+          {form.identity === CUSTOM_IDENTITY_ID && (
+            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
+          )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
             {/* Back goes one step, not all the way out: on the custom door the
