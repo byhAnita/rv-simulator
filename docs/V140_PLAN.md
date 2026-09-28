@@ -504,7 +504,7 @@ first, with no new player-visible worlds riding along.
 | Release | Contents | Risk |
 | --- | --- | --- |
 | **v1.4.0** | Cast library + cross-group roster builder + custom members + card generation + `habit` + save migration + usage panel + affection clamp | High — touches saves |
-| **v1.4.1** | Country as a world field + shared address registers + the three new worlds + per-world platforms + place map (picker, canon, discoveries) + opening scenario. **Scoped 2026-09-28** — see §15 | Medium — new data, no migration |
+| **v1.4.1** | Country as a world field + shared address registers + the **story-mode switch** (pace out of Setup, into the tail) + the **world picker on Setup** + the three new worlds + per-world platforms + place map (picker, canon, discoveries) + opening scenario. **Scoped 2026-09-28** — see §15 | Medium — new data, no save migration |
 | **v1.4.2** | Unified game entry, custom world builder, player-side KKT/IG, cast relations, place→member affinity prior | Low — additive |
 | **v1.5.0** | Story archive + BM25 retrieval into the dynamic tail | Own release; changes what the model remembers |
 
@@ -771,14 +771,17 @@ Section numbering is preserved so the diff stays readable.
 | 1 | Language rule | unchanged |
 | 2 | JSON output | schema trimmed to the world's declared platforms |
 | 3 | Story generation | phase beats come from `world.phases` |
-| 4 | Group background | `world.setting` + `world.lore` + roster relations |
+| 4 | Group background | `world.setting` + `world.castLore` / `world.useGroupLore` + roster relations — the agency phrasing is the world's, not `rosterResolver`'s |
 | 5 | Member profiles | + `Habit:` line; NPCs are explicit, not leftovers |
-| 6 | Cast identity & address | identity text from `world.identities`; token table from `world.addressForms`; **protocol logic unchanged** |
+| 6 | Cast identity & address | identity text from `world.identities`; token table resolved from the world's `country.register`; **protocol logic unchanged**. **The pace line LEAVES this section** for the dynamic tail as `[Story Mode]` |
 | 7 | Social platform rules | only the platforms the world declares |
 | 8 | — | **NEW** Places (canon list) + opening scenario |
 
-**Everything added here is static and therefore cached from R1.** No change touches the history
-ledger or the cache-miss boundary.
+**Everything added here is static and therefore cached from R1**, with one deliberate exception:
+the story-mode rule **leaves** the static prompt for the dynamic tail, so that switching mode mid-run
+costs no cached prefix. Calculated, not measured: ~50 tokens moving from the cached prefix to the
+always-miss tail is about **+0.5%** of input cost per round, and the static prompt gets ~50 tokens
+smaller. No change touches the history ledger.
 
 **The address token table moves into the world file — during the extraction, not after.**
 `TOKENS` in `mainAgent.js` maps 언니 / 님 / 씨 / 야 per output language, so it reads as a
@@ -1251,10 +1254,13 @@ data instead of an inherited figure.
 
 ### v1.4.1
 
-**Scoped 2026-09-28 on Yuhan's answers.** Four worlds, not three — `kpop_idol` is brought up to the
-same shape rather than left as the special case. **Country becomes a field** on every world, Korea by
-default, fictional allowed. **Pacing stays.** The unified game entry is deliberately *after* this
-release. `WorldBuilder.jsx` is dropped from it; see *What is not in this release*.
+**Scoped 2026-09-28 on Yuhan's answers, revised the same day for the story-mode switch and the
+future entry merge.** Four worlds, not three — `kpop_idol` is brought up to the same shape rather
+than left as the special case. **Country becomes a field** on every world, Korea by default,
+fictional allowed. **The pace setting leaves Setup entirely** and returns as a four-way *story mode*
+switch in Settings, sent in the **dynamic tail**. The slot it vacates on Setup takes the **world
+picker**. The unified game entry and `WorldBuilder.jsx` stay future work, but this release is shaped
+so that the merge is a deletion rather than a rewrite.
 
 #### Country is a field, and it costs almost nothing — because the mechanism already exists
 
@@ -1278,38 +1284,93 @@ copies drifted and the guard had been written against the one that was still cor
 register is one more entry in an existing file, **not** a fourth mirrored tree: `_registers/` stays
 inside `worlds/` until a second country actually ships.
 
+**`parseWorld` resolves the register onto `world.addressForms`, so `buildSystemPrompt` is untouched.**
+That is what lets step 1's gate be "goldens byte-identical" while the data moves underneath.
+
 **A fictional country inherits a real register**: `{ name: "<player's text>", register: "korea" }`.
 Inventing honorifics is not a default. The `呀` bug is what happens when a form is transplanted into
 a language that already has a use for the syllable — and that was a real language, with a real
 grammar to check the transplant against. A made-up one has nothing to check.
 
-#### Pacing stays, and it is the one world knob with a measurement behind it
+#### The pace setting becomes a story-mode switch, in the tail
 
-The high-pressure run drove secrecy 100 → 11 in 25 rounds where the slow-burn run fell only to 91 in
-20 — an 89-point drop against 9, from nothing but the pace's authored rule. Removing the setting
-would delete a feature that demonstrably works and move the kpop goldens for no gain.
+**Yuhan's design, and it is better than §19.4's.** v12 shipped `pace` *and* `rhythm: "free"` at once
+and §19.4's fix was to keep `pace` at setup and add one boolean to Settings — which freezes the
+*class* at game start and makes only on/off live. This makes the class itself live, which is the whole
+point of moving it out of the cached prefix.
 
-What changes is that each world authors its own four, against four fixed **roles**, so the picker's
-shape is constant and the mechanical effect stays comparable across worlds:
+| Mode | What it drives | Carried over from |
+| --- | --- | --- |
+| `free` | no external plot events; the relationship is the plot; detail over event | `慢热现实向` |
+| `romance` | romantic beats, natural mutual progression | `浪漫情感向` |
+| `pressure` | **secrecy changes doubled** — scandal in `kpop_idol`, and the world's own stressful pressure elsewhere | `高压舆论向` |
+| `dramatic` | main and sub cast competing for the player's affection | `修罗海王向` |
 
-| Role | What the rule does | `kpop_idol` (frozen ids) | campus | office | chaebol |
-| --- | --- | --- | --- | --- | --- |
-| slow | affection grows slowly; detail over event | `慢热现实向` | `slow_burn` | `slow_burn` | `slow_burn` |
-| romantic | natural mutual progression | `浪漫情感向` | `romantic` | `romantic` | `romantic` |
-| pressure | **secrecy changes doubled**; the fiction differs | `高压舆论向` | `rumour` — gossip, faculty discipline | `hr_risk` — HR, hierarchy, a transfer | `press` — the press, the family, the board |
-| multi | several routes live at once | `修罗海王向` | `harem` | `harem` | `harem` |
+**The four ids are universal; the four rules are per world.** So the world file carries
+`modes: { free: {rule}, romance: {rule}, pressure: {rule}, dramatic: {rule} }` — **keyed, not
+positional** — and `t.modes` in i18n carries the four labels once for every world.
 
-`kpop_idol`'s four ids are **stored values in every save and cannot be renamed** (§4.1). New worlds
-use ASCII ids, which is what the rest of `src/` is held to anyway.
+**That deletes a whole class of bug rather than fixing it.** The earlier draft of this plan needed
+`paces[].name` per language because Setup rendered `t.paces[i]` against a hardcoded `PACES[i]`,
+**coupled by position** ([App.jsx:1436-1438](../src/App.jsx#L1436-L1438)) — a world with different
+pace ids would have written a kpop id into `form.pace`, `getPaceRule` would have resolved nothing,
+and the prompt would have carried a bare Chinese id, which is the dead-code bug step 3 of v1.4.0
+fixed returning through a different door. With a universal four-way switch, `PACES`, `t.paces` and
+the positional coupling are all **deleted**.
 
-> ⚠️ **`paces` must gain a `name` per language, and that is a code change, not a data one.** Setup
-> renders `t.paces[i]` against a hardcoded `PACES[i]`
-> ([App.jsx:1436-1438](../src/App.jsx#L1436-L1438)) — **coupled by position**, to a list that exists
-> in a fourth place. A campus world whose paces are `slow_burn`/`romantic`/`rumour`/`harem` would
-> have the picker write `慢热现实向` into `form.pace`, `getPaceRule` would resolve nothing, and the
-> prompt would carry a bare Chinese id — **which is exactly the dead-code bug step 3 of v1.4.0
-> fixed, returning through a different door.** Paces were given no `name` because their `rule` opens
-> with a self-describing `[Pace: …]`; that is true for the *model* and was never true for *Setup*.
+**Four things the move has to get right:**
+
+1. ⚠️ **The tail already has a `[Pacing]` line.** Time Speed writes
+   `[Pacing] slow — stay in this moment…` at [mainAgent.js:748](../src/agent/mainAgent.js#L748). Two
+   different quantities under one label is worse than the `[Stage Changes]` id-vs-name case, which
+   was two labels for one quantity. **Rename both in the same commit** — `[Time Speed]` and
+   `[Story Mode]`. It costs nothing: the tail is the always-miss message and no golden pins it.
+2. **`free` sends a rule, it does not send nothing.** Omitting the line would strip free-mode games
+   of the pace rule that today's `慢热现实向` players have, and a mode that sends nothing is
+   indistinguishable from a bug. `free` carries the slow-burn text.
+3. ⚠️ **This deletes the only affection-speed dial, and affection already saturates too fast.**
+   `慢热现实向` was a *speed*; the four modes are all one axis (what drives the plot). `PROPOSALS.md`
+   §1 measured **zero negative affection steps in 100 transitions and every stat saturating by round
+   ~22**. Folding slow-burn's text into `free` keeps the texture, but §1's experiment becomes more
+   urgent, not less.
+4. **Legacy seeding, not migration.** `form.pace` is in every save. On first load of a pre-mode save,
+   seed `rv_sim_story_mode` from it if the player has never set one (`慢热`→`free`, `浪漫`→`romance`,
+   `高压`→`pressure`, `修罗`→`dramatic`). That is the `rv_sim_qwen_submodel` → paid-model pattern
+   already in this repo. `form.pace` then goes dead in the save exactly like `starLevel`, which costs
+   nothing and needs no schema bump.
+
+**Cost of the tail move — calculated, not measured.** A rule is ~50 tokens. Moving it from the cached
+prefix (~20% of miss price) into the always-miss tail costs roughly 40 full-price-equivalent tokens
+against ~7,950 input per round: **+0.5%**, and the static prompt gets ~50 tokens smaller. The same
+trade Time Speed already made, and CLAUDE.md already records why placement in the tail is what makes
+a mid-run toggle free.
+
+**Future work this is the foundation for:** authored special-event plots per mode (§19), and endings
+plus After Story (`番外`). Before building on endings, note `PROPOSALS.md` §6: the five achievements
+*accumulate* rather than ending the run, and **two of the five are effectively unreachable** —
+`oe_unspoken_waiting` needs secrecy to land on exactly 60, and one condition matches nothing at all.
+**Fix the ending precedence before writing After Stories**, or an After Story is as unreachable as
+the ending it hangs off.
+
+#### Section 4's cast framing is idol-hardcoded, and the world must own it
+
+**The finding that makes designing toward the entry merge urgent rather than optional.**
+`composeRosterLore` emits `<name> is an N-member group under <name> Entertainment`, `These N debuted
+together as <name>`, `No other **idol** exists in this story`, and the subset branch prints
+`Fandom:`. In a campus world that describes a lecture hall as a K-pop agency. The third branch is
+worse: exactly one whole group returns that group's **own** lore verbatim
+([rosterResolver.js:224](../src/rag/rosterResolver.js#L224)), so a Red Velvet cast in an office world
+inherits Red Velvet's real idol history, SM included.
+
+So section 4's framing comes from the world file:
+
+| Field | `kpop_idol` | the other three |
+| --- | --- | --- |
+| `castLore` | today's composed template **verbatim**, so the goldens hold | campus "the same cohort"; office "the same team at \<name\>"; chaebol "attached to the \<name\> family" |
+| `useGroupLore` | `true` | `false` — always compose, so a real group's idol history cannot leak into a lecture hall |
+
+Without it the three new worlds ship describing every cast as an idol group. It is a data change plus
+one branch if done in step 1, and a rewrite of section 4 if done after the prose is authored.
 
 #### `statLabels` is deferred; `statNotes` is taken
 
@@ -1399,19 +1460,20 @@ all three languages, and smoke should assert that no world's display name equals
 
 | Step | Work | Gate before moving on |
 | --- | --- | --- |
-| **1** | Registers + country + schema, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`; `paces[].name`; `public/worlds/index.json`; `parseWorld` validates and **throws** per field. Root `worlds/` mirror re-synced. Nothing renders the new fields yet | **Goldens byte-identical**, Layer C mirror green. The whole gate, exactly as step 3 of v1.4.0 |
-| **2** | Setup reads paces from the world: `PACES` and `t.paces` stop being the source, `name` per language is what renders | A world whose pace ids differ from kpop's shows the right labels **and forwards an id `getPaceRule` resolves** — asserted on the `executeRound` call, not on the picker's source, per *Known Inconsistencies 2* |
-| **3** | Section 8 of the prompt: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, `world.scenario` seeding round 1, `statNotes` | `update-golden.mjs` run **once**, diff read line by line. §6 estimates +140 tokens; **measure** it |
-| **4** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design) | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
-| **5** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
-| **6** | Content: campus, office, chaebol. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 found seven defects zh could not express | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
-| **7** | World picker in the roster builder, `rv_sim_world`, and the save carrying its own `worldId` for life | A game started in one world keeps it across save/load and across a later world switch on the cover |
+| **1** | Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | **Goldens byte-identical**, Layer C mirror green. The whole gate, exactly as step 3 of v1.4.0 |
+| **2** | Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail as `[Story Mode]`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` deleted, legacy seeding from `form.pace` | Goldens move **once** — the pace line leaving section 6 — diff read. Layer J builds the static prompt across a mode change and asserts it is byte-identical, which is the claim the tail move rests on |
+| **3** | Setup page: pace picker out, **world picker in** at the same slot; order becomes name / birth year / world / identity; changing world clears `identity` and `customIdentity` to empty | Both doors already converge on Setup ([App.jsx:1285](../src/App.jsx#L1285)), so both get worlds. A world change leaves no id the new world does not declare — asserted on what Setup **forwards**, not on its source |
+| **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
+| **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design) | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
+| **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
+| **7** | Content: campus, office, chaebol. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
 
-**Steps 1–5 are the engine and add no content; 6–8 are the worlds.** If this runs long, step 5 is the
-safe place to cut and ship — the map and the platform trim are player-visible on `kpop_idol` alone.
+**Steps 1–6 are the engine and add no new world content; 7–8 are the worlds.** If this runs long,
+step 6 is the safe place to cut and ship — the story-mode switch, the map and the platform trim are
+all player-visible on `kpop_idol` alone.
 
-**Step 5 is the one that can break a game in flight.** A run started under `kpop_idol` must keep all
+**Step 6 is the one that can break a game in flight.** A run started under `kpop_idol` must keep all
 four platforms for its whole life, so platforms resolve from the **save's** `worldId`, never from
 whichever world is currently selected. Same rule as the roster, and for the same reason.
 
@@ -1423,24 +1485,56 @@ suite can usefully carry. **Proposal: three new fixtures, one per world, rotatin
 
 **It leaves six (world, language) pairs unpinned**, and that is a real gap rather than a technicality:
 step 7's lesson is that seven of nine defects were invisible to zh because zh is where the content is
-authored. The mitigation is the hand read in step 6's gate, not the fixtures — a fixture stops a
+authored. The mitigation is the hand read in step 7's gate, not the fixtures — a fixture stops a
 defect recurring, reading is what finds it. Say so in `test/README.md` rather than leaving the
 rotation looking like full coverage.
+
+#### The unified game entry — future work, and this release is shaped for it
+
+Yuhan's flow: **one door.** The roster builder is the entry, the player picks main / subs / NPCs as
+she does now, and the following page asks name, birth year and **world**.
+
+**It needs no save migration, and the migration he was worried about already shipped.**
+[saveMigrator.js:192](../src/rag/saveMigrator.js#L192) writes
+`roster: migrated.roster || buildClassicRoster(…)` for every pre-v1.4.0 save, and §2.3's rule fills
+the unpicked members in as NPCs so behaviour is byte-identical. **A v1.3.8 Red Velvet save already
+resolves through `resolveRoster` today, not through the classic door** — so deleting that door
+removes a UI entry point, not a data path.
+
+**The classic *experience* survives the door too**, because the lore rule keys on roster **shape**,
+not on which door produced it: exactly one whole group → that group's own lore verbatim. A player who
+picks all five Red Velvet members in the unified flow gets byte-identical output to today's classic
+path.
+
+**One affordance keeps that true in practice.** Classic auto-fills the leftovers as NPCs; the unified
+flow picks them explicitly, so Irene-main + Seulgi-sub and stop is a *subset*, which takes the
+different "only these members of Red Velvet exist" branch. So when every picked member comes from one
+group, the NPC section offers a one-tap **"add the other 3 as background"** chip. That is the classic
+door's only remaining job, done better.
+
+**What v1.4.1 does now so the merge is a deletion rather than a rewrite:** `castLore` /
+`useGroupLore` (step 4), the world picker already living on Setup (step 3), and Setup's control order
+already being the merged page's order minus the cast step. The cover is left alone; two doors stay.
+
+**What the merge itself then costs:** delete the classic door, add the background chip, and
+⚠️ **re-point one guard rather than orphaning it** — `loadSave` pins `phaseRef.current = "game"`
+*before* `setSelectedGroup` because the group effect reads it to decide whether to clear the chosen
+cast, and smoke Layer G guards that ordering. Delete the classic door and that effect may go with it,
+at which point the guard still passes while testing nothing. **A harness that cannot fail is
+indistinguishable from a passing one.**
 
 #### What is not in this release
 
 - **`WorldBuilder.jsx` and `rv_sim_worlds_custom_v14`.** §1 bundled a custom-world builder with the
   authored worlds; they are separable, and three authored worlds each carrying an `H` custom identity
   is the player-facing value. A builder that emits a *valid* world — identities with `workTitle`
-  direction, four paces, four phase lines, places — is a larger UI than the member editor. Say if you
-  want it in; otherwise it follows the entry merge.
-- **The unified game entry** (groups & custom cast & world on one screen), by Yuhan's call, after the
-  worlds exist. This **answers §18 decision 2**: the classic path does get worlds, through the merged
-  entry rather than by bolting a second picker onto the cover.
-- ⚠️ **Consequence to accept knowingly: until the merge, the three new worlds are reachable only
-  through the Custom door.** A player who only ever uses Classic will not see them. Step 7 puts the
-  picker in the roster builder, which is the cheapest place it can live without redesigning the cover
-  twice.
+  direction, four mode rules, four phase lines, places — is a larger UI than the member editor.
+- **The unified game entry**, by Yuhan's call, after the worlds exist. This **answers §18 decision
+  2**: the classic path does get worlds — in step 3, because both doors already pass through Setup,
+  which is earlier than the merge and retires the "new worlds are Custom-door-only" gap the previous
+  draft of this plan had to accept.
+- **Authored special-event plots per mode** (§19) and **endings + After Story**. The switch is their
+  foundation; `PROPOSALS.md` §6's ending precedence is the prerequisite.
 
 ### v1.4.2
 
@@ -1534,17 +1628,20 @@ None blocking v1.4.0. Carried forward:
    measurement.
 
 **Decisions 1–4 above predate v1.4.1's scoping.** Decision 2 — *does the classic path get worlds?* —
-is **answered**: yes, through the unified game entry, which lands after the three worlds rather than
-as a second picker on the cover. See v1.4.1, *What is not in this release*.
+is **answered**: yes, in v1.4.1 step 3, because both cover doors already pass through the Setup page
+([App.jsx:1285](../src/App.jsx#L1285)). The world picker takes the slot the pace picker vacates, which
+is earlier than the entry merge and needs no second picker on the cover.
 
 Answered 2026-09-28 and recorded under v1.4.1 rather than here: country as a world **field** with
-Korea as the default; pacing **kept**, authored per world against four fixed roles; all three new
-worlds built, plus `kpop_idol` brought up to the same shape.
+Korea as the default; the pace setting replaced by a four-way **story mode** switch in Settings, sent
+in the dynamic tail; all three new worlds built, plus `kpop_idol` brought up to the same shape; the
+unified game entry designed for but not built, and needing **no save migration** because
+`migrateSave` already writes a roster for every pre-v1.4.0 save.
 
 Still open, and none of it blocks starting step 1:
 
 5. **The identity sets for campus, office and chaebol are proposals, not decisions** — seven plus `H`
-   each, tabled under v1.4.1. Cut or add before step 6 authors their backgrounds, because a
+   each, tabled under v1.4.1. Cut or add before step 7 authors their backgrounds, because a
    background is a paragraph per language and reworking the list afterwards is three times the edit.
    A same-family chaebol route is deliberately absent.
 6. **`STAR_LEVELS` — delete the constant, or give it a world field?** It is dead today: defined at
@@ -1552,6 +1649,10 @@ Still open, and none of it blocks starting step 1:
    Deleting is recommended. Wiring it as *prior relationship to the cast* (fan level in kpop, family
    standing in chaebol) is coherent, but that is a new feature wearing a dead field's name.
 7. **Is `WorldBuilder.jsx` in or out?** Out as scoped. In, it roughly doubles the release's UI work.
+8. **`PROPOSALS.md` §6's ending precedence is now a prerequisite, not a cleanup.** Two of the five
+   endings are effectively unreachable, and endings plus After Story (`番外`) are the feature the
+   story-mode switch is the foundation for. Fix the precedence before writing content that hangs off
+   an ending nobody can reach.
 
 ---
 
