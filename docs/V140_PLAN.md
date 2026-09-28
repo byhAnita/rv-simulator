@@ -18,7 +18,9 @@ scheduled for v1.4.2.
 | **4 — Save migration** | ✅ **done**, on `dev`, unreleased. Three commits: the player **birth-year field**, `saveMigrator` (`schema`/`worldId`/`groupId`/`roster`), and the App-side rewiring through `resolveRoster` with `getNpcMembers` ceasing to derive. Smoke 630 → **671**. **The gate held**: a pinned v1.3.8 save migrates to the same member set `getNpcMembers` derives today, in the same order, and builds the same prompt byte for byte. Goldens untouched. |
 | **5 — Content (`habit`)** | ✅ **done**, on `dev`, unreleased. Two commits: 175 habits across 30 files + the 30 root mirror copies, then the conditional `Habit:` line. **The goldens moved here, on purpose and for the first time since step 1**: 19 insertions, 0 deletions, every one a `Habit:` line. Scope was wider than "27 files" — 57 members × 3 languages. A hand-play bug found while the branch was green rode along (`7fd109c`, a Kakao transcribed into the story), moving them a second time. Smoke 671 → **695**. |
 | **6 — UI** | 🟡 **in progress**, on `dev`, unreleased. Six commits: the prompt surviving an incomplete member, the two stores, `cardGenerator`, the three-step member editor, the roster builder + the cover's second door, and the on-device console. Then **three bugs from the first phone test**, all fixed: the birth-year field could not be typed into, the role picker hid what it was assigning, and a cross-group cast was described as the main member's group. Smoke 695 → **849**. **The gate held: goldens byte-identical throughout.** Remaining: correcting a migrated birth year, optionally splitting the classic Setup page, docs. |
-| 7 — Release v1.4.0 | ⬜ |
+| **6 — UI** (cont.) | ✅ **released in v1.4.0.** Eight further commits after the row above: the birth-year correction, the harness revival + `--cast` + the live gate, the ROLE CONTRACT with six prompt-review fixes, and the save-slot cap with per-language stage names and section 4's per-roster preamble. Smoke 849 → **949**. Splitting the classic Setup page was **not** done and does not block anything. |
+| **7 — Release v1.4.0** | ✅ **released 2026-09-28**, tag `v1.4.0` on deploy commit `7b3ceea`. Preceded by a full prompt re-read (nineteen defects, seven invisible to the zh fixture), 105 live rounds across five configurations, and a controlled four-arm re-validation that found two bugs in the measurement itself. Smoke 949 → **1081**. |
+| **8 — Four hand-test passes** | ✅ **released in v1.4.0.** Photos reaching the game at all, then the player's own crop, then three phone-only rendering bugs, then the avatar a third time — see CLAUDE.md, *The second fix made the square reachable*. Smoke 1081 → **1204**. Release notes now render inside the game. |
 
 **Step 1 paid for itself before the first fixture existed.** Writing a snapshot forces the
 question *is this output actually stable?*, which nothing had ever asked. It is not: the
@@ -187,7 +189,17 @@ step 6"* above.
 
 ## Pick up here
 
-**State as of 2026-09-24.** v1.3.9 is **released** and is what players run: `main` and
+**State as of 2026-09-28. v1.4.0 is released and every step in this plan has shipped.** `main`
+and `origin/main` are at `7b3ceea`, the deploy commit, tagged `v1.4.0`; all three mirrors serve
+`index-BEbGT01U.js`, verified byte-identical to the local build. **CLAUDE.md's `Pick up here` is
+the authority on what is open** — it is shorter and it is current. What remains of *this* file's own
+scope is one measurement: **§10's storage budget is calculated, not measured**, and the image sheet
+prints `N KB used` on a real device. Read it and replace the arithmetic.
+
+Everything below this line is the record of how the plan ran, kept because the reasoning is not
+recoverable from the diffs. The dates and branch states in it are historical.
+
+**State as of 2026-09-24** (historical). v1.3.9 is **released** and is what players run: `main` and
 `origin/main` are at `758faa3`, the deploy commit, tagged `v1.3.9`. All three mirrors serve
 `index-DAtY_Xfc.js`.
 
@@ -1193,12 +1205,12 @@ sequencing rules drive everything:
 | --- | --- | --- |
 | **0** | ✅ CI — build + smoke on every push, and the mirror-sync assertion (done) | Done. The mirror guard went into **smoke Layer C, not the workflow** — see `docs/TECH_NOTES.md`: a CI-only check would not have gated `npm run deploy`, whose preflight runs smoke rather than CI. |
 | **1** | ✅ Golden prompt snapshots: 3 fixtures (RV classic, 9-member group, single member) pinned into `test/fixtures/` and asserted by smoke Layer J | Done — and it required one src fix first: the prompt was not deterministic, so there was nothing stable to pin. See Progress. |
-| **2** | ✅ **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a), plus `backstorySeed` inherited from step 1 | Built and validated on `dev` (smoke 469 → **535**, 8/8 clean live rounds with 0 static-prompt drifts). The merge and deploy are red lines and are **not** done — see Pick up here. |
+| **2** | ✅ **Release v1.3.9** — affection clamp (11), usage panel (10), quota-guarded `saveToStorage` (9a), plus `backstorySeed` inherited from step 1 | Built and validated on `dev` (smoke 469 → **535**, 8/8 clean live rounds with 0 static-prompt drifts), then **released 2026-09-24** as tag `v1.3.9`. |
 | **3** | World extraction + resolver: tasks 1, 2, 3, 4 + Layer J | **Golden prompts still byte-identical.** This is the whole gate. |
 | **4** | Save migration: task 6 | A pinned v1.3.8 save migrates and resolves to the *same* member set `getNpcMembers` returns today |
 | **5** | Content: task 5 (`habit` × 27 files) + task 13 (root mirror) | Layer J asserts `habit` reaches the prompt through `loadGroupConfig` |
-| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px **(done — found 3 bugs, all fixed)**; live `playthrough.mjs` on a cross-group roster **(not yet run)** |
-| **7** | **Release v1.4.0** | Build + smoke + live playthrough, then the normal release flow |
+| **6** | UI: tasks 7, 8, 9b (roster builder, member editor, card generation, photos) | Hand-test at 390px **(done — four passes, each one found bugs nothing offline could)**; live `playthrough.mjs` on a cross-group roster **(done — 10/10 clean, 0 outside-cast names, 0 real agencies)** |
+| **7** | **Release v1.4.0** | ✅ **done 2026-09-28** — build + smoke **1204/0** + 105 live rounds, then the normal release flow. Tag `v1.4.0` on deploy commit `7b3ceea`; all three mirrors verified serving the same bytes as the local build |
 
 **Step 1 is the highest-value hour in this plan.** A world/roster extraction that changes the
 prompt by accident produces no error and no test failure — it produces slightly different writing

@@ -1735,10 +1735,27 @@ Then:
 
 ---
 
-## Project Status (2026-09-24)
+## Project Status (2026-09-28)
 
-**v1.3.9 is the current release.** Seven player-visible changes, all old-save-safe and none
-touching the save schema.
+**v1.4.0 is the current release, deployed 2026-09-28.** `main` and `origin/main` are at
+`7b3ceea`, the deploy commit, tagged `v1.4.0`; `dev` is level with it plus one `index.html`
+commit. All three mirrors serve `index-BEbGT01U.js`, and the served bundle was checked
+**byte-identical to the local build** rather than only matching by hash.
+
+It is the largest release this project has made — the cast/world/roster split (steps 3-5), the
+custom-cast UI (step 6), the prompt re-read and live re-validation (step 7), and four hand-test
+passes of step 8. Smoke **578 -> 1204**. What a player sees: she builds her own cast from any
+number of groups or from a member the model invents for her, gives anyone a photo and a wallpaper
+she crops herself, states her birth year instead of her age, cannot lose a save to the eleventh
+one, and reads the release notes in the Help Center's new **More Info** tab.
+
+**What it does NOT claim is rotation.** Three of four controlled arms still break section 3 in
+5-27% of (round, member) pairs, and the A/B that was supposed to settle `[Rounds Absent]` is
+inconclusive because within-arm variance exceeded the between-arm gap. The README and the release
+notes say nothing about rotation, which is what the evidence supports.
+
+**v1.3.9 was the release before it**, on 2026-09-24. Seven player-visible changes, all
+old-save-safe and none touching the save schema.
 
 Four were planned: the **usage panel** (the `usage` block every provider returns had never been
 read by anything in `src/`), the **±8 affection clamp**, **quota-guarded `saveToStorage`**, and
@@ -1771,9 +1788,9 @@ and `saveToStorage` swallows quota errors.
 
 Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**.
 
-**Step 3 — world extraction + resolver — is done on `dev` and unreleased** (`3bbc033`..`45dcdbe`,
-CI green). It ships no player-visible change by design, so it rides with v1.4.0 rather than
-justifying a release: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
+**Step 3 — world extraction + resolver — shipped in v1.4.0** (`3bbc033`..`45dcdbe`, CI green). It
+ships no player-visible change by design, so it rode with v1.4.0 rather than justifying a release of
+its own: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
 `buildSystemPrompt` rendering from it, `rosterResolver.js`, and `habit`/`tags` on the
 `parseGroupConfig` whitelist. **The gate held — goldens byte-identical throughout and
 `update-golden.mjs` never run.** Smoke **578 → 630**; the JS bundle shrank 324.73 → 317.51 KB
@@ -1790,35 +1807,75 @@ other end (an English player's prompt carried an unreadable Chinese id) and `get
 what section 6 prints. The second block, a leftover local resolving `"H"` to `form.customIdentity`,
 was inert — `App.jsx` already resolves it upstream — and is deleted.
 
-**Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
-**578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
+**Steps 3 through 8 all shipped in v1.4.0**, released 2026-09-28. Smoke **578 → 1204** across them.
+Everything from here to the end of this section was written while they were unreleased, and is kept
+as the record of how each one was validated — read the dates, not the tense.
 
-### Pick up here — step 8, third hand-test pass, 2026-09-28
+### Pick up here — v1.4.0 is released, 2026-09-28
 
-**Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
-**1204 passed / 0 failed**, and `package.json` now reads **1.4.0**. Nothing is running. Goldens
-untouched throughout — nothing since the
-re-validation is prompt-facing, step 8 included.
+**v1.4.0 is deployed and is what players run.** `main` = `origin/main` = `7b3ceea`, tagged
+`v1.4.0`; `dev` = `origin/dev` = `5d0f870`, which is that commit plus the dev-mode
+`index.html`. `main..dev` and `dev..main` are both empty apart from it, so the merge-back is
+done. Nothing is running, and nothing is waiting on a machine.
 
-**Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
-Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
-Five batches are now waiting on that one test:
+**Verified, by measurement:** `npm run build` clean at 404.59 kB / gzip 142.78; `node
+test/smoke.mjs` **1204 passed / 0 failed**; all three mirrors serve `index-BEbGT01U.js` and the
+bundle fetched from Cloudflare is **byte-identical** to the local build, contains `v1.4.0`, all
+three More Info labels and the avatar fix's `backgroundOrigin`. Goldens untouched since the step 7
+re-validation — nothing in step 8 is prompt-facing.
 
-- **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
-  not by member*;
+**Not verified:** the release was hand-tested on `dev.idol-dating-sim.pages.dev`, not on the
+production URLs. They serve the same bytes, so this is a formality rather than a gap, but it has
+not been done. No live round has been played against v1.4.0's code on a production mirror.
+
+**One thing in the working tree is not mine and was deliberately excluded from the release.**
+`src/i18n/zh.js` drops `(最多10个)` from `save.saveBtn`. It is a reasonable edit — the panel now
+shows `n / 10` at all times, so the caption is redundant — but I did not make it, and `src/` is a
+path `deploy.sh` stages, so it was stashed for the deploy and restored afterwards. It is still
+uncommitted. Commit it or discard it; do not let it ride along unnoticed with the next batch.
+
+**The exact next command**, for the highest-value open item — three of the four providers have
+never played a live round, which is what open question 3 has been waiting on:
+
+```bash
+node test/playthrough.mjs --provider gemini --rounds 8    # needs a Gemini key in .env.local
+node test/playthrough.mjs --provider gpt4omini --rounds 8
+```
+
+**Also open, in rough order of value:**
+
+- **`docs/V140_PLAN.md` §10 still carries a calculated storage figure.** The image sheet prints
+  `N KB used` on a real device; read it and replace the arithmetic. See the paragraph below.
+- **The router fix from `56cc684` is live-untested** and needs an Aliyun `sk-ws-` key;
+  `.env.local` holds a DeepSeek one.
+- **The post-fix `[Rounds Absent]` arm is still owed**, and needs 3+ replicates per arm to say
+  anything at all — `docs/PROPOSALS.md` §4.
+- **The harness stores only a count of delivered Kakao, not their text**, so a
+  `kkt-transcribed-in-story` flag cannot be reviewed after the fact. Fix that before acting on the
+  one survivor.
+- **The Bubble avatar repeats on every line** — raised twice, still Yuhan's design call.
+- Pre-existing: the 126-char truncated round accepted with English fallback options
+  (`docs/PROPOSALS.md` §7); Chinese comments in `probabilityEngine.js`, `achievements.js`,
+  `relationshipEvents.js` and `stageConfig.js`; `DEFAULT_CAST_NAME` `"X"` colliding with the
+  shipped group `x`; §18b's impossible Kakao; splitting the classic Setup page; the ~1.7x
+  cost-table understatement (§2) and zero negative affection steps (§1).
+
+**What the five batches in this release were**, kept for the record:
+
+- **the role-first cast picker**, rebuilt on Yuhan's design — see *The cast picker is organised by
+  role, not by member*;
 - **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
   see *The photo store shipped with no reader* and *A birth year is stated once*;
-- **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs**, from
-  his hand test of step 8 — see *Four of those six surfaces were wrong on a phone*;
+- **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs** — see
+  *Four of those six surfaces were wrong on a phone*. **33 mutations, all RED**, three red only
+  after a fix;
 - **step 8's third pass: the avatar clip path, Instagram fitting its panel, the wheel on the name
   field's line, and `npm run bump 1.4.0`** — see *The first fix cured the one surface that was
-  never broken*. **18 mutations, all RED, none needing a fix first.** The version strings are bumped
-  and README carries a hand-written *What's New in v1.4.0*, so the release flow resumes at
-  `git checkout main`.
+  never broken*. **18 mutations, all RED.** That avatar fix was **wrong**; see the next bullet;
 - **step 8's fourth pass: an avatar with nothing to clip, and release notes inside the game** —
-  see *The second fix made the square reachable*. **16 mutations, all RED, none needing a fix
-  first.** The Help Center's last tab is now **More Info** and carries `RELEASE_NOTES`, whose
-  newest entry smoke ties to `package.json`.
+  see *The second fix made the square reachable*. **16 mutations, all RED.** Third attempt at one
+  bug, and the first two were the same mistake in different syntax. Confirmed fixed by hand on a
+  phone before the release.
 
 **Step 8's one unmeasured number is still unmeasured, and it moved.** Canvas WebP cannot be encoded
 outside a browser, so the wallpaper's ~46 KB is calculated and the storage budget it feeds (~2.4 MB
@@ -1884,9 +1941,9 @@ recorded in every arm.** It found two bugs and could not answer the question it 
   open question 3 (`reasoning_effort:'none'` on OpenAI, Gemini with thinking off) has been waiting on
   exactly that.
 
-**The release itself (`npm run bump 1.4.0` onward) is untouched and awaits Yuhan's go.** `main` is still
-v1.3.9 at `758faa3`. The open decision blocking nothing but worth his eye: whether v1.4.0 ships
-claiming rotation is addressed. It should not — the wording above is what the evidence supports.
+**The release happened on 2026-09-28** — `main` at `7b3ceea`, tagged `v1.4.0`. The open decision
+recorded here at the time was whether v1.4.0 should ship claiming rotation is addressed. It did
+**not**, in the README or in the in-game release notes, which is what the evidence supports.
 
 **Step 7's pre-release review found nineteen defects.** The method was the one that worked in step 6, applied harder: read all three
 rendered goldens end to end rather than the diff, read the prompt *against the code that consumes it*,
