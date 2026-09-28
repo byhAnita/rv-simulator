@@ -23,7 +23,7 @@ export default function WeverseOverlay({ memberId, members, socialFeeds, allTarg
             across four platforms and gave this panel the only surface where the
             wallpaper was a small strip. One wallpaper, one job: it is the
             background of the panel she is posting in. */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 12, background: isLight ? "#faf7f0" : undefined, ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.5)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", backgroundAttachment: "local" } : {}) }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: 12, background: isLight ? "#faf7f0" : undefined, ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.5)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}) }}>
           {feed && feed.content ? (
             /* The card goes NEARLY OPAQUE over a wallpaper. Its ordinary fill is
                 a 5% tint, which is invisible against a plain panel and useless

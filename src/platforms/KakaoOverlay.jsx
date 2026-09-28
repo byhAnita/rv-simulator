@@ -22,7 +22,7 @@ export default function KakaoOverlay({ memberId, members, kktMessages, kktUnlock
         {/* Her wallpaper behind the thread. The scrim is a layer of the same
             `background` shorthand rather than a positioned overlay, so the
             scrolling content above it needs no stacking context of its own. */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 8, ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.45)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", backgroundAttachment: "local" } : {}) }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 8, ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.45)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}) }}>
           {!unlocked ? (
             <div style={{ textAlign: "center", color: isLight ? "#8a6840" : "#888", padding: "30px 0", fontSize: 12 }}>
               {t.social.kakao.locked(m?.name)}<br />

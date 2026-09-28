@@ -28,20 +28,39 @@ export default function MemberFace({
 }) {
   const m = member || {};
   const r = radius == null ? "50%" : radius;
+  // THE SHAPE IS A CLIP PATH, NOT `overflow: hidden` + a radius — the second
+  // hand test, and the second attempt at this bug.
+  //
+  // The first attempt gave the <img> its own `borderRadius: inherit` so its
+  // shape did not depend on the parent clipping it. That fixed Instagram and
+  // left Bubble, KakaoTalk and Weverse square, which is the whole diagnosis:
+  // those three are exactly the avatars sitting inside a SCROLLING container
+  // that carries a background image, and Instagram's is not. A scroller with a
+  // background gets its own composited layer on iOS WebKit, and a rounded
+  // `overflow` clip on a descendant is not applied at that layer boundary —
+  // so both the photo AND the gradient came out square inside the ring.
+  // UNVERIFIED as a cause: it is inferred from which three surfaces broke and
+  // which one did not, not from a repro. The fix does not depend on it being
+  // right, because `clip-path` does not clip by overflow at all.
+  //
+  // ONE mechanism, not two: `overflow: hidden` and `isolation: isolate` are
+  // gone rather than kept beside it. A shape enforced twice is a shape neither
+  // enforcement can be shown to hold — which is what `cropRect`'s double clamp
+  // cost an hour of mutation testing to find. `borderRadius` stays because it
+  // is what rounds the BORDER itself; the clip is what rounds everything
+  // painted inside it.
+  const clip = radius == null
+    ? "circle(50%)"
+    : `inset(0 round ${typeof r === "number" ? `${r}px` : r})`;
   return (
     <span
       style={{
-        width: size, height: size, borderRadius: r, overflow: "hidden",
+        width: size, height: size, borderRadius: r,
+        clipPath: clip, WebkitClipPath: clip,
         // Explicit, not inherited from App's `*` reset: a border must eat into
         // the frame rather than growing it, or the photo inside a bordered
         // avatar is inset by a pixel on every side and reads as the wrong size.
         boxSizing: "border-box",
-        // A stacking context of its own. WebKit is the reason: an <img> child of
-        // a rounded `overflow:hidden` box is the one case where it declines to
-        // clip to the radius, which is how a square photo came to be sitting
-        // inside a round frame on an iPhone. Reported from hand play — the tab
-        // strip, which puts the radius on the <img> itself, was never affected.
-        isolation: "isolate",
         position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center",
         // The gradient stays behind the photo rather than being replaced by it.
@@ -55,16 +74,15 @@ export default function MemberFace({
     >
       {photo
         ? (
-          // Positioned, not a flex item, and carrying the frame's radius itself.
-          // Both halves matter: `inset: 0` makes the photo fill the frame
-          // whatever a flex container decides about a replaced element's size,
-          // and its own `borderRadius` means the round shape does not depend on
-          // the parent clipping it — see `isolation` above.
+          // Positioned, not a flex item: `inset: 0` makes the photo fill the
+          // frame whatever a flex container decides about a replaced element's
+          // size. Its rounding comes from the frame's clip path, not from a
+          // radius of its own — see the note above.
           <img
             src={photo} alt=""
             style={{
               position: "absolute", inset: 0, width: "100%", height: "100%",
-              objectFit: "cover", display: "block", borderRadius: "inherit",
+              objectFit: "cover", display: "block",
             }}
           />
         )
@@ -100,6 +118,16 @@ export function wallStyle(wall) {
  * chat bubbles keep their opaque fills on top of it. Strength differs by
  * surface: a chat thread is mostly bubbles and needs less than a caption laid
  * directly on the image.
+ *
+ * NO `background-attachment: local` on the scroller that carries it — dropped
+ * in the second hand test, for two reasons at once. With `local` the
+ * background's positioning area is the whole SCROLLABLE content, so `cover`
+ * sized a 2:3 wallpaper against a KakaoTalk thread that can be three panels
+ * tall: the player framed one crop and the panel showed another. It also makes
+ * the scroller a composited layer, which is the best available explanation for
+ * the square avatars on exactly those three panels — see MemberFace. Default
+ * attachment pins the image to the padding box, which is what a chat wallpaper
+ * does anyway: the messages move over it, not with it.
  */
 export function wallScrim(isLight, strength = 0.55) {
   return isLight

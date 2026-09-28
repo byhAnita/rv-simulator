@@ -986,9 +986,9 @@ export default function App() {
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.3.9", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.3.9", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.3.9", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.0", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.0", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.0", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
     const titleGrad = theme === "dark"
@@ -1401,8 +1401,22 @@ export default function App() {
             <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
           )}
 
-          <div className="s-l">{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "flex-start" }}>
+          {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
+              second hand test. A caption inside the wheel's own column pushes
+              the wheel down by its own height, so the name field and the
+              selected year sat on two different lines and the pair read as two
+              rows of one control each. With the captions lifted out, the row
+              below holds exactly two boxes and `alignItems: center` puts the
+              38px field's centre on the 104px wheel's centre — which is the
+              selected year, since the band sits at the middle row by
+              construction (`pad = ROW_H`). */}
+          <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
+            <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
+            <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
+              {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
             <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
             {/* A wheel, not a field — step 8. The year is one of 63 ordered
                 values, which is a picker; a text box invites a keyboard that on
@@ -1410,9 +1424,6 @@ export default function App() {
                 a year the address protocol must never see. The wheel cannot
                 produce a partial or out-of-range year at all. */}
             <div style={{ flex: 1, minWidth: 88 }}>
-              <div style={{ fontSize: 9, color: th.textMuted, textAlign: "center", marginBottom: 2 }}>
-                {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-              </div>
               <YearWheel value={form.birthYear || DEFAULT_YEAR} onChange={setBirthYear}
                 min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
                 ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}

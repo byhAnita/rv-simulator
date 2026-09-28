@@ -18,7 +18,7 @@ export default function BubbleOverlay({ memberId, members, socialFeeds, allTarge
           <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>{t.social.bubble.title}</span>
         </div>
         <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="bubble" kktUnlocked={kktUnlocked} theme={theme} photos={photos} />
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px 14px 14px", display: "flex", flexDirection: "column", gap: 8, background: isLight ? "#faf7f0" : "#f5f0ff", ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.45)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", backgroundAttachment: "local" } : {}) }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 14px 14px", display: "flex", flexDirection: "column", gap: 8, background: isLight ? "#faf7f0" : "#f5f0ff", ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.45)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}) }}>
           {feed.length === 0 ? (
             <div style={{ textAlign: "center", color: isLight ? "#a8845a" : "#aaa", padding: "30px 0", fontSize: 12 }}>{t.social.bubble.noMessages(m?.name)}</div>
           ) : (

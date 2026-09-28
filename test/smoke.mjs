@@ -1434,6 +1434,25 @@ function layerC() {
       `found ${count}, expected ${expected} — run \`npm run bump ${version}\``);
   }
 
+  // A version number inside a `src/` comment is HISTORY — "v1.4.0 step 6 - the
+  // custom cast", "a pre-v1.4.0 save" — exactly as it is in CLAUDE.md, which is
+  // anchored for this reason. Only a cover description is state. This went
+  // unnoticed until v1.4.0 because it is the first version the code documents
+  // itself against while also being the version being bumped to: the count
+  // above read five cover strings in App.jsx where there are three, and the
+  // next bump would have relabelled every one of those comments.
+  //
+  // Probed on a literal, not on the real file: the real file is what the loop
+  // above already reads, and the rule has to hold for a comment nobody has
+  // written yet.
+  const bumpProbe = (line) => bumpFile("src/App.jsx", line, version, "0.0.0").count;
+  check("a version number in a src comment is history and is left alone",
+    bumpProbe(`  // a pre-v${version} save keeps the year it implied\n`) === 0,
+    "rewriting it would move when something happened, which is worse than the drift the bump prevents");
+  check("...while a cover description is state and is rewritten",
+    bumpProbe(`  zh: { desc: "LLM . v${version}" },\n`) === 1,
+    "the cover is how a player tells you what build they are running");
+
   // --- host-independent paths ---
   //
   // The app is served from three places at two different depths: GitHub Pages
@@ -3909,17 +3928,27 @@ async function layerI() {
   check("the wallpaper is stored at the ratio the chat panel shows it at",
     Math.abs(wallRatio - PANEL_CONTENT) < Math.abs(360 / 640 - PANEL_CONTENT),
     `${store.WALL_W}x${store.WALL_H} (${wallRatio.toFixed(3)}) vs the panel's ${PANEL_CONTENT.toFixed(3)}`);
-  // Instagram is the one surface that cannot show the whole thing, so it must
-  // take the SMALLEST bite it plausibly can. A square would cut a third out of a
-  // 2:3 image; 4:5 is a real Instagram portrait ratio and cuts about a sixth.
-  const igRatio = (() => {
-    const m = readFileSync(join(ROOT, "src/platforms/InstagramOverlay.jsx"), "utf8")
-      .match(/aspectRatio: "(\d+)\/(\d+)"/);
-    return m ? Number(m[1]) / Number(m[2]) : null;
-  })();
-  check("Instagram's post frame crops the wallpaper less than a square would",
-    igRatio !== null && Math.abs(igRatio - wallRatio) < Math.abs(1 - wallRatio),
-    `Instagram is ${igRatio} against a wallpaper at ${wallRatio.toFixed(3)}`);
+  // Instagram is the one surface that cannot show the whole thing, and since the
+  // second hand test it does not get to choose how much it takes. A fixed ratio
+  // decided the post's height before the panel did — 4:5 is 450px of a 600px
+  // panel that has already spent ~115px on its title bar, tab strip and post
+  // header — so the caption and the like count sat below the fold on every post
+  // and the player had to scroll to read the round's own output.
+  const igSrc = readFileSync(join(ROOT, "src/platforms/InstagramOverlay.jsx"), "utf8");
+  check("Instagram's post image is sized by the panel, not by a ratio of its own",
+    !/aspectRatio/.test(igSrc) && /flex: "1 1 0", minHeight: \d+/.test(igSrc),
+    "any fixed ratio decides the image's height before the panel's, which is what pushed the caption off");
+  check("...inside a column that can give it the space that is left",
+    /flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column"/.test(igSrc),
+    "`flex: 1 1 0` on the image does nothing at all unless its parent is a flex column");
+  // Written as "nothing below the image may shrink" rather than as a count of
+  // pixels: the image is the only flexible box, so the caption is on screen iff
+  // every one of its siblings is fixed. Four of them — header, actions, likes,
+  // caption — and a fifth that shrinks is a caption that scrolls again.
+  const igPost = igSrc.slice(igSrc.indexOf("{feed && feed.caption ?"), igSrc.indexOf("t.social.instagram.noPosts"));
+  check("...and nothing below it can be squeezed off the fold instead",
+    (igPost.match(/flexShrink: 0/g) || []).length >= 4,
+    "the post header, the actions, the like count and the caption all have to hold their height");
 
   // Corrupt or absent storage must read as empty, never throw: the same
   // tolerance aliyunRoute.js applies to a malformed route state.
@@ -4853,19 +4882,45 @@ async function layerI() {
   check("...and every picked file reaches the cropper before it is stored",
     uncropped.length === 0, uncropped.join(", "));
 
-  // Her photo was a square sitting inside a round frame on an iPhone: WebKit
-  // declines to clip an <img> child to its parent's border-radius in this exact
-  // shape. The requirement is that the photo fills the frame and takes its shape
-  // WITHOUT depending on the parent to clip it — which is why the tab strip,
-  // whose radius is on the <img> itself, was never affected.
+  // Her face was a square sitting inside a round ring on an iPhone, and the
+  // first fix — a radius on the <img> itself — cured Instagram and left Bubble,
+  // KakaoTalk and Weverse exactly as they were. Those three are the avatars
+  // inside a SCROLLING container carrying a background image; Instagram's is
+  // not. So the requirement is not "the photo has a radius": it is that the
+  // frame's shape survives a context where a rounded overflow clip does not,
+  // and that it holds for the gradient-and-emoji default too, which has no
+  // <img> to put a radius on.
   const faceSrc = readFileSync(join(ROOT, "src/platforms/memberFace.jsx"), "utf8");
   const faceImg = faceSrc.slice(faceSrc.indexOf("<img"), faceSrc.indexOf("(m.emoji"));
-  check("the photo carries the frame's shape itself rather than being clipped to it",
-    /borderRadius: "inherit"/.test(faceImg) && /position: "absolute", inset: 0/.test(faceImg),
-    "a square photo in a round frame is what relying on the parent's overflow costs on WebKit");
+  check("the avatar's shape is a clip path, so it does not depend on an ancestor's clipping",
+    /clipPath: clip, WebkitClipPath: clip/.test(faceSrc)
+      && /circle\(50%\)/.test(faceSrc) && /inset\(0 round /.test(faceSrc),
+    "both shapes the callers ask for — the circle and the rounded square — have to be clipped the same way");
+  // ONE enforcement. `overflow: hidden` beside a clip path is the `cropRect`
+  // double clamp again: either half can be broken with the other covering for
+  // it, so neither can be shown to work.
+  check("...and it is the only thing enforcing that shape",
+    !/overflow: "hidden"/.test(faceSrc) && !/borderRadius: "inherit"/.test(faceImg),
+    "a shape enforced twice is a shape neither enforcement can be shown to hold");
+  check("...with the photo filling the frame rather than laid out inside it",
+    /position: "absolute", inset: 0/.test(faceImg) && /objectFit: "cover"/.test(faceImg),
+    "a replaced element sized by a flex container is sized by its own aspect ratio, not the frame's");
   check("...and a border eats into the frame instead of insetting the photo",
     /boxSizing: "border-box"/.test(faceSrc),
     "every caller passes a 1px border, and content-box sizing would shrink the photo by 2px");
+
+  // A wallpaper must be SEEN at the ratio it was framed at. `background-
+  // attachment: local` sizes `cover` against the scrollable content instead of
+  // the panel, so a long KakaoTalk thread showed a crop the player never chose —
+  // and it is what makes those scrollers a composited layer, which is the best
+  // account available of the square avatars above. Derived, not a list of three
+  // files: a fourth panel that grows a wallpaper must not be able to bring it
+  // back.
+  const wallPanels = Object.entries(overlayFiles).filter(([, src]) => /url\(\$\{wall\}\)/.test(src));
+  const attached = wallPanels.filter(([, src]) => /backgroundAttachment/.test(src)).map(([f]) => f);
+  check("a wallpaper is sized against the panel, never against how far the feed scrolls",
+    attached.length === 0 && wallPanels.length >= 3,
+    attached.join(", ") || `the scan found ${wallPanels.length} wallpapered panels, so it proves nothing`);
 
   // A custom member is a member. She could be given a photo in the editor and a
   // wallpaper NOWHERE, because the image sheet lists the chosen cast and she is
@@ -4905,6 +4960,19 @@ async function layerI() {
     .filter(([, src]) => /<YearWheel/.test(src) && !/fieldBg:/.test(src)).map(([f]) => f);
   check("...on both screens that use it",
     wheelCallers.length === 0, wheelCallers.join(", "));
+  // …and in Setup it shares a line with the name field. It did not: a caption
+  // sat above the wheel INSIDE its own column, which pushes the wheel down by
+  // the caption's height, so the field and the selected year were on two
+  // different lines and the pair read as two controls stacked. The row that
+  // holds them must therefore contain exactly the field and the wheel, and
+  // centre them — the selected year is the wheel box's own centre, since the
+  // band sits at the middle row by construction.
+  const setupYearRow = appForCast.slice(0, appForCast.indexOf("<YearWheel"));
+  const nameRow = setupYearRow.slice(setupYearRow.lastIndexOf('<div style={{ display: "flex"'));
+  check("...and in Setup the wheel's year sits on the name field's line",
+    /alignItems: "center"/.test(nameRow) && /className="s-in"/.test(nameRow)
+      && !/fontSize: 9/.test(nameRow),
+    "a caption inside the wheel's column offsets it by the caption's own height");
 
   // ONE WALLPAPER, ONE JOB. Weverse used it as a post card's banner while the
   // other three used it as a background, so one upload meant two different
@@ -4918,7 +4986,7 @@ async function layerI() {
   check("the wallpaper backs the feed on every panel that scrolls one",
     notBehindFeed.length === 0, notBehindFeed.join(", "));
   check("...and Instagram uses it as the post image, which is its own surface",
-    /aspectRatio: "4\/5"[\s\S]{0,400}wallStyle\(wall\)/.test(overlayFiles["InstagramOverlay.jsx"]),
+    /flex: "1 1 0"[^<>]{0,400}wallStyle\(wall\)/.test(overlayFiles["InstagramOverlay.jsx"]),
     "a feed of one post has no background to speak of; the post IS the surface");
   check("...with a scrim under every one of them",
     ["BubbleOverlay.jsx", "KakaoOverlay.jsx", "WeverseOverlay.jsx"]
