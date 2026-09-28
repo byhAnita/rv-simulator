@@ -1347,7 +1347,20 @@ The Korean set (`남남 / 안면 / 관심 / 썸 / 연인 / 열애 / 시험기`) 
 reader's eye — `썸` for the ambiguous stage is the idiomatic choice but `관심`/`연인` are plainer than
 the Chinese originals.
 
-Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` also surfaces `proposal_ready`, `breakup_warning`, and `pressure_warning` as `specialEvent`.
+Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` surfaces
+`proposal_ready` and `breakup_warning` as `specialEvent`.
+
+**It filters on a third type, `pressure_warning`, that nothing produces.**
+[`mainAgent.js:861`](src/agent/mainAgent.js#L861) names three; `checkRelationshipEvents` returns
+`love_triangle`, `proposal_ready` and `breakup_warning` and nothing else. This file claimed all
+three were surfaced — corrected 2026-09-28. **A filter that enumerates is the cheapest place to find
+a missing producer**, cheaper than grepping for writers, and it is the same shape as the four dead
+mechanisms above with the halves swapped.
+
+It is **not deleted**, unlike `NPC_APPEARANCE_CHANCE`, and the difference is stated rather than
+assumed: that constant has no plan, and this one has a designed reader arriving in
+`docs/V140_PLAN.md` section 21 — the natural close of a pressure-mode run. Until then it is a branch
+that cannot be taken, documented as one.
 
 ## Achievements (5 endings)
 
@@ -1355,6 +1368,25 @@ Stage transitions trigger special events in `relationshipEvents.js`. `executeRou
 
 They accumulate rather than ending the run: `checkAchievement` runs every round from 30 on, returns
 the **first** definition whose condition holds, and each id fires at most once.
+
+**And nothing a player reads is derived from which one fired.** The achievement shows a modal whose
+button says *Continue Playing*; the **epilogue** is launched from a different modal — the
+`specialEvent` one — and its prompt is a hardcoded English sentence asking for *"150 words in a
+warm, literary style"* regardless, on the breakup path too ([App.jsx:1945](src/App.jsx#L1945)). So
+the five conditions currently decide a title and nothing else, and two runs that ended in opposite
+places request the identical epilogue.
+
+**A run can also have no way to finish at all.** The only button that reaches an epilogue lives on
+the `specialEvent` modal, which fires on `proposal_ready` or `breakup_warning` and may
+never appear — and the state that matches none of the five conditions (discreet, cheerful,
+moderately loved; see `docs/PROPOSALS.md` §6) is the same run that fires neither event. **The hole
+in the condition table and the hole in the trigger are one run.**
+
+Designed, not built: `docs/V140_PLAN.md` §21, scheduled for v1.4.2, with `PROPOSALS.md` §6 as a
+hard prerequisite because the epilogue's register is keyed on the ending id. **Time Speed is
+deliberately not what shapes an epilogue** — it is a within-round dial and an epilogue is one jump
+past the last scene; the **story mode** and the **world** are, which is Yuhan's correction of
+2026-09-28 and the reason §21 exists.
 
 **Four of the five are what a player actually reaches — read `docs/PROPOSALS.md` §6 before changing a
 condition.** `oe_unspoken_waiting` requires `topAff > 90`, and the two conditions tested before it

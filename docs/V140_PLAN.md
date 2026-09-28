@@ -883,6 +883,55 @@ const w = probs.map(p => p.prob * Math.exp(BETA * (affinity[p.id] ?? 0)));
 certain. **`BETA = 0` reproduces today's draw exactly** — that is both the compatibility escape
 hatch and what keeps the pinned-`Math.random` Layer D guard meaningful.
 
+### 7.4 Going somewhere, and who is there — two halves, and only one is cheap
+
+**Raised by Yuhan 2026-09-28: the place picker should be an alternative to the four options, and
+going somewhere should be how you run into someone.** The first half is §7.1 and is already step 5.
+The second half is **two different mechanisms wearing one sentence**, and they should not be built
+together.
+
+| | Mechanism | Who decides | Cost |
+| --- | --- | --- | --- |
+| **(a) the rule** | the chosen place reaches the model in the choice string, and §8 says *members whose habit and tags fit this place are likelier to be here, and a member who has been absent is a reason to put her here* | the **model**, inside the round | one sentence of static prompt. No new state, no new call |
+| **(b) the engine** | `world.places[].draws` × `member.tags` builds the affinity matrix (§7.3), `pickPrimaryMember` is drawn **before** the call, and the tail carries a *centre this round on X* hint | the **client**, before the round | an LLM call at setup, a matrix in the save, a Jaccard fallback, and the engine rewrite `PROPOSALS.md` §4 has not decided |
+
+**Recommendation: (a) in v1.4.1, and (b) only if (a) demonstrably fails.** Three reasons, in
+descending order of how hard they are to argue with:
+
+1. **(b) would build on a lottery whose record is fiction.** `pickPrimaryMember` runs *after* the
+   LLM call, and its only consumer is the appearance log it writes for itself to read next time
+   (`PROPOSALS.md` §4). A place term added to that draw is as inert as the draw. The engine has to
+   reach the prompt first, and **whether it should is an open taste question about whether rotation
+   is mechanical** — not something a place feature gets to settle in passing.
+2. **(a) is free and (b) is not.** (a) is a sentence in section 8, which is already moving in step 4
+   for `places` itself. (b) is a setup-time call, a cached matrix, a save field, an offline
+   fallback, and a change to the one function carrying a pinned-`Math.random` guard.
+3. **The model is better at this than a table is.** *Who would be in the recording booth at
+   midnight* is a reasoning question — which is §7.3's own argument against embeddings, and it
+   applies one level further out, against a precomputed table at all.
+
+**What (a) needs, and step 4 must not forget it: the place has to be a FACT in the prompt, not only
+a rule.** This is the `[Rounds Absent]` lesson exactly — a rule about who fits a place is inert
+unless something says where the player just went, and the canon list does not say that. The fact
+arrives in the **choice string** (*"I head to the practice room"*), which is in the tail; the rule
+stays in section 8, which is cached. Fact in the tail, rule in the static part, rule pointing at the
+fact: the shape `[KKT Channels]` and `[Rounds Absent]` both already use.
+
+**Do not add a `[Place]` line to the tail beside it.** That is the same fact twice, and the second
+copy is the one that drifts — the `[NPC Appearances]` failure, which was a label counting
+something nothing wrote.
+
+**A discovered place reaches the model only as text in a choice, and that is enough.**
+`memory.places` is client state and never serialized (§7.2, and step 5's gate asserts it), so a
+place the model invented in round 9 and the player revisits in round 20 is carried by the choice
+string plus the ledger entry that invented it. **That is what lets the map grow without the static
+prompt moving** — the one invariant §6.1 will not trade.
+
+**Where this meets the rest of the design:** a place is the concrete anchor §19's beats need (a beat
+fires *somewhere*, and `world.places` is the list), and §21's epilogue closes on one. Both read
+the same field, which is the argument for authoring `places` properly in step 4 rather than
+minimally.
+
 ---
 
 ## 8. Player-side interaction — v1.4.2
@@ -1450,6 +1499,57 @@ drifted across four call sites once (*Known Inconsistencies 2*). New-world ids a
 > ⚠️ **No same-family option.** A cousin or adopted-sibling route is a standard K-drama shape and is
 > deliberately left out rather than quietly included; ask for it explicitly if you want it.
 
+#### The ex-girlfriend identity ships in every world — decided 2026-09-28
+
+**Yuhan's call, and it costs no code.** `主线成员前女友` is the only identity in `kpop_idol` that is a
+shared *history* rather than a structural position, and every one of these premises has a version of
+it. It is also the identity the ko golden pins (`red_velvet-solo-ko.txt`), which is why the
+constraints below are worth stating before anyone authors the prose.
+
+**The id stays `主线成员前女友` in all four worlds**, against the ASCII rule above, which gains this one
+stated exception. Two reasons, and the first is a bug the alternative would cause:
+
+- **Step 3 clears `identity` when the world changes if the new world does not declare it.** A campus
+  world spelling the same route `ex_of_main` would drop the player's identity when she switched
+  worlds *even though the new world has that exact route* — a silent reset with a correct-looking
+  cause. One id across four worlds means switching keeps the route.
+- An identity id is **stored in every save on every device**, so `主线成员前女友` can never be renamed
+  anyway. A second spelling beside it is two ids for one thing, not a migration away from one.
+
+Giving each new world `ex_of_main` and mapping the old id in `migrateSave` is the alternative.
+**Not recommended:** a save migration for cosmetics, and it re-opens the byte-identical-prompt
+invariant smoke asserts.
+
+**`reason` and `keepsake` are the variant contract, and a third key is a silent defect.**
+[`renderIdentityBackground`](../src/rag/worldLoader.js#L281) substitutes exactly those two, from two
+separate bit ranges of `backstorySeed` (`seed % n` and `(seed >>> 16) % n` — separate so the
+keepsake is not locked to the reason). A world writing `{transfer}` renders the literal `{transfer}`
+into the prompt with no error, which is the trailing-space class of defect. The two keys generalise
+cleanly, which is what makes this a contract rather than a limitation: **every ex-girlfriend premise
+has a reason it ended and a thing she kept.**
+
+| World | The reunion mechanism its background has to state | `reason` candidates |
+| --- | --- | --- |
+| `kpop_idol` | a work transfer puts them in the same building (**shipped**) | different career plans / family pressure / too young / too much time apart |
+| `campus` | she is back on the same campus — a transfer, a returning student, a new posting | plans after graduation / her family / you were both young / she transferred away |
+| `office` | a reorg or a hire puts them on the same team | she took the posting abroad / the promotion / you were both too tired / her engagement |
+| `chaebol` | the two families' business puts them in the same room | the merger collapsed / an arranged engagement / the scandal / your family's fall |
+
+**If a world ever needs a third variant key, generalising the loop must reproduce those two ranges
+exactly** — `reason` off the low bits, `keepsake` off bit 16 — or the ko golden moves *and*
+every ex-girlfriend save in flight re-rolls its backstory. Same frozen-setup-token rule as
+`form.pace` in step 2, one field over.
+
+**So each new world's list is six structural plus the ex plus `H`**, matching `kpop_idol`'s
+seven-plus-`H` exactly, and one entry comes out of each table above. Recommended cuts, Yuhan's to
+overrule:
+
+| World | Cut | Why that one |
+| --- | --- | --- |
+| Campus | `peer_student` | "pure age register" is the thinnest premise in the table; `senior_student` and `junior_student` already cover the age axis *with direction*, and a same-year peer is close to what the ex route now is |
+| Office | `contractor` | "in the building but not of it" is the weakest plot engine, and `hr` already carries outsider-with-power |
+| Chaebol | `tutor` | "living in the house" duplicates `secretary`'s proximity, while `bodyguard` is the more distinct register — she uses the title, nobody uses hers |
+
 **`chaebol` as a world still collides with `财阀` as a kpop identity** — the identity means *the
 player is a chairman in the idol world*, the world means *the conglomerate is the setting*. Two
 things, one name, one picker: the `[Stage Changes]` id-vs-name problem one layer up. The world id can
@@ -1463,10 +1563,10 @@ all three languages, and smoke should assert that no world's display name equals
 | **1** | ✅ Schema + registers + index, `kpop_idol` only: `_registers/<lang>.json` carrying today's `addressForms` **verbatim**, resolved back onto `world.addressForms` by `parseWorld`; `world.country`; `setting`, `tone`, `statNotes`, `platforms`, `places`, `scenario`, `roleLabel`, `castLore`, `useGroupLore`; `modes` with the four keyed rules carried over from today's four pace rules; `public/worlds/index.json`. `parseWorld` validates and **throws** per field. `paces` stays untouched. Root `worlds/` mirror re-synced. **Nothing renders the new fields yet** | ✅ **Done.** Goldens byte-identical and untouched on disk, mirrors in sync, smoke **1204 → 1232**, 14 mutations RED |
 | **2** | ✅ Story mode: four-way switch in Settings shaped like Time Speed, `rv_sim_story_mode`, the rule out of section 6 and into the tail via `buildTailRules`, Time Speed's line renamed `[Time Speed]`, `PACES` / `t.paces` / `world.paces` deleted, legacy seeding through `resolveStoryMode` | ✅ **Done.** Goldens moved **once** — 3 files, 3 deletions, 0 insertions, all the `[Pace: …]` line — diff read. Layer J asserts the paired invariant. Smoke **1232 → 1262**, **24 mutations RED** across two rounds |
 | **3** | Setup page: pace picker out, **world picker in** at the same slot; order becomes name / birth year / world / identity; changing world clears `identity` and `customIdentity` to empty | Both doors already converge on Setup ([App.jsx:1285](../src/App.jsx#L1285)), so both get worlds. A world change leaves no id the new world does not declare — asserted on what Setup **forwards**, not on its source |
-| **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
-| **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design) | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
+| **4** | Section 8 + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` seeding round 1, `statNotes`, and `castLore`/`useGroupLore` replacing the hardcoded agency phrasing | `update-golden.mjs` run once, diff read. **`kpop_idol`'s section 4 output must not move** — `castLore` is verbatim and `useGroupLore` is true, so only section 8 appears in the diff. §6 estimates +140 tokens; **measure** it |
+| **5** | Discovered places + map picker: `memory.places` client-side, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting *"I head to \<place\>"* as the round's choice (§7.1 — moving costs a round, by design). **§7.4 is the half that is NOT here:** the affinity engine stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | **Layer J asserts the static prompt is byte-identical across rounds in which places were discovered** — §6.1's hard invariant. Mutation-verify by making `buildSystemPrompt` read `memory.places` and confirming RED |
 | **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
-| **7** | Content: campus, office, chaebol. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
+| **7** | Content: campus, office, chaebol — each with the ex-girlfriend identity (see below) and six structural ones. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
 
 **Step 1 is done.** `public/worlds/_registers/{zh,en,ko}.json` carries the Korean table once
@@ -1597,15 +1697,21 @@ indistinguishable from a passing one.**
   2**: the classic path does get worlds — in step 3, because both doors already pass through Setup,
   which is earlier than the merge and retires the "new worlds are Custom-door-only" gap the previous
   draft of this plan had to accept.
-- **Authored special-event plots per mode** (§19) and **endings + After Story**. The switch is their
-  foundation; `PROPOSALS.md` §6's ending precedence is the prerequisite.
+- **Authored special-event plots per mode** (§19) and **endings + After Story** (§21). The switch is
+  their foundation; `PROPOSALS.md` §6's ending precedence is the prerequisite for both.
+  **§21.3 names the one obligation this release carries because of them, and it is negative:** step 7
+  authors three worlds' prose and none of it may promise an outcome the ending table cannot produce.
+- **The place map's second half** — §7.4. Step 5 ships the picker and the discovered-place map; *which
+  member is likely to be there* is a prompt rule in step 4, not a mechanism, and the affinity matrix
+  that would make it mechanical stays in v1.4.2 behind `PROPOSALS.md` §4.
 
 ### v1.4.2
 
 Unified game entry (groups & cast & world on one screen); `WorldBuilder.jsx` +
 `rv_sim_worlds_custom_v14`; player KKT/IG composers; `playerPostReactions` in the schema and
-parser; relations in §4; affinity matrix call + `BETA` prior in `probabilityEngine.js`; **plot mode
-(§19)** — authored story beats, offered as option D, injected into the tail.
+parser; relations in §4; affinity matrix call + `BETA` prior in `probabilityEngine.js` (§7.4); **plot
+mode (§19)** — authored story beats, offered as option D, injected into the tail; **endings and the
+epilogue (§21)** — one resolver, an epilogue composed from ending + story mode + world.
 
 ### v1.5.0
 
@@ -1708,6 +1814,12 @@ Still open, and none of it blocks starting step 1:
    each, tabled under v1.4.1. Cut or add before step 7 authors their backgrounds, because a
    background is a paragraph per language and reworking the list afterwards is three times the edit.
    A same-family chaebol route is deliberately absent.
+
+   **Partly answered 2026-09-28: the ex-girlfriend route ships in every world**, keeping the id
+   `主线成员前女友` across all four — see *The ex-girlfriend identity ships in every world* under v1.4.1
+   for why one id rather than four, and for the `reason`/`keepsake` contract a new world must
+   not step outside. **What is still open is which structural identity comes out of each table** to
+   keep every world at seven plus `H`; three recommendations are tabled there.
 6. **`STAR_LEVELS` — delete the constant, or give it a world field?** It is dead today: defined at
    [App.jsx:58](../src/App.jsx#L58), referenced nowhere, and `form.starLevel` is `""` in every save.
    Deleting is recommended. Wiring it as *prior relationship to the cast* (fan level in kpop, family
@@ -1723,9 +1835,22 @@ Still open, and none of it blocks starting step 1:
    endings are effectively unreachable, and endings plus After Story (`番外`) are the feature the
    story-mode switch is the foundation for. Fix the precedence before writing content that hangs off
    an ending nobody can reach.
-9. **Should `secrecy` become `pressure`, inverted, to read uniformly across worlds?** Raised by
-   Yuhan during step 2. **Recommendation: no — give the world a display `statLabels` instead, and
-   keep the field, its polarity and its thresholds.** Three reasons:
+
+   **§21 is why, written 2026-09-28, and it is the decision's consequence rather than a second
+   question.** The epilogue's register is keyed on the ending id. Two of the five ids are shadowed
+   today, so authoring an epilogue register per ending before the precedence is decided writes prose
+   for endings nobody reaches — the shape decision 6 already tracks. **This is the one item on this
+   list that blocks another.**
+9. **✅ RESOLVED 2026-09-28 — `secrecy` stays, in every world.** Yuhan's call, agreeing with the
+   recommendation below: the field keeps its name, its polarity and its thresholds, and a per-world
+   display `statLabels` (§4.1) remains the answer to wanting different words on screen. Nothing
+   is inverted and no migration is owed. **The three reasons are kept rather than deleted**, because
+   the second one is a standing constraint on any future stat change, not an argument that has been
+   used up:
+
+   Should `secrecy` become `pressure`, inverted, to read uniformly across worlds? Raised by
+   Yuhan during step 2. **Recommendation was: no — give the world a display `statLabels` instead,
+   and keep the field, its polarity and its thresholds.** Three reasons:
 
    - **`pressure` is the one name it cannot have.** The story mode `pressure` shipped in step 2, so a
      stat called Pressure sits in the tail beside `[Story Mode: Pressure]` — two different quantities
@@ -1812,10 +1937,12 @@ The game has **no authored beats at all**. Every scene is invented by the model 
 rules, which is why a long session drifts toward pleasant sameness — practice room, late night,
 coffee, repeat. The prompt can bias tone; it cannot supply an event decided elsewhere.
 
-`relationshipEvents.js` looks like a counter-example and is not. `proposal_ready`,
-`breakup_warning` and `pressure_warning` render a **modal** ([App.jsx:1453](../src/App.jsx#L1453))
-and never reach the prompt. Nothing in the current engine tells the model *what happens this
-round*.
+`relationshipEvents.js` looks like a counter-example and is not. `proposal_ready` and
+`breakup_warning` render a **modal** ([App.jsx:1934](../src/App.jsx#L1934)) and never reach the
+prompt. Nothing in the current engine tells the model *what happens this round*.
+
+**And `pressure_warning` is filtered for but never produced** — see 21.1, which is also where it
+gets a reader.
 
 The content already exists. `src/config/specialEvents.js` on tag `archive/dev-v12.0.0` is 929
 lines of hand-written beats, already trilingual:
@@ -1876,7 +2003,7 @@ things then fall out for free:
 Consume-on-fire mutates the memory **clone** and commits only on success, exactly as
 `collapseHistoryIfNeeded` does. A failed round must not burn a beat.
 
-### 19.4 One toggle, and the class comes from `pace`
+### 19.4 One toggle, and the class comes from the story mode
 
 v12 shipped **two** overlapping settings, which is why the grouping reads as unclear today. Its
 form carries both at once:
@@ -1886,21 +2013,29 @@ form carries both at once:
 ```
 
 and the two value sets are the same four axes twice over. A player cannot tell the questions
-apart. Collapse them: [`PACES`](../src/App.jsx#L50) is already chosen at setup and currently only
-nudges tone, so let it pick the pool and finally do something.
+apart. Collapse them: the **story mode** is already a live four-way switch as of v1.4.1 step 2, so
+let it pick the pool.
 
-| `pace` | Pool |
+**Rewritten 2026-09-28.** This section was written against `PACES` at `App.jsx:50` and `form.pace`,
+both **deleted in step 2**. The mode is no longer a setup field at all: it is `storyMode` in
+`rv_sim_story_mode`, changeable mid-run, and its rule reaches the model through `buildTailRules` in
+the dynamic tail. That makes the mapping below better than it was — a player who switches to
+`dramatic` at round 12 switches pools with it, which a setup-time field could not do — and it makes
+`rv_sim_plotmode` the **only** new setting, since the class picker already exists.
+
+| `storyMode` | Pool |
 | --- | --- |
-| 慢热现实向 | `CAREER_EVENTS` + `EMOTIONAL_EVENTS` (slice-of-life) |
-| 浪漫情感向 | `ROMANTIC_EVENTS` |
-| 高压舆论向 | `PR_CRISIS_EVENTS` |
-| 修罗海王向 | `DRAMA_EVENTS` |
+| `free` | `CAREER_EVENTS` + `EMOTIONAL_EVENTS` (slice-of-life) |
+| `romance` | `ROMANTIC_EVENTS` |
+| `pressure` | `PR_CRISIS_EVENTS` |
+| `dramatic` | `DRAMA_EVENTS` |
 
 Settings gets **one boolean**, `rv_sim_plotmode`, default **off** — identical current behaviour
 for every existing player, and the honest default for a feature that changes how the story moves.
-A setting rather than a save field, consistent with Time Speed, which also changes the writing.
-No second class picker. If play shows per-class control is wanted, it belongs beside `pace` on
-the setup page, not in settings.
+A setting rather than a save field, consistent with Time Speed and now with the story mode itself,
+both of which also change the writing. No second class picker. If play shows per-class control is
+wanted, it belongs beside the story mode in settings — **not** on the setup page, which is where
+this paragraph used to send it and where the mode no longer lives.
 
 ### 19.5 Where the beats live
 
@@ -2082,3 +2217,143 @@ both already defined and not duplicated — `PLAYER_BIRTH_YEAR_MIN/MAX` (1946-20
 
 **Gate: the goldens must not move.** Nothing in this batch is prompt-facing, exactly as the
 role-first picker batch was not.
+
+---
+
+## 21. Endings and the epilogue — v1.4.2
+
+**Raised by Yuhan 2026-09-28, immediately after step 2, as a rough mechanism to design against
+rather than a feature to build now.** His correction is worth stating first, because it repoints a
+finding of mine from that step:
+
+> **What should shape an epilogue is the story mode — the rhythm the run was played in — and the
+> world. Not Time Speed.**
+
+That is right, and the reason is structural. **Time Speed is a within-round dial** — how much clock
+passes in *this* scene — and an epilogue is one jump past the last scene, so there is nothing for it
+to modulate. It keeps being forwarded to the epilogue call (step 2 wired it, and the call-site guard
+counts all four), because a dial that reaches three of four call sites is the drift this repo has
+recorded twice; but **nothing in the epilogue instruction should read it.** My step 2 note that Time
+Speed "has never applied to an epilogue in any release" was a true observation about a wire and the
+wrong conclusion about what it was for.
+
+And the **ending** — HE / SE / BE / OE — is chosen by stats and affection. That is exactly what the
+five `achievements.js` conditions already do. The missing wire is between the two.
+
+### 21.1 Three things are wrong today, and they are one bug
+
+**1. The ending and the epilogue are separate systems that share no state.**
+
+| | Fires | The button says | Ids it can produce |
+| --- | --- | --- | --- |
+| `checkAchievement` | every round from 30 on | **"Continue Playing"** | 3 of 5 (`PROPOSALS.md` §6) |
+| `specialEvent` | `proposal_ready` or `breakup_warning` | **"End Game & View Epilogue"** | 2 |
+
+So the ending a player earned and the epilogue she reads are keyed on **different triggers**, and
+the epilogue call is handed no ending at all. A run that closes on `be_you_left` and a run that
+closes on `he_hidden_love` request the identical epilogue.
+
+**2. The epilogue's prompt is one hardcoded English sentence with a fixed tone**, at
+[App.jsx:1945](../src/App.jsx#L1945):
+
+> `Generate an epilogue: <specialEvent.title>. A short story set after this event. 150 words in a warm, literary style. Return ONLY valid JSON.`
+
+*"Warm"* is asked for on the breakup path too. And `specialEvent.title` is **already localized**
+and already carries an emoji and a label prefix, so the model receives
+`Generate an epilogue: 💔 感情危机` inside an English instruction — the same id-inside-a-sentence
+shape as the bare `Progression Pace: 高压舆论向` that step 7 of v1.4.0 fixed.
+
+**3. `pressure_warning` has no producer.** [mainAgent.js:861](../src/agent/mainAgent.js#L861)
+filters `specialEvent` on three types; `checkRelationshipEvents` returns `love_triangle`,
+`proposal_ready` and `breakup_warning` and nothing else. CLAUDE.md claimed all three were
+surfaced — corrected. **A filter that enumerates is the cheapest place to find a missing producer**,
+cheaper than grepping for writers, and it is the standing dead-mechanism shape with the halves
+swapped.
+
+It is **not deleted**, unlike `NPC_APPEARANCE_CHANCE`, and the difference is stated rather than
+assumed: that constant had no plan, and this branch has a designed reader in §21.2 — the natural
+close of a pressure-mode run.
+
+### 21.2 The design
+
+**One resolver, three sources, and each source answers a different question.**
+
+`resolveEnding(stats, affections, roundNum)` becomes the single answer to *which ending is this*:
+exported and pure, in the `addSaveSlot` / `membersNamedIn` pattern. It replaces nothing — it
+**is** `checkAchievement`'s condition table, given a name and a second caller.
+
+| Source | Answers | Lives in |
+| --- | --- | --- |
+| the **ending** | what happened, and the register of the closing — a BE does not close warmly | `achievements.js`, one line per id per language |
+| the **story mode** | what an ending *means* in that rhythm | `world.modes[id].epilogue` |
+| the **world** | where, and in what life — a comeback stage, a graduation, a quarterly board | `world.epilogueFrame` |
+
+**The mode's epilogue line is a SECOND field, never a reuse of `modes[id]`.** Today's rule is
+written in round units — *"secrecy changes doubled"*, *"don't rush"* — and an epilogue's whole job
+is to jump to the end, so feeding it the round rule puts two quantities under one label again, which
+is the lesson step 2 exists for. What a mode contributes to an *ending* is different in kind:
+`free` closes on the relationship itself, `romance` on the confession, `pressure` on
+**whether the secret held**, `dramatic` on where the other members landed.
+
+**All three go in the `playerChoice` string, not in `buildSystemPrompt`.** The epilogue is one
+call whose ~5,500-token prefix is already cached by the run that just finished; putting ending text
+in the static prompt would pay full price on all of it for a single call, *and* would make the
+prompt a function of live state. The tail is the always-miss message and this is what it is for —
+the same argument that put the story-mode rule there in step 2.
+
+**The trigger has to widen, and this is the player-visible half.** Today a run that never fires
+`proposal_ready` or `breakup_warning` has **no path to an epilogue at all**: the only button
+that reaches one lives on a modal that may never appear. So:
+
+- **Settings gets an *End this story* entry** that resolves the ending and runs the epilogue.
+- **The special-event modal's button names the ending it would close on**, so the player is choosing
+  an outcome rather than pressing a button labelled "End Game" and finding out afterwards.
+- **The achievement modal stops saying "Continue Playing" and nothing else.** An ending reached at
+  round 30 that the player then plays past is fine — they accumulate by design — but it should say
+  which ending is currently *live*, because that is the one the epilogue will use.
+
+**And the last place is the epilogue's anchor** (§7.4). `world.epilogueFrame` says what "later"
+looks like in that world; the run's final `scene` says where it ended. Both are cheap and neither
+needs new state.
+
+### 21.3 Ordering, and what v1.4.1 must not get wrong
+
+**`PROPOSALS.md` §6 is a hard prerequisite**, and §21 is the reason — §18 decision 8 now says so.
+The epilogue's register is keyed on the ending id, and two of the five ids are shadowed today.
+Authoring an epilogue register for an ending nobody reaches is the `NPC_APPEARANCE_CHANCE` shape,
+and it would be three languages deep before anyone noticed.
+
+**Nothing is pre-shaped in v1.4.1, deliberately.** The tempting cheap move is to change
+`world.modes[id]` from a string to `{ rule }` in step 4 — while three of the four worlds do not
+exist yet — so that adding `epilogue` later touches 3 files instead of 12.
+**Recommendation: do not**, for one reason that outweighs the nine files: §21.2 may well want the
+epilogue register keyed on **(mode × ending)** rather than on mode alone, and pre-shaping for the
+wrong key costs more than the mechanical edit it saves. `getModeRule` is the **single** reader of
+that field, so the change is one line plus data whenever it comes.
+
+`world.epilogueFrame` is not added in v1.4.1 either, on the plain rule: **it arrives with whatever
+prints it.** Same call that kept `roleLabel` out of step 1.
+
+**So v1.4.1's obligation is negative, and free:** step 7 authors three worlds' prose, and **none of
+it may promise an outcome the ending table cannot produce.** A world whose `scenario` or `phases`
+promise a public wedding while no reachable ending is a public wedding is two sections of the prompt
+disagreeing — the defect class this prompt keeps hitting, and the one nothing fails on.
+
+### 21.4 Test obligation
+
+- `resolveEnding` is pure and unit-tested **on the conditions as decided, not as implemented**.
+  The partition guard `PROPOSALS.md` §6 asks for — no reachable state falls through, no ending is
+  shadowed — is written *after* the precedence is decided, or it pins today's behaviour as the
+  requirement.
+- **The epilogue is asserted on what it forwards** — the ending id, the mode id, the world's frame —
+  never on the wording of the instruction. Fourth instance of that rule after `--identity`,
+`--provider` and `--mode`: **the guard belongs where the value is passed.**
+- **Layer J's paired invariant extends to the epilogue call**: the static prompt is byte-identical
+  across a change of ending *and* across a change of mode, **paired with** the assertion that the
+  tail is what moves. Either half alone is vacuous — step 2 shipped that mistake and caught it in
+  its own mutation round.
+- A live epilogue per ending per mode is 5 × 4, which is too many to gate on. The honest gate is
+  **one live epilogue per ending id** on a single mode, plus the offline forwarding guard for the
+  rest of the matrix.
+- **`pressure_warning` gets a producer or gets deleted in the same commit.** It does not stay a
+  filtered-for value with nothing behind it past v1.4.2.

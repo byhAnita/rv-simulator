@@ -356,6 +356,25 @@ five conditions partition the reachable state space, so that whatever the answer
 through and no ending is shadowed. That guard is worth writing **after** the conditions are decided,
 not before — written now it would pin today's behaviour as the requirement.
 
+### It now blocks something — 2026-09-28
+
+**This stopped being a cleanup when the epilogue got a design.** `docs/V140_PLAN.md` §21 composes
+the epilogue's prompt from the **ending id** plus the story mode plus the world, which means the
+ending table stops being a set of badges and becomes the key an authored register hangs off. Writing
+an epilogue register for `oe_unspoken_waiting` — reachable only at `secrecy === 60` exactly —
+is authoring three languages of prose for an ending almost nobody sees.
+
+Two more facts found while designing §21, both of which make the precedence question more urgent
+rather than differently shaped:
+
+- **The epilogue is handed no ending today.** It is triggered by `specialEvent` (two reachable
+  types) and `checkAchievement` (five ids) never reaches it, so the five conditions currently
+  decide nothing a player reads except a modal's title.
+- **The state that reaches no ending is also the state with no way to finish.** A discreet, cheerful,
+  moderately loved run matches none of the five *and* fires neither special event, so it has no
+  epilogue path at all — the hole in the condition table and the hole in the trigger are the same
+  run. §21.2's *End this story* entry closes the second half; only a decision closes the first.
+
 ---
 
 ## 7. The option fallbacks are English in every language
