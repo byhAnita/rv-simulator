@@ -26,16 +26,24 @@ export const PHOTO_QUALITY = 0.8;
 export const PHOTO_MAX_COUNT = 30;
 
 // Her wallpaper -- step 8. Portrait, because every surface it lands on is the
-// 360px overlay panel: the chat background in Bubble and KakaoTalk, the post
-// image on Instagram, the header banner on Weverse.
+// 360px overlay panel: the chat background in Bubble, KakaoTalk and Weverse, and
+// the post image on Instagram.
 //
-// 360x640 at q0.7 rather than the photo's 256x256 at q0.8: it is ~3.5x the
-// pixels, so it costs ~3x the string even at the lower quality, and it sits
-// behind a scrim with text over it -- softness is invisible where a face's
-// would not be. The count is 8 and not 30 because a wallpaper is only ever seen
-// for a member in the running cast, which is one main plus subs plus NPCs.
+// 2:3 AND NOT 9:16, corrected after the first hand test. The ratio has to be the
+// one the wallpaper is actually SEEN at, and that is not the panel -- it is the
+// panel's scrolling content area: 360 wide by ~528 tall, once the 38px title bar
+// and the 34px member strip are taken off a 600px panel. At 9:16 the chat
+// background lost a sixth of every upload to a crop nobody asked for. At 2:3 it
+// loses almost nothing, and Instagram's square became a 4:5 portrait post -- a
+// real Instagram ratio -- so that surface trims ~17% instead of the 33% a square
+// would take out of a 2:3 image.
+//
+// Still coarser than the photo (q0.7, not q0.8): it sits behind a scrim with
+// text over it, where softness is invisible in a way a face's is not. The count
+// is 8 and not 30 because a wallpaper is only ever seen for a member in the
+// running cast, which is one main plus subs plus NPCs.
 export const WALL_W = 360;
-export const WALL_H = 640;
+export const WALL_H = 540;
 export const WALL_QUALITY = 0.7;
 export const WALL_MAX_COUNT = 8;
 
@@ -49,9 +57,13 @@ export const WALL_MAX_COUNT = 8;
 // which assumed every photo is typical. Both fit, but quote the right one.
 export const PHOTO_MAX_CHARS = 40 * 1024;
 
-// Same backstop reasoning as PHOTO_MAX_CHARS, scaled: ~55 KB is the expected
-// string for a 360x640 WebP q0.7, so 90 KB catches an image that resists
+// Same backstop reasoning as PHOTO_MAX_CHARS, scaled: ~46 KB is the expected
+// string for a 360x540 WebP q0.7, so 90 KB catches an image that resists
 // compression without rejecting an ordinary one. Worst case 8 x 90 KB = 720 KB.
+//
+// The cap did NOT come down with the pixels. It is a backstop for the image that
+// compresses badly, and lowering it in step with the typical case is how a
+// backstop starts refusing ordinary uploads.
 export const WALL_MAX_CHARS = 90 * 1024;
 
 /** Read one image map. Always an object, even if the key is absent or corrupt. */
@@ -146,14 +158,115 @@ export function photoBytes(photos) {
 // already carries two of (NPC_APPEARANCE_CHANCE, NPC_COOLDOWN_ROUNDS) as a
 // standing example of what that costs, and it is eight lines to write again.
 
+
+// `downscaleCover(file, w, h, q)` and its two wrappers `downscale` /
+// `downscaleWall` were here, and step 8's hand test deleted them. They picked
+// the crop THEMSELVES — the largest centred region with the target's aspect
+// ratio — which is right for an arbitrary image and wrong for a face: a portrait
+// held at arm's length puts the head in the top third, so a centred square crop
+// reliably cut it off, with nothing on screen to say why or any way to correct
+// it. The player chooses the region now (ImageCropper.jsx), and a chosen region
+// plus an automatic one is two answers to one question.
+//
+// Same reasoning as `pruneOrphans` one comment up: not kept "in case", because a
+// function with no caller is what this repo already carries two constants as a
+// standing example of. `cropRect` below reproduces the old centre crop exactly
+// at zoom 1 with no offset, and smoke asserts that — so the behaviour survives
+// as the cropper's starting position rather than as dead code.
+
 /**
- * Draw a picked file to a w x h canvas and return a WebP data URL.
+ * The zoom at which an image just covers a frame. Pure.
  *
- * Browser only — the one function here that cannot be tested offline.
- * Center-crops to the TARGET ASPECT RATIO before scaling, so neither a portrait
- * photo in a square avatar nor a landscape one in a portrait wallpaper is
- * squashed. The subject of both is near the middle of the frame; letterboxing
- * would spend the pixels on empty bars instead.
+ * Below it the frame would show through at one pair of edges; at it exactly one
+ * axis fits and the other overflows. It is the cropper's zoom=1, which is what
+ * makes "confirm immediately" produce the centred crop the old code produced.
+ */
+export function coverScale(iw, ih, fw, fh) {
+  if (!(iw > 0 && ih > 0 && fw > 0 && fh > 0)) return 1;
+  return Math.max(fw / iw, fh / ih);
+}
+
+/**
+ * Hold a pan inside the image. Pure.
+ *
+ * `dx`/`dy` move the image's centre away from the frame's, in FRAME pixels, so
+ * the bound is half the overflow on that axis. Returning the clamped pair rather
+ * than rejecting it is what makes a drag feel like it stops at the edge instead
+ * of snapping back — and it is the reason the frame can never show a blank
+ * corner, which is a crop the player would have to notice in the game.
+ */
+export function clampOffset(dx, dy, iw, ih, fw, fh, zoom = 1) {
+  const s = coverScale(iw, ih, fw, fh) * (zoom > 0 ? zoom : 1);
+  const maxX = Math.max(0, (iw * s - fw) / 2);
+  const maxY = Math.max(0, (ih * s - fh) / 2);
+  return {
+    dx: Math.min(maxX, Math.max(-maxX, Number(dx) || 0)),
+    dy: Math.min(maxY, Math.max(-maxY, Number(dy) || 0)),
+  };
+}
+
+/**
+ * The region of the source image the frame is showing. Pure.
+ *
+ * Returns `{sx, sy, sw, sh}` in source pixels, ready for `drawImage`. The frame
+ * dimensions are the ones on SCREEN, and the result is invariant to their scale
+ * — only their ratio matters — so the preview can be any convenient size while
+ * the output stays WALL_W x WALL_H or PHOTO_PX square.
+ *
+ * This is the half of the cropper that can be wrong in a way nobody sees until
+ * the image is already in the game, which is why it is pure and unit-tested
+ * rather than living inside the component that drags it.
+ */
+export function cropRect({ iw, ih, fw, fh, zoom = 1, dx = 0, dy = 0 }) {
+  const s = coverScale(iw, ih, fw, fh) * (zoom > 0 ? zoom : 1);
+  // ONE enforcement of "the frame stays inside the image", and this is it. The
+  // first version also bounded the result into the image afterwards, and two
+  // clamps of one rule is two clamps neither of which can be shown to work:
+  // break either and the other silently covers for it, so the guard that is
+  // supposed to catch a blank corner passes against both halves being wrong.
+  const { dx: cx, dy: cy } = clampOffset(dx, dy, iw, ih, fw, fh, zoom);
+  const sw = Math.min(iw, fw / s);
+  const sh = Math.min(ih, fh / s);
+  // The image's top-left in frame coordinates, inverted into source pixels.
+  const left = (fw - iw * s) / 2 + cx;
+  const top = (fh - ih * s) / 2 + cy;
+  // `Math.max(0, …)` is a floating-point floor and not a bound: exactly at the
+  // clamp limit the division can land on -1e-13, and drawImage would then read
+  // from outside the bitmap.
+  return { sx: Math.max(0, -left / s), sy: Math.max(0, -top / s), sw, sh };
+}
+
+/**
+ * Decode a picked file into an <img>. Browser only.
+ *
+ * Split from the drawing so the cropper can show the image while the player
+ * frames it: the same decoded bitmap is measured, previewed and finally cropped,
+ * rather than being decoded once per attempt.
+ *
+ * The object URL is revoked by `releaseImage` and not here, because the element
+ * this resolves with is the one the preview keeps on screen.
+ */
+export function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) { reject(new Error("no_file")); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode_failed")); };
+    img.src = url;
+  });
+}
+
+/** Release what `loadImageFile` held. Safe to call twice. */
+export function releaseImage(img) {
+  try { if (img?.src?.startsWith("blob:")) URL.revokeObjectURL(img.src); } catch { /* nothing to release */ }
+}
+
+/**
+ * Draw one crop region to a w x h canvas and return a WebP data URL.
+ *
+ * Browser only — the one function here that cannot be tested offline, and the
+ * only canvas routine in the module, so the WebP fallback has one home.
  *
  * Falls back to JPEG where WebP is not encodable. Safari supported
  * canvas.toDataURL("image/webp") only from 14, and a browser that cannot encode
@@ -161,47 +274,15 @@ export function photoBytes(photos) {
  * several times larger and would trip the size guard, so the format is checked
  * rather than assumed.
  */
-export function downscaleCover(file, w, h, quality = PHOTO_QUALITY) {
-  return new Promise((resolve, reject) => {
-    if (!file) { reject(new Error("no_file")); return; }
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      try {
-        // The largest region of the source with the target's aspect ratio.
-        const want = w / h;
-        const have = img.width / img.height;
-        const sw = have > want ? img.height * want : img.width;
-        const sh = have > want ? img.height : img.width / want;
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img,
-          (img.width - sw) / 2, (img.height - sh) / 2, sw, sh,
-          0, 0, w, h);
-        let out = canvas.toDataURL("image/webp", quality);
-        if (!out.startsWith("data:image/webp")) {
-          out = canvas.toDataURL("image/jpeg", quality);
-        }
-        resolve(out);
-      } catch (e) {
-        reject(e);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode_failed")); };
-    img.src = url;
-  });
-}
-
-/** A square avatar. The original call, now one aspect ratio of the general one. */
-export function downscale(file, px = PHOTO_PX, quality = PHOTO_QUALITY) {
-  return downscaleCover(file, px, px, quality);
-}
-
-/** Her wallpaper: portrait, to fill the 360px overlay panel. */
-export function downscaleWall(file) {
-  return downscaleCover(file, WALL_W, WALL_H, WALL_QUALITY);
+export function renderCrop(img, rect, w, h, quality = PHOTO_QUALITY) {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, w, h);
+  let out = canvas.toDataURL("image/webp", quality);
+  if (!out.startsWith("data:image/webp")) {
+    out = canvas.toDataURL("image/jpeg", quality);
+  }
+  return out;
 }

@@ -81,15 +81,24 @@ const en = {
     photoFailed: "Could not read that image — try another.",
     photoFull: "Photo store is full (30).",
     photoReplace: "Change photo",
-    // Her wallpaper: the chat background in Bubble and KakaoTalk, the post image
-    // on Instagram, the header banner on Weverse. One upload, four surfaces.
+    // Her wallpaper: the background of every panel she posts in — Bubble,
+    // KakaoTalk and Weverse — and the post image on Instagram. One upload, four
+    // surfaces, the same job on each. It was Weverse's header banner until the
+    // first hand test, which is one upload meaning two different things.
     wall: "Wallpaper",
     wallReplace: "Change wallpaper",
     wallRemove: "Remove wallpaper",
     wallFull: (max) => `Wallpapers are full (${max}). Remove one to add another.`,
     castImages: "Photos",
-    castImagesHint: "Her photo shows on every screen she appears on. Her wallpaper backs her chats, her Instagram post and her Weverse card.",
+    castImagesHint: "Her photo shows on every screen she appears on. Her wallpaper backs her chat and Weverse panels, and is her Instagram post.",
     imagesUsed: (kb) => `${kb} KB used`,
+    // The crop step. It is a confirmation, so the title names WHAT is being
+    // framed -- the same word the button that opened it used.
+    cropTitle: (what) => `Frame her ${String(what).toLowerCase()}`,
+    cropHint: "Drag to move it, pinch or use the slider to zoom. What you see is what is kept.",
+    cropConfirm: "Use this",
+    cropZoom: "Zoom",
+    cropLoading: "Opening…",
     missing: (fields) => `Still needed: ${fields}`,
     castFull: "Custom cast is full (20). Delete one to add another.",
     saveFailed: "Not saved — browser storage is full.",

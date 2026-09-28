@@ -17,14 +17,25 @@ export default function WeverseOverlay({ memberId, members, socialFeeds, allTarg
           <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>{t.social.weverse.title}</span>
         </div>
         <MemberSelector currentId={viewingId} onSelect={setViewingId} members={allTargetMembers} platform="weverse" theme={theme} photos={photos} />
-        <div style={{ flex: 1, overflowY: "auto", padding: 12, background: isLight ? "#faf7f0" : undefined }}>
+        {/* Her wallpaper behind the whole feed, exactly as in Bubble and
+            KakaoTalk — corrected after the first hand test. It was the post
+            card's banner, which made one upload mean four different things
+            across four platforms and gave this panel the only surface where the
+            wallpaper was a small strip. One wallpaper, one job: it is the
+            background of the panel she is posting in. */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 12, background: isLight ? "#faf7f0" : undefined, ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.5)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", backgroundAttachment: "local" } : {}) }}>
           {feed && feed.content ? (
-            <div style={{ borderRadius: 10, border: `1px solid ${isLight ? "#a08060" : "rgba(232,120,176,.15)"}`, overflow: "hidden", background: isLight ? "rgba(100,65,20,.05)" : "rgba(255,255,255,.05)" }}>
-            {/* Artist header, with her wallpaper as the card's banner behind it.
-                Weverse posts are attributed on the post itself; this card showed
-                only prose, so the member you were reading was named nowhere
-                except the tab you had tapped to get here. */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", ...(wall ? { backgroundImage: `${wallScrim(isLight, 0.4)},url(${wall})`, backgroundSize: "cover", backgroundPosition: "center" } : {}) }}>
+            /* The card goes NEARLY OPAQUE over a wallpaper. Its ordinary fill is
+                a 5% tint, which is invisible against a plain panel and useless
+                against a photograph — the same reason the chat bubbles in Bubble
+                and KakaoTalk keep opaque fills on top of the scrim. A post is a
+                block of prose, not a chat line, so it is the surface that needs
+                it most. */
+            <div style={{ borderRadius: 10, border: `1px solid ${isLight ? "#a08060" : "rgba(232,120,176,.15)"}`, overflow: "hidden", background: wall ? (isLight ? "rgba(250,247,240,.92)" : "rgba(20,14,22,.86)") : (isLight ? "rgba(100,65,20,.05)" : "rgba(255,255,255,.05)") }}>
+            {/* Artist header. Weverse posts are attributed on the post itself;
+                this card showed only prose, so the member you were reading was
+                named nowhere except the tab you had tapped to get here. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
               <MemberFace member={m} photo={photos[viewingId]} size={32}
                 border={`1.5px solid ${isLight ? "rgba(255,255,255,.7)" : "rgba(255,255,255,.25)"}`} />
               <div style={{ minWidth: 0 }}>

@@ -542,6 +542,59 @@ is 33 ordered choices, so offer 33 choices.
 
 ---
 
+### A crop the player chooses, with the geometry outside the canvas — v1.4.0
+
+**What it is.** Turning a picked image into a stored one in two halves: pure functions that decide
+*which region of the source is kept* (`coverScale`, `clampOffset`, `cropRect` in
+`src/utils/imageStore.js`), and one browser-only function that draws that region
+(`renderCrop`). The component that lets the player drag and pinch (`ImageCropper.jsx`) holds
+zoom and offset in state and calls the pure functions; it computes no geometry of its own.
+
+**What it replaced, and how that fell short.** `downscaleCover(file, w, h, q)` did all of it at
+once: decode, pick the largest centred region with the target aspect ratio, scale, encode. It is a
+reasonable default and it was wrong in practice on every portrait, because a photo taken at arm's
+length puts the head in the top third and a centred square crop cuts it off. The player saw a
+different result for every upload with no statement anywhere of what the rule was, and reported it
+as *"the ratio of the photo and wallpaper is not fixed"* — **an automatic choice with no preview is
+indistinguishable from a bug**, because the only thing visible is that the output varies with the
+input.
+
+**What the split bought, specifically.** A wrong crop region produces an image that looks plausible
+and is wrong — the failure surfaces in the game, days later, as "her face is cut off again". The
+component cannot be tested offline: it needs pointer events, a layout and a canvas. The *region*
+needs none of those, so moving it out bought eight offline assertions on the thing that can actually
+be wrong:
+
+- confirming without touching anything reproduces the old centred crop **exactly**, which is what
+  makes deleting `downscaleCover` safe rather than a behaviour change;
+- zooming keeps proportionally less, centred on the same point;
+- dragging right keeps what was off the left edge (a sign error here is invisible in review and
+  obvious in use);
+- a drag is refused on the axis with no slack;
+- the frame can never leave the image — checked at four zooms against absurd offsets in both
+  orientations, which is the assertion that catches a blank corner;
+- the region follows the frame's **ratio** and not its size, so a 244px preview and a 360px output
+  agree about what was framed.
+
+**What it costs.** ~6 KB of bundle, one extra tap per upload, and a component that only a hand test
+can validate. The geometry is also duplicated in one sense: the preview positions the image with a
+CSS transform while `cropRect` recomputes the same rectangle in source pixels, so the two have to
+agree by construction — the transform is written `translate(-50%,-50%) translate(dx,dy) scale(z)`
+precisely so `dx`/`dy` stay in unscaled frame pixels, which is the space the pure functions work
+in. Getting that order wrong makes the preview and the result disagree by a factor of the zoom.
+
+**The mutation-testing lesson that came with it.** The first version clamped twice — the offset, and
+then the resulting rectangle into the image. Both are individually sufficient, so breaking either
+left the escape guard green: **two clamps of one rule is two clamps neither of which can be shown to
+work.** One enforcement now, with the surviving `Math.max(0, …)` documented as a floating-point
+floor rather than a bound, so it is clear which line is load-bearing.
+
+**Short form.** Split "which pixels" from "draw the pixels". The first is arithmetic and can be
+tested; the second needs a browser and cannot. And never let a default crop stand in for a choice
+the player can see the results of.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

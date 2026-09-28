@@ -36,9 +36,15 @@ export default function InstagramOverlay({ memberId, members, socialFeeds, allTa
               </div>
               {/* Her wallpaper as the post image. Nothing contradicts it: the
                   schema asks for {caption, likes} and carries no description of
-                  an image, so this square has always been decorative. With no
-                  wallpaper it stays exactly the gradient it has always been. */}
-              <div style={{ width: "100%", aspectRatio: "1/1", background: isLight ? "linear-gradient(135deg,#ede0c8,#d4c4a0)" : "linear-gradient(135deg,#f9f0f5,#e8d0e0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, ...wallStyle(wall) }}>
+                  an image, so this frame has always been decorative. With no
+                  wallpaper it stays exactly the gradient it has always been.
+
+                  4:5, NOT 1:1 — a real Instagram portrait post ratio, and the
+                  one that fits what the wallpaper IS. Stored at 2:3 (see
+                  imageStore.js), a square frame would crop a third of it away;
+                  4:5 trims about a sixth, which is the "small cut edge" that
+                  does not change the picture the player chose. */}
+              <div style={{ width: "100%", aspectRatio: "4/5", background: isLight ? "linear-gradient(135deg,#ede0c8,#d4c4a0)" : "linear-gradient(135deg,#f9f0f5,#e8d0e0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, ...wallStyle(wall) }}>
                 {!wall && "🖼️"}
               </div>
               <div style={{ padding: "6px 10px", display: "flex", gap: 10, fontSize: 16 }}><span>❤️</span><span>💬</span></div>

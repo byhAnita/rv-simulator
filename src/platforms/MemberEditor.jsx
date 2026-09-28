@@ -17,15 +17,16 @@
 // caller decides what to do with it, which is what lets the palette enforce its
 // own cap and report a refusal (customCast.js#upsertMember).
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   REQUIRED_FIELDS, missingRequired, sanitizeProfile,
   birthYearOf, birthdayFromYear, validBirthYear, BIRTH_YEAR_MIN, BIRTH_YEAR_MAX,
 } from "../rag/customCast";
 import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
-import { downscale, PHOTO_MAX_CHARS } from "../utils/imageStore";
 import { castTokens, scaleFont } from "./castTheme";
 import YearWheel, { DEFAULT_YEAR } from "./YearWheel";
+import ImageCropper from "./ImageCropper";
+import MemberFace from "./memberFace";
 
 // Which fields live on which step. Required fields are split across steps 1 and
 // 2 deliberately: birthday belongs with the name, and private_personality
@@ -53,6 +54,7 @@ export default function MemberEditor({
   member, isNew = false, language = "zh", theme = "dark", t, fontScale = 1,
   apiKey, modelId, aliyun, world,
   photo, onPhotoChange,
+  wall, onWallChange,
   onSave, onCancel, notify,
 }) {
   const isLight = theme === "light";
@@ -145,15 +147,41 @@ export default function MemberEditor({
     }
   };
 
-  const pickPhoto = async (file) => {
-    if (!file) return;
-    try {
-      const dataUrl = await downscale(file);
-      if (dataUrl.length > PHOTO_MAX_CHARS) { notify?.(c.photoTooLarge, "error"); return; }
-      onPhotoChange?.(dataUrl);
-    } catch {
-      notify?.(c.photoFailed, "error");
-    }
+  // ── her images ────────────────────────────────────────────────────────────
+  // ONE HIDDEN INPUT, OPENED THROUGH A REF. It was a <label> wrapping an
+  // <input type="file" style={{display:"none"}}>, which is the standard trick and
+  // does not work: iOS Safari declines to open the picker for a file input that
+  // is `display:none`, so the only way to give a custom member a photo was
+  // untappable on the device this app is built for. The sheet one screen over
+  // (CastImageSheet.jsx) had always used a ref and a click, so the pattern that
+  // works was already in the repo — reported from hand play.
+  //
+  // The cropper, and NOT a downscale, is what turns the file into a data URL:
+  // one path for every upload in the app, so a custom member frames her photo
+  // the same way a library member does.
+  const fileRef = useRef(null);
+  const [pendingKind, setPendingKind] = useState(null);   // "photo" | "wall"
+  const [cropping, setCropping] = useState(null);         // {kind, file}
+
+  const ask = (kind) => {
+    setPendingKind(kind);
+    if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); }
+  };
+  const took = (e) => {
+    const file = e.target.files?.[0];
+    const kind = pendingKind;
+    setPendingKind(null);
+    if (!file || !kind) return;
+    setCropping({ kind, file });
+  };
+  const cropped = (dataUrl) => {
+    const kind = cropping?.kind;
+    setCropping(null);
+    // The caller owns both stores and reports its own refusals — a cap belongs
+    // to the store, not to this form. It is also the only side that knows how
+    // many other members already have one.
+    if (kind === "wall") onWallChange?.(dataUrl);
+    else if (kind === "photo") onPhotoChange?.(dataUrl);
   };
 
   const submit = () => {
@@ -181,6 +209,22 @@ export default function MemberEditor({
     border: `1px solid ${inputBorder}`,
     color: textMain, fontSize: fs(12), fontFamily: "inherit", boxSizing: "border-box",
   };
+
+  // The image buttons, in the shape the image sheet uses — same job, same look,
+  // and a real <button> rather than a styled <label>, which is what the iOS
+  // failure above cost.
+  const imgBtn = (label, onClick, danger = false) => (
+    <button key={label} onClick={onClick}
+      style={{
+        padding: "6px 10px", minHeight: 32, borderRadius: 15, cursor: "pointer",
+        border: `1px solid ${danger ? "rgba(180,60,20,.28)" : inputBorder}`,
+        background: "transparent",
+        color: danger ? (isLight ? "#a03010" : "#f07070") : accent,
+        fontSize: fs(10.5), whiteSpace: "nowrap",
+      }}>
+      {label}
+    </button>
+  );
 
   // A FUNCTION RETURNING JSX, NOT A COMPONENT. Declaring `const Field = ...`
   // inside the render body creates a new component TYPE on every render, so
@@ -267,33 +311,32 @@ export default function MemberEditor({
                 <YearWheel value={yearDraft || DEFAULT_YEAR} onChange={setBirthYear}
                   min={BIRTH_YEAR_MIN} max={BIRTH_YEAR_MAX}
                   fontScale={fontScale} ariaLabel={c.fields?.birthYear}
-                  colors={{ text: textMain, textDim, accent, tint: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.14)", border: inputBorder }} />
+                  colors={{ text: textMain, textDim, accent, tint: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.14)", border: inputBorder, fieldBg: inputBg }} />
                 <div style={{ fontSize: fs(9), color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
                   {birthYearValid ? c.hints?.birthday : c.badYear}
                 </div>
               </div>
 
-              {/* photo */}
+              {/* her photo, and her wallpaper — both, because she is a member
+                  like any other. A custom member could be given a photo here and
+                  a wallpaper NOWHERE: the image sheet lists the chosen cast, and
+                  she is authored before she is chosen. */}
               <div style={{ marginBottom: 4 }}>
-                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 4 }}>{c.photo}</label>
+                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 4 }}>{c.castImages}</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 10, flexShrink: 0, background: inputBg, border: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
-                    {photo
-                      ? <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : (profile.emoji || "🎻")}
+                  {/* Her wallpaper behind her photo, the same preview the image
+                      sheet shows, so one glance says what she has. */}
+                  <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, flexShrink: 0, background: wall ? undefined : inputBg, backgroundImage: wall ? `url(${wall})` : undefined, backgroundSize: "cover", backgroundPosition: "center", border: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    <MemberFace member={{ ...profile, emoji: profile.emoji || "📷" }} photo={photo} size={38} radius={9} />
                   </div>
-                  <label style={{ padding: "6px 11px", borderRadius: 7, background: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.12)", border: `1px solid ${isLight ? "rgba(139,105,20,.3)" : "rgba(232,135,176,.25)"}`, color: accent, fontSize: fs(10.5), cursor: "pointer" }}>
-                    {c.photoUpload}
-                    <input type="file" accept="image/*" style={{ display: "none" }}
-                      onChange={(e) => { pickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
-                  </label>
-                  {photo && (
-                    <button onClick={() => onPhotoChange?.(null)}
-                      style={{ padding: "6px 9px", borderRadius: 7, background: "rgba(180,60,20,.08)", border: "1px solid rgba(180,60,20,.2)", color: isLight ? "#a03010" : "#f07070", fontSize: fs(10.5), cursor: "pointer" }}>
-                      {c.photoRemove}
-                    </button>
-                  )}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {imgBtn(photo ? c.photoReplace : `${c.photo} +`, () => ask("photo"))}
+                    {photo && imgBtn(c.photoRemove, () => onPhotoChange?.(null), true)}
+                    {imgBtn(wall ? c.wallReplace : `${c.wall} +`, () => ask("wall"))}
+                    {wall && imgBtn(c.wallRemove, () => onWallChange?.(null), true)}
+                  </div>
                 </div>
+                <input ref={fileRef} type="file" accept="image/*" onChange={took} style={{ display: "none" }} />
               </div>
             </>
           )}
@@ -332,6 +375,15 @@ export default function MemberEditor({
           </button>
         </div>
       </div>
+
+      {cropping && (
+        <ImageCropper
+          file={cropping.file} kind={cropping.kind}
+          theme={theme} t={t} fontScale={fontScale} notify={notify}
+          onConfirm={cropped}
+          onCancel={() => setCropping(null)}
+        />
+      )}
     </div>
   );
 }

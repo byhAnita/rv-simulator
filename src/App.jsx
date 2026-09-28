@@ -1416,7 +1416,7 @@ export default function App() {
               <YearWheel value={form.birthYear || DEFAULT_YEAR} onChange={setBirthYear}
                 min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
                 ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder }} />
+                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
             </div>
           </div>
 

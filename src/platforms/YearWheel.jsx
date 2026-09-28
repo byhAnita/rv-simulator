@@ -21,8 +21,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 
-export const ROW_H = 36;
-export const VISIBLE_ROWS = 5;
+export const ROW_H = 34;
+// THREE ROWS, NOT FIVE — corrected after the first hand test. Five rows is 180px
+// of loose numbers, in Setup sitting beside a 38px name field, which made the
+// wheel look like it had escaped its row rather than like one control. Three
+// (the year, the one before, the one after) is 102px, is what a phone's own
+// compact pickers show, and still says which direction scrolling goes.
+export const VISIBLE_ROWS = 3;
 // Where the wheel opens when the player has chosen nothing yet. Inside both
 // ranges it is used with -- the player's (1946-2008) and a custom member's
 // (1980-2012) -- so neither caller needs its own default.
@@ -35,6 +40,9 @@ export default function YearWheel({
   const {
     text = "#f0dce8", textDim = "#a07090", accent = "#e887b0",
     tint = "rgba(232,135,176,.14)", border = "rgba(232,135,176,.3)",
+    // The control's own surface. It has to differ from the page behind it, or a
+    // border alone still leaves the rows reading as page content.
+    fieldBg = "rgba(255,255,255,.05)",
   } = colors;
 
   const years = useMemo(() => {
@@ -94,12 +102,25 @@ export default function YearWheel({
   const selected = String(value ?? "");
 
   return (
-    <div style={{ position: "relative", height: ROW_H * VISIBLE_ROWS, flexShrink: 0 }}>
+    // A BOUNDED CONTROL, not a bare column of numbers. The first version had no
+    // frame and no background of its own, so the rows above and below the
+    // selected year read as page content that happened to be numeric — on a
+    // 390px Setup page, as if the wheel were sitting on top of the fields around
+    // it. The box is what says where the control begins and ends; `overflow:
+    // hidden` also stops the band's own border poking out at the corners.
+    <div style={{
+      // +2 for the border, so the scrolling viewport is an exact whole number of
+      // rows. One pixel short and `scrollSnapAlign: center` disagrees with
+      // `scrollTop = index * ROW_H` by that pixel, forever.
+      position: "relative", height: ROW_H * VISIBLE_ROWS + 2, flexShrink: 0,
+      borderRadius: 10, border: `1px solid ${border}`, background: fieldBg,
+      overflow: "hidden", boxSizing: "border-box",
+    }}>
       {/* The selection band. Behind the list and not interactive, so a tap
           always reaches the year under it. */}
       <div aria-hidden style={{
-        position: "absolute", left: 0, right: 0, top: pad, height: ROW_H,
-        background: tint, border: `1px solid ${border}`, borderRadius: 9,
+        position: "absolute", left: 3, right: 3, top: pad, height: ROW_H,
+        background: tint, borderRadius: 8,
         pointerEvents: "none",
       }} />
       <div

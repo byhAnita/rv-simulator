@@ -202,7 +202,7 @@ Player choice
 | `rv_sim_cast_custom_v14` | `STORAGE_KEYS.CAST_CUSTOM` | Player-authored member palette, capped at 20 |
 | `rv_sim_rosters_v14` | `STORAGE_KEYS.ROSTERS` | Player-saved rosters, capped at 20 |
 | `rv_sim_cast_photos_v14` | `STORAGE_KEYS.CAST_PHOTOS` | `{memberId: dataUrl}`, 256x256 WebP, capped at 30 |
-| `rv_sim_cast_walls_v14` | `STORAGE_KEYS.CAST_WALLS` | `{memberId: dataUrl}`, 360x640 WebP, capped at 8 |
+| `rv_sim_cast_walls_v14` | `STORAGE_KEYS.CAST_WALLS` | `{memberId: dataUrl}`, 360x540 WebP (2:3), capped at 8 |
 | `rv_sim_debug` | inline literal | `"1"`/`"eruda"` — the on-device console, set by `?debug=1`. Read before React mounts, so deliberately not in `STORAGE_KEYS` |
 
 Note the inconsistency: only nine keys live in `STORAGE_KEYS`; the rest are inline string literals in `App.jsx`. Prefer moving new keys into `STORAGE_KEYS`.
@@ -1801,17 +1801,20 @@ re-validation is prompt-facing, step 8 included.
 
 **Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
 Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
-Two batches are now waiting on that one test:
+Three batches are now waiting on that one test:
 
 - **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
   not by member*;
 - **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
-  see *The photo store shipped with no reader* and *A birth year is stated once*.
+  see *The photo store shipped with no reader* and *A birth year is stated once*;
+- **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs**, from
+  his hand test of step 8 — see *Four of those six surfaces were wrong on a phone*.
 
-**Step 8's one unmeasured number is deliberately left for that hand test.** Canvas WebP cannot be
-encoded outside a browser, so the wallpaper's ~55 KB is calculated and the storage budget it feeds
-(~2.5 MB typical) is calculated with it. The image sheet prints `N KB used` on screen; read it and
-correct `docs/V140_PLAN.md` §10 from the real figure rather than from the arithmetic.
+**Step 8's one unmeasured number is still unmeasured, and it moved.** Canvas WebP cannot be encoded
+outside a browser, so the wallpaper's ~46 KB is calculated and the storage budget it feeds (~2.4 MB
+typical) is calculated with it. That figure went **down** with the 2:3 correction — 16% fewer pixels
+— and it is still arithmetic. The image sheet prints `N KB used` on screen; read it and correct
+`docs/V140_PLAN.md` §10 from the real figure.
 
 **38 mutations, all RED, and two of them were red only after a fix** — both were this file's own
 rules failed by its own guards. One asserted an oversized wallpaper is refused, which stays true
@@ -2033,11 +2036,83 @@ gives both caps and the bytes in use somewhere to live: `n / 30`, `n / 8` and `N
 at all times** rather than at the moment they refuse. That is the third screen to need that lesson
 after the save slots and the member palette.
 
-**The quota figures are calculated, not measured, and the app now reports the real one.** 360x640 at
-q0.7 is ~3.5x the pixels of a 256x256 at q0.8, so ~55 KB of stored string against ~20 KB; §10's
-budget moves from ~2.1 MB to ~2.5 MB typical against the ~5 MB quota, worst case ~3.1 MB. Canvas WebP
+**The quota figures are calculated, not measured, and the app now reports the real one.** 360x540 at
+q0.7 is ~2.9x the pixels of a 256x256 at q0.8, so ~46 KB of stored string against ~20 KB; §10's
+budget moves from ~2.1 MB to ~2.4 MB typical against the ~5 MB quota, worst case ~3.1 MB. Canvas WebP
 cannot be encoded outside a browser, so none of that can be measured offline — which is why the sheet
 prints `N KB used`. A number nobody can observe is a number nobody can trust.
+
+### Four of those six surfaces were wrong on a phone — the second hand test
+
+The feature reached the game and then had to survive being looked at. None of the four is a logic
+error; each is the gap between what the code specifies and what a phone renders, which is the class
+this project can only find by hand.
+
+**The crop was automatic, and an automatic crop is indistinguishable from a bug.** `downscaleCover`
+took the largest centred region with the target's aspect ratio — correct for an arbitrary image, and
+wrong every single time for a face, because a photo taken at arm's length puts the head in the top
+third. It was reported as *"the ratio of the photo and wallpaper is not fixed"*, which is exactly
+what a crop nobody chose looks like from the outside: the output varies with the input for a reason
+the screen never states.
+
+So the player frames it: `ImageCropper.jsx`, drag to pan, pinch or slider to zoom, confirm. Three
+things make it more than a restyle:
+
+- **The frame is the shape the image will be seen in** — a circle for a photo, 2:3 for a wallpaper.
+  A square preview of a round avatar is a preview of something that never appears.
+- **The maths is pure and lives in `imageStore.js`** (`coverScale`, `clampOffset`, `cropRect`), not in
+  the component. A wrong crop region is invisible until the image is already in the game, and the
+  component can only be tested by hand; the region can be tested offline, so it is.
+- **`cropRect` at zoom 1 with no pan reproduces the old centred crop exactly**, which smoke asserts.
+  The behaviour survives as the cropper's opening position instead of as a second code path, and
+  `downscale`/`downscaleWall`/`downscaleCover` are **deleted** — an automatic crop beside a chosen
+  one is two answers to one question.
+
+**And it had two clamps of one rule, which is two clamps neither of which can be shown to work.**
+`cropRect` clamped the offset *and* bounded the result into the image. Break either and the other
+covers for it, so the guard that exists to catch a blank corner passes against both halves being
+wrong — found while mutation-testing, not while writing it. One enforcement now, with a
+`Math.max(0, …)` that is documented as a floating-point floor rather than a bound.
+
+**2:3, not 9:16 — the ratio has to be the one the image is SEEN at.** The wallpaper was sized to the
+overlay panel. It is never shown at the panel's size: the title bar and the member strip take ~72px
+off a 600px panel, so the surface is 360x528, and 9:16 lost a sixth of every upload to a crop nobody
+asked for. Instagram is the one surface that cannot show the whole thing, and its square became a
+**4:5 portrait post** — a real Instagram ratio, trimming ~17% where a square would have taken 33%.
+
+**One wallpaper, one job.** Weverse used it as a post card's banner while the other three used it as
+a background, so a single upload meant two different things depending on which tab you opened. It
+now backs the Weverse feed exactly as it backs Bubble and KakaoTalk, and the post card goes nearly
+opaque over it — a 5% tint is invisible against a plain panel and useless against a photograph,
+which is the same reason the chat bubbles keep opaque fills on top of the scrim.
+
+**A square photo inside a round frame, on iPhone only.** `MemberFace` drew the `<img>` as a flex
+child and left the clipping to the parent's `overflow: hidden` + `border-radius` — the one shape
+WebKit declines to clip. The tab strip, which puts the radius on the `<img>` itself, was never
+affected, and that difference is the whole diagnosis. The photo is now positioned `inset: 0` and
+carries `borderRadius: "inherit"`, so its shape does not depend on anyone clipping it; the frame
+gained `isolation: isolate` and an explicit `boxSizing: border-box`, the second because every caller
+passes a 1px border and content-box sizing insets the photo inside its own ring.
+
+**A `display:none` file input inside a `<label>` does not open the picker on iOS Safari.** That is
+how the member editor's uploader shipped **untappable** — the only way to give an authored member a
+photo, on the only device this app is built for. `CastImageSheet` had always used a ref and a
+`.click()`, so the pattern that works was one file away. **The guard is derived**: every
+`type="file"` in `src/` is scanned, none may be wrapped in a label, and every one must reach the
+cropper — so a third uploader cannot reintroduce either. Its first version read the *comments*
+explaining the fix and failed on its own documentation, which is the second time that has happened
+in this batch's guards.
+
+**A custom member could be given a photo and a wallpaper nowhere.** The image sheet lists the
+*chosen* cast, and she is authored before she is chosen. The editor now carries both, through
+`setPhotoFor`/`setWallFor` — the same writers the library uses, because a second write path is a
+second set of caps to forget.
+
+**The year wheel had no edges.** Five rows at 36px is 180px of loose numbers with no frame and no
+surface of its own, sitting in Setup beside a 38px name field — so it read as floating over the
+page rather than as one control. Three rows at 34px inside a bordered, rounded, clipped box, and
+the viewport is `ROW_H * VISIBLE_ROWS + 2` so the border does not cost the pixel that would put
+`scrollSnapAlign: center` permanently one off from `scrollTop = index * ROW_H`.
 
 ### A birth year is stated once, and the control cannot express a wrong one
 

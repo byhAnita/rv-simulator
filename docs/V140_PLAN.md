@@ -961,13 +961,15 @@ save**. This must be fixed in v1.4.0 — return a boolean, surface a localized n
 | Custom worlds (5 × ~6 KB) | 30 KB |
 | Rosters (20 × ~1 KB) | 20 KB |
 | **Photos (30 × ~15 KB)** | **450 KB** |
-| **Wallpapers (8 × ~55 KB)** — step 8 | **440 KB** |
+| **Wallpapers (8 × ~46 KB)** — step 8, 2:3 | **370 KB** |
 | Everything else | < 50 KB |
-| Total vs ~5 MB quota | ~2.5 MB (worst case ~3.1 MB) |
+| Total vs ~5 MB quota | ~2.4 MB (worst case ~3.1 MB, which is the caps and did not move) |
 
 **Both image rows are calculated from the encoder's settings, not measured**, and the wallpaper row
-is the weaker of the two: 360×640 at q0.7 is ~3.5× the pixels of a 256×256 at q0.8, so ~55 KB of
-stored string. Canvas WebP cannot be encoded outside a browser, so neither number can be checked by
+is the weaker of the two: 360×540 at q0.7 is ~2.9× the pixels of a 256×256 at q0.8, so ~46 KB of
+stored string — it was ~55 KB while the wallpaper was 360×640, which the second hand test corrected
+to 2:3, the ratio the panel actually shows it at and 16% fewer pixels with it. Canvas WebP cannot be
+encoded outside a browser, so neither number can be checked by
 any offline test — which is why the image sheet prints `N KB used` on screen. **The hand test is
 the measurement**; correct this table from it rather than from the arithmetic above.
 
@@ -1603,10 +1605,11 @@ gets written against whichever one was correct.
 - `putPhoto(map, id, url, {maxCount, maxChars})` — the limits become arguments defaulting to
   today's values, so the refusal rules have one implementation for both stores.
 - New key `rv_sim_cast_walls_v14` as `STORAGE_KEYS.CAST_WALLS`. Device-local, never a save field,
-  so no migration. `WALL_PX = 360x640`, WebP q0.7, `WALL_MAX_COUNT = 8`, `WALL_MAX_CHARS = 90 KB`.
+  so no migration. `WALL_W x WALL_H = 360x540` (2:3 as shipped — the plan said 360x640 and the hand
+  test corrected it), WebP q0.7, `WALL_MAX_COUNT = 8`, `WALL_MAX_CHARS = 90 KB`.
 
-**The sizes above are calculated from the 256x256 profile, not measured.** 360x640 is ~3.5x the
-pixels of a 256x256 at a lower quality, so ~55 KB of stored string against ~20 KB. Real encoded
+**The sizes above are calculated from the 256x256 profile, not measured.** 360x540 is ~2.9x the
+pixels of a 256x256 at a lower quality, so ~46 KB of stored string against ~20 KB. Real encoded
 sizes get measured during implementation and this table gets corrected; §10's budget moves from
 ~2.1 MB to ~2.5 MB typical and ~3.1 MB worst case against the ~5 MB quota.
 

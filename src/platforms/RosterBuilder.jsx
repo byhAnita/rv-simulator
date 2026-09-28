@@ -40,7 +40,7 @@ import {
 } from "../rag/customCast";
 import {
   loadPhotos, savePhotos, loadWalls, saveWalls, putPhoto, removePhoto,
-  downscale, downscaleWall, PHOTO_LIMITS, WALL_LIMITS, WALL_MAX_COUNT,
+  PHOTO_LIMITS, WALL_LIMITS, WALL_MAX_COUNT,
 } from "../utils/imageStore";
 import CastImageSheet from "./CastImageSheet";
 import { castTokens, scaleFont } from "./castTheme";
@@ -222,17 +222,11 @@ export default function RosterBuilder({
     setWalls(res.photos);
   };
 
-  // The picked file becomes a data URL here rather than in the sheet: the sheet
-  // does not own either store, and the two downscales differ only in the target
-  // rectangle, which is the store's business.
-  const takePhoto = async (id, file) => {
-    try { setPhotoFor(id, await downscale(file)); }
-    catch { notify?.(c.photoFailed, "error"); }
-  };
-  const takeWall = async (id, file) => {
-    try { setWallFor(id, await downscaleWall(file)); }
-    catch { notify?.(c.photoFailed, "error"); }
-  };
+  // `setPhotoFor` / `setWallFor` are what the sheet and the editor both call, and
+  // they take a data URL rather than a File: the cropper produced it, because the
+  // player chose the region. This used to be two `take*` wrappers doing a
+  // `downscale` here — the sheet does not own either store, so the conversion sat
+  // on this side — and the conversion itself is gone with the automatic crop.
 
   // Commit the saved roster under the name the player just typed. The entry's
   // shape — and specifically the rule that this label never reaches
@@ -452,10 +446,11 @@ export default function RosterBuilder({
             id: e.memberId, name: nameOf(e.memberId), member: memberOf(e.memberId) || {},
           }))}
           photos={photos} walls={walls}
-          onPickPhoto={takePhoto} onPickWall={takeWall}
+          onPickPhoto={setPhotoFor} onPickWall={setWallFor}
           onClearPhoto={(id) => setPhotoFor(id, null)}
           onClearWall={(id) => setWallFor(id, null)}
           language={language} theme={theme} t={t} fontScale={fontScale}
+          notify={notify}
           onClose={() => setShowImages(false)}
         />
       )}
@@ -467,6 +462,8 @@ export default function RosterBuilder({
           apiKey={apiKey} modelId={modelId} aliyun={aliyun} world={world}
           photo={photos[editing.id]}
           onPhotoChange={(d) => setPhotoFor(editing.id, d)}
+          wall={walls[editing.id]}
+          onWallChange={(d) => setWallFor(editing.id, d)}
           onSave={saveMember}
           onCancel={() => setEditing(null)}
           notify={notify}

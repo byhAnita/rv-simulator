@@ -32,6 +32,17 @@ export default function MemberFace({
     <span
       style={{
         width: size, height: size, borderRadius: r, overflow: "hidden",
+        // Explicit, not inherited from App's `*` reset: a border must eat into
+        // the frame rather than growing it, or the photo inside a bordered
+        // avatar is inset by a pixel on every side and reads as the wrong size.
+        boxSizing: "border-box",
+        // A stacking context of its own. WebKit is the reason: an <img> child of
+        // a rounded `overflow:hidden` box is the one case where it declines to
+        // clip to the radius, which is how a square photo came to be sitting
+        // inside a round frame on an iPhone. Reported from hand play — the tab
+        // strip, which puts the radius on the <img> itself, was never affected.
+        isolation: "isolate",
+        position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center",
         // The gradient stays behind the photo rather than being replaced by it.
         // A WebP that fails to decode leaves an empty box otherwise, and an
@@ -43,7 +54,20 @@ export default function MemberFace({
       }}
     >
       {photo
-        ? <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ? (
+          // Positioned, not a flex item, and carrying the frame's radius itself.
+          // Both halves matter: `inset: 0` makes the photo fill the frame
+          // whatever a flex container decides about a replaced element's size,
+          // and its own `borderRadius` means the round shape does not depend on
+          // the parent clipping it — see `isolation` above.
+          <img
+            src={photo} alt=""
+            style={{
+              position: "absolute", inset: 0, width: "100%", height: "100%",
+              objectFit: "cover", display: "block", borderRadius: "inherit",
+            }}
+          />
+        )
         : (m.emoji || "💗")}
     </span>
   );

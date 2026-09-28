@@ -3816,17 +3816,95 @@ async function layerI() {
   check("the two image stores are under different keys",
     store.STORAGE_KEYS.CAST_WALLS && store.STORAGE_KEYS.CAST_WALLS !== store.STORAGE_KEYS.CAST_PHOTOS,
     `${store.STORAGE_KEYS.CAST_PHOTOS} vs ${store.STORAGE_KEYS.CAST_WALLS}`);
-  // The square avatar is one aspect ratio of the general crop, not a second
-  // canvas routine. Asserted by delegation, because both need a browser and
-  // neither can be called here.
   const storeSrc = readFileSync(join(ROOT, "src/utils/imageStore.js"), "utf8");
-  check("downscale delegates to the general crop rather than repeating it",
-    /export function downscale\(file, px = PHOTO_PX, quality = PHOTO_QUALITY\) \{\s*return downscaleCover\(file, px, px, quality\);/.test(storeSrc)
-      && (storeSrc.match(/createElement\("canvas"\)/g) || []).length === 1,
-    "two canvas routines is two places for the WebP fallback to be forgotten");
+  check("one canvas routine, so the WebP fallback has one home",
+    (storeSrc.match(/createElement\("canvas"\)/g) || []).length === 1,
+    "two is two places for a browser that cannot encode WebP to be forgotten");
   check("...and the wallpaper crop is portrait, to fill the overlay panel",
     store.WALL_H > store.WALL_W,
     `${store.WALL_W}x${store.WALL_H}`);
+
+  // --- step 8, second pass: the player chooses the crop --------------------
+  // `downscaleCover` picked the region itself — the largest centred rectangle
+  // with the target ratio — which cut the head off a photo taken at arm's length
+  // every time, with nothing on screen to say why. Reported from hand play as
+  // "the ratio is not fixed", because that is what a crop you did not choose
+  // looks like. The region is now the player's, and THE MATHS IS PURE so it can
+  // be wrong here rather than only on a phone.
+  //
+  // A wide source against a square frame, so there is horizontal overflow to pan
+  // through and none vertically. Every assertion below is written from what the
+  // player should see, not from the formula.
+  const WIDE = { iw: 800, ih: 400, fw: 200, fh: 200 };
+  const atRest = store.cropRect({ ...WIDE, zoom: 1, dx: 0, dy: 0 });
+  check("confirming a crop untouched reproduces the old centred crop",
+    atRest.sw === 400 && atRest.sh === 400 && atRest.sx === 200 && atRest.sy === 0,
+    `${JSON.stringify(atRest)} — the cropper opens on the previous behaviour, so nothing regressed for a player who just taps through`);
+  const zoomed = store.cropRect({ ...WIDE, zoom: 2, dx: 0, dy: 0 });
+  check("zooming in keeps less of the source, centred on the same point",
+    zoomed.sw === atRest.sw / 2 && zoomed.sh === atRest.sh / 2
+      && zoomed.sx + zoomed.sw / 2 === atRest.sx + atRest.sw / 2,
+    JSON.stringify(zoomed));
+  // Direction matters and is easy to invert: dragging the image RIGHT reveals
+  // what was off its left edge, so the kept region moves LEFT in source pixels.
+  const panned = store.cropRect({ ...WIDE, zoom: 1, dx: 60, dy: 0 });
+  check("dragging the image right keeps the part that was off to the left",
+    panned.sx < atRest.sx && panned.sy === atRest.sy,
+    `sx ${atRest.sx} -> ${panned.sx}`);
+  check("...and a pan is refused on the axis with nothing to pan through",
+    store.cropRect({ ...WIDE, zoom: 1, dx: 0, dy: 500 }).sy === atRest.sy,
+    "a square frame on a wide image has no vertical slack, so dragging down must not move the crop");
+  // THE guard of this pair: a blank corner is a defect the player only sees once
+  // the image is in the game. Absurd offsets at every zoom, both orientations.
+  const escaped = [];
+  for (const src of [WIDE, { iw: 300, ih: 900, fw: 200, fh: 200 }, { iw: 360, ih: 540, fw: 216, fh: 324 }]) {
+    for (const zoom of [1, 1.37, 2, 4]) {
+      for (const [dx, dy] of [[0, 0], [9e5, 9e5], [-9e5, -9e5], [9e5, -9e5]]) {
+        const r = store.cropRect({ ...src, zoom, dx, dy });
+        const ok = r.sx >= 0 && r.sy >= 0
+          && r.sx + r.sw <= src.iw + 1e-6 && r.sy + r.sh <= src.ih + 1e-6
+          && r.sw > 0 && r.sh > 0;
+        if (!ok) escaped.push(`${src.iw}x${src.ih} z${zoom} (${dx},${dy}) -> ${JSON.stringify(r)}`);
+      }
+    }
+  }
+  check("the frame can never leave the image, at any zoom or offset",
+    escaped.length === 0, escaped.slice(0, 2).join(" | "));
+  // The preview is 244px and the output is 256 or 360 wide. If the region moved
+  // with the preview's SIZE rather than its ratio, every crop would be off by
+  // the difference and the frame would be lying about what it keeps.
+  const small = store.cropRect({ iw: 800, ih: 400, fw: 100, fh: 100, zoom: 1.5 });
+  const large = store.cropRect({ iw: 800, ih: 400, fw: 300, fh: 300, zoom: 1.5 });
+  check("the kept region follows the frame's ratio, not the frame's size",
+    Math.abs(small.sx - large.sx) < 1e-9 && Math.abs(small.sw - large.sw) < 1e-9,
+    `${JSON.stringify(small)} vs ${JSON.stringify(large)} — the preview can be any size the screen allows`);
+  check("the pan stops at the edge rather than being thrown away",
+    // 800x400 covering a 200x200 frame displays at 400x200, so there are 200
+    // pixels of horizontal slack and the centre may move by half of them.
+    store.clampOffset(9e5, 0, 800, 400, 200, 200, 1).dx === 100
+      && store.clampOffset(0, 9e5, 800, 400, 200, 200, 1).dy === 0,
+    "a drag that snapped back to centre at the limit would read as the control being broken");
+
+  // The wallpaper's ratio is the one it is SEEN at, and that is the panel's
+  // scrolling content area — 360 wide by ~528 tall, once a 600px panel's 38px
+  // title bar and 34px member strip come off. 9:16 shipped first and lost a sixth
+  // of every upload to a crop nobody asked for.
+  const PANEL_CONTENT = 360 / 528;
+  const wallRatio = store.WALL_W / store.WALL_H;
+  check("the wallpaper is stored at the ratio the chat panel shows it at",
+    Math.abs(wallRatio - PANEL_CONTENT) < Math.abs(360 / 640 - PANEL_CONTENT),
+    `${store.WALL_W}x${store.WALL_H} (${wallRatio.toFixed(3)}) vs the panel's ${PANEL_CONTENT.toFixed(3)}`);
+  // Instagram is the one surface that cannot show the whole thing, so it must
+  // take the SMALLEST bite it plausibly can. A square would cut a third out of a
+  // 2:3 image; 4:5 is a real Instagram portrait ratio and cuts about a sixth.
+  const igRatio = (() => {
+    const m = readFileSync(join(ROOT, "src/platforms/InstagramOverlay.jsx"), "utf8")
+      .match(/aspectRatio: "(\d+)\/(\d+)"/);
+    return m ? Number(m[1]) / Number(m[2]) : null;
+  })();
+  check("Instagram's post frame crops the wallpaper less than a square would",
+    igRatio !== null && Math.abs(igRatio - wallRatio) < Math.abs(1 - wallRatio),
+    `Instagram is ${igRatio} against a wallpaper at ${wallRatio.toFixed(3)}`);
 
   // Corrupt or absent storage must read as empty, never throw: the same
   // tolerance aliyunRoute.js applies to a malformed route state.
@@ -4714,6 +4792,113 @@ async function layerI() {
   check("the picker grid gains no image control of its own",
     !/imageStore|CastImageSheet|onPickPhoto/.test(pickerSrc),
     "uploads belong on the members already chosen, not on 57 assign targets");
+
+  // --- step 8, second pass: the four hand-test bugs -------------------------
+  // Every one of these is a defect no assertion written in advance reached, and
+  // each guard is written from what the player should see.
+
+  // ONE UPLOAD PATH. A file that became a stored image without passing the
+  // cropper would be an automatic crop surviving beside a chosen one, which is
+  // two answers to one question — and the automatic one is the bug. Derived by
+  // scanning for the input rather than by naming the two screens, because the
+  // thing that keeps going wrong in this repo is a list somebody has to extend.
+  const filePickers = [];
+  const labelWrapped = [];
+  const walkPlatforms = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walkPlatforms(p); continue; }
+      if (!/\.(js|jsx)$/.test(e.name)) continue;
+      const src = readFileSync(p, "utf8");
+      if (!/type="file"/.test(src)) continue;
+      const rel = p.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, "");
+      filePickers.push([rel, src]);
+      // CODE, not prose. Both of these screens carry a comment explaining why the
+      // label-wrapped input was replaced — and the first version of this guard
+      // matched those comments and failed on its own documentation, which is the
+      // same trap the prune guard hit one layer up.
+      const code = src
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      // A <label> wrapping a display:none file input is the standard trick and
+      // iOS Safari does not honour it — which is exactly how the member editor's
+      // uploader shipped untappable on the one device this app is built for.
+      // The input must be INSIDE the label, so no </label> may fall between
+      // them — every one of these screens also has ordinary field labels, and a
+      // looser span reads one of those as the wrapper.
+      if (/<label[^>]*>(?:(?!<\/label>)[\s\S]){0,800}?type="file"/.test(code)) labelWrapped.push(rel);
+    }
+  };
+  walkPlatforms(join(ROOT, "src"));
+  check("a file picker is opened by a button, never by a label wrapping it",
+    labelWrapped.length === 0 && filePickers.length >= 2,
+    labelWrapped.join(", ") || `the scan found ${filePickers.length} file inputs, so it proves nothing`);
+  const uncropped = filePickers.filter(([, src]) => !/<ImageCropper/.test(src)).map(([f]) => f);
+  check("...and every picked file reaches the cropper before it is stored",
+    uncropped.length === 0, uncropped.join(", "));
+
+  // Her photo was a square sitting inside a round frame on an iPhone: WebKit
+  // declines to clip an <img> child to its parent's border-radius in this exact
+  // shape. The requirement is that the photo fills the frame and takes its shape
+  // WITHOUT depending on the parent to clip it — which is why the tab strip,
+  // whose radius is on the <img> itself, was never affected.
+  const faceSrc = readFileSync(join(ROOT, "src/platforms/memberFace.jsx"), "utf8");
+  const faceImg = faceSrc.slice(faceSrc.indexOf("<img"), faceSrc.indexOf("(m.emoji"));
+  check("the photo carries the frame's shape itself rather than being clipped to it",
+    /borderRadius: "inherit"/.test(faceImg) && /position: "absolute", inset: 0/.test(faceImg),
+    "a square photo in a round frame is what relying on the parent's overflow costs on WebKit");
+  check("...and a border eats into the frame instead of insetting the photo",
+    /boxSizing: "border-box"/.test(faceSrc),
+    "every caller passes a 1px border, and content-box sizing would shrink the photo by 2px");
+
+  // A custom member is a member. She could be given a photo in the editor and a
+  // wallpaper NOWHERE, because the image sheet lists the chosen cast and she is
+  // authored before she is chosen.
+  check("an authored member can be given a wallpaper where she is authored",
+    /onWallChange/.test(editorCode) && /wall=\{walls\[editing\.id\]\}/.test(builderSrc),
+    "the editor is the only screen that exists before she is in a cast");
+  check("...and both of her images go through the same store the library uses",
+    /onWallChange=\{\(d\) => setWallFor\(editing\.id, d\)\}/.test(builderSrc)
+      && /onPhotoChange=\{\(d\) => setPhotoFor\(editing\.id, d\)\}/.test(builderSrc),
+    "a second write path is a second set of caps to forget");
+
+  // The wheel had no frame and no surface of its own, so five rows of loose
+  // numbers read as page content — in Setup, beside a 38px name field, as if the
+  // control were sitting on top of the fields around it.
+  const wheelSrc = readFileSync(join(ROOT, "src/platforms/YearWheel.jsx"), "utf8");
+  const rows = Number((wheelSrc.match(/export const VISIBLE_ROWS = (\d+)/) || [])[1]);
+  const rowH = Number((wheelSrc.match(/export const ROW_H = (\d+)/) || [])[1]);
+  check("the wheel is short enough to sit in a row with a text field",
+    rows >= 3 && rowH * rows <= 120,
+    `${rows} rows x ${rowH}px = ${rowH * rows}px, against the ~38px field beside it`);
+  check("...and is a bounded control, with its own edge and surface",
+    /borderRadius: 10, border: `1px solid \$\{border\}`, background: fieldBg/.test(wheelSrc)
+      && /overflow: "hidden"/.test(wheelSrc),
+    "without an edge the rows above and below the year read as page content");
+  const wheelCallers = [["App.jsx", appForCast], ["MemberEditor.jsx", editorCode]]
+    .filter(([, src]) => /<YearWheel/.test(src) && !/fieldBg:/.test(src)).map(([f]) => f);
+  check("...on both screens that use it",
+    wheelCallers.length === 0, wheelCallers.join(", "));
+
+  // ONE WALLPAPER, ONE JOB. Weverse used it as a post card's banner while the
+  // other three used it as a background, so one upload meant two different
+  // things. The three panels that scroll a feed now all put it behind the feed.
+  const notBehindFeed = ["BubbleOverlay.jsx", "KakaoOverlay.jsx", "WeverseOverlay.jsx"]
+    // Same style object, which is what "behind the feed" means in source. Not
+    // `[^}]*`: the scrim arrives as `${wallScrim(...)}`, so a brace-free span
+    // cannot reach the wallpaper and the guard fails on correct code. `[^<>]`
+    // keeps it inside one element's attributes instead.
+    .filter((f) => !/overflowY: "auto"[^<>]{0,400}url\(\$\{wall\}\)/.test(overlayFiles[f]));
+  check("the wallpaper backs the feed on every panel that scrolls one",
+    notBehindFeed.length === 0, notBehindFeed.join(", "));
+  check("...and Instagram uses it as the post image, which is its own surface",
+    /aspectRatio: "4\/5"[\s\S]{0,400}wallStyle\(wall\)/.test(overlayFiles["InstagramOverlay.jsx"]),
+    "a feed of one post has no background to speak of; the post IS the surface");
+  check("...with a scrim under every one of them",
+    ["BubbleOverlay.jsx", "KakaoOverlay.jsx", "WeverseOverlay.jsx"]
+      .every((f) => /wallScrim\(isLight, 0\.[0-9]+\)/.test(overlayFiles[f])),
+    "text laid straight on an arbitrary photo is legible for some uploads and not others");
 
   // The birth year is stated once and then fixed: it decides which way every
   // address form points, and it sits in the static prompt, so a mid-run change

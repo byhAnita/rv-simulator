@@ -20,6 +20,7 @@
 
 import React, { useRef, useState } from "react";
 import MemberFace from "./memberFace";
+import ImageCropper from "./ImageCropper";
 import { castTokens, scaleFont } from "./castTheme";
 import {
   PHOTO_MAX_COUNT, WALL_MAX_COUNT, photoBytes,
@@ -28,9 +29,10 @@ import {
 export default function CastImageSheet({
   rows = [],                 // [{id, name, member}]
   photos = {}, walls = {},
-  onPickPhoto, onPickWall,   // (id, File)
+  onPickPhoto, onPickWall,   // (id, dataUrl) — already cropped, see ImageCropper
   onClearPhoto, onClearWall, // (id)
   language = "zh", theme = "dark", t, fontScale = 1,
+  notify,
   onClose,
 }) {
   const isLight = theme === "light";
@@ -43,6 +45,11 @@ export default function CastImageSheet({
   const fileRef = useRef(null);
   const [pending, setPending] = useState(null);   // {id, kind}
 
+  // The picked file, waiting to be framed. A file never becomes a stored image
+  // without passing through the cropper: an automatic crop plus a chosen one is
+  // two answers to one question, and the automatic one is the bug this fixed.
+  const [cropping, setCropping] = useState(null);   // {id, kind, file}
+
   const ask = (id, kind) => {
     setPending({ id, kind });
     if (fileRef.current) { fileRef.current.value = ""; fileRef.current.click(); }
@@ -52,8 +59,14 @@ export default function CastImageSheet({
     const p = pending;
     setPending(null);
     if (!file || !p) return;
-    if (p.kind === "photo") onPickPhoto?.(p.id, file);
-    else onPickWall?.(p.id, file);
+    setCropping({ ...p, file });
+  };
+  const cropped = (dataUrl) => {
+    const p = cropping;
+    setCropping(null);
+    if (!p) return;
+    if (p.kind === "photo") onPickPhoto?.(p.id, dataUrl);
+    else onPickWall?.(p.id, dataUrl);
   };
 
   const kb = Math.round((photoBytes(photos) + photoBytes(walls)) / 1024);
@@ -130,6 +143,10 @@ export default function CastImageSheet({
           ))}
         </div>
 
+        {/* Opened by `ask` through the ref, never by a <label> wrapping it. A
+            `display:none` file input inside a label does not reliably open the
+            picker on iOS Safari, which is how the member editor's own uploader
+            shipped untappable — see MemberEditor.jsx. */}
         <input ref={fileRef} type="file" accept="image/*" onChange={took} style={{ display: "none" }} />
 
         <div style={{ padding: "10px 13px 13px", borderTop: `1px solid ${k.border}`, flexShrink: 0 }}>
@@ -139,6 +156,20 @@ export default function CastImageSheet({
           </button>
         </div>
       </div>
+
+      {/* Inside the sheet's backdrop, which closes the sheet on click — so the
+          cropper's own taps have to be stopped here or framing a photo would
+          dismiss the screen underneath it. */}
+      {cropping && (
+        <div onClick={(e) => e.stopPropagation()}>
+        <ImageCropper
+          file={cropping.file} kind={cropping.kind}
+          theme={theme} t={t} fontScale={fontScale} notify={notify}
+          onConfirm={cropped}
+          onCancel={() => setCropping(null)}
+        />
+        </div>
+      )}
     </div>
   );
 }
