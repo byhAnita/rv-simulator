@@ -2841,6 +2841,142 @@ role-first picker batch was not.
 
 ---
 
+## 22. The cast library is written for ONE world, and the setup flow asks in the wrong order — v1.4.2
+
+**Two defects and one restructure, and they are the same thing.** Both were found in the
+third phone pass (2026-09-29); the restructure is Yuhan's design, recorded here with what
+it fixes, what it costs, and the three places I think it should differ.
+
+### 22.1 The defect that forces it: idol prose in every world
+
+Reported as an Instagram post in the **chaebol** world: *yerimiese: 录制结束，和成员们吃了顿好的。
+忙内的快乐就这么简单～*. The hypothesis was that `role` leaks. It does not — `castLore.useRole`
+is `false` for campus, office and chaebol and the structured field is correctly filtered.
+
+**The leak is one field over, and it is in prose.** Yeri's `public_image` opens with the word
+忙内. `public_image` is Public Texture, one of the three ★ primary differentiators, and it is
+sent in **every** world. Step 7 filtered the structured field and left the sentence saying the
+same thing.
+
+**Measured across the library, zh, 2026-09-29:**
+
+| | |
+| --- | --- |
+| members scanned | 57 |
+| members carrying idol vocabulary in a world-agnostic prose field | **57 of 57** |
+| field instances | **80** |
+| by field | `public_image` 56 · `private_personality` 18 · `queer_texture` 6 |
+
+Vocabulary counted: group POSITIONS (忙内, 队长, 主唱, 主舞, 门面, rapper, 中心位) and idol
+ACTIVITIES (出道, 打歌, 回归, 专辑, 舞台, 练习生, 应援, 粉丝, 偶像, 女团, 组合, 演唱会, 综艺,
+打榜, 签售). Words true of any world — 直播, 朋友 — are deliberately excluded.
+
+**Irene is not the counter-example she appeared to be.** Her post that round read correctly, and
+her `public_image` is *统一饭圈审美的南韩神颜，舞台上高冷优雅，作为队长是全队的定海神针* — a
+stage and a group leadership. She was lucky. **That is the worst failure profile available:
+universal and intermittent**, so no amount of play establishes that a world is clean.
+
+**The three options, and why the restructure is the only real one:**
+
+| | Cost |
+| --- | --- |
+| author per-world prose | 57 members x 4 worlds x 3 languages of hand-written texture. Not reachable |
+| suppress `public_image` when `useRole:false` | drops one of the three fields the whole cast differentiation rests on, in 3 of 4 worlds |
+| **translate her into the world at setup time** | one LLM call per member per run, and it is §22.2 |
+
+**An interim prompt rule is available and is worth taking first**, because §22.2 is a release
+away: when `castLore.useRole` is false, the profile block gains one line saying the texture
+prose was authored for a performing-idol context and is to be read for **traits, never for
+facts** — she has no stage, no comeback and no group position here — with `castLife.theirs`
+supplying what she does instead. **A prohibition with no substitute gets routed around**, which
+this file has recorded twice, so the substitute is the load-bearing half. It is static-prompt
+text, so it costs no cache; it moves the three non-idol goldens, deliberately.
+
+### 22.2 The restructure: world-independent identity, world-scoped detail
+
+**Yuhan's flow, 2026-09-29.** Player info (name, birth year, world, identity) moves BEFORE the
+cast picker; the profile editor becomes one screen for custom AND prebuilt members, reached by
+tapping a chosen member's bubble; it has two tabs, and **only tab 1 is persisted**.
+
+```
+0 Cover
+1 Player info      name* · birth year* · world* · identity*      -> [Select your cast]
+2 Cast picker      main* / subs / NPCs, chips with x, + per slot -> [Save cast] [Start]
+3 Cast library     tab 1 CUSTOM (first), then one tab per group
+4 Profile          tab 1 who she is   photo · name* · birth year* · private personality*
+                                      wallpaper · habit · emoji
+                                      one-line description + [generate her detail] [retry]
+                   tab 2 more texture public · queer · speech style · MBTI · hidden conflict
+5 Main screen
+```
+
+**Why the reordering is a bug fix and not a preference.** `generateCard` receives `world` from
+`App`'s state, which on the cast screens is *the world remembered from the last session*. So
+"生成她在世界观下的详细设定" already describes her in a world the player has not chosen yet.
+**That is the same defect class as the save's `worldId`** — a value read before it is decided —
+and asking for the world first makes the generator's input correct by construction rather than
+by a guard. See CLAUDE.md, *A copy taken BEFORE the fact is decided*.
+
+**Why the tab split is the right storage rule.** Tab 1 is true of the person; tab 2 is true of
+the person *in a world*. Persisting only tab 1 means a member authored in the campus world can
+be cast in the chaebol world without carrying a lecture hall into it, and changing the world
+mid-setup discards the generated detail rather than silently contradicting the new one. It is
+the same asymmetry `beginRun` uses: **forgetting to persist a world-scoped field is harmless;
+persisting one leaks a world.**
+
+### 22.3 Three places this should differ from the draft
+
+**1. `name_kr` cannot be removed.** The draft removes 本名. It has **twelve-plus readers**: the
+displayed name in Setup's member lists and NPC line, the stats-bar affection tooltip, the
+notification strip, the Instagram / Weverse / MemberSelector headers, the prompt's
+`Main Member:` line and profile block, the self-address rule in section 6 (*"when she speaks,
+`name` and `name_kr` refer to herself"*), and **`membersNamedIn`**, which reads it back out of
+the prose to decide who appeared — Chinese narration writes 涩琪, not Seulgi, and that is the
+29-of-75 measurement this file already carries. Removing it renames every member in the UI and
+silently re-breaks `[Rounds Absent]`. It belongs in tab 2 (optional, prefilled for prebuilt
+cast, blank for custom), not deleted.
+
+**2. Deleting 队内定位 leaves a hole; REPLACE it.** `role` is an idol position, so it is right
+that it stops being a persisted field a player edits. But a chaebol or office world then has
+**nothing at all** saying what she does — and *what these five people do all day* is the most
+world-specific fact there is, which is why `castLife` exists. So `role` should become a
+**generated, world-scoped tab-2 field**: her position in THIS world, written by the same call
+that writes the rest of tab 2, filtered by `useRole` exactly as today. That also closes §22.1
+from the other end: the model is told she is the family's in-house counsel instead of inferring
+an occupation from 忙内.
+
+**3. `animal_plastic` removal is a prompt change, not a UI cleanup.** It renders as
+`line("Animal", m.animal_plastic)` in the profile block, so deleting it changes the prompt for
+all 57 prebuilt members and moves every golden. It is world-independent (an animal comparison
+is true in a lecture hall), so the cheap answer is to keep the field and drop it from the
+**editor**, which is what the draft actually wants — one fewer box to fill.
+
+**And one addition: editing a prebuilt member must not snapshot her.** `resolveRoster` already
+honours `entry.override` (`rosterResolver.js:266`), so an edit to a library member should land
+there as a diff. Snapshotting her instead would give up the by-reference rule this plan states
+in §4.2 — *a fixed profile reaches games in progress* — for no gain. Custom members stay
+snapshotted inline, unchanged.
+
+### 22.4 Open, and NOT diagnosed
+
+**A saved cast holding a deleted custom member.** Reported as *"only name + emoji"*. The prose
+snapshot is provably complete — `toRosterEntry` copies `{...member.profile, id}` and
+`applyRoster` restores `profile: e.profile` — so the roster itself is not what is lost. The
+likely loss is her **photo and wallpaper**, which live in separate id-keyed stores
+(`rv_sim_cast_photos_v14` / `_walls_v14`) that the palette's delete path prunes by id. **Not
+reproduced**, so not designed: reproduce first, then decide whether the images belong in the
+saved roster (which would put ~46 KB of data URL into a second store, against §10's budget) or
+whether the delete path should spare an id that a saved roster still references.
+
+**A round that names nobody.** Reported: whole rounds referring to a member only as 她, leaving
+the player unable to tell who. It has a **second consequence nobody would report**:
+`membersNamedIn` observes appearances from the prose, so a round that names no one records no
+one as present, and `[Rounds Absent]` then tells the next round she has been away — a false
+fact in the tail, which is the defect this file spends a whole section on. One rule fixes both:
+every member present in a round is named at least once, in narration, by her name alone. It is
+a prompt change in every language, so it moves all six goldens and wants its own commit.
+
+---
 ## 21. Endings and the epilogue — v1.4.2
 
 **Raised by Yuhan 2026-09-28, immediately after step 2, as a rough mechanism to design against

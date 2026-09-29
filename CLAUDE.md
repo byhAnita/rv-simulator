@@ -1809,6 +1809,43 @@ all, so a world-supplied label would be a string read only for its truthiness �
 wearing a noun's clothes. **The goldens cannot catch a regression here**, because all 175 library
 members declare a `role`, so the filtered branch appears in no fixture.
 
+### `useRole` filters the FIELD and the prose says it anyway
+
+**Found in the third phone pass, 2026-09-29, from an Instagram post in the chaebol
+world:** *yerimiese: 录制结束，和成员们吃了顿好的。忙内的快乐就这么简单～*. A recording
+session and a maknae, in a family compound.
+
+`castLore.useRole` is working. It is `false` for campus, office and chaebol, and
+`role: 副rapper·忙内` is correctly kept out of `memberLine`. **The leak is one field
+over and it is prose:** Yeri's `public_image` *begins* with 忙内, and `public_image`
+is Public Texture — one of the three ★ primary differentiators, sent in **every**
+world. Step 7 filtered the structured field and left the sentence saying the same
+thing, which is the shape this file keeps recording: **a rule applied to one field
+while its neighbour states the same fact in a form the rule cannot see.**
+
+**Measured over the library, zh:** **57 of 57 members**, **80 field instances** —
+`public_image` 56, `private_personality` 18, `queer_texture` 6. Counting group
+positions (忙内, 队长, 主唱, 门面, rapper) and idol activities (出道, 打歌, 回归, 专辑,
+舞台, 练习生, 粉丝, 偶像, 女团, 组合, 综艺). This is not a Yeri defect; it is what the
+library IS.
+
+**And Irene is not the counter-example she looked like.** Her post that round read
+fine; her `public_image` is *舞台上高冷优雅，作为队长是全队的定海神针*. She was lucky.
+**Universal and intermittent is the worst failure profile there is**, because no
+amount of clean play establishes that a world is clean — the same reason the
+`[Rounds Absent]` A/B could not conclude.
+
+Authoring per-world texture is 57 x 4 x 3 hand-written fields and is not reachable;
+suppressing `public_image` in three of four worlds gives up the field the whole cast
+differentiation rests on. **The real fix is to translate her into the world at setup
+time**, which is `docs/V140_PLAN.md` §22 — and §22 is also where a defect Yuhan found
+independently turns out to be the same one: `generateCard` reads `world` from state on
+a screen the player reaches BEFORE picking a world.
+
+**Not fixed here.** §22.1 carries the interim prompt rule (read the texture for traits,
+never for facts, with `castLife.theirs` as the substitute) and the reason it needs its
+own commit: it moves the three non-idol goldens.
+
 ### Where she is decides who is there
 
 Section 11 carries `world.places` — ten canon places, each `emoji name — desc` — with
@@ -2532,6 +2569,27 @@ token delta is still unmeasured.
 
 **A save slot written before this batch records the wrong world if it came from the
 custom-cast door**, and that is unrecoverable. Start a fresh run to test it.
+
+**The third phone pass CONFIRMED the world fix** — the place list and the top bar's
+platforms both follow the save's world now — and found three small things, all fixed
+in `631071b`: the PDF started every round on a new page, a save slot could not tell
+two worlds apart, and a saved cast could not be deleted.
+
+**It also found the biggest open defect in the release, and it is NOT fixed:** the cast
+library's texture prose is written for the idol world and reaches all four. See
+*`useRole` filters the FIELD and the prose says it anyway* — **57 of 57 members**. The
+interim prompt rule and the real fix are both in `docs/V140_PLAN.md` §22, which also
+carries Yuhan's setup-flow restructure and the three places I think it should differ
+(`name_kr` has twelve readers and cannot go; deleting `role` leaves a non-idol world
+with nothing saying what she does; `animal_plastic` is a prompt field, so removing it
+moves every golden).
+
+**Two more from that pass, neither diagnosed, both in §22.4:** a saved cast holding a
+custom member who was later deleted comes back as name + emoji — the prose snapshot is
+provably complete, so the suspect is her photo and wallpaper in the id-keyed stores the
+palette's delete path prunes, **not reproduced**; and whole rounds that name nobody, only
+她, which the player cannot follow **and** which makes `membersNamedIn` record no one as
+present, so `[Rounds Absent]` then reports a false absence. One prompt rule fixes both.
 
 **The exact next command** is the phone pass, on the Cloudflare branch alias (deterministic,
 unlike Vercel's), which needs no deploy because `dev` is pushed:
