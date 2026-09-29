@@ -7362,6 +7362,64 @@ async function layerL() {
     /PROVIDER === "qwen" && !API_KEY\.startsWith\("sk-ws-"\)/.test(harness),
     "a false warning is worse than none");
 
+  // THE WORLD IS THE FOURTH FIELD OF THIS SHAPE, and it is the one this file
+  // predicted. After identity, pace and provider it said: assume there is a fourth
+  // and go looking rather than waiting for it to cost a release. There was.
+  // `kpop_idol` was hardcoded in TWO places - the loadWorld call and the roster the
+  // --cast door builds - so the harness could not play a single line of what v1.4.1
+  // adds, and step 8's release gate (`a live playthrough.mjs pass`) was not
+  // reachable rather than merely unmet.
+  //
+  // BOTH sites are asserted, because moving one is the `extractStoryText` failure:
+  // a run would then load campus and hand resolveRoster a roster claiming kpop_idol.
+  check("the harness loads the world the flag names, not a hardcoded one",
+    /await loadWorld\(WORLD, LANG\)/.test(harness) && !/loadWorld\("kpop_idol"/.test(harness),
+    "loadWorld must take WORLD - a pinned world cannot exercise any world but one");
+  check("...and the roster it builds names that same world",
+    /worldId: WORLD,/.test(harness) && !/worldId: "kpop_idol"/.test(harness),
+    "the --cast door builds its own roster and must not pin a second world");
+  check("...and --world reaches both",
+    /const WORLD = arg\("world",/.test(harness),
+    "WORLD must come from arg('world', ...)");
+
+  // An identity id is a position inside ONE world and only the ex-girlfriend is
+  // shared, so a mismatched pair selects nothing: section 6 renders an empty
+  // background and no work title while every grader reports a healthy run. The
+  // check is DERIVED from the loaded world's own identities - a hand-listed table
+  // of which ids belong to which world is the list nobody updates.
+  check("the harness refuses an identity the chosen world does not declare",
+    /world\.identities\.some\(\(i\) => i\.id === IDENTITY\)/.test(harness),
+    "an unmatched identity renders a blank block and grades clean");
+  check("...and the refusal names what that world does declare",
+    /world\.identities\.map\(\(i\) => i\.id\)\.join/.test(harness),
+    "an error naming no alternative costs a second run to act on");
+
+  // A grader that cannot run is not a grader that passed. IDENTITY_ROLE is keyed
+  // on the kpop ids, so both ROLE CONTRACT graders are silent for every identity
+  // in a new world - `0 issues` in exactly the area v1.4.1 changed most. Printed
+  // under the table and deliberately NOT pushed into `notes`, which would colour
+  // the row: this states coverage, it does not report a defect.
+  check("a ROLE CONTRACT grader that cannot run is recorded rather than silent",
+    /report\.gradersSkipped\.push\(/.test(harness) && /gradersSkipped: \[\]/.test(harness),
+    "an unmapped identity must say so, or a clean run overstates what was checked");
+  check("...and it is reported without colouring the run",
+    /graders that did not run for this identity/.test(harness)
+      && !/allClean[^;]*gradersSkipped/.test(harness),
+    "a coverage statement that reaches allClean marks every new-world run dirty");
+
+  // The default has to be a world that exists, or every run without the flag dies
+  // at round 0 on a 404. Derived from the index rather than compared to a literal.
+  const harnessWorldIdx = JSON.parse(readFileSync(join(ROOT, "public/worlds/index.json"), "utf8"));
+  const harnessDefaultWorld = (harness.match(/const WORLD = arg\("world", "([^"]+)"\)/) || [])[1];
+  check("the harness's default world is one the index lists",
+    harnessWorldIdx.some((w) => w.id === harnessDefaultWorld),
+    `default ${harnessDefaultWorld}, index lists ${harnessWorldIdx.map((w) => w.id).join(', ')}`);
+  // Written into the report, because an A/B whose two arms were different worlds
+  // and does not say so is the `model id in your flags` mistake one field over.
+  check("...and the world that served the run is recorded in the report",
+    /world: WORLD,/.test(harness) && /LANG, GROUP, WORLD,/.test(harness),
+    "a report that does not name its world cannot be compared with another");
+
   // Prose is kept for every round, not a head of the first. A grader reports only
   // what went wrong, so the transcript is the only record of whether a positive
   // instruction was followed — and round 0 is the worst round to sample, being the

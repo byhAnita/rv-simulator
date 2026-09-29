@@ -394,6 +394,28 @@ version of the same lesson — *the guard belongs where the value is passed.*
 still hashes it and a form omitting the key would hash `undefined` where the app hashes
 `""` — two seeds for one setup.
 
+**`--world` is the fourth field of this shape, added in v1.4.1 step 8, and it is the one
+the rule above predicted.** `kpop_idol` was hardcoded in **two** places — the `loadWorld`
+call and the `worldId` on the roster the `--cast` door builds — so the harness could not
+play one line of what v1.4.1 adds. The step's gate is *a live `playthrough.mjs` pass*, so
+that gate **was not reachable**, which is a different thing from unmet and is only
+findable by reading the harness. Both sites are asserted: moving one would load `campus`
+and hand `resolveRoster` a roster still claiming `kpop_idol`.
+
+**An identity id is a position inside ONE world**, and the four worlds share exactly one
+(`主线成员前女友`). `--world campus --identity 练习生` therefore selects nothing: section 6
+renders an empty background and no work title, and the run grades clean against a prompt
+missing the block the flag exists to select. The harness **refuses the pair before the
+first call** and names what that world does declare, derived from `world.identities`.
+
+**A grader that cannot run is not a grader that passed.** `IDENTITY_ROLE` is keyed on the
+eight kpop identity ids, so `role-claimed-by-member` and `player-given-idol-life` are both
+silent for every identity in `campus`, `office` and `chaebol` — `0 issues` in exactly the
+area step 7 changed most. Each run records which graders did not execute and prints them
+under the table, deliberately **not** in `notes`, which feeds the clean/dirty verdict: it
+is a coverage statement, not a defect. Closing that gap means keying the map on the world
+as well as the identity, and it is not done.
+
 ### `--route` does not control the model, and the report now says which one answered
 
 **Step 7 learned this the expensive way.** A 25-round A/B of a prompt change showed output length

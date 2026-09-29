@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.4.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.1** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -468,7 +468,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.4.0)
+## Add-on Features (v1.4.1)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -2257,7 +2257,62 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 Everything from here to the end of this section was written while they were unreleased, and is kept
 as the record of how each one was validated — read the dates, not the tense.
 
-### Pick up here — v1.4.0 is released, 2026-09-28
+### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29
+
+**This block is the authority on what is open. The v1.4.0 one below it is history.**
+
+**All eight steps of v1.4.1 are written; step 8's release has not happened.** `dev` is at the
+bump commit, **eleven commits ahead of `1561668`** and **not pushed**. `main` is untouched at
+`7b3ceea`, tagged `v1.4.0`, and is still what players run. The tree is clean; nothing is stashed
+and nothing is running.
+
+**Verified, by measurement, offline:** `npm run build` clean at **418.29 kB / gzip 146.86**;
+`node test/smoke.mjs` **1511 passed / 0 failed**; `npm run bump 1.4.1` rewrote **15/15** version
+strings and left every historical version in this file and in README's old *What's New* headings
+alone. Mutation rounds across steps 1–8 total **194 RED, 0 GREEN, 0 NOT APPLIED**. The goldens
+moved **three times** in the whole release — step 2's `[Pace: …]` deletion, step 4's sections 10
+and 11, step 7's six generalised wordings — each diff read before committing.
+
+**NOT verified, and this is the gate:** **no live round has ever been played in `campus`, `office`
+or `chaebol`.** Every claim about them is offline. Steps 5 and 6 are likewise unexercised live,
+and step 4's token delta is still unmeasured. Nothing in v1.4.1 has been seen on a phone: the
+Setup page now offers a world picker and a four-world identity grid, Settings has a fourth switch,
+and the game page has a 📍 button, none of which has been looked at at 390px.
+
+**The exact next commands**, in order, the first two being the release's own gate:
+
+```bash
+node test/playthrough.mjs --world campus --lang ko --identity junior_student --rounds 8
+node test/playthrough.mjs --world chaebol --lang zh --identity 主线成员前女友 --rounds 8
+```
+
+**`--world` is new, and it is why this is the next command rather than a red line.** The harness
+pinned `kpop_idol` in two places, so it could not exercise a single line of what v1.4.1 adds — the
+fourth instance of the shape this file tracks three times, found by the prediction that said to go
+looking for a fourth. It is added, mutation-verified (**9 RED, 0 GREEN**), and it **refuses a
+`--world` / `--identity` pair the world does not declare** before spending a round. Note what it
+still cannot do: `IDENTITY_ROLE` is keyed on the kpop ids, so both ROLE CONTRACT graders are silent
+in a new world. The run now prints which graders did not execute, so a clean row does not overstate
+itself.
+
+Then the release itself, every line of which is a red line and none of which has been done:
+
+```bash
+git push origin dev
+git checkout main && git pull
+git merge dev --no-ff -m "release: v1.4.1"
+npm run deploy
+git tag v1.4.1 && git push origin v1.4.1
+git checkout -- index.html
+git checkout dev && git merge main && git push origin dev
+node scripts/dev-index.mjs
+```
+
+**Two decisions are still Yuhan's and neither blocks the release:** §18 decision 9 — `world.tone`
+and `country.name` have no reader, and step 7 authored three more copies of each — and
+`PROPOSALS.md` §6's ending precedence, which §21 needs before v1.4.2 can start.
+
+### Pick up here — v1.4.0 is released, 2026-09-28 (historical)
 
 **v1.4.0 is deployed and is what players run, and the tree is clean.** `main` = `origin/main` =
 `7b3ceea`, tagged `v1.4.0`; `dev` = `origin/dev`, which is that commit plus the dev-mode
@@ -2781,7 +2836,7 @@ still empty makes the field look filled while Save stays disabled with nothing t
 member is **seeded** at the year the wheel opens on. The displayed value is the stored one from the
 first frame; scrolling is how she changes it, not how she supplies it.
 
-### …and it could only ever test one of the four providers — the third time
+### …and it could only ever test one of the four providers — the third time, then the fourth
 
 **Found running the step 7 sanity check against a DeepSeek key.** `playthrough.mjs` hardcoded
 `selectedModel: "qwen"` and `aliyun: { mode: "free" }` into its `executeRound` call, so it could
@@ -2797,6 +2852,7 @@ wrong cause**, which is worse than a bare failure.
 | `identity` | `练习生` | 7 of 8 backgrounds never played live; a bug in one survived every run ever made |
 | `pace` | `浪漫情感向` | three quarters of the coverage, the moment section 6 began sending the pace's authored rule |
 | **provider** | **`qwen`** | **three of four providers have still never played a live round** |
+| **world** | **`kpop_idol`** | **v1.4.1's three new worlds could not be played at all — the release gate was not reachable, not merely unmet** |
 
 `--provider` now defaults to `MODEL_ID` from `.env.local`, so the harness follows the key that is
 actually configured rather than assuming Aliyun; `resolveProvider` consults `MODEL_CONFIGS` instead
@@ -2806,8 +2862,38 @@ the flag list** — adding `--provider` while leaving `selectedModel: "qwen"` in
 flag check, which is the trap the form-literal guard beside it already exists to avoid.
 
 **Generalise it: every field of `executeRound` that selects a whole code path needs a flag, and the
-guard belongs on the call rather than on the flag.** That is now three instances; assume there is a
-fourth and go looking rather than waiting for it to cost a release.
+guard belongs on the call rather than on the flag.** That was three instances, and the sentence that
+used to end here said to assume there was a fourth and go looking rather than wait for it to cost a
+release.
+
+#### The fourth was the world, and it was found the way that sentence said to find it
+
+**v1.4.1 step 8, before the live pass rather than after it.** `playthrough.mjs` hardcoded
+`kpop_idol` in **two** places — `loadWorld("kpop_idol", LANG)` and the `worldId` on the roster the
+`--cast` door builds — so the harness could not play one line of what the whole release adds:
+three worlds, their identities, their places, their platforms, their `castLife`. The step's own
+gate is *a live `playthrough.mjs` pass*, and that gate **was not reachable**. Unmet is a schedule
+problem; unreachable is a different thing, and only reading the harness finds it.
+
+**Both sites move or neither does.** Changing only the `loadWorld` call would load `campus` and
+hand `resolveRoster` a roster still claiming `kpop_idol` — `extractStoryText`'s two-copies failure
+one file over, so the guard asserts both and mutation-verifies each.
+
+**An identity is a position inside ONE world, and the four share exactly one id.** So
+`--world campus --identity 练习生` names nothing: `getIdentity` returns undefined, section 6
+renders an empty background and no work title, and every grader reports a healthy run against a
+prompt missing the block the flag exists to select. The harness now **refuses the pair before the
+first call** and names what that world declares — derived from `world.identities`, because a table
+of which ids belong to which world is precisely the hand-maintained list this repo keeps losing.
+
+**And the graders do not cover a new world, which is stated rather than discovered later.**
+`IDENTITY_ROLE` is keyed on the eight kpop identity ids, so both ROLE CONTRACT graders
+(`role-claimed-by-member`, `player-given-idol-life`) are silent for every identity in `campus`,
+`office` or `chaebol` — `0 issues` in exactly the area step 7 changed most. The run records which
+graders did not execute and prints them under the table. Deliberately **not** in `notes`, which
+feeds the clean/dirty verdict: this is a coverage statement, not a defect, and colouring the row
+would be the metric-that-fails-a-build that gets tuned away. **A grader that cannot run is not a
+grader that passed**, and nothing else on screen tells the two apart.
 
 ### `playthrough.mjs` had been dead since step 3, and that is the second time
 

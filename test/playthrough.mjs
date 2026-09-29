@@ -29,6 +29,14 @@
 //   node test/playthrough.mjs --rounds 15           # long enough for 5 collapses
 //   node test/playthrough.mjs --lang en             # zh | en | ko
 //   node test/playthrough.mjs --group twice         # any folder in public/groups/
+//   node test/playthrough.mjs --world campus        # any folder in public/worlds/;
+//                                                   # the FOURTH field of this shape after
+//                                                   # identity, pace and provider. It was
+//                                                   # pinned to kpop_idol, so v1.4.1's three
+//                                                   # new worlds could not be played at all.
+//                                                   # Identity ids are per-world, so --world
+//                                                   # and --identity must agree - the harness
+//                                                   # checks that before spending a round
 //   node test/playthrough.mjs --jobs 6              # parallel playthroughs
 //   node test/playthrough.mjs --subs 0              # 1 main + N subs (default 1, the
 //                                                   # reference setting for cost strings)
@@ -96,6 +104,14 @@ const ROUTE_MODE = has("route");
 // buildSystemPrompt, so pinning one to 练习生 meant 7 of the 8 were never played
 // live by anything.
 const IDENTITY = arg("identity", "练习生");
+// The world. THE FOURTH FIELD OF THIS SHAPE, and CLAUDE.md predicted it: after
+// identity, pace and provider it said to assume there was a fourth and go
+// looking rather than wait for it to cost a release. There was. `kpop_idol` was
+// hardcoded in two places, so the harness could not play one line of what
+// v1.4.1 adds - three worlds, their identities, their places, their platforms,
+// their castLife - and the release gate `a live playthrough pass` was not
+// reachable, not merely unmet.
+const WORLD = arg("world", "kpop_idol");
 // The story mode. Universal ids, per-world rules, and — since v1.4.1 step 2 — a
 // live Settings switch whose rule rides in the DYNAMIC TAIL rather than a setup
 // field baked into the cached prefix. It was `--pace`, hardcoded to 浪漫情感向
@@ -386,7 +402,7 @@ function parseCastSpec(spec) {
 function rosterFromSpec(parsed, castName) {
   const main = parsed.find((e) => e.slot === "main") || parsed[0];
   return {
-    worldId: "kpop_idol",
+    worldId: WORLD,
     // A cross-group cast is its OWN group, and `name` is load-bearing: it is the
     // group name section 4 is composed around. The origin groups are never named
     // there — that is the leak the fix exists to close.
@@ -488,9 +504,31 @@ async function runWorker(model) {
   console.error = (...a) => captured.push("error: " + a.map(String).join(" ").slice(0, 200));
   const restore = () => { console.log = realLog; console.warn = realWarn; console.error = realErr; };
 
-  const report = { model, identity: IDENTITY, storyMode: MODE, rounds: [], notes: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
+  const report = { model, world: WORLD, identity: IDENTITY, storyMode: MODE, rounds: [], notes: [], gradersSkipped: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
-    const world = await loadWorld("kpop_idol", LANG);
+    const world = await loadWorld(WORLD, LANG);
+
+    // An identity id is a position INSIDE one world, and the four worlds share
+    // exactly one id (the ex-girlfriend). So `--world campus --identity 练习生`
+    // names nothing: getIdentity returns undefined, section 6 renders an empty
+    // background and no work title, and the run looks healthy while grading a
+    // prompt that is missing the block the flag exists to select. Fail here,
+    // before the first call, and name what this world actually declares.
+    if (!world.identities.some((i) => i.id === IDENTITY)) {
+      throw new Error(
+        `--identity ${IDENTITY} is not declared by world ${WORLD}. It declares: ` +
+        world.identities.map((i) => i.id).join(", "));
+    }
+
+    // A grader that cannot run is not a grader that passed. IDENTITY_ROLE is
+    // keyed on the kpop identity ids, so every identity in a new world is
+    // unmapped and the two ROLE CONTRACT graders stay silent - which reads as
+    // `0 issues` in exactly the place v1.4.1 changed most. Recorded per run and
+    // printed under the table rather than folded into `notes`, because it is a
+    // statement about coverage and not a defect: it must not colour the row.
+    if (!IDENTITY_ROLE[IDENTITY]) {
+      report.gradersSkipped.push("role-claimed-by-member", "player-given-idol-life");
+    }
 
     // Two doors, and the harness now plays both. Without --cast this is the
     // classic path, byte for byte what it always was.
@@ -886,6 +924,18 @@ async function runParent() {
     console.log("\nissue tally:");
     for (const [k, v] of Object.entries(issueTally).sort((a, b) => b[1] - a[1])) console.log(`  ${String(v).padStart(4)}  ${k}`);
   }
+  // Printed with no verdict, deliberately, like every other number this harness
+  // and analyze-prose.mjs report. `0 issues` from a run whose ROLE CONTRACT
+  // graders never executed means something different from `0 issues` from one
+  // where they did, and nothing else on screen distinguishes the two.
+  const skipped = [...new Set(results.flatMap((r) => r.gradersSkipped || []))];
+  if (skipped.length) {
+    console.log(`
+graders that did not run for this identity: ${skipped.join(", ")}` +
+      `
+  (IDENTITY_ROLE has no entry for "${IDENTITY}", so a clean row is silent about the ROLE CONTRACT)`);
+  }
+
   const collapses = results.reduce((s, r) => s + (r.collapses || 0), 0);
   const breaks = results.reduce((s, r) => s + (r.prefixBreaks?.length || 0), 0);
   const rates = results.map(r => Number(r.cachePct)).filter(n => !Number.isNaN(n));
@@ -925,7 +975,7 @@ async function runParent() {
   // MODE replaces PACE. The six committed baselines still carry PACE, so the
   // analyzer reads either and says which it found - a report is evidence, and
   // rewriting how old evidence is labelled is worse than printing two labels.
-  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, IDENTITY, MODE, SUBS, REASONING, ROUTE_MODE, CAST, CAST_NAME }, results }, null, 2));
+  writeFileSync(path, JSON.stringify({ config: { models, ROUNDS, LANG, GROUP, WORLD, IDENTITY, MODE, SUBS, REASONING, ROUTE_MODE, CAST, CAST_NAME }, results }, null, 2));
   console.log(`${C.d}full report: ${path.replace(ROOT, ".")}${C.x}`);
 
   process.exit(hardFails || breaks ? 1 : 0);
