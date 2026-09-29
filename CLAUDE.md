@@ -2262,10 +2262,11 @@ as the record of how each one was validated — read the dates, not the tense.
 **This block is the authority on what is open. The v1.4.0 one below it is history.**
 
 **All eight steps of v1.4.1 are written; step 8's release has not happened.** `main..dev` holds
-the whole release — steps 1–7, the bump, and the harness fix step 8 turned up — and **none of it
-is pushed**. `main` is untouched at `7b3ceea`, tagged `v1.4.0`, and is still what players run.
-The tree is clean; nothing is stashed and nothing is running. A count is deliberately not written
-here: it goes stale on the next commit, and `git log --oneline main..dev` is the authority.
+the whole release — steps 1–7, the bump, and the harness fix step 8 turned up — and it is **pushed
+to `origin/dev` and nowhere else**. `main` is untouched at `7b3ceea`, tagged `v1.4.0`, and is
+still what players run; `dev` is never deployed. The tree is clean; nothing is stashed and nothing
+is running. A count is deliberately not written here: it goes stale on the next commit, and
+`git log --oneline main..dev` is the authority.
 
 **Verified, by measurement, offline:** `npm run build` clean at **418.29 kB / gzip 146.86**;
 `node test/smoke.mjs` **1511 passed / 0 failed**; `npm run bump 1.4.1` rewrote **15/15** version
