@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.4.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.1** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -459,7 +459,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.4.0)
+## Add-on Features (v1.4.1)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -1593,7 +1593,11 @@ Deleting the merged `hotfix/*` branch afterwards is your call — the merge comm
 
 **Always add a regression check to `test/smoke.mjs` as part of the fix**, and verify it fails against the unfixed code. This is already the convention in this repo — the Layer G key-page guards each encode a bug that reached a hand test. It also does double duty on the merge-back: if `dev` has rewritten the same area, the merge will conflict, and the guard is what proves the fix survived however you resolve it. Resolve in favour of `dev`'s structure, keep the fix's behaviour, and let the check confirm it.
 
-**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and adds a line to the current README "What's New" section rather than opening a new one.
+**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and **opens its own README "What's New" section**, marked `(hotfix)`.
+
+**That sentence used to say the opposite — "adds a line to the current section rather than opening a new one" — and the suite forbids it.** Smoke asserts `README has a "What's New in v<package.json version>" section`, so a bump with no new section is a red suite and therefore a blocked deploy. Two things make the section the right answer anyway: release notes filed under the *previous* version's heading are notes a player cannot find, and `src/config/releaseNotes.js` needs its own entry for the new version regardless, because smoke ties `RELEASE_NOTES[0].version` to `package.json`.
+
+**Keep the new version string out of the section's BODY.** `bumpFile` skips any line containing `What's New in`, so the heading is free — but a body line naming the version is counted, and README's expected count is exactly 6. Found the hard way while writing this hotfix: the count failed at 7 with a perfectly reasonable sentence in it.
 
 ### Version strings
 

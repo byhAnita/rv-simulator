@@ -25,6 +25,12 @@
 
 export const RELEASE_NOTES = [
   {
+    version: "1.4.1",
+    zh: "修复了角色设定页无法开始游戏的问题：出生年份滚轮显示着年份，却没有真的填进去，所以直接点「开始」会一直提示「请完成所有选项」。现在滚轮显示的年份就是已填写的年份，滑动即可修改。",
+    en: "Fixed a bug that could stop a new game from starting: the birth-year wheel showed you a year without actually filling the field in, so Start kept refusing with \"please complete all options\" even though every box looked answered. The year the wheel shows is now the year that is stored, and scrolling changes it.",
+    ko: "새 게임을 시작할 수 없던 문제를 고쳤습니다. 출생 연도 휠이 연도를 보여주면서도 실제로 값을 채우지 않아, 모든 항목을 채운 것처럼 보여도 시작 버튼이 \"모든 옵션을 선택해주세요\"라며 거부했습니다. 이제 휠에 보이는 연도가 저장된 연도이며, 스크롤로 바꿀 수 있습니다.",
+  },
+  {
     version: "1.4.0",
     zh: "现在可以自己组建卡司：从任意一个或多个团里挑主线、副线和背景成员，也可以用一句话描述、让 AI 生成一位并不存在的成员。任何成员都能上传头像和壁纸，裁剪由你决定，并会跟着她出现在游戏和四个社交面板里；角色设定改为直接选择出生年份，第十一个存档也不会再顶掉第一个。",
     en: "You can now build your own cast — pick a main, subs and background faces from one group or several, or describe a member who does not exist in one line and let the model write her card. Anyone can be given a photo and a wallpaper, cropped the way you choose, which follow her into the game and all four social panels; setup asks for your birth year directly, and the eleventh save no longer deletes the first.",

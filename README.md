@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.0
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.1
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.4.0-e887b0)
+![Version](https://img.shields.io/badge/version-1.4.1-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -65,7 +65,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.4.0)
+## 💰 API Cost & Performance (v1.4.1)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -176,6 +176,18 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.4.1 (hotfix)
+
+**The birth year wheel filled nothing in.** It displayed a year while the field behind it stayed
+empty, so **Start refused with "please complete all options" on a fresh run** with every box
+visibly answered - and the one year no gesture could select was the year the wheel opened on. The
+wheel now seeds the field it displays, and scrolling is how you change it rather than how you
+supply it.
+
+It also released its suppress-my-own-scroll latch on one path only, which the seed would otherwise
+have left set - discarding every scroll until a row was tapped. Both are covered by four guards
+derived from the wheels that exist, so a third wheel cannot ship unseeded.
 
 ## 🎉 What's New in v1.4.0
 
@@ -331,7 +343,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.4.0              | |
+|  |              LLM Text Adventure . v1.4.1              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -434,7 +446,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.4.0 - Architecture                     |
+|          Idol Dating Sim  v1.4.1 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -490,7 +502,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.4.0 Round Flow                            |
+|                    v1.4.1 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

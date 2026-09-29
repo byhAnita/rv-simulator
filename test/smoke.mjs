@@ -28,6 +28,7 @@
 
 import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
+import { PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "../src/config/constants.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve, join } from "node:path";
@@ -1115,6 +1116,92 @@ async function layerG(mod, MODEL_CONFIGS) {
   // every ex-girlfriend backstory, which is the bug v1.3.9 closed.
   check("setup still writes the frozen `age` the backstory seed hashes",
     /setBirthYear = \(v\) => setForm\([\s\S]{0,200}age: validBirthYear\(v\)/.test(app));
+
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so a screen that mounts one has to SEED the
+  // field it displays rather than fall back for display alone. Setup did not, and
+  // the third phone pass reported the consequence: a fresh run showed 2000 in the
+  // wheel while form.birthYear was "", so Start refused with "please complete all
+  // options" and nothing on screen was left to fill. The member editor had been
+  // seeded for exactly this reason one release earlier.
+  //
+  // DERIVED from the wheels that exist, not from a list of screens: strip the
+  // import and the `value=` attribute, and DEFAULT_YEAR must still be written
+  // somewhere in the file. A third wheel cannot ship unseeded.
+  const wheelScreens = [];
+  const unseeded = [];
+  const walkWheels = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const wp = join(dir, e.name);
+      if (e.isDirectory()) { walkWheels(wp); continue; }
+      if (!/\.(js|jsx)$/.test(e.name) || e.name === "YearWheel.jsx") continue;
+      const src = readFileSync(wp, "utf8");
+      if (!/<YearWheel/.test(src)) continue;
+      const rel = wp.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, "");
+      wheelScreens.push(rel);
+      // COMMENTS FIRST. The first version of this guard read the comment
+      // explaining the seed as if it were the seed, so the mutation that removes
+      // the seed reported GREEN — the third time a guard in this repo has passed
+      // against its own documentation.
+      const seedOnly = src
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/[^\n]*$/gm, "")
+        .replace(/^import[^\n]*DEFAULT_YEAR[^\n]*$/gm, "")
+        .replace(/value=\{[^}]*\}/g, "");
+      if (!/DEFAULT_YEAR/.test(seedOnly)) unseeded.push(rel);
+    }
+  };
+  walkWheels(join(ROOT, "src"));
+  check("every screen with a year wheel seeds the year the wheel opens on",
+    wheelScreens.length >= 2 && unseeded.length === 0,
+    unseeded.length ? unseeded.join(", ") : `the scan found ${wheelScreens.length} wheels, so it proves nothing`);
+
+  // The other half, and it fails independently: with the field seeded, a display
+  // fallback can only ever hide the seed failing. An unselected wheel is visible
+  // and reportable; a highlighted year the form does not hold is not.
+  check("Setup's wheel displays the stored year and no substitute for it",
+    /<YearWheel value=\{form\.birthYear\}/.test(app),
+    "a `|| DEFAULT_YEAR` here is the lie the player cannot act on");
+
+  // And the seed has to be a year the gate accepts, or seeding reproduces the bug
+  // it fixes. DEFAULT_YEAR is parsed from source because YearWheel.jsx is JSX and
+  // Node cannot import it; the range and the predicate are the real modules.
+  const wheelSrc = readFileSync(join(ROOT, "src", "platforms", "YearWheel.jsx"), "utf8");
+  const defaultYear = Number((wheelSrc.match(/export const DEFAULT_YEAR = (\d+)/) || [])[1]);
+  check("the year every wheel opens on is one the start gate accepts",
+    Number.isFinite(defaultYear)
+      && validPlayerBirthYear(String(defaultYear))
+      && defaultYear >= PLAYER_BIRTH_YEAR_MIN && defaultYear <= PLAYER_BIRTH_YEAR_MAX,
+    `DEFAULT_YEAR ${defaultYear} against ${PLAYER_BIRTH_YEAR_MIN}-${PLAYER_BIRTH_YEAR_MAX}`);
+
+  // THE LATCH THAT SUPPRESSES THE WHEEL'S OWN SCROLL MUST BE CLEARED ON EVERY
+  // EXIT, and seeding the value is what made that matter. The parking effect set
+  // the latch on one path and cleared it only from a timeout, which the effect's
+  // own cleanup cancels — so a `value` change arriving inside that 120ms window
+  // left the next run taking the early return, clearing nothing, and the latch
+  // set for the life of the component. Every scroll the player made was then
+  // discarded: the wheel moved and the bold row did not follow it, and only a
+  // tap could change the value. Reported from the fourth phone pass, one commit
+  // after Setup began seeding on mount.
+  //
+  // REPRODUCED IN A REAL BROWSER, not reasoned about: a scratchpad harness
+  // bundles this module, drives the state sequence with layout already settled,
+  // and reads which row is aria-selected after a scroll. Unfixed it logs
+  // `EARLY ... latch=true` then `SCROLL latch=true` and the selection never
+  // moves; fixed, all four arms land on the target. That harness needs Chrome,
+  // so it is NOT in this suite — what is here is the invariant it established.
+  //
+  // DERIVED from the effect's own shape rather than pinned to today's three
+  // clears: every `return` inside the effect must be matched by a clear, except
+  // the `if (!el)` guard that runs before the latch can be set. A fourth early
+  // return added without a clear fails this.
+  const parkEffect = (wheelSrc.match(/\/\/ Park the wheel on[\s\S]*?\n  \}, \[value, idxOf\]\);/) || [""])[0];
+  const parkReturns = (parkEffect.match(/\breturn\b/g) || []).length;
+  const parkClears = (parkEffect.match(/selfScroll\.current = false/g) || []).length;
+  check("the wheel clears its self-scroll latch on every exit",
+    parkEffect.length > 0
+      && (parkEffect.match(/selfScroll\.current = true/g) || []).length === 1
+      && parkClears >= parkReturns - 1,
+    `${parkClears} clears against ${parkReturns} returns — a latch left set discards every scroll the player makes`);
 
   check("provider id 'qwen' still exists (rv_sim_model_v11 = \"qwen\" keeps working)", !!MODEL_CONFIGS.qwen);
   check("App falls back to legacy rv_sim_qwen_submodel", /loadFromStorage\("rv_sim_qwen_submodel"\)/.test(app));
