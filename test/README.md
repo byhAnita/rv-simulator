@@ -78,7 +78,8 @@ graph resolves.
 
 **Layer I also covers world and roster loading** (v1.4.0 step 3): that the world
 JSON loads through `loadWorld` in all three languages, that it still declares
-every identity and pace id that can sit in a save, that `parseWorld` throws on a
+every identity id that can sit in a save and a rule for every story mode, that
+`parseWorld` throws on a
 missing key rather than dropping it, that the three language files agree on the
 blocks that are English rule text, and that a classic roster resolves to a
 **byte-identical prompt**. That last one is what makes "one engine, two doors"
@@ -149,11 +150,29 @@ every content mutation tripped **Layer C's mirror assertion**, because only
 
 ### Layer J and the golden prompts
 
-Three complete system prompts are committed under `test/fixtures/` and compared
+Six complete system prompts are committed under `test/fixtures/` and compared
 byte-for-byte. They cover what no assertion names — the JSON schema block, the
 phase rules, section ordering, blank lines — because a prompt regression throws
 no error and fails no test. It just writes differently, weeks later, with
 nothing to bisect.
+
+**Three of the six are one world.** v1.4.1 step 7 added `campus-ko`, `office-en`
+and `chaebol-zh`, rotating the language so every world and every language is
+covered once. **That leaves six of the twelve (world, language) pairs unpinned,**
+and it is an accepted gap rather than a technicality: v1.4.0 step 7 found seven
+defects that were invisible to `zh` because `zh` is the language the content is
+authored in and every other is a translation that can disagree with the code
+consuming it. A fixture stops a defect recurring; **reading the rendered prompt
+by hand is what finds it**, and that is the gate for a new world, not the
+snapshot. The step-7 read paid immediately: the `campus-ko` fixture exposed
+`"선배님" (선배님)`, a gloss translating a word into itself, which
+neither zh nor en can express.
+
+Each new fixture also pins a branch the `kpop_idol` three cannot reach: a work
+title pointed **at the cast** (`campus-ko`), a title pointed at the player in a
+world that is not an agency (`office-en`), and the ex-girlfriend backstory in a
+**second** world (`chaebol-zh`), so a re-roll of its seeded reason and keepsake
+is visible again.
 
 When you change `buildSystemPrompt` **on purpose**:
 
@@ -354,14 +373,48 @@ at ~800 characters against a band asking for 350-450 "words".
 for judging writing.** Round 0 is the only round with no history behind it — the one
 round whose prose cannot repeat itself.
 
-### Every field of `form` that selects a block of the prompt must be a flag
+### Every field that selects a block of the prompt must be a flag
 
 `--identity` exists because pinning `练习生` meant 7 of the 8 identity backgrounds had
-never been played live by anything. `--pace` exists for the same reason, and started
+never been played live by anything. `--pace` existed for the same reason, and started
 mattering the moment section 6 began sending the pace's authored **rule** instead of its
 id — three of the four rules had never reached a model. Smoke asserts the `form` literal
-is built from `IDENTITY` and `PACE`, not from strings: a check on the flag list alone
-would pass while `form.pace` stayed hardcoded.
+is built from `IDENTITY`, not from strings: a check on the flag list alone would pass
+while `form.identity` stayed hardcoded.
+
+**`--pace` is `--mode` since v1.4.1 step 2**, taking one of `free` / `romance` /
+`pressure` / `dramatic`, validated against `MODE_IDS` **imported from
+`src/rag/worldLoader.js`** rather than listed here — a second hand-maintained list of mode
+ids is exactly what `PACES` was. And the guard moved with it: the mode is no longer a
+`form` field at all, so smoke asserts `storyMode: MODE` on **the `executeRound` call**.
+A guard reading `form` would now be reading the wrong object, which is the sharper
+version of the same lesson — *the guard belongs where the value is passed.*
+
+`form.pace` is still in the harness form, as an empty string, because `backstorySeed`
+still hashes it and a form omitting the key would hash `undefined` where the app hashes
+`""` — two seeds for one setup.
+
+**`--world` is the fourth field of this shape, added in v1.4.1 step 8, and it is the one
+the rule above predicted.** `kpop_idol` was hardcoded in **two** places — the `loadWorld`
+call and the `worldId` on the roster the `--cast` door builds — so the harness could not
+play one line of what v1.4.1 adds. The step's gate is *a live `playthrough.mjs` pass*, so
+that gate **was not reachable**, which is a different thing from unmet and is only
+findable by reading the harness. Both sites are asserted: moving one would load `campus`
+and hand `resolveRoster` a roster still claiming `kpop_idol`.
+
+**An identity id is a position inside ONE world**, and the four worlds share exactly one
+(`主线成员前女友`). `--world campus --identity 练习生` therefore selects nothing: section 6
+renders an empty background and no work title, and the run grades clean against a prompt
+missing the block the flag exists to select. The harness **refuses the pair before the
+first call** and names what that world does declare, derived from `world.identities`.
+
+**A grader that cannot run is not a grader that passed.** `IDENTITY_ROLE` is keyed on the
+eight kpop identity ids, so `role-claimed-by-member` and `player-given-idol-life` are both
+silent for every identity in `campus`, `office` and `chaebol` — `0 issues` in exactly the
+area step 7 changed most. Each run records which graders did not execute and prints them
+under the table, deliberately **not** in `notes`, which feeds the clean/dirty verdict: it
+is a coverage statement, not a defect. Closing that gap means keying the map on the world
+as well as the identity, and it is not done.
 
 ### `--route` does not control the model, and the report now says which one answered
 

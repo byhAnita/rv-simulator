@@ -57,7 +57,11 @@ export const PROFILE_FIELDS = [
 // in the same roster then share a colour, which is the one place it shows.
 // No variation selectors: every entry is a single code point, so the width is
 // consistent wherever it is rendered next to a library member's emoji.
-const EMOJI_PALETTE = ["🎻", "🐦", "🦌", "🐈", "🦢", "🦔", "🐝", "🦉", "🐞", "🦋"];
+// EXPORTED since v1.4.1: the editor offers these as one-tap choices, and a
+// second copy of ten glyphs in a component is the hand-maintained list this
+// repo keeps losing. It is the DEFAULT set, not the allowed set - the field
+// takes any glyph the player can type.
+export const EMOJI_PALETTE = ["🎻", "🐦", "🦌", "🐈", "🦢", "🦔", "🐝", "🦉", "🐞", "🦋"];
 const COLOR_PALETTE = [
   ["#e887b0", "#f8c8d8"], ["#7fb5d5", "#c5e2f0"], ["#c9a86c", "#ecdcc0"],
   ["#9b8bc4", "#d8d0ec"], ["#7fc4a8", "#c8e8dc"], ["#d49080", "#f0d0c8"],
@@ -140,11 +144,39 @@ export function newMemberId(now = Date.now(), rand = Math.random) {
   return `c_${now.toString(36)}${Math.floor(rand() * 1296).toString(36).padStart(2, "0")}`;
 }
 
+/**
+ * One glyph, from whatever the player typed or pasted.
+ *
+ * A GRAPHEME, not a code point: a flag is two code points, a skin tone is two,
+ * and a family is up to seven joined by ZWJ - so slicing by code point stores
+ * half an emoji and renders a stray modifier beside it. Intl.Segmenter is the
+ * only thing that gets that right and every browser this app targets has it.
+ *
+ * The LAST grapheme wins, not the first, and that is a UI rule rather than a
+ * taste: this field is never empty once she has one, so typing into it means
+ * "use this instead" - keeping the first would make the box ignore every key
+ * pressed after the glyph already sitting in it.
+ */
+export function normalizeEmoji(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    const parts = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(s)];
+    return parts.length ? parts[parts.length - 1].segment : "";
+  }
+  // No segmenter: hand back what was typed rather than half a glyph. Visibly
+  // wrong beats plausibly wrong, and this branch is unreachable in practice.
+  return s;
+}
+
 /** Fill in the cosmetic fields the form does not ask for. */
 export function withDefaults(profile, index = 0) {
   const [color, accent] = COLOR_PALETTE[index % COLOR_PALETTE.length];
   return {
     ...profile,
+    // What the player picks wins; the palette is only what she gets for not
+    // making one. Until v1.4.1 there was no way to make one at all, so a custom
+    // member was whichever glyph her index landed on for the life of the save.
     emoji: profile.emoji || EMOJI_PALETTE[index % EMOJI_PALETTE.length],
     color: profile.color || color,
     accent: profile.accent || accent,
@@ -273,15 +305,17 @@ export function savedRosterEntry({ label, roster, fallbackName = "", now = Date.
  * slots are walked in a fixed sequence — main, then subs, then NPCs — rather
  * than however the picks object happens to iterate.
  *
+ * It takes no world, and the builder cannot supply one that would still be true:
+ * the world is picked at Setup, one screen LATER. See buildClassicRoster.
+ *
  * Lives here rather than in the component so it can be tested as behaviour
  * instead of asserted as a regex: it is the part of the builder that has to be
  * right.
  */
-export function rosterFromPicks(picks = {}, worldId = "kpop_idol") {
+export function rosterFromPicks(picks = {}) {
   const chosen = Object.entries(picks).map(([id, p]) => ({ id, ...p }));
   const main = chosen.find((p) => p.slot === "main");
   return {
-    worldId,
     // The group whose lore the prompt uses. The main member's group is the right
     // answer for a single-group cast and the only defensible one for a mixed
     // cast until composed lore lands in v1.4.1.

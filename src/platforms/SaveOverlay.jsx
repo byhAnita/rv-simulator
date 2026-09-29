@@ -3,7 +3,7 @@ import { STORAGE_KEYS, loadFromStorage, saveToStorage, addSaveSlot, SAVE_SLOT_MA
 import { SAVE_SCHEMA } from "../rag/saveMigrator";
 import { DEFAULT_WORLD_ID } from "../rag/worldLoader";
 
-export default function SaveOverlay({ stats, member, form, groupId, roster, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
+export default function SaveOverlay({ stats, member, form, groupId, worldId, worldLabel, roster, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
   const [saves, setSaves] = useState(() => loadFromStorage(STORAGE_KEYS.SAVES) || []);
   // Set when localStorage refuses the write. The list must keep showing what is
   // actually stored, so this is the only signal the player gets that the slot
@@ -22,7 +22,10 @@ export default function SaveOverlay({ stats, member, form, groupId, roster, mess
   const handleSave = () => {
     const newSave = {
       id: Date.now(),
-      name: `${t.stats.week.label} ${stats?.week || 1} - ${member?.name || "RV"}`,
+      // The world leads, because it is what tells two runs of the same cast
+       // apart - and it is prefixed rather than appended so it survives the
+       // ellipsis when a slot name is too long for the row.
+      name: `${worldLabel ? worldLabel + " " : ""}${t.stats.week.label} ${stats?.week || 1} - ${member?.name || "RV"}`,
       date: new Date().toLocaleDateString("zh-CN"),
       // A save slot recorded who the player chose but never where they came
       // from, so loading a TWICE save while Red Velvet was selected produced
@@ -30,7 +33,14 @@ export default function SaveOverlay({ stats, member, form, groupId, roster, mess
       // whose main member was undefined. These four fields close that, and are
       // what saveMigrator backfills for every slot written before v1.4.0.
       schema: SAVE_SCHEMA,
-      groupId, worldId: roster?.worldId || DEFAULT_WORLD_ID, roster,
+      // THE WORLD THE RUN IS BEING PLAYED IN, handed down from the loaded
+      // `world` object every prompt this round was built from - not read back
+      // off the roster. The roster used to carry a `worldId` and it was stamped
+      // one screen before the player picks a world, so a chaebol run saved
+      // `kpop_idol` and loading it brought back the idol world's places,
+      // platforms and prompt. A save records what was played, and only the run
+      // knows that.
+      groupId, worldId: worldId || DEFAULT_WORLD_ID, roster,
       stats, form, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory,
       triggeredAchievements: triggeredAchievements ? [...triggeredAchievements] : [],
     };

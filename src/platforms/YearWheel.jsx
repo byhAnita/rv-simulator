@@ -68,17 +68,31 @@ export default function YearWheel({
   // Park the wheel on `value` whenever it disagrees with where the wheel is.
   // Comparing positions rather than syncing unconditionally is what lets the
   // player's own scroll finish without being yanked back a frame later.
+  // EVERY EXIT FROM THE WINDOW CLEARS THE LATCH, and that is the whole rule.
+  // `selfScroll` was set on one path and cleared only by the timeout below, so a
+  // `value` change arriving before that timeout fired cancelled it through this
+  // effect's own cleanup — and the next run took the early return, which cleared
+  // nothing. The latch then stayed true for the life of the component and every
+  // scroll the player made was discarded: the wheel moved, the bold row did not
+  // follow it, and only a tap (which calls onChange directly) could move the
+  // value. Reported from the fourth phone pass, one commit after Setup began
+  // seeding its value on mount, which is exactly the early value change this
+  // could not survive.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const want = idxOf(value) * ROW_H;
-    if (Math.abs(el.scrollTop - want) < ROW_H / 2) return;
+    if (Math.abs(el.scrollTop - want) < ROW_H / 2) {
+      // Already parked, so nothing is animating and nothing may be suppressed.
+      selfScroll.current = false;
+      return;
+    }
     selfScroll.current = true;
     el.scrollTop = want;
     // One frame is not always enough: a smooth-scroll setting on the element or
     // the OS can emit scroll events for several frames after the assignment.
     const t = setTimeout(() => { selfScroll.current = false; }, 120);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); selfScroll.current = false; };
   }, [value, idxOf]);
 
   const onScroll = () => {

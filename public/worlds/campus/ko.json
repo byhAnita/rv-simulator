@@ -1,0 +1,240 @@
+{
+  "world": {
+    "id": "campus",
+    "name": "캠퍼스",
+    "emoji": "🎓",
+    "color": "#7aa6d6"
+  },
+  "country": {
+    "id": "korea",
+    "name": "한국",
+    "register": "korea"
+  },
+  "setting": "이야기는 현대 서울의 한 대학을 배경으로 한다. 시간표, 동아리방, 밤새 열려 있는 열람실, 불이 꺼지지 않는 편의점이 하루를 이룬다. 여기에는 계약도 없고 누군가를 해고할 회사도 없다 — 그래서 모든 제약이 사람에게서 온다. 같은 학번의 시선, 선후배 사이의 정해진 자리, 강의 진도보다 빠르게 학과를 도는 말. 연애는 금지되어 있지 않지만, 보이는 순간 남의 이야깃거리가 된다.",
+  "tone": "slow-burn, campus seasons, social exposure",
+  "statNotes": {
+    "selfId": "Rises when she says what she actually wants in a room where an answer is expected - a seminar, a club meeting, a group project. Falls when she gives the answer that keeps things smooth.",
+    "secrecy": "Falls when the relationship becomes legible to anyone on campus - a classmate in the same seminar, a club group chat, a photo someone else posted, being seen leaving together late. Rises when an ordinary explanation holds.",
+    "mood": "Driven by deadlines, exams and where the semester is, and by how the last conversation with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "instagram"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "useRole": false,
+    "orgSuffix": "University",
+    "orgNoun": "학교",
+    "orgHint": "이 멤버들은 같은 학교, 같은 학번의 학생입니다. 학교: {org}",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a circle of {n} students at {org}.",
+      "{name} exists only in this story. These {n} are in the same year and have known each other since their first semester. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else on campus is unnamed - a classmate, a professor, a staff member - and no other name may be used, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "The cast of this story is {members}.",
+      "In this world they are students in the same year at the same university. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": false,
+  "identities": [
+    {
+      "id": "prof_of_cast",
+      "name": "교수",
+      "background": "[신분: 교수] 당신은 {name}이/가 속한 학과의 젊은 교수이고, 그녀는 이번 학기에 당신의 수업을 듣습니다. 주요 이벤트: 수업이 끝난 뒤 이미 답을 아는 질문을 하러 남아 있음; 면담 시간에 그녀의 필기가 당신의 강의 자료보다 꼼꼼하다는 걸 알게 됨; 학과 회식이 끝나고 마지막까지 남은 두 사람; 기말 채점을 하며 편애하지 않았다고 스스로에게 증명해야 함. 장점: 그녀에게 필요한 것을 당신이 가지고 있음 — 지도, 추천서, 관심. 단점: 학칙이 명시적으로 금지하는 관계이며, 단둘이 만날 때마다 이유가 필요함. [첫 만남] 이야기는 두 사람이 처음으로 제대로 마주하는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 실제로 대화를 나눈 적이 없고, 이름을 들어 봤거나 얼굴을 스찐 정도입니다. 당신은 이 자리에 온 지 얼마 되지 않았습니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쪘을 때의 거리감과 탐색으로 쓰고, 그 뒤는 라운드마다 조금씩 쌓아 갑니다.",
+      "workTitle": {
+        "form": "교수님",
+        "kr": "교수님"
+      }
+    },
+    {
+      "id": "peer_student",
+      "name": "동기",
+      "background": "[신분: 동기] 당신과 {name}은/는 같은 학번, 같은 학과 학생으로, 입학 첫날부터 같은 출석부에 있었습니다. 주요 이벤트: 같은 조 과제에 배정되어 편의점에서 세 번째 커피를 사며 밤을 새움; 수강신청을 하다 또 같은 과목을 골랐다는 걸 알게 됨; 옆자리에서 졸던 그녀의 고개가 천천히 어깨 쪽으로 기울어짐; 기말이 끝난 날 학과 전체가 축하하는데 둘만 먼저 나옴. 장점: 거리가 가장 가깝고 이유가 가장 많으며, 같은 공간에 있는 데 아무 설명도 필요 없음. 단점: 바로 그 때문에 어떤 변화든 같은 사람들에게 보임. [첫 만남] 이야기는 두 사람이 처음으로 제대로 마주하는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 실제로 대화를 나눈 적이 없고, 이름을 들어 봤거나 얼굴을 스찐 정도입니다. 당신은 이 자리에 온 지 얼마 되지 않았습니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쪘을 때의 거리감과 탐색으로 쓰고, 그 뒤는 라운드마다 조금씩 쌓아 갑니다."
+    },
+    {
+      "id": "senior_student",
+      "name": "선배",
+      "background": "[신분: 선배] 당신은 {name}보다 한 학번 위이고 같은 학과입니다. 주요 이벤트: 신입생 오리엔테이션에서 그녀를 맡은 사람이 당신이었음; 수강신청표를 들고 어떤 수업이 들을 만한지 물으러 옴; 동아리 회식이 끝나고 기숙사까지 데려다줌; 그녀의 첫 발표에서 손이 떨릴 때 당신은 맨 뒷줄에 앉아 있었음. 장점: 그녀가 당신을 찾아올 이유가 원래부터 있고, 선배라는 자리가 챙기는 일을 당연하게 만듦. 단점: 선후배의 자리가 다른 것으로 바뀌는 순간, 누가 먼저 선을 넘었는지 학과 전체가 알게 됨. [첫 만남] 이야기는 두 사람이 처음으로 제대로 마주하는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 실제로 대화를 나눈 적이 없고, 이름을 들어 봤거나 얼굴을 스찐 정도입니다. 당신은 이 자리에 온 지 얼마 되지 않았습니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쪘을 때의 거리감과 탐색으로 쓰고, 그 뒤는 라운드마다 조금씩 쌓아 갑니다.",
+      "workTitle": {
+        "form": "선배님",
+        "kr": "선배님"
+      }
+    },
+    {
+      "id": "junior_student",
+      "name": "후배",
+      "background": "[신분: 후배] 당신은 {name}보다 한 학번 아래이고, 그녀는 학과에서 당신이 가장 먼저 이름을 외운 선배입니다. 주요 이벤트: 수강신청에 실패하자 자기 필기를 통째로 건네줌; 동아리에서 당신에게 떠넘겨질 뻔한 잡일을 대신 막아 줌; 회식에서 누가 계속 잔을 채우자 그 잔을 치워 줌; 밤새 과제를 하는 당신 옆에서 끝날 때까지 열람실에 남아 있음. 장점: 선배에게 도움을 청하는 것이 가장 자연스러운 접근이고, 아무도 이상하게 보지 않음. 단점: 선후배 사이의 챙김은 다른 것으로 읽히기 쉽고, 그렇게 읽는 사람은 두 사람이 아님. [첫 만남] 이야기는 두 사람이 처음으로 제대로 마주하는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 실제로 대화를 나눈 적이 없고, 이름을 들어 봤거나 얼굴을 스찐 정도입니다. 당신은 이 자리에 온 지 얼마 되지 않았습니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쪘을 때의 거리감과 탐색으로 쓰고, 그 뒤는 라운드마다 조금씩 쌓아 갑니다.",
+      "workTitle": {
+        "form": "선배님",
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is a year below them and every member is her senior"
+      }
+    },
+    {
+      "id": "ta",
+      "name": "조교",
+      "background": "[신분: 조교] 당신은 이 수업의 조교이고 {name}은/는 그 수업의 학생입니다 — 당신은 그녀의 교수가 아니지만, 그녀의 과제를 채점합니다. 주요 이벤트: 그녀의 보고서 여백에 성적 코멘트보다 긴 글을 적음; 질의응답 시간에 둘만 남고 화제는 진작에 수업을 벗어나 있음; 마감 직전에 과제를 내도 이유를 묻지 않음; 기말 성적을 입력하며 그녀의 줄만 세 번 확인한 자신을 발견함. 장점: 위치가 애매함 — 권한이 조금 있고 많지는 않아서, 교수보다 훨씬 가까워지기 쉬움. 단점: 그 권한이 많지 않기에 그녀도 자신도 지킬 수 없고, 말이 나오면 더 알았어야 했던 쪽은 당신이 됨. [첫 만남] 이야기는 두 사람이 처음으로 제대로 마주하는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 실제로 대화를 나눈 적이 없고, 이름을 들어 봤거나 얼굴을 스찐 정도입니다. 당신은 이 자리에 온 지 얼마 되지 않았습니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쪘을 때의 거리감과 탐색으로 쓰고, 그 뒤는 라운드마다 조금씩 쌓아 갑니다."
+    },
+    {
+      "id": "exchange_student",
+      "name": "교환학생",
+      "background": "[신분: 교환학생] 당신은 교환학생으로 와 있습니다 — 한 학기, 혹은 일 년. 주요 이벤트: 조별 토론에서 속도를 따라가지 못하자 그녀가 자기 속도를 늦춤; 현지 학생만 아는 가게에 데려가 줌; 당신이 단어를 잘못 말하자 한참 웃고 나서 제대로 알려 줌; 언제 돌아가는지 이야기가 나오자 둘 다 화제를 바꿈. 장점: 외부인이라는 위치 덕분에 기존의 어떤 관계망에도 속하지 않고, 규칙이 조금 느슨하게 적용됨. 단점: 당신이 떠난다는 것을 그녀를 포함해 모두가 알고 있으며, 그 사실은 첫날부터 모든 대화 밑에 깔려 있음. [첫 만남] 이야기는 두 사람이 처음으로 제대로 마주하는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 실제로 대화를 나눈 적이 없고, 이름을 들어 봤거나 얼굴을 스찐 정도입니다. 당신은 이 자리에 온 지 얼마 되지 않았습니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쪘을 때의 거리감과 탐색으로 쓰고, 그 뒤는 라운드마다 조금씩 쌓아 갑니다."
+    },
+    {
+      "id": "主线成员前女友",
+      "name": "메인 멤버의 전 여자친구",
+      "background": "[특별 신분: 메인 멤버의 전 여자친구]\n- 당신과 {name}은/는 연인이었으며, 몇 년 전 {reason}으로/로 인해 헤어졌습니다\n- 당신은 아직도 {keepsake}을/를 간직하고 있습니다\n- 지금 그녀가 같은 학교로 돌아왔습니다 — 편입이든, 복학이든, 그저 같은 수업을 신청한 것이든. 재회는 어색합니다: 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠\n- 다른 사람들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다",
+      "variants": {
+        "reason": [
+          "졸업 후의 서로 다른 계획",
+          "그녀 가족의 반대",
+          "그때는 둘 다 어렸다는 것",
+          "그녀가 다른 도시로 편입한 일"
+        ],
+        "keepsake": [
+          "그녀가 빌려준 그 책",
+          "함께 찍은 학생증 사진",
+          "그녀가 유인물 뒷면에 적어 준 쪽지",
+          "둘이 나눠 쓰던 이어폰"
+        ]
+      }
+    }
+  ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: the same seats, the same walk back, a semester passing. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Department gossip and social visibility higher, secrecy changes doubled. Being seen together carries weight: a classmate's photo, a club group chat, a name that travels faster than the syllabus.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Shared classes and corridors, polite distance, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, late-night study rooms, accidental touches, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Department talk, a photo someone else posted, family expectations, plans after graduation against feelings."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "places": [
+    {
+      "id": "lecture_hall",
+      "name": "계단식 강의실",
+      "emoji": "📚",
+      "desc": "맨 뒷줄은 모두를 볼 수 있고, 모두에게 보인다.",
+      "draws": []
+    },
+    {
+      "id": "library",
+      "name": "도서관",
+      "emoji": "📖",
+      "desc": "책장 넘기는 것도 조심스러울 만큼 조용해서, 말하려면 가까이 붙어야 한다.",
+      "draws": [
+        "studious"
+      ]
+    },
+    {
+      "id": "seminar_room",
+      "name": "세미나실",
+      "emoji": "🗒️",
+      "desc": "여섯 명이 앉는 긴 책상, 그리고 문에 달린 작은 창.",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "club_room",
+      "name": "동아리방",
+      "emoji": "🎸",
+      "desc": "장비와 오래된 포스터가 쌓여 있고, 열쇠는 몇 명만 가지고 있다.",
+      "draws": [
+        "performer"
+      ]
+    },
+    {
+      "id": "campus_cafe",
+      "name": "교내 카페",
+      "emoji": "☕",
+      "desc": "쉬는 시간에 가장 붐비고, 누가 누구와 앉았는지는 기억된다.",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "dorm_room",
+      "name": "기숙사 방",
+      "emoji": "🛏️",
+      "desc": "가장 사적이면서 사생활이 가장 없는 곳. 룸메이트가 언제든 돌아온다.",
+      "draws": []
+    },
+    {
+      "id": "track_field",
+      "name": "운동장",
+      "emoji": "🏃",
+      "desc": "밤에는 아무도 없고, 트랙 옆 조명은 절반만 켜져 있다.",
+      "draws": [
+        "athletic"
+      ]
+    },
+    {
+      "id": "quad",
+      "name": "중앙 잔디밭",
+      "emoji": "🌳",
+      "desc": "트여 있고, 공개되어 있고, 모두가 지나간다 — 그래도 바람은 좋다.",
+      "draws": []
+    },
+    {
+      "id": "convenience_store",
+      "name": "정문 앞 편의점",
+      "emoji": "🏪",
+      "desc": "새벽 두 시, 어묵 국물의 김, 점원은 고개를 들지 않는다.",
+      "draws": []
+    },
+    {
+      "id": "night_study",
+      "name": "24시간 열람실",
+      "emoji": "💡",
+      "desc": "스탠드가 줄지어 있고, 그중 둘만 아직 켜져 있다.",
+      "draws": [
+        "quiet"
+      ]
+    }
+  ],
+  "scenario": "열람실이 곧 문을 닫을 시간. 층 전체에 둘만 남았고, 복도 끝 센서등이 꺼졌다가 다시 켜진다. 사소한 일 하나 때문에 마지막까지 남았다. 아무도 듣지 않는 곳에서 이야기를 나누는 건 처음이다.",
+  "npcArchetypes": [
+    "professor",
+    "classmate",
+    "club member",
+    "campus staff member"
+  ],
+  "addressContext": {
+    "toPlayer": "on campus",
+    "toCast": "on campus"
+  },
+  "castLife": {
+    "theirs": "classes, deadlines, club activities, the dorm",
+    "notHers": "no class here to be late for and no place on their timetable",
+    "recentBeat": "the class she just walked out of",
+    "sceneExample": "Lecture hall, 10PM",
+    "socialReach": "340"
+  }
+}

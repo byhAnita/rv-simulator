@@ -78,9 +78,36 @@ constraint on every future feature: **nothing that grows mid-game may enter the 
 That rule has already shaped the place map (§7.2 of the v1.4.0 plan) and the retrieval design
 (§13) — both put their growing data in the tail instead.
 
+**v1.4.1 step 2 — the constraint is not only about data that GROWS; it is about anything the
+player can change.** The pace was a setup choice, so it sat correctly in the static prompt for
+four releases. Turning it into a four-way *story mode* the player can switch mid-run changed
+nothing about its size and everything about its placement: a rule in the cached prefix means
+every toggle pays full price for ~5,500 tokens on the next round, which is the cost this entry
+exists to avoid. It moved to the tail beside the Time Speed hint, and the generalised rule is
+**order the prompt by how often each part changes — including the parts that change because a
+person chose to change them.**
+
+The move is ~50 tokens leaving the prefix (~20% of miss price) for the always-miss tail, so about
+40 full-price-equivalent tokens against ~7,950 input per round: **+0.5%, calculated from the token
+profile, not measured.** The static prompt gets ~50 tokens smaller in exchange.
+
+**And the trap it surfaced is a naming one, not a caching one.** Time Speed already wrote
+`[Pacing] slow — …` into the tail, and the obvious label for the new line was also `[Pacing]`.
+**Two different quantities under one label is worse than two labels for one quantity** — the
+`[Stage Changes]` id-vs-name bug this project already records — because the model is left to work
+out which line means what, and nothing fails when it guesses wrong. They were renamed together, in
+the same commit, to `[Story Mode: …]` and `[Time Speed]`. That rename is free precisely because
+the tail is the always-miss message: no golden pins it and no cached prefix contains it.
+
+Both lines are now placed by one exported pure function, `buildTailRules(world, storyMode,
+timeSpeed)`. It was an inline ternary inside a template literal, which meant the one part of the
+prompt that changes every round was the one part no test could call. Layer J asserts the paired
+invariant — the static prompt is byte-identical across a change to either dial **and** the tail is
+what moves instead — because either half alone passes against a dial nothing reads.
+
 **Where it lives.** `src/agent/memoryPool.js` (`buildHistoryLedger`, `buildDynamicTail`,
-`collapseHistoryIfNeeded`), `src/agent/mainAgent.js` (`buildSystemPrompt`). The round-by-round
-cache trace is in `CLAUDE.md`.
+`collapseHistoryIfNeeded`), `src/agent/mainAgent.js` (`buildSystemPrompt`, `buildTailRules`).
+The round-by-round cache trace is in `CLAUDE.md`.
 
 **Short form.** Prompts are cached by prefix, so the prompt is ordered by how often each part
 changes and the history is append-only. Collapsing old stories into their summaries in place
@@ -336,13 +363,39 @@ whitelist and silently dropped `birthday` for two releases — every member reac
 load, naming the key. Silence is the wrong default for a loader whose output is invisible until
 the writing drifts weeks later.
 
-**Where it lives.** `src/rag/worldLoader.js` (`loadWorld`, `parseWorld`, `getIdentity`,
-`getPaceRule`, `renderIdentityBackground`), `public/worlds/kpop_idol/*`, root `worlds/*`,
-`buildSystemPrompt` in `src/agent/mainAgent.js`, smoke Layers C, I and J.
+**v1.4.1 step 1 — the honorific table was still keyed on the wrong axis, one level up.** v1.4.0
+moved it out of `buildSystemPrompt` and into the world file, on the argument that it is a
+(world, language) table rather than a language one. That is right about the *axis* and wrong about
+the *granularity*: four worlds set in Korea would have carried four byte-identical copies of one
+Korean table, across three languages each — twelve copies of a thing that changes when the country
+changes and at no other time.
+
+So the table moved once more, to `public/worlds/_registers/<lang>.json` keyed by **register**, and
+a world names the register its `country` speaks. `parseWorld` resolves it and attaches the result
+as `world.addressForms`, which is what makes this a pure data move: `buildSystemPrompt` reads
+exactly the field it always read, and the three goldens are byte-identical across the change.
+
+**What it bought**: adding a Korean-set world is now zero new honorific data, and adding a Japanese
+one is a second key in an existing file rather than a fourth tree. **What it costs**: one extra
+fetch per game, and a world can now name a register that does not exist — which **throws**, because
+the alternative is a prompt with no address protocol in it, and that reads as the model choosing
+not to use honorifics rather than as a missing file.
+
+**The general shape.** Data that varies with A and not with B belongs in a store keyed by A. Putting
+it in the B-shaped file works until there is a second B, and then every copy is a chance for one to
+be the copy somebody forgot — which is exactly how `extractStoryText` ended up with two definitions
+and a guard written against the one that was still correct.
+
+**Where it lives.** `src/rag/worldLoader.js` (`loadWorldIndex`, `loadWorld`, `parseWorld`,
+`MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`),
+`public/worlds/_registers/*`, `public/worlds/index.json`, `public/worlds/kpop_idol/*`, root
+`worlds/*`, `buildSystemPrompt` in `src/agent/mainAgent.js`, smoke Layers C, I and J.
 
 **Short form.** The setting became data instead of code, because the honorific table was keyed on
 the wrong axis. Proved byte-identical two ways — 1,368 seeded renders and three golden prompts —
-and the goldens still found a trailing space that nothing else would have.
+and the goldens still found a trailing space that nothing else would have. Then v1.4.1 found the
+axis was still one level too coarse and moved the table again, to a register store, byte-identical
+a third time.
 
 ### Migration that reproduces rather than fixes — v1.4.0
 
@@ -649,6 +702,145 @@ it is panned and zoomed by transform and genuinely must be a child.
 **Short form.** Two fixes argued about how to clip the child. The answer was not to have one.
 And when the failing platform is out of reach, reproduce the *failure mode* rather than the cause:
 disable the mechanism you suspect and look at what the component does without it.
+
+### Data says WHICH, code says WHAT — v1.4.1
+
+**What it is.** A world file declares a list of platform ids (`{social: [...], private: "..."}`) and
+nothing else. Everything a platform *is* — its icon, its prompt rule, its JSON schema fragment, its
+format rule, its notification badge — lives in one catalog in `src/config/platformConfig.js`, keyed
+by that id.
+
+**What it replaced, and how that fell short.** Four platforms named by hand in five places: the JSON
+schema example, section 7's rule bullets, the RULES format bullets, section 1's
+`bubble/instagram/weverse/KKT` list, and the top bar's four `{icon, type}` literals. Adding a world
+with two platforms would have meant editing five lists and remembering all five; the sixth reader
+is always the one that still says weverse. Separately, the group library carried
+`social_platforms` / `private_chat` that nothing had ever read — the wrong file as well as a dead
+field, because the same five members are idols in one world and law students in another.
+
+**Why not put the rules in the world files instead?** That is the split `castLore` takes one field
+over, and it is right there and wrong here. `castLore` describes *this world's* organisation, so
+three worlds genuinely need three wordings. *"Instagram: Photo social. Style: aesthetic, short
+caption + emoji"* is true in a lecture hall exactly as it is in a practice room, so three worlds
+would carry three copies of one sentence with nothing keeping them in step — and a translation
+layer on top of that, since each world ships in three languages. **Put in data what varies between
+worlds; put in code what varies between platforms.**
+
+**The asymmetry that falls out of it.** An unknown id in a *world file* throws at `parseWorld`; an
+unknown platform in a *model response* is dropped silently. Both are "an id the catalog does not
+have", and they are opposite cases: a world file is authored in this repo, so a typo must fail
+loudly rather than render a top-bar button that opens nothing, while a model response is untrusted
+text that must never break a round. Filtering happens once, in `executeRound`, before either reader
+— the notification strip is a live entry point, and an unfiltered `weverse` would open an overlay
+for a platform with no button anywhere else in the app.
+
+**What it bought.** A world declares its platforms and the prompt, the schema and the UI follow. The
+step that introduced it rendered a **byte-identical** prompt — `update-golden.mjs` was not run at
+all — because every world on disk declares the same three in the same order, so the trimming is
+provably a no-op until step 7's content arrives.
+
+**What it costs.** The catalog and the world files must agree on ids, which is a coupling across a
+`public/` boundary; that is what the throw is for. And a platform that genuinely behaves differently
+in two worlds has nowhere to say so — it would need its rule moved back into world data, at which
+point the copies return. Nothing in v1.4.x needs that.
+
+**One guard had to be replaced because it could not fail.** *"Every platform a world declares exists
+in the catalog"* is exactly what `parseWorld` throws on, so the mutation crashed the load before the
+check ran. A check that duplicates a validator is decoration. The property that *can* fail
+independently is the other end — every catalog entry has an overlay the app can open — and it is
+what makes the throw worth having.
+
+---
+
+### A list that grows, kept out of the cached prefix — v1.4.1
+
+**What it is.** Places the model invents become map content the player can revisit, while the static
+system prompt stays byte-identical for the whole run.
+
+**The obvious thing, and what it costs.** Put the discovered list in the prompt, so the model knows
+the map. The static prompt is ~5,500 tokens and is cached after round 1; a list that gains a row
+mid-game changes the prefix **the round it changes**, so that round pays full input price on all of
+it. This repo has already measured that class of mistake: the ex-girlfriend backstory re-rolling per
+round cost **26.7 points** of cache hit rate, A/B, same model both arms. One row on a map is not
+worth that, and the cost recurs every time the player finds somewhere new.
+
+**What replaced it.** The fact travels in the **choice string** — *"I head to the noraebang
+basement"* — which is in the always-miss dynamic tail, and the history ledger already contains the
+round that invented the place. So the model needs no enumeration to understand a revisit.
+`memory.places` is client state, read only by the picker, and asserted to reach none of the three
+messages.
+
+**What it bought.** The map grows for a whole run at zero prompt cost. `update-golden.mjs` was not
+run at all in the step that added the feature — the rendered prompt is byte-identical to the previous
+step's, which is the step's gate in its strongest form.
+
+**What it costs.** Two things, both real. The model cannot be *asked* to return to a discovered
+place, because nothing in its context lists them — only the player can bring one back, and only
+through the picker. And the client has to recognise a discovery from prose, which is a heuristic: the
+scene is matched against the canon names, a trailing segment carrying a digit is dropped as the time,
+and a name with no letter in it is rejected. Two spellings of one invented place can still be two
+rows on the map.
+
+**Where the guard goes when the obvious mutation does not exist.** The plan asked for
+*mutation-verify by making `buildSystemPrompt` read `memory.places`*. It takes no `memory` argument,
+so that mutation cannot be written and a byte-equality check across a discovery would be vacuous.
+The guard sits on every route by which the value could leak instead: `buildHistoryLedger` and
+`buildDynamicTail`, which do take memory, and `memoryContext`, the static prompt's only text input.
+
+---
+
+### The world owns what the cast does all day — v1.4.1
+
+**What it is.** Four strings on every world document (`castLife`) plus two more
+(`addressContext`) that supply the nouns a handful of prompt sentences used to hardcode: what the
+members' daily life consists of, what the player therefore does **not** have, what a member's
+social post reacts to, what a `scene` looks like, and the register a work title is spoken in.
+
+**What it replaced.** English literals inside `buildSystemPrompt`. The ROLE CONTRACT enumerated
+*"practice, schedules, comebacks, the dorm, this company"*; section 7 named *"the practice she just
+left"*; the schema's `scene` rule exemplified *"Practice room, 10PM"*; the work-title sentence said
+*"on the job"*.
+
+**How that fell short.** It did not, for one world. With four worlds it is a prompt that tells a
+campus game the cast have comebacks, two sections after section 4 has said they are students — a
+**specific claim in an authoritative section contradicting a general rule elsewhere**, which is the
+one pattern this project has watched the model resolve the wrong way three times. It fails no test
+by construction: every golden is `kpop_idol`, where every sentence is true.
+
+**Why not leave it in code with a per-world branch.** A `switch (world.id)` in `buildSystemPrompt`
+is the same four strings with the world's name spelled twice and a fifth world requiring a code
+change — which is what step 3 deleted `IDENTITIES` for.
+
+**Why not put the whole sentence in the world file.** Because then the *rule* is data: four worlds
+would each carry "…is THEIRS. She does not inherit it…", and the next reword touches four files
+and reaches three of them. The split is the one step 6 arrived at from the other direction — **the
+world says WHICH, the code says WHAT** — applied to prose: the world owns the **noun phrase** that
+varies, the code owns the **sentence** that does not.
+
+**The discriminator, stated so it can be applied rather than remembered:** *does this text vary
+with the thing the data file is about, or with the thing the code is doing?* "Instagram is photo
+social, aesthetic, short caption" does not vary with the world, so it is code (step 6). "Practice,
+schedules, comebacks" varies with nothing else, so it is data. `socialReach` is the sharp case:
+Instagram's **shape** is the platform's and its **magnitude** is the world's, so one catalog entry
+reads a world-supplied value. Step 6 put the whole rule on the code side and shipped
+`"likes":800000` into a world where a student's post gets three hundred.
+
+**What it bought.** Three worlds whose prompts assert nothing false about their own cast, with
+`kpop_idol` byte-identical on every line these fields feed — the four `castLife` strings and the
+two `addressContext` strings are exactly what it already rendered, so the golden diff for this
+change is **zero lines**. The five sentences that were genuinely world-neutral were generalised
+instead, and those moved all three goldens by six lines each, read once.
+
+**What it costs.** Six more required fields per world document, which is six more things a fifth
+world must get right before it loads, and six more strings that a reader of one world file cannot
+see the other three copies of. The mitigation is that they are language-invariant and smoke
+compares them across zh/en/ko for **every world in the index**, derived from the index rather than
+named — so the cost is paid once per world, not once per language.
+
+**The trap it leaves.** `castLife.sceneExample` is English in all three languages, like the rule
+that contains it, while the `scene` field itself must be written in the player's language. That is
+inherited from the sentence it sits in rather than introduced here, and it is the one place in the
+new fields where the example and the instruction disagree about language.
 
 ## To backfill
 

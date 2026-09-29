@@ -28,6 +28,7 @@
 
 import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
+import { PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "../src/config/constants.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve, join } from "node:path";
@@ -893,12 +894,43 @@ async function layerG(mod, MODEL_CONFIGS) {
   const loadSaveBody = app.slice(app.indexOf("const loadSave"), app.indexOf("const sendMessage"));
   check("loadSave reads no model / sub-model field from a save",
     !/save\.(selectedModel|model|qwenSubModel|aliyun)/.test(loadSaveBody));
-  // Loading a save must drop the previous game's pre-round snapshot, or ↺ Retry
-  // and the ✎ edit controls restore that game's stats and memory into this one.
-  // It is also what gates the edit controls off until a round is played here.
-  check("loadSave clears preRoundSnapshotRef (else Retry corrupts the loaded save)",
-    /preRoundSnapshotRef\.current = null/.test(loadSaveBody));
-  check("loadSave clears the previous game's pending social", /resetPendingSocial\(\)/.test(loadSaveBody));
+  // ── the run boundary ──────────────────────────────────────────────────────
+  // There are TWO ways into a run and everything the previous one left behind
+  // has to go on both. They had drifted three ways - New Game re-applied the
+  // abandoned run's social and its notification dots, Load left `topMember`
+  // pointing at the other run's member, and neither closed an open modal - so
+  // it is one function now and these guards are written against the
+  // requirement (nothing of the old run survives) rather than against the line
+  // that used to do it.
+  const newGameBody = app.slice(app.indexOf("const startNewGame"), app.indexOf("const loadSave"));
+  const beginRunBody = app.slice(app.indexOf("const beginRun = ("), app.indexOf("const startNewGame"));
+  check("the run boundary drops the previous run's pending social",
+    /resetPendingSocial\(\)/.test(beginRunBody));
+  check("...and its pre-round snapshot, so ↺ Retry cannot restore the other run",
+    /preRoundSnapshotRef\.current = null/.test(beginRunBody));
+  check("...and its notification strip, which is also where the top-bar dots come from",
+    /setActiveNotifications\(\[\]\)/.test(beginRunBody),
+    "hasNotifDot reads this same array");
+  check("...and its top member, or the bar shows her scored against an id this run has no affection for",
+    /setTopMember\(topMember\)/.test(beginRunBody));
+  check("...and any achievement or special-event modal left open",
+    /setAchievement\(null\)/.test(beginRunBody) && /setSpecialEvent\(null\)/.test(beginRunBody));
+  // Count the call sites. A second boundary that cleared by hand is exactly how
+  // the two drifted in the first place, so the absence is half the check.
+  check("both ways into a run go through it, and neither clears anything by hand",
+    /beginRun\(\{/.test(loadSaveBody) && /beginRun\(\{/.test(newGameBody)
+      && !/resetPendingSocial\(\)/.test(loadSaveBody) && !/setActiveNotifications/.test(loadSaveBody)
+      && !/resetPendingSocial\(\)/.test(newGameBody) && !/setActiveNotifications/.test(newGameBody),
+    "New Game and Load must both hand beginRun what the run starts with");
+  // The bug itself: round 1 of a new game POPPED the buffer, which on a new game
+  // holds the abandoned game's last round - so the run opened with somebody
+  // else's Instagram post and notification dots already on the phone.
+  check("a new game does not display the abandoned run's social",
+    !/popPendingSocial\(\)/.test(newGameBody),
+    "round 1 has no previous round of its OWN; the buffer is the last game's");
+  check("...and the only reader of that buffer is a round that follows one",
+    (app.match(/popPendingSocial\(\)/g) || []).length === 1,
+    "sendMessage, and nothing else");
 
   // --- the save now records where its cast came from (v1.4.0 step 4) ---
   //
@@ -925,10 +957,31 @@ async function layerG(mod, MODEL_CONFIGS) {
   // a game assembled out of two different saves.
   check("loadSave finishes every fallible step before it touches state",
     loadSaveBody.indexOf("await resolveRoster") < loadSaveBody.indexOf("setForm("));
+  // Derived rather than anchored on one line: the first thing in the body that
+  // looks like a state setter, whichever it happens to be after a refactor.
+  const firstSetter = loadSaveBody.search(/\n\s*set[A-Z]/);
   check("a save whose cast cannot be resolved aborts rather than half-loading",
-    loadSaveBody.indexOf("showNotif(\"This save's cast could not be loaded\"")
-      < loadSaveBody.indexOf("preRoundSnapshotRef.current = null"),
+    firstSetter > 0
+      && loadSaveBody.indexOf("showNotif(\"This save's cast could not be loaded\"") < firstSetter
+      && /could not be loaded"[^\n]*\);[\s\S]{0,40}return;/.test(loadSaveBody),
     "the failure path must return before the first setter");
+
+  // ── Setup fits on one 844px screen ───────────────────────────────────────
+  // The page ran past the frame and the Start button sat below the fold behind
+  // half a row of identities, on the one screen whose whole job is to be
+  // completed. The header was four stacked lines; it is one row now.
+  const setupHead = app.slice(app.indexOf("<style>{th.setupCss}</style>"),
+    app.indexOf("{/* The custom door already chose"));
+  check("Setup's header is one row rather than a stack",
+    !/<h2 /.test(setupHead) && (setupHead.match(/<div style=/g) || []).length === 1,
+    `${(setupHead.match(/<div style=/g) || []).length} boxes above the first field`);
+  // Shortening a screen by deleting affordances is the easy wrong answer, so
+  // both halves are asserted: the switch still reaches the key page, and a
+  // MISSING key - the actionable state, unlike a configured one - still shouts.
+  check("...and the model switch survived the trim",
+    /setPhase\("keyInput"\)/.test(setupHead) && /MODEL_CONFIGS\[selectedModel\]/.test(setupHead));
+  check("...and a missing key is still called out in red",
+    /\{!apiKey && <span style=\{\{ color: "#d07070" \}\}>/.test(setupHead));
 
   check("startNewGame records the roster it is starting",
     /setRoster\(\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app),
@@ -948,9 +1001,55 @@ async function layerG(mod, MODEL_CONFIGS) {
     /name: castName\.trim\(\) \|\| DEFAULT_CAST_NAME/.test(app)
       && !/setPendingRoster\(\{ \.\.\.pendingRoster, name/.test(app),
     "re-resolving per keystroke would refetch every group in the cast");
-  check("Setup lets the player name the cast, and shows the agency it derives",
-    /t\.cast\.castName\b/.test(app) && /agencyFor\(castName/.test(app),
-    "naming the agency is what stops the model inventing one");
+  // v1.4.1 step 3: the field still asks for one name, and WHAT that name names is
+  // the world's. Written on the world fields rather than on a label string: a
+  // guard reading `t.cast.orgName` would pass while the noun came from a literal,
+  // which is the whole defect - "Group name" is right for one world of four.
+  check("Setup names the cast's organisation, with the noun the WORLD supplies",
+    /t\.cast\.orgName\(world\.castLore\.orgNoun\)/.test(app)
+      && /world\.castLore\.orgHint\.replace\("\{org\}"/.test(app)
+      && /orgNameFor\(castName\.trim\(\), world\.castLore\.orgSuffix\)/.test(app),
+    "naming the organisation is what stops the model inventing one");
+  // Comments stripped first. The prose explaining this fix names the very strings
+  // the check bans, and a guard that fails on its own documentation has now cost
+  // this suite three separate debugging sessions.
+  const appCode = app
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("...and no screen carries a hardcoded word for it",
+    !/t\.cast\.castName\b/.test(appCode) && !/agencyFor\(/.test(appCode)
+      && !/已加载组合/.test(appCode) && !/Group loaded/.test(appCode),
+    "a literal noun here is right for kpop_idol and wrong for the other three");
+  // --- the world picker, v1.4.1 step 3 -------------------------------------
+  // It took the slot the pace picker vacated, which is WHY both cover doors get
+  // worlds without merging the entry pages: they both pass through Setup.
+  check("Setup carries a world picker fed by the world INDEX",
+    /loadWorldIndex\(\)\.then\(list => \{/.test(app) && /worldList\.map\(w =>/.test(app)
+      && /setSelectedWorld\(w\.id\)/.test(app),
+    "a hardcoded world list is what step 7 would then have to edit in code");
+  // Same correction the group index gets: a remembered id the index no longer
+  // carries must not be left pointing at a world that cannot be fetched.
+  check("...and a remembered world the index no longer lists falls back",
+    /if \(!list\.find\(w => w\.id === selectedWorld\)\) setSelectedWorld\(DEFAULT_WORLD_ID\)/.test(app),
+    "rv_sim_world can hold whatever a previous build left there");
+  // Persisted only AFTER the world it names has loaded, so a world that cannot be
+  // fetched is not the one the next session opens on.
+  check("...and the pick persists only once that world has actually loaded",
+    /loadWorld\(selectedWorld, language\)\.then\(w => \{[\s\S]{0,400}?saveToStorage\("rv_sim_world", selectedWorld\)/.test(app),
+    "persisting on click remembers a world the player never reached");
+  check("...and the world load is keyed on the SELECTION, not on the default",
+    !/loadWorld\(DEFAULT_WORLD_ID, language\)/.test(app)
+      && /\}, \[selectedWorld, language\]\);/.test(app),
+    "a picker whose value nothing loads is a control that does nothing");
+  // A save records its worldId. Loading it under whichever world is selected now
+  // hands it another world's identities, phase beats and address register - the
+  // same bug as a TWICE save loaded under Red Velvet's config, one field over.
+  check("loadSave restores the world the save was played in",
+    /setSelectedWorld\(migrated\.worldId\)/.test(app)
+      && app.indexOf("phaseRef.current = \"game\"") < app.indexOf("setSelectedWorld(migrated.worldId)"),
+    "and after phaseRef is pinned, or the identity effect clears a valid identity");
+
   // The classic door must still be able to start: leaving a builder roster in
   // place would make a group pick silently resolve to the previous custom cast.
   check("choosing the classic door clears any roster the builder left behind",
@@ -987,7 +1086,31 @@ async function layerG(mod, MODEL_CONFIGS) {
     /if \(pendingRoster\) \{[\s\S]{0,200}return;/.test(app),
     "otherwise loadGroupConfig overwrites the builder's cast at Setup");
   check("the builder's roster is resolved so Setup sees the same members shape",
-    /resolveRoster\(pendingRoster, language\)/.test(app));
+    /resolveRoster\(pendingRoster, language, world\)/.test(app));
+  // Counted, not tested for presence. Section 4's framing is the world's since
+  // v1.4.1 step 4, so a call site that forgot the third argument does not render a
+  // lecture hall as an agency - it throws - but a call site handed the WRONG world
+  // renders plausible, wrong prose. Three sites today; a fourth must not slip in
+  // with two arguments.
+  const rosterCalls = app.match(/resolveRoster\(/g) || [];
+  const rosterCallsWithWorld = app.match(/resolveRoster\([^;]*?,\s*\w*[Ww]orld\)/g) || [];
+  check("every resolveRoster call in App.jsx is handed a world",
+    rosterCalls.length >= 3 && rosterCallsWithWorld.length === rosterCalls.length,
+    `${rosterCallsWithWorld.length} of ${rosterCalls.length} call sites`);
+  // ...and loadSave uses the SAVE's world, not whichever one the player was last
+  // looking at. `world` state still holds the previous one at this point, and it
+  // decides what section 4 says about this cast.
+  check("loadSave resolves the roster against the world the save was played in",
+    /loadWorld\(migrated\.worldId, language\)/.test(loadSaveBody)
+      && /resolveRoster\(migrated\.roster, language, saveWorld\)/.test(loadSaveBody),
+    "resolving a chaebol save against the idol world describes a family compound"
+    + " as a group under an Entertainment agency");
+  // ...and fetches it BEFORE the first setter, because it is a fetch and can fail.
+  // The load is all-or-nothing: a failure must leave the player where she was.
+  check("...and fetches it inside the try, before the FIRST setter of any kind",
+    loadSaveBody.indexOf("loadWorld(migrated.worldId")
+      < loadSaveBody.search(/\bset[A-Z]\w*\(/),
+    "a half-applied load leaves a game assembled out of two different saves");
   // Deriving the form from the roster's own slots is what lets mainMember,
   // allTargetMembers, createInitialStats and the stats bar stay untouched.
   check("...and the form's main and subs are derived from the roster's slots",
@@ -1044,9 +1167,72 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("the stats box drops absent lines instead of rendering them empty",
     /\]\.filter\(Boolean\)\.join\("\\n"\)/.test(boxBody) && !/subLines \|\| ""/.test(boxBody),
     "an empty sub-member line splits the box in two and leaks its border into exports");
-  check("...and the export filter drops the box's closing border too",
-    /!p\.startsWith\("╚"\)/.test(app),
+  // Both borders count as BOX, not as prose. Since v1.4.1 the filter splits the
+  // box off instead of dropping it - the PDF prints it as the round header - so
+  // the thing that must not regress is which paragraphs are classified as the
+  // box, not whether they are discarded.
+  const roundsBody = app.slice(app.indexOf("const BOX_EDGES"), app.indexOf("const extractStoryText"));
+  check("...and the export filter knows the box's closing border too",
+    /BOX_EDGES = \["╔", "╚"\]/.test(roundsBody)
+      && /isStatsBoxPart = \(para\) => BOX_EDGES\.some/.test(roundsBody),
     "the filter is what breaks silently when the box format moves");
+
+  // ── the PDF prints the round header the player actually reads ────────────
+  // It printed a bar saying `Round 9` above prose whose own header box - the
+  // affections, the stats, the scene, the chapter - was filtered out on the way.
+  // The box already carries the round number, so the bar is a second and poorer
+  // answer to the same question and survives only where there is no box.
+  check("the PDF prints the stats box as the round header",
+    /class="card-stats">[\s\S]{0,30}\$\{esc\(r\.statsBox\)\}/.test(app)
+      && /\.card-stats\{/.test(app),
+    "what the player sees at the top of every round");
+  // The band is the LIGHTER thing on the card now, and its text has to be
+  // picked for it. `.card-head` carried a hardcoded pink chosen for a near-black
+  // band, and on the light theme the old band put #3a2510 text on #3a2210 - the
+  // printed stats box was very nearly invisible. Asked for from hand play,
+  // 2026-09-29.
+  check("...and the header band takes the theme's own text colour",
+    /\.card-head\{background:\$\{headBg\};color:\$\{headColor\}/.test(app)
+      && !/color:#f8c8d8;font-size:11px/.test(app),
+    "a colour picked for one theme's band cannot be hardcoded across both");
+  // Centred as a BLOCK, not line by line: the frame's lines are equal width only
+  // if every CJK glyph in the monospace fallback is exactly two columns, which is
+  // the one thing box-drawing output cannot assume. text-align:center would
+  // centre each line on its own and pull the frame apart.
+  check("...and the box is centred in its band as one block",
+    /\.card-stats\{[\s\S]{0,90}justify-content:center/.test(app)
+      && !/\.card-stats\{[\s\S]{0,90}text-align:center/.test(app),
+    "per-line centring ragged by a font is worse than left-aligned");
+  // THE ROUNDS FLOW AND THE FRAME DOES NOT SPLIT, which is two halves of one
+  // requirement: avoid-break on the card pushed any round that would not fit
+  // whole onto the next page, so a two-page export was mostly white paper - and
+  // simply dropping it would let a page break land inside the box-drawing frame,
+  // where half a frame is not a frame. Asked for from hand play, 2026-09-29.
+  check("the PDF lets rounds flow rather than starting each on its own page",
+    !/\.card\{[\s\S]{0,180}page-break-inside:avoid/.test(app),
+    "a round that does not fit whole left the rest of the page blank");
+  // Both properties, and the modern one is matched on its OWN boundary: plain
+  // `break-inside:avoid` is a SUBSTRING of `page-break-inside:avoid`, so a guard
+  // written without the [;{] could not fail when the standard property was the
+  // one deleted. Caught by mutation, not by reading it.
+  check("...and never splits the stats box across a page",
+    /\.card-stats\{[\s\S]{0,140}page-break-inside:avoid/.test(app)
+      && /\.card-stats\{[\s\S]{0,140}[;{]break-inside:avoid/.test(app),
+    "the frame is drawn out of box-drawing characters and only reads whole");
+  check("...and the plain bar survives only for a round that has no box at all",
+    /\$\{r\.statsBox[\s\S]{0,200}: `<div class="card-head">Round \$\{r\.n\}<\/div>`\}/.test(app),
+    "an edited-down story, or a turn written before the box existed");
+  // The scene name is the model's text and lands in the header, so it needs the
+  // same escaping the prose has always had - one escaper, both halves.
+  check("...and the header is escaped exactly like the prose",
+    /esc\(r\.statsBox\)/.test(app) && /esc\(r\.text\)/.test(app),
+    "a scene containing < must not become markup");
+  // Clipboard and TXT were NOT asked to change, and a shared filter is where
+  // that kind of change leaks. `text` must still exclude the box.
+  check("...while clipboard and TXT still export prose alone",
+    /text: paras[\s\S]{0,160}!isStatsBoxPart\(para\) && !isOptionLine\(para\)/.test(roundsBody)
+      && !/statsBox/.test(app.slice(app.indexOf("const extractStoryText"), app.indexOf("const exportClipboard"))),
+    "the box is a 30-column frame; it only lines up in a fixed-width font");
   // `chapter` is an internal token — start/develop/climax/resolve — and it was
   // printed raw beside four fields that all carry a localized label, so a Chinese
   // player read `🎭: [start]` every round.
@@ -1115,6 +1301,92 @@ async function layerG(mod, MODEL_CONFIGS) {
   // every ex-girlfriend backstory, which is the bug v1.3.9 closed.
   check("setup still writes the frozen `age` the backstory seed hashes",
     /setBirthYear = \(v\) => setForm\([\s\S]{0,200}age: validBirthYear\(v\)/.test(app));
+
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so a screen that mounts one has to SEED the
+  // field it displays rather than fall back for display alone. Setup did not, and
+  // the third phone pass reported the consequence: a fresh run showed 2000 in the
+  // wheel while form.birthYear was "", so Start refused with "please complete all
+  // options" and nothing on screen was left to fill. The member editor had been
+  // seeded for exactly this reason one release earlier.
+  //
+  // DERIVED from the wheels that exist, not from a list of screens: strip the
+  // import and the `value=` attribute, and DEFAULT_YEAR must still be written
+  // somewhere in the file. A third wheel cannot ship unseeded.
+  const wheelScreens = [];
+  const unseeded = [];
+  const walkWheels = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const wp = join(dir, e.name);
+      if (e.isDirectory()) { walkWheels(wp); continue; }
+      if (!/\.(js|jsx)$/.test(e.name) || e.name === "YearWheel.jsx") continue;
+      const src = readFileSync(wp, "utf8");
+      if (!/<YearWheel/.test(src)) continue;
+      const rel = wp.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, "");
+      wheelScreens.push(rel);
+      // COMMENTS FIRST. The first version of this guard read the comment
+      // explaining the seed as if it were the seed, so the mutation that removes
+      // the seed reported GREEN — the third time a guard in this repo has passed
+      // against its own documentation.
+      const seedOnly = src
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/[^\n]*$/gm, "")
+        .replace(/^import[^\n]*DEFAULT_YEAR[^\n]*$/gm, "")
+        .replace(/value=\{[^}]*\}/g, "");
+      if (!/DEFAULT_YEAR/.test(seedOnly)) unseeded.push(rel);
+    }
+  };
+  walkWheels(join(ROOT, "src"));
+  check("every screen with a year wheel seeds the year the wheel opens on",
+    wheelScreens.length >= 2 && unseeded.length === 0,
+    unseeded.length ? unseeded.join(", ") : `the scan found ${wheelScreens.length} wheels, so it proves nothing`);
+
+  // The other half, and it fails independently: with the field seeded, a display
+  // fallback can only ever hide the seed failing. An unselected wheel is visible
+  // and reportable; a highlighted year the form does not hold is not.
+  check("Setup's wheel displays the stored year and no substitute for it",
+    /<YearWheel value=\{form\.birthYear\}/.test(app),
+    "a `|| DEFAULT_YEAR` here is the lie the player cannot act on");
+
+  // And the seed has to be a year the gate accepts, or seeding reproduces the bug
+  // it fixes. DEFAULT_YEAR is parsed from source because YearWheel.jsx is JSX and
+  // Node cannot import it; the range and the predicate are the real modules.
+  const wheelSrc = readFileSync(join(ROOT, "src", "platforms", "YearWheel.jsx"), "utf8");
+  const defaultYear = Number((wheelSrc.match(/export const DEFAULT_YEAR = (\d+)/) || [])[1]);
+  check("the year every wheel opens on is one the start gate accepts",
+    Number.isFinite(defaultYear)
+      && validPlayerBirthYear(String(defaultYear))
+      && defaultYear >= PLAYER_BIRTH_YEAR_MIN && defaultYear <= PLAYER_BIRTH_YEAR_MAX,
+    `DEFAULT_YEAR ${defaultYear} against ${PLAYER_BIRTH_YEAR_MIN}-${PLAYER_BIRTH_YEAR_MAX}`);
+
+  // THE LATCH THAT SUPPRESSES THE WHEEL'S OWN SCROLL MUST BE CLEARED ON EVERY
+  // EXIT, and seeding the value is what made that matter. The parking effect set
+  // the latch on one path and cleared it only from a timeout, which the effect's
+  // own cleanup cancels — so a `value` change arriving inside that 120ms window
+  // left the next run taking the early return, clearing nothing, and the latch
+  // set for the life of the component. Every scroll the player made was then
+  // discarded: the wheel moved and the bold row did not follow it, and only a
+  // tap could change the value. Reported from the fourth phone pass, one commit
+  // after Setup began seeding on mount.
+  //
+  // REPRODUCED IN A REAL BROWSER, not reasoned about: a scratchpad harness
+  // bundles this module, drives the state sequence with layout already settled,
+  // and reads which row is aria-selected after a scroll. Unfixed it logs
+  // `EARLY ... latch=true` then `SCROLL latch=true` and the selection never
+  // moves; fixed, all four arms land on the target. That harness needs Chrome,
+  // so it is NOT in this suite — what is here is the invariant it established.
+  //
+  // DERIVED from the effect's own shape rather than pinned to today's three
+  // clears: every `return` inside the effect must be matched by a clear, except
+  // the `if (!el)` guard that runs before the latch can be set. A fourth early
+  // return added without a clear fails this.
+  const parkEffect = (wheelSrc.match(/\/\/ Park the wheel on[\s\S]*?\n  \}, \[value, idxOf\]\);/) || [""])[0];
+  const parkReturns = (parkEffect.match(/\breturn\b/g) || []).length;
+  const parkClears = (parkEffect.match(/selfScroll\.current = false/g) || []).length;
+  check("the wheel clears its self-scroll latch on every exit",
+    parkEffect.length > 0
+      && (parkEffect.match(/selfScroll\.current = true/g) || []).length === 1
+      && parkClears >= parkReturns - 1,
+    `${parkClears} clears against ${parkReturns} returns — a latch left set discards every scroll the player makes`);
 
   check("provider id 'qwen' still exists (rv_sim_model_v11 = \"qwen\" keeps working)", !!MODEL_CONFIGS.qwen);
   check("App falls back to legacy rv_sim_qwen_submodel", /loadFromStorage\("rv_sim_qwen_submodel"\)/.test(app));
@@ -1218,6 +1490,35 @@ async function layerG(mod, MODEL_CONFIGS) {
       new RegExp(`(^|[\\s,{])${field}[,:]`, "m").test(saveBody),
       "a save that does not say which cast it used has to guess on load");
   }
+
+  // ...and WHERE that world comes from, which the loop above cannot see: it
+  // asserts the field is PRESENT, and the field was present and wrong. The slot
+  // recorded `roster.worldId`, and a roster is stamped by the builder one screen
+  // BEFORE the player picks a world at Setup - so a chaebol run saved kpop_idol,
+  // and loading it brought back the idol world's canon places, all four social
+  // platforms and an idol system prompt. Reported from hand play, 2026-09-29.
+  // The world a run is played in is the loaded `world` object every prompt that
+  // round was built from, and only the run knows it.
+  check("a save records the world the run is being played in",
+    /worldId: worldId \|\| DEFAULT_WORLD_ID/.test(saveBody)
+      && !/roster\?\.worldId/.test(overlay),
+    "the roster is stamped a screen earlier and drifts from what is played");
+  // Two mount sites. One of two is the extractStoryText failure exactly.
+  const saveMounts = app.match(/<SaveOverlay [^>]*>/g) || [];
+  check("...and App hands that world to every SaveOverlay it mounts",
+    saveMounts.length >= 2 && saveMounts.every((m) => /worldId=\{world\?\.id\}/.test(m)),
+    `${saveMounts.filter((m) => !/worldId=/.test(m)).length} of ${saveMounts.length} mounts pass no world`);
+  // ...and the slot the player READS says which world it was, because the panel
+  // is the screen she picks from and two runs of one cast in two worlds were
+  // indistinguishable there. The label leads, so it survives the ellipsis when a
+  // row is too narrow. Asked for from hand play, 2026-09-29.
+  check("a save slot is labelled with the world it was played in",
+    /name: `\$\{worldLabel \? worldLabel \+ " " : ""\}\$\{t\.stats\.week\.label\}/.test(saveBody),
+    "week and main member alone cannot tell two worlds apart");
+  check("...and App derives that label from the world index, at every mount",
+    /const worldLabel = \(\(\) => \{[\s\S]{0,320}worldList\.find\(\(x\) => x\.id === world\?\.id\)/.test(app)
+      && saveMounts.every((m) => /worldLabel=\{worldLabel\}/.test(m)),
+    "the index is what carries the emoji and the per-language name");
 
   // Both notices, in all three languages, or a player hits a blank panel.
   for (const lang of ["zh", "en", "ko"]) {
@@ -1600,8 +1901,9 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger,
-          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn } =
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules,
+          collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
+          createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
 
   // Real group data, loaded the way the app loads it. Reading the JSON straight
@@ -1990,7 +2292,7 @@ async function layerI() {
       { src: "custom", memberId: "c_req", slot: "sub", lang: "en", profile: REQUIRED_TIER },
     ],
   };
-  const resolvedCustom = await fromDisk(() => loader.resolveRoster(customRoster, "en"));
+  const resolvedCustom = await fromDisk(() => loader.resolveRoster(customRoster, "en", worldFor.en));
   check("resolveRoster carries a custom member through beside a library one",
     resolvedCustom.members.map((m) => m.id).join(",") === "irene,c_req"
       && resolvedCustom.mainId === "irene" && resolvedCustom.subIds.join() === "c_req",
@@ -2097,7 +2399,7 @@ async function layerI() {
   // runs only with --cast, because a whole group's own lore legitimately names its
   // agency. One sentence now covers both doors by pointing at the single source.
   check("the company rule points at section 4 rather than forbidding all companies",
-    /The only company that exists in this story is the one section 4 names/.test(p)
+    /The only organisation that exists in this story is the one section 4 names/.test(p)
       && !/Do not name a record company/.test(p),
     "an absolute ban contradicted section 4 on the classic door, and lost");
 
@@ -2141,7 +2443,7 @@ async function layerI() {
     langRuleOf("ko").slice(0, 200));
   const koPrompt = prompt(form(), "ko");
   check("[ko] ...which is the spelling section 6 then demonstrates",
-    /In narration a member is her stage name alone: "Irene/.test(koPrompt)
+    /In narration a member is her name alone: "Irene/.test(koPrompt)
       && /\bIrene\(/.test(koPrompt),
     "an example in Latin under a rule banning Latin");
   // That example used to read "<name>는 창가에 서 있다" — a topic particle chosen by
@@ -2281,24 +2583,82 @@ async function layerI() {
     /THE PLAYER: Summer — a WLW woman, age /.test(p) && !/young WLW/.test(p),
     "PLAYER_BIRTH_YEAR_MIN is GAME_YEAR - 80");
 
-  // The pace was a bare Chinese id in every language, and its authored rule —
-  // "secrecy changes doubled", "love triangle scenes probability doubled" — was
-  // built into a local in the pre-step-3 code and referenced by nothing. So the
-  // player could choose a pace and the model could not know she had.
+  // ------------------------------------------------- the story mode, in the TAIL
+  //
+  // v1.4.0 step 7 wired the pace’s authored rule into section 6, because until
+  // then the player could choose a pace and the model was sent only its id.
+  // v1.4.1 step 2 keeps the rule and moves it OUT of section 6 into the dynamic
+  // tail, because the four-way story mode is a live Settings switch: a rule in
+  // the cached prefix means every toggle costs ~5,500 tokens on the next round.
+  //
+  // So the load-bearing assertion is the NEGATIVE one. Nothing the mode can say
+  // may appear in the static prompt, in any language - that is the claim the
+  // whole move rests on, and it is what fails if a mode rule is ever put back
+  // into buildSystemPrompt.
   for (const lang of ["zh", "en", "ko"]) {
-    for (const pace of ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"]) {
-      const withPace = prompt(form({ pace }), lang);
-      check(`[${lang}] pace ${pace} reaches the model as its rule`,
-        /\[Pace: (Slow Burn|Romantic|High Pressure|Harem Route)\]/.test(withPace)
-          && !withPace.includes(`Progression Pace: ${pace}`),
-        (withPace.split("\n").find((l) => l.includes("Pace")) || "no pace line").slice(0, 100));
+    const staticPrompt = prompt(form(), lang);
+    const leaked = loader.MODE_IDS.filter((id) => staticPrompt.includes(worldFor[lang].modes[id]));
+    check(`[${lang}] no story-mode rule reaches the static system prompt`,
+      leaked.length === 0,
+      `${leaked.join(", ")} - a live setting in the cached prefix costs the whole prefix on every toggle`);
+    // ...and the pace it replaced is gone from section 6 entirely, rather than
+    // surviving as a bare id beside it. Two rules about how the story is driven
+    // is the "a prompt is not append-only" failure this repo keeps recording.
+    check(`[${lang}] section 6 names no pace at all`,
+      !staticPrompt.includes("Progression Pace:") && !staticPrompt.includes("[Pace:"),
+      (staticPrompt.split("\n").find((l) => l.includes("Pace")) || "").slice(0, 100));
+  }
+  // The positive half: every mode sends its own rule, in every language.
+  for (const lang of ["zh", "en", "ko"]) {
+    for (const id of loader.MODE_IDS) {
+      const tail = buildTailRules(worldFor[lang], id, "default");
+      check(`[${lang}] story mode "${id}" sends its authored rule in the tail`,
+        tail.includes(worldFor[lang].modes[id]),
+        JSON.stringify(tail).slice(0, 120));
     }
   }
-  // An unknown pace — a save from a world that has been re-authored — still has to
-  // render something true rather than nothing.
-  check("an unrecognized pace falls back to naming itself",
-    prompt(form({ pace: "no-such-pace" })).includes("Progression Pace: no-such-pace"),
-    "a silent empty line would be worse than an untranslated one");
+  // `free` is the one that has to be stated separately. It is the DEFAULT mode and
+  // the one that means "no authored plot events", so sending no line at all would
+  // look deliberate - and it would silently strip a free-mode game of the
+  // slow-burn texture every legacy slow-burn player has today.
+  check("free mode sends a rule rather than nothing",
+    buildTailRules(worldFor.en, "free", "default").trim().length > 40,
+    JSON.stringify(buildTailRules(worldFor.en, "free", "default")));
+  // A mode id read back out of localStorage can be anything a previous build or a
+  // hand edit left there. It resolves to free, which is a visible, correct mode -
+  // not to silence, which is indistinguishable from the wiring being broken.
+  check("an unrecognized story mode falls back to free rather than to silence",
+    buildTailRules(worldFor.en, "no-such-mode", "default")
+      === buildTailRules(worldFor.en, "free", "default"),
+    JSON.stringify(buildTailRules(worldFor.en, "no-such-mode", "default")));
+  // THE TWO DIALS MUST NOT SHARE A LABEL. Time Speed wrote `[Pacing] slow - ...`
+  // and the story mode was about to write a second, different quantity under the
+  // same name: worse than the [Stage Changes] id-vs-name case, because the model
+  // would have to work out which line meant what. Renamed in the same commit.
+  const bothDials = buildTailRules(worldFor.en, "pressure", "slow");
+  check("the two tail dials carry different labels, and neither is [Pacing]",
+    bothDials.includes("[Story Mode:") && bothDials.includes("[Time Speed]")
+      && !bothDials.includes("[Pacing]"),
+    JSON.stringify(bothDials).slice(0, 200));
+  check("...on two separate lines, so neither can be read as qualifying the other",
+    bothDials.split("\n").filter(Boolean).length === 2,
+    JSON.stringify(bothDials));
+  // Unchanged behaviour, asserted because the rename touched this branch: the
+  // default time speed sends nothing, so an ordinary round carries one line.
+  check("the default time speed adds no line",
+    buildTailRules(worldFor.en, "free", "default").split("\n").filter(Boolean).length === 1,
+    JSON.stringify(buildTailRules(worldFor.en, "free", "default")));
+  check("a fast round says so",
+    buildTailRules(worldFor.en, "free", "fast").includes("[Time Speed] fast"),
+    JSON.stringify(buildTailRules(worldFor.en, "free", "fast")));
+  // Authored data reaching the prompt verbatim, so the same rule as the prompt’s
+  // own lines applies: no line ends in a space.
+  for (const lang of ["zh", "en", "ko"]) {
+    const dirty = loader.MODE_IDS.filter((id) =>
+      buildTailRules(worldFor[lang], id, "slow").split("\n").some((l) => / $/.test(l)));
+    check(`[${lang}] no story-mode rule carries stray whitespace`,
+      dirty.length === 0, dirty.join(", "));
+  }
 
   // The identity had the same defect and the same cause: `Alex's identity: 财阀`
   // in an English prompt, an internal key in a language she does not read, while
@@ -2316,19 +2676,27 @@ async function layerI() {
           .find((l) => l.includes("'s identity:")) || "").slice(0, 80));
     }
   }
-  // The names are a second copy of what Setup already shows. Tie them together or
-  // they drift, and the drift is invisible: both sides render something plausible.
+  // This used to tie `t.identities[id]` to `world.identities[].name` — two
+  // hand-maintained copies of one string, whose drift is invisible because both
+  // sides render something plausible. v1.4.1 step 3 **deleted the second copy**:
+  // Setup renders the world's own `name`, so what the player picked and what
+  // section 6 prints are the same characters by construction. What is left worth
+  // asserting is that the string is fit to be a button label at 390px, which the
+  // old check got for free from the UI table it compared against.
   for (const lang of ["zh", "en", "ko"]) {
-    const uiLabels = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8")
-      .match(/identities:\s*\{([\s\S]*?)\n  \}/)?.[1] || "";
-    const fromUi = Object.fromEntries([...uiLabels.matchAll(/"([^"]+)":\s*"([^"]+)"/g)]
-      .map((m) => [m[1], m[2]]));
-    const mismatched = worldFor[lang].identities
-      .filter((i) => fromUi[i.id] !== i.name)
-      .map((i) => `${i.id}: world "${i.name}" vs UI "${fromUi[i.id]}"`);
-    check(`[${lang}] every world identity name matches the Setup label`,
-      worldFor[lang].identities.length > 0 && mismatched.length === 0,
-      mismatched.join(" | "));
+    const unlabelled = worldFor[lang].identities.filter((i) => !i.name);
+    check(`[${lang}] every world identity carries the name Setup shows`,
+      worldFor[lang].identities.length > 0 && unlabelled.length === 0,
+      unlabelled.map((i) => i.id).join(", ") || "an identity with no name falls back to its id");
+    // The id is CJK in every language (it is stored in every save and can never be
+    // renamed), so a missing `name` renders Chinese into an English player's picker.
+    const untranslated = lang === "zh" ? []
+      : worldFor[lang].identities.filter((i) => i.name === i.id && /[\u4e00-\u9fff]/.test(i.id));
+    check(`[${lang}] ...and it is not the stored id showing through`,
+      untranslated.length === 0, untranslated.map((i) => i.id).join(", "));
+    const tooLong = worldFor[lang].identities.filter((i) => i.name.length > 24);
+    check(`[${lang}] ...short enough to be a button in a two-column grid`,
+      tooLong.length === 0, tooLong.map((i) => `${i.name} (${i.name.length})`).join(", "));
   }
 
   // A custom identity resolves to no world entry at all, and must still print.
@@ -2376,7 +2744,7 @@ async function layerI() {
     /relaxing toward "Summer" as they grow close/.test(overrideOf("Staff")),
     overrideOf("Staff"));
   check("the trainee work override relaxes toward the MEMBER's name",
-    /relaxing toward a member's plain stage name/.test(overrideOf("练习生"))
+    /relaxing toward a member's plain name/.test(overrideOf("练习生"))
       && !/toward "Summer"/.test(overrideOf("练习生")),
     overrideOf("练习生"));
   check("...and neither leaves the ambiguous shared clause behind",
@@ -2433,7 +2801,7 @@ async function layerI() {
     check(`[${tag}] address forms are scoped to dialogue`,
       /Address forms are SPOKEN, not narrated/.test(src));
     check(`[${tag}] the narration rule shows the wrong form, not just the right one`,
-      /In narration a member is her stage name alone[\s\S]{0,200}NEVER/.test(src),
+      /In narration a member is her name alone[\s\S]{0,200}NEVER/.test(src),
       "a rule with no counter-example is the one the model ignores");
   }
 
@@ -2661,6 +3029,13 @@ async function layerI() {
   check("...and requires it to move",
     /never repeat the previous round's scene word for word/.test(p),
     "five consecutive rounds carried a byte-identical scene");
+  // ...and points at section 11's list, where the rule about preferring it lives.
+  // The schema is where the model looks when it is filling the field in, so the
+  // pointer belongs here as well as there - that is the KKT Channels shape, not a
+  // duplicated rule: the canon list and the preference are stated once, in 11.
+  check("...and points at the canon list rather than restating the rule",
+    /Take the place from section 11's canon list/.test(p),
+    "a list the schema never mentions is a list the model meets 200 lines earlier");
 
   // The summary is the collapse target, so it becomes the permanent ledger entry.
   // zh delivered a median 303 characters of 2-4 sentences against "~100".
@@ -2880,35 +3255,28 @@ async function layerI() {
   // identity block silently. Plan §4.1 calls this the gpt4omini lesson.
   const SAVED_IDENTITY_IDS =
     ["练习生", "Staff", "韩娱艺人", "粉丝", "留学生", "财阀", "主线成员前女友"];
-  const SAVED_PACE_IDS = ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"];
   for (const lang of ["zh", "en", "ko"]) {
     const ids = worlds[lang].identities.map((i) => i.id);
     check(`[${lang}] the world declares every identity id that can sit in a save`,
       SAVED_IDENTITY_IDS.every((id) => ids.includes(id)),
       `missing: ${SAVED_IDENTITY_IDS.filter((id) => !ids.includes(id)).join(", ")}`);
-    const pids = worlds[lang].paces.map((p) => p.id);
-    check(`[${lang}] the world declares every pace id that can sit in a save`,
-      SAVED_PACE_IDS.every((id) => pids.includes(id)),
-      `missing: ${SAVED_PACE_IDS.filter((id) => !pids.includes(id)).join(", ")}`);
     check(`[${lang}] every identity carries a non-empty background`,
       worlds[lang].identities.every((i) => typeof i.background === "string" && i.background.length > 40),
       worlds[lang].identities.filter((i) => !(i.background?.length > 40)).map((i) => i.id).join(", "));
-    check(`[${lang}] every pace carries a rule`,
-      worlds[lang].paces.every((p) => typeof p.rule === "string" && p.rule.length > 20), "");
     check(`[${lang}] every identity carries the name the prompt prints`,
       worlds[lang].identities.every((i) => typeof i.name === "string" && i.name.length > 0),
       worlds[lang].identities.filter((i) => !i.name).map((i) => i.id).join(", "));
-    // Every pace rule is sent verbatim now, so a trailing space in one is a
-    // trailing space in the prompt — worth the whole cached prefix.
-    check(`[${lang}] no pace rule carries stray whitespace`,
-      worlds[lang].paces.every((p) => p.rule === p.rule.trim()),
-      worlds[lang].paces.filter((p) => p.rule !== p.rule.trim()).map((p) => p.id).join(", "));
+    // The world declares a rule for every story mode and NOTHING for the paces
+    // they replaced. A leftover `paces` array would be authored four more times
+    // in step 7 for three worlds that never read it - the shape this repo
+    // already tracks as NPC_APPEARANCE_CHANCE.
+    check(`[${lang}] every story mode carries a rule`,
+      loader.MODE_IDS.every((id) => typeof worlds[lang].modes[id] === "string"
+        && worlds[lang].modes[id].length > 20),
+      JSON.stringify(worlds[lang].modes).slice(0, 120));
+    check(`[${lang}] the world carries no leftover pace list`,
+      worlds[lang].paces === undefined, JSON.stringify(worlds[lang].paces || "").slice(0, 80));
   }
-  // The rules are English instruction text, like phases: identical in all three
-  // files, so a fix applied to one has to be applied to all three.
-  check("the pace rules are identical across zh/en/ko",
-    new Set(["zh", "en", "ko"].map((l) => JSON.stringify(worlds[l].paces))).size === 1,
-    "a rule fixed in one language only is a rule fixed for a third of players");
 
   // ---------------------------------------------------- Korean particles
   // A Korean particle is chosen by the sound the word in front of it ends in, and
@@ -2992,20 +3360,41 @@ async function layerI() {
   //
   // So the requirement is not "label equals id". It is: whatever App.jsx forwards
   // must be an id the world declares.
+  // v1.4.1 step 3 DELETED that list rather than guarding it, which is the `PACES`
+  // lesson one field over: the picker's options are `world.identities` plus the one
+  // id no world declares, and `formForRound` forwards `form.identity` unchanged. So
+  // "what App.jsx forwards is an id the world declares" is true by construction,
+  // and what is left to assert is that the construction is still the one in place.
   const setupSrc = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
-  const identityList = (setupSrc.match(/const IDENTITIES = \[[\s\S]*?\n\];/) || [""])[0];
-  const forwarded = [...identityList.matchAll(/\{\s*id:\s*"([^"]+)",\s*label:\s*"([^"]+)"\s*\}/g)]
-    .map(([, id, label]) => ({ id, label }));
-  check("App.jsx declares every identity the world does, plus H",
-    forwarded.length === SAVED_IDENTITY_IDS.length + 1
-      && SAVED_IDENTITY_IDS.every((id) => forwarded.some((f) => f.id === id))
-      && forwarded.some((f) => f.id === "H"),
-    forwarded.map((f) => f.id).join(", ") || "IDENTITIES literal not found — the anchor moved");
-  const unresolvable = forwarded.filter((f) => f.id !== "H")
-    .filter((f) => !worlds.zh.identities.some((w) => w.id === f.label));
-  check("what App.jsx forwards as the identity is an id the world can resolve",
-    forwarded.length > 0 && unresolvable.length === 0,
-    unresolvable.map((f) => `${f.id} -> "${f.label}", which no world identity is called`).join(" | "));
+  check("Setup no longer carries its own copy of the identity list",
+    !/const IDENTITIES = \[/.test(setupSrc) && !/t\.identities\[/.test(setupSrc),
+    "a second list of identity ids is exactly what PACES was");
+  check("...and the picker's options come from the world, plus the custom id",
+    /world\.identities\.map\(i => \(\{ id: i\.id, label: i\.name \|\| i\.id \}\)\)/.test(setupSrc)
+      && /\{ id: CUSTOM_IDENTITY_ID, label: t\.setup\.customIdentityOption \}/.test(setupSrc),
+    "the option list is the world's list or it is a second copy of it");
+  check("...and what it forwards for a world identity is that id, unchanged",
+    /identity: form\.identity === CUSTOM_IDENTITY_ID\s*\r?\n?\s*\? \(form\.customIdentity \|\| "Custom"\)\s*\r?\n?\s*: form\.identity,/.test(setupSrc),
+    "an id-to-label mapping here is what emptied the background out of every game");
+  // The one id the app owns, named once. A literal "H" in a second place is how
+  // the four copies of the `formForRound` expression drifted in the first place.
+  check("...and the custom id is a named constant, not a literal in four places",
+    /const CUSTOM_IDENTITY_ID = "H";/.test(setupSrc)
+      && (setupSrc.match(/=== "H"/g) || []).length === 0,
+    (setupSrc.match(/=== "H"/g) || []).length + ' literal === "H" comparisons remain');
+  // A world change can leave `form.identity` holding an id the new world never
+  // declares, which renders no background and no work title while still looking
+  // chosen. Cleared against the world that LOADED - and only when genuinely
+  // absent, because 主线成员前女友 keeps one id across all four worlds so that
+  // switching keeps a route every world has.
+  check("a world change clears an identity the new world does not declare",
+    /world\.identities\.some\(i => i\.id === f\.identity\)/.test(setupSrc)
+      && /\{ \.\.\.f, identity: "", customIdentity: "" \}/.test(setupSrc)
+      && /\}, \[world\]\);/.test(setupSrc),
+    "an id no world declares prints an empty identity block");
+  check("...and keeps one it does, so a shared route survives the switch",
+    /!f\.identity \|\| f\.identity === CUSTOM_IDENTITY_ID\s*\r?\n?\s*\|\| world\.identities\.some/.test(setupSrc),
+    "clearing unconditionally is what the ex-girlfriend's single id exists to avoid");
   // Counted, and counted against the number of call sites. This was four copies of
   // one expression, and the count is what found that the fourth had drifted: the
   // epilogue omitted the `"H"` branch, so a player who wrote her own identity
@@ -3022,26 +3411,106 @@ async function layerI() {
   // an over-wide pattern in this suite has matched something other than its subject.
   const helperBody = (setupSrc.match(/const formForRound = \(\) => \(\{[\s\S]*?\n  \}\);/) || [""])[0];
   check("...and that one way resolves the custom-identity escape hatch",
-    helperBody.includes('form.identity === "H"') && helperBody.includes("form.customIdentity"),
+    helperBody.includes("form.identity === CUSTOM_IDENTITY_ID") && helperBody.includes("form.customIdentity"),
     helperBody.replace(/\s+/g, " ").slice(0, 160) || "formForRound not found — the anchor moved");
 
-  // The same shape one field over: PACES is a fourth copy of the pace list, and a
-  // pace the world does not declare now renders as the bare id instead of the rule
-  // section 6 is supposed to send.
-  const appPaces = ((setupSrc.match(/const PACES = \[([^\]]*)\]/) || [, ""])[1]
-    .match(/"([^"]+)"/g) || []).map((s) => s.replace(/"/g, ""));
-  check("every pace Setup offers is one the world declares",
-    appPaces.length > 0 && appPaces.every((p) => SAVED_PACE_IDS.includes(p)),
-    appPaces.filter((p) => !SAVED_PACE_IDS.includes(p)).join(", ") || appPaces.join(", "));
-  // The Setup picker renders t.paces[i] against PACES[i], so the two are coupled by
-  // POSITION — a language with a shorter list silently mislabels the rest.
+  // PACES AND t.paces ARE GONE, and these guards are written so that bringing
+  // either back fails. They were a fourth copy of the pace list, read as
+  // `t.paces.map((p, i) => ... PACES[i])` - two hand-maintained lists coupled by
+  // POSITION, so a language with a shorter list mislabelled the rest and a world
+  // with its own pace ids would have stored one the world never declared. The
+  // four universal story-mode ids delete the coupling instead of guarding it.
+  check("Setup no longer carries its own copy of the pace list",
+    !/const PACES = /.test(setupSrc) && !setupSrc.includes("t.paces"),
+    "PACES came back - the world owns the list, and the ids are universal");
   for (const lang of ["zh", "en", "ko"]) {
-    const uiPaces = ((readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8")
-      .match(/^\s*paces:\s*\[([^\]]*)\]/m) || [, ""])[1].match(/"([^"]+)"/g) || []).length;
-    check(`[${lang}] the pace labels line up with the pace ids by position`,
-      uiPaces === appPaces.length,
-      `${uiPaces} labels for ${appPaces.length} paces`);
+    const i18nSrc = readFileSync(join(ROOT, `src/i18n/${lang}.js`), "utf8");
+    check(`[${lang}] i18n carries no positional pace array`,
+      !/^\s*paces:\s*\[/m.test(i18nSrc), "t.paces is the list PACES was coupled to");
+    // The identity labels were a second copy of `world.identities[].name`, which a
+    // check could only tie together - and step 7 would have owed 21 more rows
+    // across three languages for ids the world files already name per language.
+    // A coupling deleted is worth more than a coupling asserted.
+    check(`[${lang}] i18n carries no second copy of the identity names`,
+      !/^\s*identities:\s*\{/m.test(i18nSrc) && /customIdentityOption: "/.test(i18nSrc),
+      "t.identities duplicated the world's own per-language names");
+    // The label the world's noun is dropped into, and the stale copy of the line
+    // that used to hardcode it. `ragLoading` said "Group loaded" in all three and
+    // was already read by nothing - pickMainHint's shape, one file over.
+    check(`[${lang}] the cast field's label is a template around the world's noun`,
+      /orgName: \(noun\) => `/.test(i18nSrc) && /orgLoaded: \(noun\) => `/.test(i18nSrc)
+        && !/castName: "/.test(i18nSrc) && !/ragLoading:/.test(i18nSrc),
+      "a fixed noun here is right for one world of four");
+    check(`[${lang}] the world picker has a label`,
+      /\n\s*world: "[^"]{2,}"/.test(i18nSrc), "the picker renders t.setup.world");
+    // Keyed by id instead, so a missing translation is a hole in a row rather
+    // than a silent off-by-one in every label after it. Same argument as
+    // RELEASE_NOTES holding all three languages side by side.
+    const missing = loader.MODE_IDS.filter((id) =>
+      !new RegExp(`\\n\\s*${id}:\\s*"[^"]{10,}"`).test(i18nSrc));
+    check(`[${lang}] every story mode has a label`,
+      missing.length === 0, `missing: ${missing.join(", ")}`);
   }
+  // What App.jsx FORWARDS has to be a mode the world declares. Written on the
+  // call rather than on the control, which is the identity lesson one field up:
+  // `IDENTITIES.find(...).label` is an identity function today, so a guard
+  // reading the picker would pass while the value reaching executeRound was
+  // something else entirely.
+  check("every executeRound call site forwards the story mode",
+    (setupSrc.match(/aliyunOptions\(\), timeSpeed, storyMode,/g) || []).length === roundCalls,
+    `${roundCalls} call sites, ${(setupSrc.match(/timeSpeed, storyMode,/g) || []).length} forwarding both dials` +
+    " - the epilogue site is the one that has drifted before");
+  // ...and the value it forwards comes from the seeding rule, which is the only
+  // thing allowed to decide it.
+  check("the story mode state is seeded through seededStoryMode",
+    /useState\(\(\) =>\s*\n?\s*seededStoryMode\(/.test(setupSrc)
+      && /const seededStoryMode = \(legacyPace\) =>/.test(setupSrc),
+    "a second reader of rv_sim_story_mode is a second answer to what the mode is");
+  // ...and loadSave seeds from the slot it is about to play, once, persisting it.
+  // Without that, a player loading a pre-mode save is silently moved to free mode
+  // whatever pace she has been playing for thirty rounds.
+  check("loadSave seeds the story mode from the save it is loading",
+    /seededStoryMode\(migrated.form\?.pace\)/.test(setupSrc)
+      && /saveToStorage\("rv_sim_story_mode"/.test(setupSrc),
+    "a seed that is not persisted runs again on every load and is not a seed");
+
+  // THE SEEDING RULE ITSELF, behaviourally. Three mutations to the pace map went
+  // green before these existed - not because a neighbouring check covered them,
+  // but because nothing tested the mapping at all. The structural guards above
+  // assert that App calls the rule; these assert that the rule is right.
+  for (const [pace, mode] of [["慢热现实向", "free"], ["浪漫情感向", "romance"],
+    ["高压舆论向", "pressure"], ["修罗海王向", "dramatic"]]) {
+    check(`the legacy pace ${pace} seeds story mode "${mode}"`,
+      loader.resolveStoryMode(null, pace) === mode,
+      loader.resolveStoryMode(null, pace));
+  }
+  // A brand-new player has no pace and no mode, and free is what the game has
+  // always been: no authored plot events, the relationship is the plot.
+  check("no pace and no stored mode seeds free",
+    loader.resolveStoryMode(null, undefined) === "free" && loader.resolveStoryMode(null, "") === "free",
+    loader.resolveStoryMode(null, undefined));
+  // A pace from a world that has been re-authored is somebody’s save, not a bug.
+  check("a pace the world no longer declares seeds free rather than nothing",
+    loader.resolveStoryMode(null, "made up in 2024") === "free",
+    loader.resolveStoryMode(null, "made up in 2024"));
+  // A CHOSEN MODE ALWAYS WINS. This is the half that matters once the seed has
+  // run: the legacy field stays in the save forever, so a rule that preferred it
+  // would silently overwrite her choice on every load.
+  check("a stored mode wins over the save’s legacy pace",
+    loader.resolveStoryMode("free", "高压舆论向") === "free"
+      && loader.resolveStoryMode("dramatic", "慢热现实向") === "dramatic",
+    loader.resolveStoryMode("free", "高压舆论向"));
+  // ...but a stored value that is not a mode is not a choice. localStorage can
+  // hold anything a previous build left there.
+  check("a stored value that is not a mode falls through to the pace",
+    loader.resolveStoryMode("浪漫情感向", "高压舆论向") === "pressure"
+      && loader.resolveStoryMode("", "修罗海王向") === "dramatic",
+    loader.resolveStoryMode("浪漫情感向", "高压舆论向"));
+  // Every mode id is reachable as a stored value, or a mode exists that the
+  // player can never be in. Derived from MODE_IDS.
+  check("every story mode id survives a round trip as a stored value",
+    loader.MODE_IDS.every((id) => loader.resolveStoryMode(id, "高压舆论向") === id),
+    loader.MODE_IDS.map((id) => loader.resolveStoryMode(id, "高压舆论向")).join(", "));
 
   // "H" is the custom-identity escape hatch: the player types their own text,
   // so the world must NOT ship a background for it. One that existed would
@@ -3070,14 +3539,951 @@ async function layerI() {
   // Blocks that are English rule text in every language file. Triplicating them
   // is what `public/worlds/<id>/<lang>.json` costs; this is what stops the three
   // copies drifting apart.
-  const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes]);
-  check("phases and npcArchetypes are identical across zh/en/ko",
+  //
+  // `places` is half and half: the id, emoji and draws are structure, while the
+  // name and the one-line description are what the model writes `scene` from, so
+  // only the structural half is compared.
+  // `castLore` is half and half for the same reason `places` is: `composed`,
+  // `subset` and `orgSuffix` are prompt-facing English rule text, while `orgNoun`
+  // and `orgHint` are what the PLAYER reads on Setup and are authored per language.
+  const langIndependent = (w) => JSON.stringify([w.phases, w.npcArchetypes, w.tone,
+    w.statNotes, w.platforms, w.useGroupLore, w.modes,
+    [w.castLore.composed, w.castLore.subset, w.castLore.orgSuffix, w.castLore.useRole],
+    w.places.map((p) => [p.id, p.emoji, p.draws])]);
+  check("the language-independent half of the world is identical across zh/en/ko",
     langIndependent(worlds.zh) === langIndependent(worlds.en)
       && langIndependent(worlds.en) === langIndependent(worlds.ko),
     "the three world files disagree on language-independent rule text");
+  // ...and the localized half must actually BE localized, or a field was pasted
+  // into all three files and never translated. `setting` and `scenario` are prose
+  // the model reads as story material, like an identity's background.
+  for (const key of ["setting", "scenario"]) {
+    check(`"${key}" is authored per language, not triplicated`,
+      new Set(["zh", "en", "ko"].map((l) => worlds[l][key])).size === 3,
+      `${key} is the same string in at least two of the three world files`);
+  }
+  // ...and the player-facing half must actually be translated, or it was pasted
+  // into all three files. `orgSuffix` is the opposite case and is compared above:
+  // it reaches the PROMPT, where section 4 is English in every language.
+  for (const key of ["orgNoun", "orgHint"]) {
+    check(`"castLore.${key}" is authored per language, not triplicated`,
+      new Set(["zh", "en", "ko"].map((l) => worlds[l].castLore[key])).size === 3,
+      `${key} is the same string in at least two of the three world files`);
+  }
+  // The suffix is REQUIRED, not defaulted. A default would render a campus cast
+  // "under Hanseo Entertainment": plausible, wrong, and silent - the failure mode
+  // this repo bans fallbacks for.
+  const rosterSrc = readFileSync(join(ROOT, "src/rag/rosterResolver.js"), "utf8");
+  check("orgNameFor takes the suffix from its caller rather than defaulting",
+    /export const orgNameFor = \(castName, suffix\) =>/.test(rosterSrc)
+      && !/orgNameFor = \(castName, suffix = /.test(rosterSrc),
+    "a default suffix is a fallback that returns plausible data");
+  check("...and joins, so a world whose name IS its org leaves no trailing space",
+    loader.orgNameFor("Hanseo", "") === "Hanseo"
+      && loader.orgNameFor("X", "Entertainment") === "X Entertainment"
+      && loader.orgNameFor("", "Entertainment") === "X Entertainment",
+    `"${loader.orgNameFor("Hanseo", "")}" / "${loader.orgNameFor("X", "Entertainment")}"`);
+
+  // The noun is dropped into three sentence templates (`${noun}名`, `${noun} name`,
+  // `${noun} 伍讠`), so a trailing space or a full sentence here renders as one.
+  check("the org noun is one word, so the i18n templates can build the grammar",
+    ["zh", "en", "ko"].every((l) => {
+      const n = worlds[l].castLore.orgNoun;
+      return n === n.trim() && !/[\s。.:：]/.test(n) && n.length <= 12;
+    }),
+    ["zh", "en", "ko"].map((l) => JSON.stringify(worlds[l].castLore.orgNoun)).join(" "));
+  // A world's display name and an identity's must differ, or the Setup page offers
+  // the same word twice for two different things - `chaebol` the world against
+  // 财阀会长 the identity. The `[Stage Changes]` id-vs-name problem one layer up.
+  for (const lang of ["zh", "en", "ko"]) {
+    const wname = JSON.parse(readFileSync(join(ROOT, "public/worlds/index.json"), "utf8"))
+      .map((w) => w.name?.[lang]).filter(Boolean);
+    const collide = worlds[lang].identities.filter((i) => wname.includes(i.name));
+    check(`[${lang}] no world's display name is also an identity's`,
+      wname.length > 0 && collide.length === 0,
+      collide.map((i) => i.name).join(", "));
+  }
+
+  check("every place is named and described in the player's language",
+    ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name && p.desc)),
+    "a place with no name renders as a blank line in the canon list");
+  check("place ids are unique within a world",
+    new Set(worlds.zh.places.map((p) => p.id)).size === worlds.zh.places.length,
+    worlds.zh.places.map((p) => p.id).join(", "));
   check("the world covers all four round phases",
     worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
     JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
+
+  // --- every world in the index, not just kpop_idol -- v1.4.1 step 7 ----------
+  //
+  // The checks above name one world because one world existed. Step 7 adds three,
+  // and nine more files is nine more chances for one of them to be the copy that
+  // still says weverse. So this derives the list from `worlds/index.json` and the
+  // languages from LIB_LANGS: a fifth world is covered by adding a folder, never
+  // by remembering to extend a check. Same rule as Layer C's loop over mirrored
+  // trees and the harness's SERVED_TREES scan.
+  const WORLD_INDEX = JSON.parse(
+    readFileSync(join(ROOT, "public/worlds/index.json"), "utf8"));
+  const allWorlds = {};
+  for (const row of WORLD_INDEX) {
+    allWorlds[row.id] = {};
+    for (const lang of ["zh", "en", "ko"]) {
+      allWorlds[row.id][lang] = await fromDisk(() => loader.loadWorld(row.id, lang));
+    }
+  }
+  check("the world index lists more than the one world this suite was written for",
+    WORLD_INDEX.length >= 4, `${WORLD_INDEX.length} worlds`);
+  // parseWorld falls back to the folder name when the document has no `world.id`,
+  // so a document whose id disagrees with its index row loads quietly and is then
+  // a different world everywhere the id is used - the save's `worldId`, `rv_sim_world`,
+  // the picker. Asserting the load succeeded would be asserting that loadWorld throws.
+  const idMismatch = Object.entries(allWorlds).filter(([id, w]) =>
+    ["zh", "en", "ko"].some((l) => w[l].id !== id));
+  check("every world document agrees with the index row that names it",
+    idMismatch.length === 0, idMismatch.map(([id, w]) => `${id} -> ${w.zh.id}`).join(", "));
+
+  // The English rule half is what the model reads as RULES; the other half is
+  // prose the player or the model reads as content. Getting a field on the wrong
+  // side is invisible - both render something plausible - so both directions are
+  // asserted for every world, not just the one the fields were introduced in.
+  const invariantHalf = (w) => JSON.stringify([w.phases, w.npcArchetypes, w.tone,
+    w.statNotes, w.platforms, w.useGroupLore, w.modes, w.addressContext, w.castLife,
+    [w.castLore.composed, w.castLore.subset, w.castLore.orgSuffix, w.castLore.useRole],
+    w.places.map((p) => [p.id, p.emoji, p.draws]),
+    w.identities.map((i) => [i.id, i.workTitle?.kr, i.workTitle?.direction, i.workTitle?.because])]);
+  for (const [id, w] of Object.entries(allWorlds)) {
+    check(`[${id}] the language-independent half is identical across zh/en/ko`,
+      invariantHalf(w.zh) === invariantHalf(w.en) && invariantHalf(w.en) === invariantHalf(w.ko),
+      `${id}'s three world files disagree on language-independent rule text`);
+    for (const key of ["setting", "scenario"]) {
+      check(`[${id}] "${key}" is authored per language, not triplicated`,
+        new Set(["zh", "en", "ko"].map((l) => w[l][key])).size === 3,
+        `${id}: ${key} is the same string in at least two of the three files`);
+    }
+    for (const key of ["orgNoun", "orgHint"]) {
+      check(`[${id}] "castLore.${key}" is authored per language`,
+        new Set(["zh", "en", "ko"].map((l) => w[l].castLore[key])).size === 3,
+        `${id}: castLore.${key} is the same string in at least two files`);
+    }
+    // Three distinct names, not two: an identity pasted from the zh file into the
+    // en one renders Chinese on an English Setup button, and `>= 2` would pass.
+    const untranslated = w.zh.identities.filter((it, i) =>
+      new Set(["zh", "en", "ko"].map((l) => allWorlds[id][l].identities[i].name)).size !== 3);
+    check(`[${id}] every identity is NAMED in each language`,
+      untranslated.length === 0, untranslated.map((it) => it.id).join(", "));
+  }
+
+  // The ONLY placeholders renderIdentityBackground substitutes are {name},
+  // {reason} and {keepsake} — the first from the roster, the other two from two
+  // separate bit ranges of backstorySeed. A world writing {transfer} renders the
+  // literal "{transfer}" into the cached prefix with no error and no test, which
+  // is the 편지을/를 class: plausible-looking text nobody reads. Scanned rather
+  // than spot-checked, because it is exactly the kind of typo one file carries.
+  // ── what the organisation is CALLED, in every world ──────────────────────
+  // The noun and the suffix are two halves of one sentence the player reads on
+  // Setup and the model reads in section 4, and they had drifted apart in two
+  // of the four worlds: an office cast was told its COMPANY was `X Group`, and
+  // a chaebol cast that the leading FAMILY was `X Group`. Reported from hand
+  // play, 2026-09-29. The shape check below runs on all four because the one it
+  // replaces ran on kpop_idol, which is where neither defect could occur.
+  const badNoun = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      const n = w[lang].castLore.orgNoun;
+      // It is dropped into `${noun} name` and `已加载${noun}: `, so a trailing
+      // space or a sentence renders as one. Two words are legal - `family
+      // business` is one thing - a sentence is not.
+      if (n !== n.trim() || /[\u3002.:\uFF1A]/.test(n) || n.split(/\s+/).length > 2 || n.length > 16) {
+        badNoun.push(`${id}/${lang}: ${JSON.stringify(n)}`);
+      }
+    }
+  }
+  check("every world's org noun is short enough for the i18n templates to build on",
+    badNoun.length === 0, badNoun.join(", "));
+  // Two pinned regressions, deliberately. Nothing derivable catches a suffix
+  // that names the wrong KIND of thing - parseWorld takes any string, and the
+  // goldens cannot see it because all three fixtures are whole single groups,
+  // which take the subset template and never render {org} at all.
+  check("an office cast works at a company, not at a Group",
+    Object.values(allWorlds.office || {}).length === 3
+      && Object.values(allWorlds.office).every((w) => w.castLore.orgSuffix === "Ltd."),
+    Object.values(allWorlds.office || {}).map((w) => w.castLore.orgSuffix).join(" "));
+  check("...and a chaebol name is labelled as the family's business rather than as the family",
+    /\u4f01\u4e1a/.test(allWorlds.chaebol?.zh?.castLore?.orgHint || "")
+      && /business/.test(allWorlds.chaebol?.en?.castLore?.orgHint || "")
+      && /\uae30\uc5c5/.test(allWorlds.chaebol?.ko?.castLore?.orgHint || ""),
+    "`X Group` is right for a chaebol and wrong for a bare family noun");
+
+  // ── round 1 is a first meeting ───────────────────────────────────────────
+  // Every member starts at Stranger, and the step-7 identities described a
+  // relationship already under way - she had already covered for you, you were
+  // already the last two to leave - so round 1 opened on a cast who behaved
+  // like old colleagues and scored like strangers. Reported from hand play.
+  //
+  // ALL FOUR WORLDS, derived from the index rather than listed: kpop_idol
+  // implied it in its own prose (`自然相识`, `新任Staff`) and the other three did
+  // not, which is how the three new ones were authored without it. One wording
+  // in every world is what makes this scannable at all - a world added later
+  // fails this check until it says the same thing.
+  const FIRST_MEETING_MARK = { zh: "[\u521D\u89C1]", en: "[First meeting]", ko: "[\uCCAB \uB9CC\uB0A8]" };
+  const EX_IDENTITY = "\u4E3B\u7EBF\u6210\u5458\u524D\u5973\u53CB";
+  const missingFirstMeeting = [];
+  for (const id of Object.keys(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of allWorlds[id]?.[lang]?.identities || []) {
+        if (it.id === EX_IDENTITY) continue;
+        if (!String(it.background).includes(FIRST_MEETING_MARK[lang])) {
+          missingFirstMeeting.push(`${id}/${lang}:${it.id}`);
+        }
+      }
+    }
+  }
+  check("every identity in every world opens on a first meeting",
+    missingFirstMeeting.length === 0,
+    missingFirstMeeting.join(", "));
+  // ...and the ex-girlfriend does NOT, in any world. Her premise is a shared
+  // past, and a blanket append would have contradicted it in the same
+  // paragraph - which is the half a `does it contain the block` check on its
+  // own would happily pass.
+  const exToldItIsNew = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      const ex = w[lang].identities.find((i) => i.id === EX_IDENTITY);
+      if (ex && String(ex.background).includes(FIRST_MEETING_MARK[lang])) exToldItIsNew.push(`${id}/${lang}`);
+    }
+  }
+  check("...and the ex-girlfriend is never told she is meeting her for the first time",
+    exToldItIsNew.length === 0, exToldItIsNew.join(", "));
+
+  const RENDERABLE = new Set(["name", "reason", "keepsake"]);
+  const strayPlaceholders = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of w[lang].identities) {
+        for (const m of String(it.background || "").matchAll(/\{(\w+)\}/g)) {
+          if (!RENDERABLE.has(m[1])) strayPlaceholders.push(`${id}/${lang}:${it.id} {${m[1]}}`);
+        }
+      }
+    }
+  }
+  check("no identity background carries a placeholder nothing substitutes",
+    strayPlaceholders.length === 0, strayPlaceholders.join(", "));
+
+  // ...and the two variant keys must actually be there wherever they are used,
+  // or the same line renders the literal from the other direction.
+  const missingVariants = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of w[lang].identities) {
+        const bg = String(it.background || "");
+        for (const key of ["reason", "keepsake"]) {
+          if (!bg.includes(`{${key}}`)) continue;
+          const list = it.variants?.[key];
+          if (!Array.isArray(list) || list.length === 0) missingVariants.push(`${id}/${lang}:${it.id}.${key}`);
+        }
+      }
+    }
+  }
+  check("an identity using {reason} or {keepsake} declares the list it draws from",
+    missingVariants.length === 0, missingVariants.join(", "));
+
+  // Rendering it is the check the two above cannot make: a placeholder that
+  // survives substitution reaches the model as a brace.
+  const unrendered = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of w[lang].identities) {
+        for (const seed of [0, 1, 65536, 123456789]) {
+          const out = loader.renderIdentityBackground(w[lang], it.id, "Irene", seed);
+          if (/[{}]/.test(out)) unrendered.push(`${id}/${lang}:${it.id}@${seed}`);
+        }
+      }
+    }
+  }
+  check("every identity background renders with no brace left in it",
+    unrendered.length === 0, unrendered.slice(0, 6).join(", "));
+
+  // The ex-girlfriend route ships in EVERY world, keeping one id across all four
+  // so that switching worlds on Setup keeps the player's route instead of
+  // silently clearing it (step 3 clears an identity the new world does not
+  // declare). A world that spelled it `ex_of_main` would pass every other check
+  // here and drop the identity on a world change, with a correct-looking cause.
+  const EX_ID = "主线成员前女友";
+  for (const [id, w] of Object.entries(allWorlds)) {
+    check(`[${id}] declares the ex-girlfriend identity under the shared id`,
+      w.zh.identities.some((i) => i.id === EX_ID),
+      w.zh.identities.map((i) => i.id).join(", "));
+    // No "declares seven identities" check: the number is today's data rather than
+    // a property, and no single edit breaks it without tripping the loader first,
+    // so it could only ever have reported GREEN. The ex-girlfriend id and the
+    // uniqueness of the set are the parts that can actually go wrong.
+    check(`[${id}] identity ids are unique`,
+      new Set(w.zh.identities.map((i) => i.id)).size === w.zh.identities.length,
+      w.zh.identities.map((i) => i.id).join(", "));
+    // "H" is the APP's escape hatch, resolved upstream in formForRound. A world
+    // declaring it would put a second, world-owned meaning on the one id that
+    // branch tests for.
+    check(`[${id}] does not declare the app's custom-identity id`,
+      !w.zh.identities.some((i) => i.id === "H"), "H belongs to App.jsx, not to a world");
+    check(`[${id}] declares at least one social platform`,
+      Array.isArray(w.zh.platforms.social) && w.zh.platforms.social.length > 0,
+      "an empty social list renders an empty schema object nothing can fill");
+    check(`[${id}] places are ten, uniquely identified, named and described in every language`,
+      w.zh.places.length === 10
+        && new Set(w.zh.places.map((p) => p.id)).size === 10
+        && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name && p.desc)),
+      `${w.zh.places.length} places`);
+    check(`[${id}] covers all four round phases and the last one is open-ended`,
+      w.zh.phases.length === 4 && w.zh.phases[3].to === null,
+      JSON.stringify(w.zh.phases.map((p) => `${p.from}-${p.to}`)));
+  }
+
+  // A world's display name and an identity's must differ ACROSS worlds, not only
+  // inside one: `chaebol` the world against 财阀会长 the kpop identity is the
+  // collision this was written for, and it is invisible from inside either file.
+  for (const lang of ["zh", "en", "ko"]) {
+    const wnames = WORLD_INDEX.map((w) => w.name?.[lang]).filter(Boolean);
+    const collide = [];
+    for (const [id, w] of Object.entries(allWorlds)) {
+      for (const it of w[lang].identities) {
+        if (wnames.includes(it.name)) collide.push(`${id}:${it.name}`);
+      }
+    }
+    check(`[${lang}] no world's display name is also an identity's, in any world`,
+      wnames.length === WORLD_INDEX.length && collide.length === 0, collide.join(", "));
+  }
+
+  // A work title points AT the player or AT the cast, and which way was a
+  // hardcoded identity id in mainAgent.js until step 7 - so to_cast was one
+  // Chinese literal and everything else pointed at the player. Four of step 7's
+  // identities point the title at the cast, and every one of them would have
+  // rendered the sentence backwards: the inverted age line again.
+  const toCast = [], toPlayer = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const it of w.zh.identities) {
+      if (!it.workTitle) continue;
+      (it.workTitle.direction === "to_cast" ? toCast : toPlayer).push(`${id}:${it.id}`);
+    }
+  }
+  check("both directions are actually used by the worlds on disk",
+    toCast.length > 0 && toPlayer.length > 0, `to_cast: ${toCast.join(", ")} | to_player: ${toPlayer.join(", ")}`);
+  // No check that a to_cast entry carries `because`, or that a to_player one does
+  // not: parseWorld throws on both, so the only mutation that could break such a
+  // check breaks the load first and the suite never reaches it. A check that
+  // duplicates a validator cannot fail. What CAN fail independently is the
+  // rendering, which is asserted on the campus prompt below.
+
+  // Korean particle pairs are resolved at render time and are meaningless in a
+  // language that has none. A pair in a zh or en world file is a paste from the
+  // ko one and would reach the model as a literal slash.
+  const strayPairs = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en"]) {
+      for (const it of w[lang].identities) {
+        if (/\u0000/.test(it.background || "")) continue;
+        for (const pair of ["은/는", "이/가", "을/를", "과/와", "으로/로"]) {
+          if (String(it.background || "").includes(pair)) strayPairs.push(`${id}/${lang}:${it.id}`);
+        }
+      }
+    }
+  }
+  check("no zh or en world file carries a Korean particle pair",
+    strayPairs.length === 0, strayPairs.join(", "));
+  // ...and the ko files must actually use them, or the resolver has nothing to do
+  // and the author wrote one fixed form for a variable word - the bug that put
+  // "미숙함로" and a literal "편지을/를" in every Korean prompt.
+  // Asserted on the two places the particle genuinely CANNOT be authored: the
+  // breakup reason and the keepsake are each one of four Korean nouns, so the
+  // particle after them changes with the roll. `some identity uses a pair` was the
+  // first version of this check and it could not fail - a world has several
+  // backgrounds, and removing one pair leaves the others standing.
+  const EX_KO = [["{reason}", "으로/로"], ["{keepsake}", "을/를"]];
+  const koMissingPair = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    const ex = w.ko.identities.find((i) => i.id === EX_ID);
+    for (const [token, pair] of EX_KO) {
+      if (!String(ex?.background || "").includes(token + pair)) koMissingPair.push(`${id}:${token}`);
+    }
+  }
+  check("every world's ko ex-girlfriend background pairs its particles",
+    koMissingPair.length === 0, koMissingPair.join(", "));
+
+  // The payoff. A non-idol world's prompt must not assert idol facts about the
+  // cast, and until step 7 five sentences did: the ROLE CONTRACT enumerated
+  // `practice, schedules, comebacks, the dorm, this company`, section 7 named
+  // `the practice she just left`, and the scene rule exemplified `Practice room`.
+  // Section 4 says these people are students two sections earlier, so the model
+  // was handed the contradiction directly - the [BLACKPINK Background] shape.
+  //
+  // Asserted on the RENDERED prompt of a real non-idol world, not on the world
+  // file: the file being right is what the checks above cover, and this is the
+  // consumer. The member profiles are the idol LIBRARY's own prose and are the
+  // player's choice of cast, so only the sections the world owns are scanned.
+  const campusWorld = allWorlds.campus?.en;
+  if (campusWorld) {
+    const campusRoster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+      members.map((m) => m.id));
+    const campusCast = await fromDisk(() => loader.resolveRoster(campusRoster, "en", campusWorld));
+    const campusPrompt = buildSystemPrompt(form({ identity: "peer_student" }), campusCast.members,
+      "irene", ["seulgi"], campusCast.groupConfig, "", "qwen", "en", campusWorld);
+    const roleContract = campusPrompt.slice(campusPrompt.indexOf("ROLE CONTRACT"),
+      campusPrompt.indexOf("REGISTER:"));
+    // A dorm is a campus place too - the words that are idol-only are `comeback`
+    // and `practice`, and those are what must not survive into a lecture hall.
+    check("[campus] the ROLE CONTRACT does not give the cast comebacks and practice",
+      !/comeback|practice/i.test(roleContract), roleContract.slice(0, 200));
+    check("[campus] ...and states what their life in THIS world actually is",
+      roleContract.includes(campusWorld.castLife.theirs)
+        && roleContract.includes(campusWorld.castLife.notHers),
+      "the world's own castLife never reached the rendered contract");
+    check("[campus] the scene rule's example is this world's, not a practice room",
+      campusPrompt.includes(`"${campusWorld.castLife.sceneExample}"`)
+        && !campusPrompt.includes('"Practice room, 10PM"'),
+      campusWorld.castLife.sceneExample);
+    check("[campus] the social rule names a beat from this world",
+      campusPrompt.includes(campusWorld.castLife.recentBeat),
+      campusWorld.castLife.recentBeat);
+    check("[campus] the Instagram like count is scaled to this cast's reach",
+      campusPrompt.includes(`"likes":${campusWorld.castLife.socialReach}`)
+        && !/"likes":800000/.test(campusPrompt),
+      "a schema example is an instruction, and 800000 is an idol's number");
+    // Step 6's trimming, rendering for the first time against real content
+    // rather than a synthetic world: a world that declares neither must carry
+    // neither, in all five places the catalog feeds.
+    check("[campus] no undeclared platform reaches the prompt",
+      !/bubble|Bubble|weverse|Weverse/.test(campusPrompt),
+      "campus declares instagram and kakaotalk only");
+    check("[campus] ...and the ones it does declare all reach it",
+      /Instagram: Photo social/.test(campusPrompt) && /KKT \(KakaoTalk\)/.test(campusPrompt)
+        && /"instagram":null/.test(campusPrompt),
+      "a declared platform missing from the schema is a post nobody can write");
+  // ...and the same question asked of EVERY world rather than of the one world
+  // it was first asked of. The two checks above are pinned to campus, which is
+  // the world where a chaebol defect cannot appear - the shape the org-suffix
+  // scan had to learn one batch earlier. A player reported chaebol showing all
+  // four platform buttons; that was the wrong world being LOADED rather than the
+  // wrong prompt being built, but a per-world scan is what says so.
+  {
+    const MARKERS = {
+      bubble: /bubble/i, weverse: /weverse/i,
+      instagram: /instagram/i, kakaotalk: /KakaoTalk|KKT/,
+    };
+    const platformStrays = [];
+    for (const [id, byLang] of Object.entries(allWorlds)) {
+      const w = byLang.en;
+      if (!w) continue;
+      const declared = new Set([...(w.platforms?.social || []), w.platforms?.private].filter(Boolean));
+      const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"], members.map((m) => m.id));
+      const cast = await fromDisk(() => loader.resolveRoster(roster, "en", w));
+      const rendered = buildSystemPrompt(form({ identity: w.identities[0].id }), cast.members,
+        "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", w);
+      for (const [plat, re] of Object.entries(MARKERS)) {
+        const present = re.test(rendered);
+        if (present !== declared.has(plat)) {
+          platformStrays.push(`${id}: ${plat} ${present ? "reaches the prompt undeclared" : "declared but missing"}`);
+        }
+      }
+    }
+    check("every world's prompt carries exactly the platforms that world declares",
+      platformStrays.length === 0, platformStrays.join(" | "));
+  }
+
+    // Direction, rendered. `prof_of_cast` points the title at the player and
+    // `junior_student` points it at the cast, and before step 7 the second one
+    // could only have come out backwards.
+    const overrideFor = (identity) => {
+      const pr = buildSystemPrompt(form({ identity }), campusCast.members, "irene", ["seulgi"],
+        campusCast.groupConfig, "", "qwen", "en", campusWorld);
+      return pr.split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+    };
+    // In a ko world file `form` is already Hangul, so the gloss would translate a
+    // word into itself: `"선배님" (선배님)`. Invisible in zh and en, which is
+    // why the ko fixture is the one that showed it.
+    const koCampus = allWorlds.campus.ko;
+    const koOverride = buildSystemPrompt(
+      form({ identity: "junior_student", name: "Nari" }), campusCast.members, "irene", ["seulgi"],
+      campusCast.groupConfig, "", "qwen", "ko", koCampus)
+      .split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+    check("[campus/ko] a work title whose gloss would repeat it is printed once",
+      koOverride.includes('"선배님"')
+        && !koOverride.includes('"선배님" (선배님)'),
+      koOverride);
+    check("[campus] a title pointed at the player relaxes toward HER name",
+      /she addresses Summer as .*relaxing toward "Summer"/.test(overrideFor("prof_of_cast")),
+      overrideFor("prof_of_cast"));
+    check("[campus] a title pointed at the cast relaxes toward the MEMBER name",
+      /Summer also uses .* for them/.test(overrideFor("junior_student"))
+        && /relaxing toward a member.s plain name/.test(overrideFor("junior_student")),
+      overrideFor("junior_student"));
+    check("[campus] ...and both are set on campus rather than on the job",
+      /on campus/.test(overrideFor("prof_of_cast"))
+        && /on campus/.test(overrideFor("junior_student"))
+        && !/on the job|at work/.test(overrideFor("prof_of_cast") + overrideFor("junior_student")),
+      overrideFor("prof_of_cast"));
+  }
+
+
+  // --- section 11: the canon places and the opening, v1.4.1 step 4 ----------
+  //
+  // The list has to be a FACT in the prompt, not only a rule about one. That is the
+  // [Rounds Absent] lesson: a rule the model has no information to apply is inert,
+  // and `prefer this list` is such a rule until the list is actually there.
+  for (const lang of ["zh", "en", "ko"]) {
+    const p = prompt(form(), lang);
+    const missing = worlds[lang].places.filter((pl) => !p.includes(pl.name));
+    check(`[${lang}] every canon place the world declares reaches the prompt`,
+      missing.length === 0, missing.map((pl) => pl.id).join(", "));
+    check(`[${lang}] ...with the one-line description that tells them apart`,
+      worlds[lang].places.every((pl) => p.includes(`${pl.name} \u2014 ${pl.desc}`)),
+      "a bare list of names says nothing about which place suits which scene");
+    check(`[${lang}] the opening scenario reaches the prompt`,
+      p.includes(worlds[lang].scenario),
+      "round 1 has nothing to open on");
+    // Every note of every stat, because section 10 asks the model to move them and
+    // said nothing anywhere about what moves them in THIS world.
+    check(`[${lang}] all three stat notes reach section 10`,
+      ["selfId", "secrecy", "mood"].every((k) => p.includes(worlds[lang].statNotes[k])),
+      ["selfId", "secrecy", "mood"].filter((k) => !p.includes(worlds[lang].statNotes[k])).join(", "));
+  }
+
+  const pEn = prompt(form(), "en");
+  // The rule, and the fact it points at. Fact in the tail (the choice string says
+  // where she went), rule in the cached part, rule pointing at the fact - the shape
+  // [KKT Channels] and [Rounds Absent] both already use.
+  check("section 11 states the prefer-this-list rule, with the escape hatch",
+    /prefer this list when you choose a scene/.test(pEn)
+      && /Invent somewhere new only when the story genuinely needs/.test(pEn),
+    "a canon list with no rule is a list the model may ignore, and one with no"
+    + " escape hatch is a prohibition it will route around");
+  check("...and says that where she is decides who is there",
+    /WHERE SHE IS DECIDES WHO IS THERE/.test(pEn)
+      && /Habit and Private Personality/.test(pEn),
+    "going somewhere was supposed to be how you run into someone");
+  check("...and points that rule at [Rounds Absent] rather than restating it",
+    /a member \[Rounds Absent\] shows has been away is a reason to put her there/.test(pEn),
+    "the absence rule lives in section 3; duplicating it is how two rules disagree");
+  check("the opening is framed as the first scene, not as this round's brief",
+    /round 1 begins here/.test(pEn)
+      && /From round 2 on this has already happened and is never replayed/.test(pEn),
+    "at round 20 an unqualified opening reads as an instruction to open again");
+  // It CANNOT be round-conditional - buildSystemPrompt takes no round - and that is
+  // why it is safe in the cached prefix. What a future edit could still do is put
+  // the place in the tail as well, which is the same fact twice and the second copy
+  // is the one that drifts. That is the [NPC Appearances] failure exactly.
+  const tailSrc = readFileSync(join(ROOT, "src/agent/memoryPool.js"), "utf8");
+  check("no [Place] line is added to the dynamic tail beside the choice string",
+    !/\[Place/.test(tailSrc) && !/\[Location/.test(tailSrc),
+    "the choice string already carries where she went; a second copy drifts");
+  // `draws` is the affinity matrix's input (plan section 7.3, reader in v1.4.2), not
+  // prose. Printing it hands the model a lookup table for exactly the judgement
+  // section 7.4 argues the model makes better than a table.
+  const drawTags = [...new Set(worlds.en.places.flatMap((pl) => pl.draws || []))];
+  // Asserted as the WHOLE line rather than by hunting for a tag string: several
+  // tags are ordinary words the prompt uses elsewhere (`manager` and `staff` are
+  // npcArchetypes), so a substring search would fail for the wrong reason. A place
+  // line that renders exactly emoji + name + desc cannot be carrying anything else.
+  check("a place renders as emoji, name and description, and nothing else",
+    drawTags.length > 0 && worlds.en.places.every((pl) =>
+      pEn.includes(`\n${pl.emoji} ${pl.name} \u2014 ${pl.desc}\n`)),
+    "`draws` is the v1.4.2 affinity matrix input, not prose for the model");
+
+  // The section numbers are load-bearing: the prompt refers to its own sections by
+  // number in five places (`section 4 names`, `Section 6 SPEAKER CONTRACT`,
+  // `section 7`, `section 11`). Inserting places at 8 - which the plan's own table
+  // said - would have renumbered three sections and silently repointed all of them.
+  const headings = pEn.split("\n").map((l) => /^\u2551 (\d+)\. /.exec(l))
+    .filter(Boolean).map((m) => Number(m[1]));
+  check("the prompt's sections are numbered 1..11 in order, each exactly once",
+    JSON.stringify(headings) === JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    JSON.stringify(headings));
+  check("places sit after the stat system and before the JSON schema",
+    pEn.indexOf("10. STAT SYSTEM") < pEn.indexOf("11. PLACES")
+      && pEn.indexOf("11. PLACES") < pEn.indexOf("JSON SCHEMA"),
+    "the schema must be the last thing the model reads before the memory context");
+  // Two spellings of one quantity is what the [Stage Changes] id-vs-name bug was.
+  check("a stat note names the stat exactly as section 10 names it one line above",
+    /\u{1F308}Self-Identity: /u.test(pEn) && /\u{1F512}Secrecy: /u.test(pEn)
+      && /\u{1F4AB}Mood: /u.test(pEn),
+    "the notes list and the editable-stats line must use one face per stat");
+
+  // --- v1.4.1 step 5: discovered places, and the one thing they must never do --
+  //
+  // 6.1's hard invariant: a list that grows mid-game must never enter the static
+  // system prompt, because the round it changed would invalidate the whole
+  // ~5,500-token cached prefix. The plan's step-5 row said to mutation-verify this by
+  // "making buildSystemPrompt read memory.places" - it takes no `memory` argument at
+  // all, so that mutation cannot be written, and a check built on it would be vacuous.
+  // The guard therefore sits on every route by which the value COULD leak: the two
+  // builders that do take memory, and the one argument through which memory text
+  // reaches the cached prefix.
+  const DISCOVERED = "Noraebang basement B2";
+  const memPlaces = {
+    playerStats: null, affections: { irene: 40 }, kktMessages: {}, stageChanges: [],
+    memberAppearances: {}, places: [{ name: DISCOVERED, round: 7 }],
+    history: [{ round: 1, type: "full", text: "a story", choice: "A. go", summary: "gist" }],
+  };
+  check("a discovered place does not reach the history ledger",
+    !buildHistoryLedger(memPlaces).includes(DISCOVERED),
+    "the ledger is the cacheable prefix; a growing list in it breaks every entry after it");
+  check("a discovered place does not reach the dynamic tail either",
+    !buildDynamicTail(memPlaces, members, ["irene"], "en").includes(DISCOVERED),
+    "the tail is cheap, but the choice string already says where she went - a second copy drifts");
+  // `memoryContext` is the static prompt's only text input, and executeRound passes it
+  // the empty string. That is the route a future edit would reach for.
+  const mainAgentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+  check("executeRound builds the system prompt with no memory text at all",
+    /buildSystemPrompt\(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world\)/
+      .test(mainAgentSrc),
+    "the third-from-last argument is the only way a client-side list could reach the cached prefix");
+
+  // The discovery rule, per language and against the REAL world data: a scene is a
+  // discovery when it names none of that language's canon places. Both sides are the
+  // player's language, so this is never a cross-language comparison.
+  for (const lang of ["zh", "en", "ko"]) {
+    const canonNames = worlds[lang].places.map((pl) => pl.name);
+    const canonMissed = canonNames.filter((n) => discoveredPlaceIn(n, worlds[lang]) !== "");
+    check(`[${lang}] a scene naming a canon place discovers nothing`,
+      canonMissed.length === 0, canonMissed.join(", "));
+  }
+  check("a canon place is still canon with a time on the end of it",
+    discoveredPlaceIn("Practice room B, 10PM", worlds.en) === ""
+      && discoveredPlaceIn("\u7ec3\u4e60\u5ba4\uff0c\u51cc\u66682\u70b9", worlds.zh) === "",
+    "section 11 asks for a place AND a time, so the time is on almost every scene");
+  check("a scene the world does not declare is recorded as a discovery",
+    discoveredPlaceIn("Noraebang basement, 1am", worlds.en) === "Noraebang basement",
+    discoveredPlaceIn("Noraebang basement, 1am", worlds.en));
+  // Without this, `Rooftop, 2am` and `Rooftop, 3am` are two rows on one map.
+  check("...with the time stripped, so one place is one row whatever hour it is",
+    discoveredPlaceIn("Noraebang basement, 1am", worlds.en)
+      === discoveredPlaceIn("Noraebang basement, 3am", worlds.en)
+      && discoveredPlaceIn("\u70e7\u8089\u5e97\u5305\u623f\uff0c\u51cc\u66682\u70b9", worlds.zh)
+        === "\u70e7\u8089\u5e97\u5305\u623f",
+    "the trailing segment carrying a digit is the time");
+  // A word list of time words per language is exactly what this avoids, so a spelled-out
+  // time survives - deliberately, and stated in the plan rather than left to be found.
+  check("...and a time that is only digits is not recorded as a place at all",
+    discoveredPlaceIn("22:00", worlds.en) === "" && discoveredPlaceIn("", worlds.en) === "",
+    "a place has a name; a name has at least one letter in it");
+
+  // recordPlace is pure and exported for the reason addSaveSlot is: the alternative is
+  // reaching the cap by playing thirty rounds by hand.
+  check("a new place is appended with the round it was found in",
+    JSON.stringify(recordPlace([], "Rooftop bar", 4)) === JSON.stringify([{ name: "Rooftop bar", round: 4 }]),
+    JSON.stringify(recordPlace([], "Rooftop bar", 4)));
+  const placeOnce = recordPlace([], "Rooftop bar", 4);
+  check("...and the same place found again is not a second row",
+    recordPlace(placeOnce, "rooftop bar.", 9) === placeOnce,
+    "case and punctuation are not identity; the same array object is returned");
+  check("placeKey folds case, spacing and punctuation and nothing else",
+    placeKey("Rooftop, B2") === placeKey("rooftop b2")
+      && placeKey("Rooftop") !== placeKey("Rooftop stairwell"),
+    "two spellings of one place is one row; two places are two");
+  // Eviction would take away somewhere the player can currently tap. addSaveSlot's
+  // choice, for addSaveSlot's reason - and asserted on the CONTENTS, because refusing
+  // and evicting both leave PLACES_MAX rows and a length check passes against the bug.
+  const placesAtCap = Array.from({ length: PLACES_MAX }, (_, i) => ({ name: `P${i}`, round: i }));
+  const placesRefused = recordPlace(placesAtCap, "One more", 99);
+  check("at the cap a new place is refused rather than evicting the oldest",
+    placesRefused === placesAtCap && placesRefused[0].name === "P0"
+      && !placesRefused.some((p) => p.name === "One more"),
+    "an evicted place is one the player can no longer go back to");
+
+  check("a new game starts with an empty discovered list",
+    Array.isArray(createEmptyMemory().places) && createEmptyMemory().places.length === 0,
+    "the map has to have somewhere to put them");
+  // Every save written before step 5 has no `places` key at all, which is why there is
+  // no schema bump and no saveMigrator row: the readers take `|| []` and recordPlace
+  // accepts undefined.
+  const placeLegacyMem = { ...memPlaces };
+  delete placeLegacyMem.places;
+  let placeLegacyOk = false;
+  try {
+    updateMemory(placeLegacyMem, { discoveredPlace: { name: "Old bridge", round: 2 } });
+    placeLegacyOk = placeLegacyMem.places.length === 1 && placeLegacyMem.places[0].name === "Old bridge";
+  } catch { placeLegacyOk = false; }
+  check("a save written before step 5 gains a place without a migration",
+    placeLegacyOk, JSON.stringify(placeLegacyMem.places));
+
+  // updateMemory is the single writer, the same rule memberAppearances follows. Two
+  // writers of one record is how the tail's member lines came to disagree.
+  check("executeRound hands the discovery to updateMemory rather than writing it",
+    /discoveredPlace: foundPlace \? \{ name: foundPlace, round: roundNum \} : null/.test(mainAgentSrc)
+      && /const foundPlace = discoveredPlaceIn\(parsed.scene, world\)/.test(mainAgentSrc),
+    "`parsed.scene` rather than newStats.scene: that one falls back to the previous round");
+  const appSrcPlaces = readFileSync(join(ROOT, "src/App.jsx"), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  check("App.jsx never writes memory.places itself",
+    !/\.places\s*=[^=]/.test(appSrcPlaces),
+    "the round path owns the record; the UI only reads it");
+
+  // The picker rides the existing choice channel (7.1): no schema field, no tail entry.
+  // THE TWO ROUND BUTTONS ON THE INPUT ROW WEAR ONE SET OF COLOURS. They both
+  // submit a choice and they are the same size, and they said `tappable` two
+  // different ways - a bordered neutral circle against an accent fill three
+  // elements over. Asserted as a PAIR, because either one alone is a colour
+  // scheme nobody can be wrong about; what was wrong was that there were two.
+  const inputRow = appSrcPlaces.slice(appSrcPlaces.indexOf("{editingIdx === null && ("),
+    appSrcPlaces.indexOf("{/* Overlays */}"));
+  const roundButtons = inputRow.match(/width: 34, height: 34[^}]*\}/g) || [];
+  check("the place and send buttons are one pair, not two colour schemes",
+    roundButtons.length === 2
+      && roundButtons.every((b) => /th\.accentGrad/.test(b) && /th\.newGameDisabled/.test(b)),
+    `${roundButtons.length} round buttons on the input row`);
+  check("...and neither of them is dimmed on top of the disabled fill",
+    !roundButtons.some((b) => /opacity/.test(b)),
+    "the disabled fill IS the signal; dimming it as well made the row look faulty");
+
+  check("the map submits an ordinary choice through sendMessage",
+    /onPick=\{\(name\) => \{ setOverlay\(null\); sendMessage\(placeChoiceText\(name\)\); \}\}/.test(appSrcPlaces),
+    "a second input path per round is what 7.1 exists to avoid");
+  check("...and it is handed the world's canon list and the save's discovered one",
+    /canon=\{world\?\.places \|\| \[\]\}/.test(appSrcPlaces)
+      && /discovered=\{memoryRef\.current\?\.places \|\| \[\]\}/.test(appSrcPlaces),
+    "canon comes from the world, discovered from the save, and neither from the other");
+  check("the map button sits in the input row and is disabled until the world loads",
+    /setOverlay\(\{ type: \"map\" \}\)/.test(appSrcPlaces)
+      && /disabled=\{loading \|\| !world\}/.test(appSrcPlaces),
+    "a picker with no world behind it has nothing to list");
+
+  // The sentence is a per-language template, because Korean needs a particle and the
+  // word in front of a particle is a variable here. Composing it at the call site is the
+  // unresolved-particle defect one layer out from where it was fixed.
+  const i18nPacks = {};
+  for (const lang of ["zh", "en", "ko"]) {
+    i18nPacks[lang] = (await import("file://" + join(ROOT, `src/i18n/${lang}.js`)
+      .replace(/\\/g, "/"))).default;
+  }
+  const goFor = (lang) => i18nPacks[lang].map.go;
+  for (const lang of ["zh", "en", "ko"]) {
+    check(`[${lang}] the place sentence is a template naming the place`,
+      typeof goFor(lang) === "string" && goFor(lang).includes("{place}"),
+      String(goFor(lang)));
+  }
+  const goIn = (lang, place) =>
+    loader.resolveKoreanParticles(goFor(lang).replace("{place}", place));
+  check("ko picks the particle from the place name's last syllable",
+    goIn("ko", "\uc5f0\uc2b5\uc2e4") === "\uc5f0\uc2b5\uc2e4\ub85c \ud5a5\ud55c\ub2e4"
+      && goIn("ko", "\uc624\uc0c1") === "\uc624\uc0c1\uc73c\ub85c \ud5a5\ud55c\ub2e4",
+    `${goIn("ko", "\uc5f0\uc2b5\uc2e4")} / ${goIn("ko", "\uc624\uc0c1")}`);
+  check("...and leaves no unresolved pair in any language",
+    ["zh", "en", "ko"].every((lang) =>
+      worlds[lang].places.every((pl) => !goIn(lang, pl.name).includes("/"))),
+    "a literal \uc73c\ub85c/\ub85c in the player's own choice string is the defect this function fixes");
+  check("the resolver is inert on zh and en, which carry no pair",
+    goIn("zh", "\u5c4b\u9876") === goFor("zh").replace("{place}", "\u5c4b\u9876")
+      && goIn("en", "Rooftop") === goFor("en").replace("{place}", "Rooftop"),
+    "a resolver that can rewrite a language it was not written for is worse than none");
+
+  // ===== v1.4.1 step 6: the platforms belong to the world ==================
+  //
+  // `world.platforms` names ids; src/config/platformConfig.js says what each one is.
+  // Every world on disk declares all three social platforms today, so the trimming is
+  // exercised against a synthetic instagram-only world here - which is also the only way
+  // to test it before step 7's content exists.
+  const platMod = await import("../src/config/platformConfig.js?t=" + Date.now());
+  const PLAT = platMod.PLATFORMS;
+
+  for (const [pid, entry] of Object.entries(PLAT)) {
+    check(`the ${pid} catalog entry is complete`,
+      entry.id === pid && typeof entry.ui === "string" && typeof entry.icon === "string"
+        && typeof entry.promptName === "string" && typeof entry.badge === "string"
+        && typeof entry.rules === "function" && typeof entry.formatRules === "function",
+      JSON.stringify(Object.keys(entry)));
+    check(`...and ${pid} carries a schema fragment only if it is a social platform`,
+      entry.private ? entry.schema === null : typeof entry.schema === "string",
+      String(entry.schema));
+  }
+  check("the social and private id sets partition the catalog",
+    [...platMod.SOCIAL_PLATFORM_IDS, ...platMod.PRIVATE_PLATFORM_IDS].sort().join()
+      === Object.keys(PLAT).sort().join()
+      && platMod.SOCIAL_PLATFORM_IDS.every((id) => !platMod.PRIVATE_PLATFORM_IDS.includes(id)),
+    platMod.SOCIAL_PLATFORM_IDS.join() + " | " + platMod.PRIVATE_PLATFORM_IDS.join());
+  // Not `every id a world declares is in the catalog` - parseWorld validates exactly that
+  // and throws first, so such a check cannot fail and would be decoration. What can fail,
+  // and what makes the throw worth having, is the other end: a catalog entry the app has
+  // no overlay for would put a button in the top bar that opens nothing.
+  const platAppRaw = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+  const platNoOverlay = Object.values(PLAT)
+    .filter((e) => !platAppRaw.includes(`overlay?.type === "${e.ui}"`));
+  check("every platform in the catalog has an overlay App.jsx can open",
+    platNoOverlay.length === 0, platNoOverlay.map((e) => e.id + " -> " + e.ui).join(", "));
+
+  // The prompt renders the declared platforms and nothing else. kpop_idol declares all
+  // three in this order, which is why the goldens do not move.
+  const platPromptFor = (w, lang = "en") =>
+    buildSystemPrompt(form(), members, "irene", ["yeri"], GROUP, "", "qwen", lang, w);
+  const platFull = platPromptFor(worldFor.en);
+  check("the schema asks for every platform the world declares, in its order",
+    platFull.includes('{"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null}'),
+    platFull.split("\n").find((l) => l.includes('"bubble"')) || "(no socialContent line)");
+  check("...and section 7 carries one rule line per declared platform",
+    /- Bubble: member-to-fan/.test(platFull) && /- Instagram: Photo social/.test(platFull)
+      && /- Weverse: Fan community/.test(platFull),
+    "a platform the world declares with no rule is a key the model fills blind");
+
+  // The trimmed world: Instagram and KakaoTalk only, which is what campus, office and
+  // chaebol ship in step 7.
+  const platTrim = (lang) => ({
+    ...worldFor[lang],
+    platforms: { social: ["instagram"], private: "kakaotalk" },
+  });
+  const platThin = platPromptFor(platTrim("en"));
+  check("a world declaring one social platform asks for one",
+    platThin.includes('"instagram":null') && !platThin.includes('"bubble":[')
+      && !platThin.includes('"weverse":null'),
+    platThin.split("\n").find((l) => l.includes("instagram")) || "(no socialContent line)");
+  check("...and section 7 loses the rules for the platforms it does not have",
+    /- Instagram: Photo social/.test(platThin)
+      && !/- Bubble: member-to-fan/.test(platThin) && !/- Weverse: Fan community/.test(platThin),
+    "a rule for a platform with no key is a rule the model cannot follow");
+  check("...and the RULES block loses their format lines too",
+    /- socialContent\.instagram: MUST be an object/.test(platThin)
+      && !/- socialContent\.bubble:/.test(platThin) && !/- socialContent\.weverse:/.test(platThin),
+    "a format rule naming a key the schema does not have is the other half of the defect");
+  check("...and section 1 names the platforms that exist, not a fixed four",
+    platThin.includes("DO NOT output Korean in instagram/KKT content")
+      && platFull.includes("DO NOT output Korean in bubble/instagram/weverse/KKT content"),
+    platThin.split("\n").find((l) => l.includes("DO NOT output Korean")) || "(no social rule)");
+  check("...and the Hangul clause names a platform the world has",
+    /- For Chinese\/English: instagram\/social content/.test(platThin)
+      && /- For Chinese\/English: bubble\/social content/.test(platFull),
+    platThin.split("\n").find((l) => l.includes("For Chinese/English")) || "(no Hangul clause)");
+  check("the private channel survives a world that trims every social platform",
+    /- KKT \(KakaoTalk\): Private chat/.test(platThin)
+      && /- KKT IS DELIVERED BY THE APP/.test(platThin)
+      && /- KKT IS A LOCKED CHANNEL/.test(platThin)
+      && /- kktMessages: Object with member IDs/.test(platThin),
+    "KKT is gated on affection, not on the social list");
+  check("...and trimming platforms removes no section from the prompt",
+    (platThin.match(/^║ (\d+)\. /gm) || []).length
+      === (platFull.match(/^║ (\d+)\. /gm) || []).length,
+    "the section numbering is referred to by number from five places");
+
+  // A world file is authored HERE, so a platform the app cannot render is a typo that must
+  // fail loudly - the unknown-register rule. A MODEL naming one is the opposite case and is
+  // filtered below. The two sit together on purpose: the asymmetry is the design.
+  const platGood = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "kpop_idol", "zh.json"), "utf8"));
+  const platRegs = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "_registers", "zh.json"), "utf8"));
+  const platParse = (platforms) => {
+    try { loader.parseWorld({ ...platGood, platforms }, "kpop_idol", "zh", platRegs); return null; }
+    catch (e) { return e.message; }
+  };
+  const badSocial = platParse({ social: ["instagram", "mastodon"], private: "kakaotalk" });
+  check("parseWorld rejects a social platform the app has no overlay for",
+    badSocial !== null && badSocial.includes("mastodon"),
+    badSocial || "parsed without complaint");
+  const badPriv = platParse({ social: ["instagram"], private: "signal" });
+  check("parseWorld rejects a private channel the app has no overlay for",
+    badPriv !== null && badPriv.includes("signal"),
+    badPriv || "parsed without complaint");
+  check("...and accepts a world that declares a SUBSET of the platforms",
+    platParse({ social: ["instagram"], private: "kakaotalk" }) === null,
+    "trimming is the feature; only an unknown id is an error");
+
+  // filterSocialByPlatforms - pure and exported, tested directly rather than only through
+  // a round, the same reason addSaveSlot and membersNamedIn are.
+  const platRaw = {
+    irene: { bubble: [{ content: "hi" }], instagram: { caption: "x" }, weverse: { content: "y" } },
+    yeri: { weverse: { content: "z" } },
+  };
+  const platKept = platMod.filterSocialByPlatforms(platRaw, ["instagram"]);
+  check("an undeclared platform is dropped from the model's social content",
+    !("bubble" in platKept.irene) && !("weverse" in platKept.irene),
+    JSON.stringify(Object.keys(platKept.irene)));
+  check("...and a declared one is kept exactly as the model wrote it",
+    platKept.irene?.instagram?.caption === "x", JSON.stringify(platKept.irene?.instagram));
+  check("...and a declared platform the model omitted is NOT invented",
+    !("instagram" in (platKept.yeri || {})) && Object.keys(platKept.yeri || {}).length === 0,
+    JSON.stringify(platKept.yeri));
+  check("...and the member survives even when every platform she carried is dropped",
+    "yeri" in platKept, JSON.stringify(Object.keys(platKept)));
+  check("...and the model's own object is not mutated",
+    "bubble" in platRaw.irene && "weverse" in platRaw.yeri,
+    "a filter that mutates its input makes the raw response unreadable afterwards");
+  let platEmpty = null;
+  try {
+    platEmpty = JSON.stringify(platMod.filterSocialByPlatforms({}, ["instagram"]))
+      + JSON.stringify(platMod.filterSocialByPlatforms(undefined, ["instagram"]));
+  } catch (e) { platEmpty = e.message; }
+  check("...and an empty response filters to an empty object rather than throwing",
+    platEmpty === "{}{}", platEmpty);
+
+  // executeRound filters ONCE and both readers take the filtered value. One of two is the
+  // failure mode here, and it is extractStoryText's.
+  const platAgentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+  check("executeRound filters the model's social content against the world",
+    (platAgentSrc.match(/filterSocialByPlatforms\(/g) || []).length === 1
+      && /const socialContent = filterSocialByPlatforms\(parsed\.socialContent \|\| \{\}, declaredSocial\)/
+        .test(platAgentSrc),
+    "the filter is the only thing between an undeclared platform and a live notification");
+  check("...and nothing downstream reads the unfiltered response",
+    (platAgentSrc.match(/parsed\.socialContent/g) || []).length === 1,
+    "both the notification derivation and the feed write must read the filtered object");
+  check("...and the private channel's notification names the catalog's overlay key",
+    /const privateUi = platformsOf\(world\)\.private\?\.ui/.test(platAgentSrc)
+      && !/roundNotifs\.push\(\{ platform: "kakao"/.test(platAgentSrc),
+    "the world says kakaotalk and the overlay is kakao - a literal here gets that mapping wrong");
+  check("...and the notifications iterate the declared list, not three named platforms",
+    /for \(const pid of declaredSocial\)/.test(platAgentSrc)
+      && !/roundNotifs\.push\(\{ platform: "weverse"/.test(platAgentSrc),
+    "a hand-written list of three is the list that goes out of date");
+
+  // The group library no longer claims to own platforms. Read through loadGroupConfig,
+  // never off the JSON: a fixture tests the formatter and not the feature.
+  const platGroupCfg = await fromDisk(() => loader.loadGroupConfig("red_velvet", "en"));
+  check("a loaded group config carries no platform fields",
+    platGroupCfg.group.socialPlatforms === undefined
+      && platGroupCfg.group.privateChat === undefined,
+    JSON.stringify(Object.keys(platGroupCfg.group)));
+  const platTreeHits = [];
+  for (const tree of ["public/groups", "groups"]) {
+    for (const e of readdirSync(join(ROOT, tree), { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const d = join(ROOT, tree, e.name);
+      const dir = e.name;
+      for (const f of readdirSync(d)) {
+        if (!f.endsWith(".json")) continue;
+        if (/social_platforms|private_chat/.test(readFileSync(join(d, f), "utf8"))) {
+          platTreeHits.push(tree + "/" + dir + "/" + f);
+        }
+      }
+    }
+  }
+  check("no group file in either tree still declares platforms",
+    platTreeHits.length === 0, platTreeHits.slice(0, 4).join(", "));
+  check("...nor the template, which is where the next group would inherit them",
+    !/social_platforms|private_chat/.test(
+      readFileSync(join(ROOT, "src/rag/groupConfigTemplate.json"), "utf8")),
+    "a dead key in the template is how the next author is taught to set it");
+  check("...nor the config an all-custom cast synthesises",
+    !/socialPlatforms|privateChat/.test(
+      readFileSync(join(ROOT, "src/rag/rosterResolver.js"), "utf8")),
+    "the branch with no group file is where a default quietly reappears");
+
+  // The top bar is the world's platform list. Comment-stripped, so a guard cannot pass on
+  // the prose that explains it - which has happened twice in this file.
+  const platAppSrc = readFileSync(join(ROOT, "src/App.jsx"), "utf8")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("the top bar's icons are built from the world's declared platforms",
+    /const \{ social, private: priv \} = platformsOf\(world\)/.test(platAppSrc)
+      && /\{platformBar\.map\(b => \{/.test(platAppSrc),
+    "four literals in the JSX would draw four buttons in a world that declares two");
+  check("...with the private channel last and the only one that can be locked",
+    /priv \? \[\{ icon: priv\.icon, type: priv\.ui, badge: priv\.badge, locked: !kktUnlocked\[form\.mainMember\] \}\] : \[\]/
+      .test(platAppSrc)
+      && /social\.map\(\(p\) => \(\{ icon: p\.icon, type: p\.ui, badge: p\.badge, locked: false \}\)\)/
+        .test(platAppSrc),
+    "a social platform has no unlock and the private one has nothing else");
+  check("...and the notification strip reads its label from the catalog",
+    !/const pn = \{ bubble:/.test(platAppSrc)
+      && /platformBar\.find\(b => b\.type === n\.platform\)\?\.badge/.test(platAppSrc),
+    "a second list of four labels is the list that disagrees with the first");
+  check("...and App.jsx names no platform id of its own any more",
+    !/type: "weverse"/.test(platAppSrc) && !/type: "bubble"/.test(platAppSrc),
+    "the catalog owns the icons, so a fifth platform is one entry and not six edits");
 
   // --- background rendering: stable for one save, varied across saves -------
   const exGf = (seed, lang = "zh") =>
@@ -3108,27 +4514,165 @@ async function layerI() {
   // two releases. parseWorld throws instead, so this asserts it actually does.
   const good = JSON.parse(readFileSync(
     join(ROOT, "public", "worlds", "kpop_idol", "zh.json"), "utf8"));
-  for (const key of ["identities", "paces", "phases", "addressForms", "npcArchetypes"]) {
+  // Address forms left the world file in v1.4.1: a world names a REGISTER and the
+  // tables live in one place, so four worlds set in Korea are not four copies.
+  const registers = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "_registers", "zh.json"), "utf8"));
+  const parseW = (cfg, reg = registers) => loader.parseWorld(cfg, "kpop_idol", "zh", reg);
+
+  for (const key of ["country", "setting", "tone", "statNotes", "platforms", "castLore",
+    "useGroupLore", "identities", "modes", "phases", "places", "scenario",
+    "npcArchetypes"]) {
     const broken = { ...good };
     delete broken[key];
     let msg = null;
-    try { loader.parseWorld(broken); } catch (e) { msg = e.message; }
+    try { parseW(broken); } catch (e) { msg = e.message; }
     check(`parseWorld rejects a world missing "${key}"`,
       msg !== null && msg.includes(key), msg || "parsed without complaint");
   }
-  for (const tok of ["unnie", "ya", "nim", "ssi", "sep"]) {
-    const broken = JSON.parse(JSON.stringify(good));
-    delete broken.addressForms.tokens[tok];
+  // The Setup field's three strings, v1.4.1 step 3. `orgSuffix` MAY be empty - a
+  // university's name is already the university - so it is rejected for not being
+  // a string rather than for being falsy, which is the `ya: null` distinction two
+  // blocks down. A missing `{org}` is rejected because the hint is the only place
+  // the player is shown the organisation name the model will be given.
+  for (const [key, bad, why] of [
+    ["orgNoun", undefined, "missing"], ["orgNoun", "", "empty"],
+    ["orgHint", undefined, "missing"], ["orgHint", "debuts as one group", "carrying no {org}"],
+    ["orgSuffix", undefined, "missing"], ["orgSuffix", 7, "not a string"],
+  ]) {
+    const broken = { ...good, castLore: { ...good.castLore } };
+    if (bad === undefined) delete broken.castLore[key]; else broken.castLore[key] = bad;
     let msg = null;
-    try { loader.parseWorld(broken); } catch (e) { msg = e.message; }
+    try { parseW(broken); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects castLore.${key} ${why}`,
+      msg !== null && msg.includes(key), msg || "parsed without complaint");
+  }
+  // ...and an EMPTY suffix is accepted, because rejecting it would force every
+  // non-idol world to invent a second word for its own name.
+  // Caught, so tightening the check above to truthiness fails THIS check by name
+  // instead of throwing out of the suite. A guard that reports a stack trace is
+  // a guard whose subject nobody can read off the output.
+  let emptySuffixOk = false;
+  try {
+    emptySuffixOk = parseW({ ...good, castLore: { ...good.castLore, orgSuffix: "" } })
+      .castLore.orgSuffix === "";
+  } catch { emptySuffixOk = false; }
+  check("parseWorld accepts an empty orgSuffix, which is a real value",
+    emptySuffixOk, "a college's name is already the college");
+
+  // v1.4.1 step 4. Two fields whose reader arrived with them: `castLore.useRole`,
+  // which decides whether an idol position reaches the prompt at all, and the three
+  // `statNotes` keys section 10 now prints one line each from.
+  //
+  // `useRole` is checked for being a BOOLEAN, not for truthiness, so a world that
+  // simply forgot it fails rather than reading as a decision nobody made - and the
+  // mutation that proves it has to break the CONDITION, because a validator deleted
+  // while the data stays valid can fire for nothing.
+  for (const bad of [undefined, "true", 1, null]) {
+    const broken = { ...good, castLore: { ...good.castLore } };
+    if (bad === undefined) delete broken.castLore.useRole;
+    else broken.castLore.useRole = bad;
+    let msg = null;
+    try { parseW(broken); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects castLore.useRole = ${JSON.stringify(bad)}`,
+      msg !== null && msg.includes("useRole"), msg || "parsed without complaint");
+  }
+  // ...and accepts `false`, which is the answer for every world but this one. Guarded
+  // because a truthiness check would reject it while passing every other test here.
+  let falseRoleOk = false;
+  try {
+    falseRoleOk = parseW({ ...good, castLore: { ...good.castLore, useRole: false } })
+      .castLore.useRole === false;
+  } catch { falseRoleOk = false; }
+  check("parseWorld accepts castLore.useRole = false",
+    falseRoleOk, "three of the four worlds have no cast position at all");
+  for (const k of ["selfId", "secrecy", "mood"]) {
+    for (const [bad, why] of [[undefined, "missing"], ["", "empty"]]) {
+      const broken = { ...good, statNotes: { ...good.statNotes } };
+      if (bad === undefined) delete broken.statNotes[k]; else broken.statNotes[k] = bad;
+      let msg = null;
+      try { parseW(broken); } catch (e) { msg = e.message; }
+      check(`parseWorld rejects statNotes.${k} ${why}`,
+        msg !== null && msg.includes(k), msg || "parsed without complaint");
+    }
+  }
+
+  for (const tok of ["unnie", "ya", "nim", "ssi", "sep"]) {
+    const brokenReg = JSON.parse(JSON.stringify(registers));
+    delete brokenReg.korea.tokens[tok];
+    let msg = null;
+    try { parseW(good, brokenReg); } catch (e) { msg = e.message; }
     check(`parseWorld rejects a token table missing "${tok}"`,
       msg !== null && msg.includes(tok), msg || "parsed without complaint");
   }
+  for (const id of loader.MODE_IDS) {
+    const brokenModes = JSON.parse(JSON.stringify(good));
+    delete brokenModes.modes[id];
+    let msg = null;
+    try { parseW(brokenModes); } catch (e) { msg = e.message; }
+    check(`parseWorld rejects a world missing story mode "${id}"`,
+      msg !== null && msg.includes(id), msg || "parsed without complaint");
+  }
+  // A world pointing at a register nobody ships must fail loudly. The alternative
+  // is a prompt with no address protocol in it at all, which throws no error and
+  // reads as the model simply choosing not to use honorifics.
+  let noReg = null;
+  try { parseW({ ...good, country: { ...good.country, register: "tokyo" } }); }
+  catch (e) { noReg = e.message; }
+  check("parseWorld rejects a world naming a register that does not exist",
+    noReg !== null && noReg.includes("tokyo"), noReg || "parsed without complaint");
+  let noField = null;
+  try { parseW({ ...good, country: { id: "korea", name: "x" } }); }
+  catch (e) { noField = e.message; }
+  check("parseWorld rejects a country that names no register",
+    noField !== null && noField.includes("country.register"),
+    noField || "parsed without complaint");
+  // ...and it resolves the table ONTO the world, because buildSystemPrompt reads
+  // `world.addressForms` and must not learn that the data moved.
+  check("parseWorld resolves the register onto world.addressForms",
+    parseW(good).addressForms.tokens.unnie === registers.korea.tokens.unnie
+      && parseW(good).addressForms.guide === registers.korea.guide,
+    "the resolved table is not the one the register ships");
   // `ya: null` is meaningful data, not a missing field — the zh table ships it.
   let nullYa = null;
-  try { loader.parseWorld(good); } catch (e) { nullYa = e.message; }
+  try { parseW(good); } catch (e) { nullYa = e.message; }
   check("parseWorld accepts a null ya, which is a real value and not an absence",
     nullYa === null, nullYa || "");
+
+  // --- the world index ----------------------------------------------------
+  //
+  // The index is the picker's lazy-load boundary. Both halves are checked, and
+  // the second is the one that keeps going wrong elsewhere in this repo: a list
+  // a human has to remember to update. It is DERIVED from the folders instead.
+  const worldIndex = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "index.json"), "utf8"));
+  check("the world index is a non-empty array",
+    Array.isArray(worldIndex) && worldIndex.length > 0, JSON.stringify(worldIndex).slice(0, 60));
+  for (const row of worldIndex) {
+    check(`world index row "${row.id}" has a folder carrying all three languages`,
+      ["zh", "en", "ko"].every((l) =>
+        existsSync(join(ROOT, "public", "worlds", row.id, `${l}.json`))),
+      "the picker would offer a world that 404s on tap");
+    check(`world index row "${row.id}" names and describes itself in all three languages`,
+      ["zh", "en", "ko"].every((l) => row.name?.[l] && row.blurb?.[l]),
+      JSON.stringify(row.name));
+  }
+  check("every world folder is listed in the index",
+    readdirSync(join(ROOT, "public", "worlds"), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith("_"))
+      .every((d) => worldIndex.some((r) => r.id === d.name)),
+    "a world with files and no index row is a world no player can choose");
+  // Every register a world names must exist in all three language files, or a
+  // Korean player gets an address protocol an English player does not.
+  const registerIds = new Set(["zh", "en", "ko"].map((l) => worlds[l].country.register));
+  check("every language resolves the same register for a given world",
+    registerIds.size === 1, [...registerIds].join(", "));
+  for (const l of ["zh", "en", "ko"]) {
+    const table = JSON.parse(readFileSync(
+      join(ROOT, "public", "worlds", "_registers", `${l}.json`), "utf8"));
+    check(`[${l}] the register file carries "${worlds[l].country.register}"`,
+      Boolean(table[worlds[l].country.register]), Object.keys(table).join(", "));
+  }
 
   // --- roster resolver (v1.4.0 step 3) ------------------------------------
   //
@@ -3139,7 +4683,7 @@ async function layerI() {
   const rvCfg = await fromDisk(() => loader.loadGroupConfig("red_velvet", "en"));
   const allIds = rvCfg.members.map((m) => m.id);
   const classic = loader.buildClassicRoster("red_velvet", "irene", ["yeri"], allIds);
-  const resolved = await fromDisk(() => loader.resolveRoster(classic, "en"));
+  const resolved = await fromDisk(() => loader.resolveRoster(classic, "en", worldFor.en));
 
   check("a classic roster resolves to the same cast, in the same order",
     JSON.stringify(resolved.members.map((m) => m.id)) === JSON.stringify(allIds),
@@ -3184,7 +4728,7 @@ async function layerI() {
         profile: { name: "Mina K", emoji: "🎧", birthday: "1997-03-02" } },
     ],
   };
-  const xr = await fromDisk(() => loader.resolveRoster(cross, "en"));
+  const xr = await fromDisk(() => loader.resolveRoster(cross, "en", worldFor.en));
   check("a cross-group roster resolves in roster order",
     JSON.stringify(xr.members.map((m) => m.id)) === JSON.stringify(["nayeon", "irene", "c_1"]),
     JSON.stringify(xr.members.map((m) => m.id)));
@@ -3257,7 +4801,7 @@ async function layerI() {
   const twiceForWhole = await fromDisk(() => loader.loadGroupConfig("twice", "en"));
   const wholeRoster = loader.buildClassicRoster(
     "twice", "nayeon", ["jihyo"], twiceForWhole.members.map((m) => m.id));
-  const wholeGroup = await fromDisk(() => loader.resolveRoster(wholeRoster, "en"));
+  const wholeGroup = await fromDisk(() => loader.resolveRoster(wholeRoster, "en", worldFor.en));
   check("a whole single group is NOT marked composed",
     wholeGroup.groupConfig.loreComposed === false, String(wholeGroup.groupConfig.loreComposed));
   const wholePrompt = buildSystemPrompt(
@@ -3273,7 +4817,7 @@ async function layerI() {
   // loreComposed is set in a second place and needs its own assertion there.
 
   // A player-supplied name replaces the default everywhere, agency included.
-  const named = await fromDisk(() => loader.resolveRoster({ ...cross, name: "Aurora" }, "en"));
+  const named = await fromDisk(() => loader.resolveRoster({ ...cross, name: "Aurora" }, "en", worldFor.en));
   check("a named cast uses that name for the group and derives the agency from it",
     named.groupConfig.groupLore.includes("[Aurora Background]")
       && named.groupConfig.groupLore.includes("Aurora Entertainment")
@@ -3289,7 +4833,7 @@ async function layerI() {
       { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
       { src: "library", groupId: "red_velvet", memberId: "yeri", slot: "sub" },
     ],
-  }, "en"));
+  }, "en", worldFor.en));
   const sLore = subset.groupConfig.groupLore;
   check("a subset of one group keeps that group's name",
     sLore.includes("[Red Velvet Background]") && subset.groupConfig.group.name === "Red Velvet",
@@ -3300,7 +4844,143 @@ async function layerI() {
     sLore.split("\n").filter((l) => /Seulgi|Wendy|Joy/.test(l)).join(" | "));
   check("...and says out loud that nobody else exists",
     /ONLY these members of Red Velvet exist in this story/.test(sLore),
-    sLore.split("\n")[2]);
+    sLore.split("\n")[3]);
+  // The fandom is its own template ELEMENT now, not a clause appended in code, so a
+  // world with no fanbase simply does not author the line.
+  check("...and carries the fandom the group config declares",
+    /^Fandom: ReVeluv \(Luvies\)\.$/m.test(sLore),
+    sLore.split("\n").find((l) => l.startsWith("Fandom")) || "no Fandom line at all");
+
+  // --- section 4's framing is the WORLD's, v1.4.1 step 4 -------------------
+  //
+  // It was four string literals in rosterResolver.js saying `N-member group under X
+  // Entertainment` and `no other idol exists` - true of this world and false of a
+  // lecture hall. The requirement is that the world decides, so the guard changes
+  // the world and asserts the lore FOLLOWS, rather than matching today's sentences.
+  const altWorld = parseW({ ...good, castLore: { ...good.castLore,
+    composed: ["[{name} COHORT]", "{name} has {n} people enrolled at {org}."],
+    orgSuffix: "College" } });
+  const altLore = (await fromDisk(() => loader.resolveRoster({
+    worldId: "kpop_idol", name: "Hanseo",
+    entries: [
+      { src: "library", groupId: "twice", memberId: "nayeon", slot: "main" },
+      { src: "library", groupId: "red_velvet", memberId: "irene", slot: "sub" },
+    ] }, "zh", altWorld))).groupConfig.groupLore;
+  check("a cross-source cast's lore is rendered from the WORLD's template",
+    altLore.startsWith("[Hanseo COHORT]")
+      && altLore.includes("Hanseo has 2 people enrolled at Hanseo College."),
+    altLore.split("\n").slice(0, 2).join(" / "));
+  check("...so the idol wording is not reachable from a world that does not say it",
+    !/-member group under/.test(altLore) && !/No other idol exists/.test(altLore)
+      && !/Entertainment/.test(altLore),
+    altLore.split("\n").filter((l) => /idol|Entertainment|-member/.test(l)).join(" | "));
+  // ...and the sentences are gone from src/ rather than merely unused there. A copy
+  // left behind is the one a later edit reaches for.
+  // Comments stripped FIRST. This guard failed on the comment explaining the very
+  // deletion it checks for - the fourth time in this repo a source guard has read
+  // its own documentation as code. Strip, then scan; a prose mention of a deleted
+  // string is the record of why it went, not a copy of it.
+  const rosterCode = rosterSrc
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("rosterResolver carries no copy of the sentences the world now owns",
+    !/-member group under/.test(rosterCode) && !/No other idol exists/.test(rosterCode)
+      && !/This story follows part of/.test(rosterCode),
+    "a second copy of a template is what the world file was supposed to replace");
+
+  // An unknown placeholder THROWS. A template is data, so a typo in a world file
+  // would otherwise reach the model as a literal {labl} in section 4 - the
+  // unresolved-particle class of defect, which renders as plausible text nobody reads.
+  let typoMsg = null;
+  try { loader.renderCastLore(["{labl} Background"], { label: "Red Velvet" }); }
+  catch (e) { typoMsg = e.message; }
+  check("an unknown placeholder in a cast-lore template throws",
+    typoMsg !== null && typoMsg.includes("labl"), typoMsg || "rendered a literal {labl}");
+  check("...and a line whose value is absent is dropped, not rendered with a gap",
+    JSON.stringify(loader.renderCastLore(["A {x}", "Fandom: {f}.", "B {x}"],
+      { x: "1", f: "" })) === JSON.stringify(["A 1", "B 1"]),
+    JSON.stringify(loader.renderCastLore(["A {x}", "Fandom: {f}.", "B {x}"], { x: "1", f: "" })));
+
+  // `useGroupLore: false` sends EVERY cast down the composed path, so a real group's
+  // own idol history cannot reach a lecture hall. A whole single group then takes the
+  // SUBSET template: it really is that group, and its real name is what she picked.
+  const noLoreWorld = parseW({ ...good, useGroupLore: false });
+  const wholeRv = { worldId: "kpop_idol", entries:
+    ["irene", "seulgi", "wendy", "joy", "yeri"].map((id, i) => ({
+      src: "library", groupId: "red_velvet", memberId: id,
+      slot: i === 0 ? "main" : i === 1 ? "sub" : "npc" })) };
+  const rvKept = await fromDisk(() => loader.resolveRoster(wholeRv, "zh", worlds.zh));
+  const dropped = await fromDisk(() => loader.resolveRoster(wholeRv, "zh", noLoreWorld));
+  check("a whole single group keeps its own lore when the world says it may",
+    rvKept.groupConfig.loreComposed === false, "this is what keeps the goldens fixed");
+  check("...and loses it entirely when the world says useGroupLore: false",
+    dropped.groupConfig.loreComposed === true
+      && dropped.groupConfig.groupLore !== rvKept.groupConfig.groupLore,
+    "a Red Velvet cast in an office world was inheriting SM and a discography");
+  check("...taking the subset template, which still calls her cast by its real name",
+    dropped.groupConfig.groupLore.startsWith("[Red Velvet Background]"),
+    dropped.groupConfig.groupLore.split("\n")[0]);
+
+  // --- the idol role is filtered BY THE WORLD, v1.4.1 step 4 ---------------
+  //
+  // Yuhan's call: keep `role` in the library, never let it reach the model in a world
+  // that has no such position. `Main Vocal` / `Maknae` is a position in an idol GROUP,
+  // so a campus prompt would describe a student as a main vocal - the
+  // [BLACKPINK Background] shape, a specific-sounding claim two sections from the rule
+  // it contradicts.
+  //
+  // Asserted on the member's OWN role string rather than on a sample word, because
+  // several role words (`leader`, `visual`) occur in ordinary prompt prose.
+  const roleCast = { worldId: "kpop_idol", name: "Hanseo", entries: [
+    { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
+    { src: "library", groupId: "twice", memberId: "nayeon", slot: "sub" },
+  ] };
+  // Built in a try, because a validator tightened to truthiness would otherwise
+  // THROW out of the suite here rather than failing by name - and a crash and a
+  // failure are the same line of output to whoever reads it. On failure this falls
+  // back to the real world, whose useRole is true, so the checks below fail by
+  // finding the role rather than by vanishing.
+  let noRoleWorld = null;
+  try { noRoleWorld = parseW({ ...good, castLore: { ...good.castLore, useRole: false } }); }
+  catch { noRoleWorld = null; }
+  check("a world declaring castLore.useRole: false can be parsed at all",
+    noRoleWorld !== null, "three of the four worlds have no cast position");
+  const withRole = await fromDisk(() => loader.resolveRoster(roleCast, "zh", worlds.zh));
+  const sansRole = await fromDisk(() =>
+    loader.resolveRoster(roleCast, "zh", noRoleWorld || worlds.zh));
+  const roleStrings = withRole.members.map((m) => m.role).filter(Boolean);
+  check("a cast position reaches the prompt in a world that declares one",
+    roleStrings.length === 2
+      && roleStrings.every((r) => withRole.groupConfig.groupLore.includes(r)),
+    JSON.stringify(roleStrings));
+  check("...and reaches it NOWHERE in a world whose castLore.useRole is false",
+    roleStrings.every((r) => !sansRole.groupConfig.groupLore.includes(r)),
+    roleStrings.filter((r) => sansRole.groupConfig.groupLore.includes(r)).join(" | "));
+  check("...while the world-neutral facts on the same line survive it",
+    withRole.members.every((m) => !m.mbti || sansRole.groupConfig.groupLore.includes(m.mbti)),
+    "mbti and animal_plastic are not idol positions and are not filtered");
+  // The trailing-space class, one separator over: the goldens cannot catch it here,
+  // because every one of the 175 library members declares a role.
+  check("...leaving no dangling separator where the position would have been",
+    !/ - ,/.test(sansRole.groupConfig.groupLore)
+      && !/,,/.test(sansRole.groupConfig.groupLore)
+      && !/[ ,]$/m.test(sansRole.groupConfig.groupLore),
+    sansRole.groupConfig.groupLore.split("\n").filter((l) => / - ,|,,|[ ,]$/.test(l)).join(" | "));
+  // ...and the field is still THERE. Stripping it at the loader would have taken an
+  // idol position out of the idol world too, which is the half of Yuhan's
+  // instruction a filter satisfies and a deletion does not.
+  check("`role` still reaches the app from the group library",
+    withRole.members.every((m) => typeof m.role === "string" && m.role.length > 0),
+    "the cast picker and the member editor read it; only the PROMPT is filtered");
+
+  // The world is REQUIRED, the same rule buildSystemPrompt follows. A default would
+  // be a second copy of every string in public/worlds/, and a missing-wiring bug
+  // would render a lecture hall as a K-pop agency instead of failing.
+  let noWorldMsg = null;
+  try { await loader.resolveRoster(roleCast, "zh"); } catch (e) { noWorldMsg = e.message; }
+  check("resolveRoster refuses to run without a world",
+    noWorldMsg !== null && /world is required/.test(noWorldMsg),
+    noWorldMsg || "composed section 4 out of nothing");
 
   // An all-custom cast has no group config at all. buildSystemPrompt reads
   // groupConfig.groupLore unconditionally, so this threw a TypeError before the
@@ -3309,7 +4989,7 @@ async function layerI() {
     worldId: "kpop_idol",
     entries: [{ src: "custom", memberId: "c_9", slot: "main", lang: "en",
       profile: { name: "Li Fei", birthday: "1999-01-01", private_personality: "quiet" } }],
-  }, "en"));
+  }, "en", worldFor.en));
   check("an all-custom cast resolves instead of throwing",
     allCustom.groupConfig !== null && typeof allCustom.groupConfig.groupLore === "string"
       && allCustom.groupConfig.groupLore.includes("Li Fei"),
@@ -3330,7 +5010,7 @@ async function layerI() {
     worldId: "kpop_idol",
     entries: [{ src: "library", groupId: "red_velvet", memberId: "irene",
       slot: "main", override: { public_image: "REWRITTEN" } }],
-  }, "en"));
+  }, "en", worldFor.en));
   check("an override applies to the resolved member",
     overridden.members[0].public_image === "REWRITTEN", "");
 
@@ -3345,7 +5025,7 @@ async function layerI() {
         slot: "main", override: { public_image: "REWRITTEN" } },
       { src: "library", groupId: "red_velvet", memberId: "irene", slot: "npc" },
     ],
-  }, "en"));
+  }, "en", worldFor.en));
   check("an override copies rather than writing through to the library",
     aliasing.members[0].public_image === "REWRITTEN"
       && aliasing.members[1].public_image !== "REWRITTEN",
@@ -3359,7 +5039,7 @@ async function layerI() {
       { src: "library", groupId: "red_velvet", memberId: "irene", slot: "main" },
       { src: "library", groupId: "red_velvet", memberId: "no_such_member", slot: "sub" },
     ],
-  }, "en"));
+  }, "en", worldFor.en));
   check("a roster entry the library no longer has is dropped, not faked",
     ghost.members.length === 1 && ghost.members[0].id === "irene",
     JSON.stringify(ghost.members.map((m) => m.id)));
@@ -3406,7 +5086,7 @@ async function layerI() {
   // THE GATE (docs/V140_PLAN.md, "Pick up here"): a pinned v1.3.8 save must
   // migrate and resolve to the same member set the app derives today.
   const twiceCfg = await fromDisk(() => loader.loadGroupConfig("twice", "en"));
-  const fromSave = await fromDisk(() => loader.resolveRoster(migrated.roster, "en"));
+  const fromSave = await fromDisk(() => loader.resolveRoster(migrated.roster, "en", worldFor.en));
   check("a migrated save resolves to exactly the cast it had, in the same order",
     JSON.stringify(fromSave.members.map((m) => m.id))
       === JSON.stringify(twiceCfg.members.map((m) => m.id)),
@@ -3723,6 +5403,35 @@ async function layerI() {
   check("cosmetic fields are auto-assigned so the player never has to pick",
     Boolean(junk.emoji && junk.color && junk.accent && junk.ig),
     JSON.stringify([junk.emoji, junk.color, junk.accent, junk.ig]));
+
+  // ── her glyph, which with no photo is the only face she has ──────────────
+  // Auto-assignment is the DEFAULT, not the rule: it was unchangeable, so a
+  // custom member was whichever palette index she landed on - a violin - in the
+  // top bar, the stats box and every tab strip for the life of the save.
+  check("a chosen glyph beats the palette",
+    store.withDefaults({ id: "c_1", emoji: "\u{1F430}" }, 0).emoji === "\u{1F430}",
+    "the palette is what she gets for not choosing, not what she is held to");
+  check("...and an unchosen one still falls back to it",
+    store.EMOJI_PALETTE.includes(store.withDefaults({ id: "c_1" }, 0).emoji));
+  // ONE GRAPHEME, not one code point. A flag is two code points, a skin tone is
+  // two and a ZWJ family is seven, so slicing by code point stores half an emoji
+  // and renders a stray modifier beside it.
+  const FAMILY = "\u{1F469}\u200D\u2764\uFE0F\u200D\u{1F469}";
+  check("a multi-code-point glyph survives whole",
+    store.normalizeEmoji(FAMILY) === FAMILY && store.normalizeEmoji("\u{1F1F0}\u{1F1F7}") === "\u{1F1F0}\u{1F1F7}",
+    JSON.stringify(store.normalizeEmoji(FAMILY)));
+  check("...two glyphs are not both stored",
+    [...store.normalizeEmoji("\u{1F430}\u{1F43B}")].length <= 2,
+    JSON.stringify(store.normalizeEmoji("\u{1F430}\u{1F43B}")));
+  // The LAST wins, and that is a UI rule: the box is never empty once she has a
+  // glyph, so typing into it means `use this instead`. Keeping the first would
+  // make the field ignore every key pressed after the one already in it.
+  check("...and it is the newest one that wins, so the field can be retyped",
+    store.normalizeEmoji("\u{1F430}\u{1F43B}") === "\u{1F43B}",
+    JSON.stringify(store.normalizeEmoji("\u{1F430}\u{1F43B}")));
+  check("...an empty field clears rather than storing whitespace",
+    store.normalizeEmoji("   ") === "" && store.normalizeEmoji(undefined) === "",
+    "a blank emoji falls back to the palette through withDefaults");
 
   // An id collision would merge two people's affections, KKT channel and
   // appearance history silently — step 4 found library ids are not unique even
@@ -4212,6 +5921,16 @@ async function layerI() {
   } catch (e) {
     editorCompiled = (e.errors || []).map((x) => x.text).join(" | ") || e.message;
   }
+  // The editor is where a glyph is chosen, and it must normalise on the way in:
+  // an emoji keyboard can hand it two, and a paste can hand it a sentence.
+  check("the editor writes the glyph through normalizeEmoji",
+    /set\("emoji", normalizeEmoji\(e\.target\.value\)\)/.test(editorSrc),
+    "the only unnormalised writer would be the one the player types into");
+  check("...and offers the shared palette rather than a second copy of it",
+    /EMOJI_PALETTE\.map\(/.test(editorSrc) && /EMOJI_PALETTE,/.test(editorSrc)
+      && !/\["\u{1F3BB}"/u.test(editorSrc),
+    "ten glyphs retyped in a component is the hand-maintained list this repo keeps losing");
+
   check("MemberEditor.jsx compiles and its imports resolve",
     editorCompiled === "ok", editorCompiled);
 
@@ -4395,6 +6114,41 @@ async function layerI() {
   // `out[member.id] =` in the source — which pinned where the code lived rather
   // than what it does, and went red the moment the logic was extracted to be
   // testable. What matters is that one member cannot occupy two slots.
+  // GIVING THE CAST FACES IS A CARD, NOT A PILL. Every overlay, the top bar and
+  // the chat wallpapers draw from the photo store, and its only entry point was
+  // a 34px chip in a two-button row whose other button WIPES THE CAST. A
+  // destructive control and the best thing on the screen should not be the same
+  // shape. Reported from hand play, 2026-09-29.
+  const imagesAt = builderSrc.indexOf("onClick={() => setShowImages(true)}");
+  const imagesBtn = builderSrc.slice(imagesAt, builderSrc.indexOf("</button>", imagesAt));
+  check("the cast-images entry is a full-width card, like the main-member slot",
+    /width: "100%"/.test(imagesBtn) && /minHeight: 62/.test(imagesBtn),
+    "the main-member slot is the size this screen uses for `the thing to tap`");
+  // The two used to be siblings in one flex row, which is what made the bigger-
+  // looking half the one that wipes the cast. The card closes before the row
+  // holding Clear opens - asserted on what is BETWEEN them, since either button
+  // read on its own looks fine.
+  const betweenBtns = builderSrc.slice(imagesAt, builderSrc.indexOf("{c.clearCast}"));
+  check("...and it no longer shares a row with the control that wipes the cast",
+    /<\/button>[\s\S]*<div style=\{\{ display: "flex"[\s\S]*<button/.test(betweenBtns),
+    "a mis-tap between adjacent targets was what made the previous builder unusable");
+  // A number the player can see beats a cap that only speaks when it refuses -
+  // which the save slots and the member palette each cost a bug to learn.
+  // MAIN AND SUBS ONLY, on both halves of the fraction AND on the sheet the card
+  // opens. An NPC's photo and wallpaper have no reader anywhere in the running
+  // game: every surface that draws a face is built from `allTargetMembers`, which
+  // is main plus subs, and an NPC posts no social and sends no Kakao to put a
+  // face beside. An upload that can never be seen still spends one of the 30
+  // photo or 8 wallpaper slots. Reported from hand play, 2026-09-29.
+  check("...and it says how many of the members who CAN show a face have one",
+    /facedIds = roster\.entries\.filter\(\(e\) => e\.slot !== "npc"\)/.test(builderSrc)
+      && /const withPhoto = facedIds\.filter/.test(builderSrc)
+      && /castCount\?\.\(withPhoto, facedIds\.length\)/.test(builderSrc),
+    "an NPC has no surface that draws her, so counting her is counting nothing");
+  check("...and the sheet it opens offers an upload for exactly those members",
+    /rows=\{facedIds\.map/.test(builderSrc),
+    "a row offering something no screen can ever show");
+
   const IRENE = { id: "irene", __groupId: "red_velvet" };
   const twoSlots = store.assignSlot(
     store.assignSlot({}, IRENE, "sub"), IRENE, "npc");
@@ -4417,7 +6171,15 @@ async function layerI() {
     c_1: { slot: "main", src: "custom", lang: "zh", profile: { name: "Lin Xia" } },
     yeri: { slot: "sub", src: "library", groupId: "red_velvet" },
   };
-  const built = store.rosterFromPicks(PICKS, "kpop_idol");
+  const built = store.rosterFromPicks(PICKS);
+  // A ROSTER CARRIES NO WORLD. It answers which of them are in this run and in
+  // what slot; resolveRoster takes the world as its own argument. A `worldId` on
+  // it was a second copy of the save's world, stamped one screen before the
+  // player picks one - and a second copy of a fact is the one that drifts.
+  check("a roster carries no world of its own to disagree with the save",
+    !("worldId" in built)
+      && !("worldId" in loader.buildClassicRoster("red_velvet", "irene", ["yeri"], ["irene", "yeri"])),
+    "the builder cannot know a world the player picks one screen later");
   // Entry order IS prompt order, and prompt order is a cache boundary: the same
   // cast in a different order is the same game and a total cache miss. Iterating
   // the picks object would tie it to insertion order instead.
@@ -4426,7 +6188,7 @@ async function layerI() {
     built.entries.map((e) => `${e.memberId}:${e.slot}`).join(" "));
   check("...and that order is stable however the picks were inserted",
     JSON.stringify(store.rosterFromPicks(
-      Object.fromEntries(Object.entries(PICKS).reverse()), "kpop_idol").entries.map((e) => e.slot))
+      Object.fromEntries(Object.entries(PICKS).reverse())).entries.map((e) => e.slot))
       === JSON.stringify(built.entries.map((e) => e.slot)),
     "object key order must not reach the prompt");
   check("a custom pick is snapshotted inline and a library pick stays a reference",
@@ -4457,7 +6219,7 @@ async function layerI() {
     sana: { slot: "main", src: "library", groupId: "twice" },
     irene: { slot: "sub", src: "library", groupId: "red_velvet" },
     c_9: { slot: "npc", src: "custom", lang: "en", profile: REQUIRED_TIER },
-  }), "en"));
+  }), "en", worldFor.en));
   // Note the custom member resolves as `c_9`, the PICK's id, even though the
   // profile body carries `c_req`. The pick key wins all the way down — the same
   // rule upsertMember enforces — so a profile can never rename itself onto
@@ -4548,9 +6310,32 @@ async function layerI() {
   // a small card in the picker, so the confirmation lives in the builder.
   check("deleting a custom member asks first, and names her",
     /onDelete\?\.\(m\.id\)/.test(pickerSrc)
-      && /setConfirmDelete\(id\)/.test(builderSrc)
-      && /c\.confirmDelete\?\.\(nameOf\(confirmDelete\)\)/.test(builderSrc),
+      && /setConfirmDelete\(\{ kind: "member", id \}\)/.test(builderSrc)
+      && /c\.confirmDelete\?\.\(nameOf\(confirmDelete\.id\)\)/.test(builderSrc),
     "\"are you sure\" beside a grid of twelve faces is not an answerable question");
+  // ...and so does deleting a SAVED CAST, which had no way to be deleted at all.
+  // One dialog for both, because a second would drift from this one - so it is
+  // asked which kind of thing it is about rather than assuming a member.
+  check("...and so does deleting a saved cast",
+    /setConfirmDelete\(\{ kind: "roster", id: s\.id \}\)/.test(builderSrc)
+      && /confirmDelete\.kind === "roster"[\s\S]{0,120}deleteRoster\(confirmDelete\.id\)/.test(builderSrc)
+      && /c\.confirmDeleteRoster\?\./.test(builderSrc),
+    "a saved cast is player data and must not die to one mis-tap");
+  // The x is its OWN target. Tapping the bubble APPLIES the cast, so a
+  // decorative glyph inside that button - which is what the member chips use,
+  // where the whole chip IS the unassign control - would delete on apply.
+  const savedRow = builderSrc.slice(builderSrc.indexOf("{saved.map((s) => ("),
+    builderSrc.indexOf("{/* One section per role"));
+  check("...and its x is a separate control from the bubble that applies it",
+    /applyRoster\(s\.roster\)/.test(savedRow)
+      && (savedRow.match(/<button/g) || []).length === 2,
+    "one button cannot both apply and delete");
+  // Deleting a saved cast must not touch the palette: the members in it are
+  // referenced, and a player reading "delete X?" reasonably fears losing them.
+  check("...and deleting one leaves the member palette alone",
+    /const deleteRoster = \(id\) => \{[\s\S]{0,260}saved\.filter/.test(builderSrc)
+      && !/const deleteRoster = \(id\) => \{[\s\S]{0,260}(saveCustomCast|removeMember)/.test(builderSrc),
+    "a saved roster holds references, not the people");
 
   // --- what the player is shown a member CALLED ------------------------------
   // The picker shows the name she recognises, which is language-specific. The
@@ -4682,10 +6467,15 @@ async function layerI() {
   // The ordering itself is asserted as behaviour above, on rosterFromPicks. This
   // only pins that the builder delegates to it rather than re-deriving an order
   // of its own, which would be a second source of truth for a cache boundary.
+  // EVERY call site, not one of them: the builder calls rosterFromPicks twice -
+  // once for the memo the chips and the images sheet read, once for the roster
+  // it hands to Setup - and a guard matching the first left the second free to
+  // shape its own. One of two is the extractStoryText failure exactly.
+  const rfpCalls = builderSrc.match(/rosterFromPicks\([^)]*\)/g) || [];
   check("the builder delegates roster shaping rather than ordering entries itself",
-    /rosterFromPicks\(picks, world\?\.id/.test(builderSrc)
+    rfpCalls.length >= 2 && rfpCalls.every((c) => c === "rosterFromPicks(picks)")
       && !/entries:/.test(builderSrc),
-    "prompt order is a cache boundary and belongs in one place");
+    `prompt order is a cache boundary and belongs in one place: ${rfpCalls.join(" | ")}`);
 
   // Editing a picked member has to refresh the snapshot, or the roster carries
   // her profile as it was before the edit.
@@ -5400,7 +7190,29 @@ async function layerJ() {
   const ex = dForm({ identity: "主线成员前女友" });
   check("ex-girlfriend backstory is stable across rounds",
     dBuild(ex, "zh") === dBuild(ex, "zh") && dBuild(ex, "en") === dBuild(ex, "en"),
-    "the breakup reason and keepsake are re-rolling — see backstorySeed in mainAgent.js");
+    "the breakup reason and keepsake are re-rolling - see backstorySeed in mainAgent.js");
+
+  // THE CLAIM THE TAIL MOVE RESTS ON, stated as the pair of assertions it needs.
+  // Changing the story mode mid-run has to cost nothing, which means the static
+  // prompt cannot move across a mode change AND the tail has to be what moves
+  // instead. Either half alone is vacuous: identical prompts would also be true
+  // of a mode nothing reads, and four distinct tails would also be true of a mode
+  // that additionally rewrote section 6.
+  const modePrompts = new Set(mod.MODE_IDS.map((id) => dBuild(dForm({ storyMode: id }), "zh")));
+  const modeTails = new Set(mod.MODE_IDS.map(
+    (id) => mod.buildTailRules(dWorld.zh, id, "default")));
+  check(`the static prompt is byte-identical across all ${mod.MODE_IDS.length} story modes`,
+    modePrompts.size === 1,
+    "a live Settings switch reaching buildSystemPrompt costs ~5,500 tokens per toggle");
+  check("...and the dynamic tail is what changes instead",
+    modeTails.size === mod.MODE_IDS.length,
+    `${modeTails.size} distinct tails for ${mod.MODE_IDS.length} modes`);
+  // Same for Time Speed, which made this trade first and has never been asserted.
+  check("the static prompt is byte-identical across a Time Speed change",
+    new Set(["slow", "default", "fast"].map((ts) => dBuild(dForm({ timeSpeed: ts }), "en"))).size === 1
+      && new Set(["slow", "default", "fast"].map(
+        (ts) => mod.buildTailRules(dWorld.en, "free", ts))).size === 3,
+    "CLAUDE.md: never move the pacing hint into buildSystemPrompt or buildHistoryLedger");
 
   // Stability must not have been bought by pinning everyone to index 0: the
   // seed is supposed to give different playthroughs different backstories.
@@ -5908,32 +7720,73 @@ async function layerL() {
     check(`playthrough.mjs calls ${fn}`, new RegExp(`bad\\.push\\(\\.\\.\\.${fn}\\(`).test(harness));
   }
 
-  // Every field of `form` that selects a whole block of the prompt must be a flag,
-  // not a literal. This has gone wrong twice with the same consequence: `identity`
-  // was pinned to 练习生, so 7 of the 8 identity backgrounds — including the only
-  // one containing randomness — had never been played live by anything; and `pace`
-  // was pinned to 浪漫情感向, which cost nothing while the pace reached the model as
-  // a bare id and cost three quarters of the coverage the moment step 7 started
-  // sending its authored rule.
+  // Every field that selects a whole block of the prompt must be a flag, not a
+  // literal. This has gone wrong three times with the same consequence:
+  // `identity` was pinned to a trainee, so 7 of the 8 backgrounds - including the
+  // only one containing randomness - had never been played live by anything;
+  // `pace` was pinned, which cost nothing while the pace reached the model as a
+  // bare id and cost three quarters of the coverage the moment step 7 started
+  // sending its authored rule; and `provider` was pinned to Aliyun, so three of
+  // the four providers still have not played a live round.
   //
-  // The check is on the form literal rather than on the flag list, because adding
-  // `--pace` while leaving `form.pace` hardcoded would pass a flag check.
+  // The story mode is the same field one release later, and it is now checked ON
+  // THE executeRound CALL rather than on the form literal. That is not a style
+  // change: the mode is no longer a form field at all, so a guard reading `form`
+  // would be reading the wrong object, and adding `--mode` while leaving
+  // `storyMode` off the call would pass a flag check.
   const formLiteral = (harness.match(/const form = \{[\s\S]*?\n    \};/) || [""])[0];
   check("the harness builds its form from flags, not literals",
-    formLiteral.length > 0 && /identity: IDENTITY/.test(formLiteral) && /pace: PACE/.test(formLiteral),
-    formLiteral.slice(0, 200) || "form literal not found — the anchor moved");
-  for (const [flag, constant] of [["identity", "IDENTITY"], ["pace", "PACE"]]) {
-    check(`...and --${flag} reaches it`,
-      new RegExp(`const ${constant} = arg\\("${flag}",`).test(harness),
-      `${constant} must come from arg("${flag}", …)`);
-  }
-  // Every id the world declares has to be reachable from the flag, or the default
-  // is the only one anyone ever plays.
-  const paceIds = JSON.parse(readFileSync(join(ROOT, "public/worlds/kpop_idol/zh.json"), "utf8"))
-    .paces.map((p) => p.id);
-  check("the harness documents every pace the world declares",
-    paceIds.every((id) => harness.includes(id)),
-    `undocumented: ${paceIds.filter((id) => !harness.includes(id)).join(", ")}`);
+    formLiteral.length > 0 && /identity: IDENTITY/.test(formLiteral),
+    formLiteral.slice(0, 200) || "form literal not found - the anchor moved");
+  check("...and --identity reaches it",
+    /const IDENTITY = arg\("identity",/.test(harness),
+    "IDENTITY must come from arg('identity', ...)");
+  const harnessCall = (harness.match(/await executeRound\(\{[\s\S]*?\n          \}\)/) || [""])[0];
+  check("the harness passes its story mode to executeRound",
+    harnessCall.length > 0 && /storyMode: MODE/.test(harnessCall),
+    harnessCall.replace(/\s+/g, " ").slice(0, 200) || "executeRound call not found - the anchor moved");
+  check("...and --mode reaches it",
+    /const MODE = arg\("mode",/.test(harness),
+    "MODE must come from arg('mode', ...)");
+  // `form.pace` stays in the harness form as an EMPTY STRING rather than being
+  // deleted: backstorySeed still hashes it, and a form that omits the key hashes
+  // `undefined` where the app hashes "" - two seeds for one setup.
+  check("...and the dead pace field is still present, empty, for the seed",
+    /pace: ""/.test(formLiteral), formLiteral.slice(0, 200));
+  // Every id the code declares has to be reachable from the flag, or the default
+  // is the only one anyone ever plays. DERIVED from MODE_IDS, so a fifth mode
+  // fails this until the harness documents it.
+  const { MODE_IDS: HARNESS_MODE_IDS } = await import(
+    "file://" + join(ROOT, "src/rag/worldLoader.js").replace(/\\/g, "/"));
+  check("the harness documents every story mode",
+    HARNESS_MODE_IDS.every((id) => harness.includes(id)),
+    `undocumented: ${HARNESS_MODE_IDS.filter((id) => !harness.includes(id)).join(", ")}`);
+  check("...and validates the flag against that list rather than a copy of it",
+    /MODE_IDS.includes\(MODE\)/.test(harness) && /from "..\/src\/rag\/worldLoader.js"/.test(harness),
+    "a second hand-maintained list of mode ids is what PACES was");
+
+  // THE REPORT CONFIG IS WRITTEN ONCE, AT THE END OF A RUN, so an undefined name
+  // in it throws only after the rounds have been spent - and `npm run build` does
+  // not cover this file at all. Renaming PACE to MODE left `PACE` in that object
+  // literal, which parses, bundles and dies at report time. A green build means
+  // the module graph resolves, not that any of it runs.
+  //
+  // Derived: every shorthand name in `config: { ... }` must appear somewhere else
+  // in the harness, so a key whose source was renamed away fails here.
+  const cfgLiteral = (harness.match(/config: \{ ([^}]*) \}/) || [, ""])[1];
+  const cfgKeys = cfgLiteral.split(",").map((k) => k.trim()).filter(Boolean);
+  check("the harness report config is not empty",
+    cfgKeys.length > 5, cfgLiteral.slice(0, 120) || "the config literal anchor moved");
+  // Counting occurrences is NOT enough, and this guard failed its own mutation
+  // that way first: a name mentioned in a COMMENT satisfies a count, and the
+  // comment explaining this very rename mentions PACE twice. That is the
+  // over-wide-pattern failure this suite already records three times. Require an
+  // actual declaration.
+  const orphanKeys = cfgKeys.filter((k) =>
+    !new RegExp(`(const|let|var|function)\\s+${k}\\b`).test(harness));
+  check("every name in the harness report config is defined somewhere in it",
+    orphanKeys.length === 0,
+    `${orphanKeys.join(", ")} - written into the report and declared nowhere, so the run dies after spending the rounds`);
 
   // THE PROVIDER IS THE THIRD FIELD OF THIS SHAPE, and it was the worst of them.
   // `selectedModel: "qwen"` and `aliyun: { mode: "free" }` were hardcoded into the
@@ -5972,6 +7825,90 @@ async function layerL() {
   check("the sk-ws- key warning is scoped to the provider it describes",
     /PROVIDER === "qwen" && !API_KEY\.startsWith\("sk-ws-"\)/.test(harness),
     "a false warning is worse than none");
+
+  // THE WORLD IS THE FOURTH FIELD OF THIS SHAPE, and it is the one this file
+  // predicted. After identity, pace and provider it said: assume there is a fourth
+  // and go looking rather than waiting for it to cost a release. There was.
+  // `kpop_idol` was hardcoded in TWO places - the loadWorld call and the roster the
+  // --cast door builds - so the harness could not play a single line of what v1.4.1
+  // adds, and step 8's release gate (`a live playthrough.mjs pass`) was not
+  // reachable rather than merely unmet.
+  //
+  // BOTH sites are asserted, because moving one is the `extractStoryText` failure:
+  // a run would then load campus and hand resolveRoster a roster claiming kpop_idol.
+  check("the harness loads the world the flag names, not a hardcoded one",
+    /await loadWorld\(WORLD, LANG\)/.test(harness) && !/loadWorld\("kpop_idol"/.test(harness),
+    "loadWorld must take WORLD - a pinned world cannot exercise any world but one");
+  // The roster it builds carries NO world - the same shape `src/` now has, since
+  // a second copy of the world is exactly what the app's save slots were reading
+  // and getting wrong. What has to reach the cast is the LOADED world, passed to
+  // resolveRoster, which is the site that was hardcoded in the first place.
+  check("...and hands that same world to resolveRoster, rather than a roster pinning one",
+    /resolveRoster\(rosterFromSpec\([^)]*\), LANG, world\)/.test(harness)
+      && !/worldId:/.test(harness),
+    "the --cast door must not carry a second answer to which world this is");
+  check("...and --world reaches both",
+    /const WORLD = arg\("world",/.test(harness),
+    "WORLD must come from arg('world', ...)");
+
+  // An identity id is a position inside ONE world and only the ex-girlfriend is
+  // shared, so a mismatched pair selects nothing: section 6 renders an empty
+  // background and no work title while every grader reports a healthy run. The
+  // check is DERIVED from the loaded world's own identities - a hand-listed table
+  // of which ids belong to which world is the list nobody updates.
+  check("the harness refuses an identity the chosen world does not declare",
+    /world\.identities\.some\(\(i\) => i\.id === IDENTITY\)/.test(harness),
+    "an unmatched identity renders a blank block and grades clean");
+  check("...and the refusal names what that world does declare",
+    /world\.identities\.map\(\(i\) => i\.id\)\.join/.test(harness),
+    "an error naming no alternative costs a second run to act on");
+
+  // A grader that cannot run is not a grader that passed. IDENTITY_ROLE is keyed
+  // on the kpop ids, so both ROLE CONTRACT graders are silent for every identity
+  // in a new world - `0 issues` in exactly the area v1.4.1 changed most. Printed
+  // under the table and deliberately NOT pushed into `notes`, which would colour
+  // the row: this states coverage, it does not report a defect.
+  check("a ROLE CONTRACT grader that cannot run is recorded rather than silent",
+    /report\.gradersSkipped\.push\(/.test(harness) && /gradersSkipped: \[\]/.test(harness),
+    "an unmapped identity must say so, or a clean run overstates what was checked");
+  check("...and it is reported without colouring the run",
+    /graders that did not run for this identity/.test(harness)
+      && !/allClean[^;]*gradersSkipped/.test(harness),
+    "a coverage statement that reaches allClean marks every new-world run dirty");
+
+  // The default has to be a world that exists, or every run without the flag dies
+  // at round 0 on a 404. Derived from the index rather than compared to a literal.
+  const harnessWorldIdx = JSON.parse(readFileSync(join(ROOT, "public/worlds/index.json"), "utf8"));
+  const harnessDefaultWorld = (harness.match(/const WORLD = arg\("world", "([^"]+)"\)/) || [])[1];
+  check("the harness's default world is one the index lists",
+    harnessWorldIdx.some((w) => w.id === harnessDefaultWorld),
+    `default ${harnessDefaultWorld}, index lists ${harnessWorldIdx.map((w) => w.id).join(', ')}`);
+  // Written into the report, because an A/B whose two arms were different worlds
+  // and does not say so is the `model id in your flags` mistake one field over.
+  check("...and the world that served the run is recorded in the report",
+    /world: WORLD,/.test(harness) && /LANG, GROUP, WORLD,/.test(harness),
+    "a report that does not name its world cannot be compared with another");
+
+  // A flag whose evidence was not kept is not a flag. `storyContent` is the
+  // PARSED story, so when the parser gives up the stored text is its own
+  // 500-char slice of the response - the symptom and the evidence become the
+  // same bytes. Observed live 2026-09-29, office/en round 7: `finish: stop`,
+  // 832 completion tokens, so NOT truncated, and nothing left to say what the
+  // model sent. Same gap CLAUDE.md records for delivered Kakao, one field over.
+  // Asserted as ONE expression, gate and field together, because
+  // `parseLevel !== "direct"` also appears in gradeRound - so asserting the two
+  // halves separately would stay green with the gate dropped entirely, and the
+  // half that matters would be the vacuous one. Found by asking what the
+  // mutation would be, not by running it.
+  check("a round the parser could not take as-is keeps what the model sent",
+    harness.includes(`...(parseLevel !== "direct" ? { rawResponse: rawContent } : {})`),
+    "a parse flag with no raw response cannot be judged after the run");
+  // The point is that it comes off the RESPONSE. Storing the parsed story under
+  // a new name would satisfy a presence check and preserve nothing.
+  check("...and it is the response body rather than the parsed story",
+    harness.includes("rawContent = data.choices")
+      && !harness.includes("rawResponse: story"),
+    "raw must be captured in the fetch stub, not copied from storyContent");
 
   // Prose is kept for every round, not a head of the first. A grader reports only
   // what went wrong, so the transcript is the only record of whether a positive

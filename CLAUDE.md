@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.4.0** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.1** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -64,12 +64,18 @@ six months later.
 
 **The two live tests answer different questions.** `smoke.mjs --live-free` sends a tiny request to each free-route model and asks *does this model accept our parameters* — cheap, fast, and the thing to re-run after any params change. `playthrough.mjs` plays real games through `executeRound` and asks *can this model actually run the game* — valid JSON every round, the player's language, four `A.`–`D.` options, stats in 0–100, prose with no options or stats box baked in, no chain-of-thought leak, and a history ledger whose prefix stays byte-identical outside collapses (the cache claim). It also grades **writing quality** — honorifics pointed the wrong way in age, a member's real name used to address someone, and Kakao narrated in a round that delivered none. Those rules live in the prompt, which smoke Layer I checks offline; only a real playthrough shows whether a model *follows* them. The player's birth year therefore defaults to the cast's median, so some members are her seniors and some her juniors — a cast that is uniformly older exercises only one direction and cannot catch a reversal. `--age` still pins it, converted to a birth year on the way in. Each model runs in its own child process so router state and `mainAgent`'s module-level social buffer cannot interleave. `--models sample` (the default) covers one model per family; reports land in `test/.out/playthrough-*.json`.
 
-**Every field of `form` that selects a whole block of the prompt has to be a flag.** `--identity`
-exists because pinning `练习生` meant 7 of the 8 identity backgrounds had never been played live by
-anything; `--pace` exists because the same thing was true of the pace, and it started mattering the
-moment section 6 began sending the pace's authored rule instead of its id. Smoke asserts the `form`
-literal is built from `IDENTITY` and `PACE` rather than from strings — a flag check alone would pass
-while `form.pace` stayed hardcoded.
+**Every field that selects a whole block of the prompt has to be a flag.** `--identity` exists
+because pinning `练习生` meant 7 of the 8 identity backgrounds had never been played live by anything;
+`--pace` existed because the same thing was true of the pace, and it started mattering the moment
+section 6 began sending the pace's authored rule instead of its id. Smoke asserts the `form` literal
+is built from `IDENTITY` rather than from strings — a flag check alone would pass while
+`form.identity` stayed hardcoded.
+
+**`--pace` is `--mode` since v1.4.1 step 2, and the guard moved with it.** The story mode is not a
+`form` field at all, so smoke asserts `storyMode: MODE` on **the `executeRound` call** — a guard
+reading `form` would now be reading the wrong object. `MODE_IDS` is imported from
+`src/rag/worldLoader.js` rather than listed in the harness, because a second hand-maintained list of
+mode ids is exactly what `PACES` was. **The guard belongs where the value is passed.**
 
 **`node scripts/analyze-prose.mjs` is the third question, and the graders cannot answer it.** A grader
 reports what went **wrong**; "0 issues" reads the same whether the model used `欧尼` all game or
@@ -102,7 +108,7 @@ repeat itself.
     1. **Static system prompt** — rules, lore, member profiles, JSON schema (~5,500 tok) -> 100% cache hit after R1
     2. **History ledger** (`buildHistoryLedger`) — append-only summaries + full stories (~2,300 tok) -> hits except the newest entry
     3. **Dynamic tail** (`buildDynamicTail`) — player stats, affections, stage changes, NPC state, KKT, pacing hint (~150 tok) -> always cache miss, kept small
-*   **Dynamic fields isolated to tail:** Player stats, affections, stage changes, NPC appearances, and the Time Speed `[Pacing]` hint live exclusively in the dynamic tail message and are never embedded in the history ledger, to avoid invalidating the prefix.
+*   **Dynamic fields isolated to tail:** Player stats, affections, stage changes, NPC appearances, and **both live pacing dials** — the `[Story Mode]` rule and the `[Time Speed]` hint — live exclusively in the dynamic tail message and are never embedded in the history ledger or the system prompt, to avoid invalidating the prefix.
 *   **Save schema:** `rv_sim_saves_v13`. `isLegacyMemory` detects `memory.history === undefined`. On legacy load, memory is wiped to `createEmptyMemory()` while stats and affections are preserved — no crash.
 
 ### Regenerate & Edit Features
@@ -150,15 +156,15 @@ Player choice
 | --- | --- |
 | `src/App.jsx` | All React state, page routing (Cover→KeyInput→Setup→Game), themes, settings overlay, story export, save/load |
 | `src/agent/mainAgent.js` | `executeRound`, `buildSystemPrompt`, `parseLLMOutput`, `validateAndFixOutput`, `popPendingSocial`, `resetPendingSocial`, `createInitialStats` |
-| `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory`, `getTopMember` |
+| `src/agent/memoryPool.js` | 1-tier history ledger: `createEmptyMemory`, `updateMemory`, `collapseHistoryIfNeeded`, `buildHistoryLedger`, `buildDynamicTail`, `isLegacyMemory`, `getTopMember`; plus the discovered-place record, `recordPlace` / `placeKey` / `PLACES_MAX` |
 | `src/agent/probabilityEngine.js` | `calculateProbability`, `pickPrimaryMember` — picks which target member drives this round |
 | `src/tools/llmTool.js` | Unified OpenAI-compatible client + per-provider reasoning flags, 90s timeout, per-kind retry, Aliyun free-credit router |
 | `src/tools/llmErrors.js` | `LLMError`, `parseErrorBody`, `classifyError` — maps every provider's HTTP errors to one `kind` |
 | `src/tools/usageMeter.js` | Session token/cost/latency accumulator: `recordUsage`, `getUsageSummary`, `resetUsage` |
 | `src/tools/aliyunRoute.js` | Free-route state per API key: `getFreeCandidates`, `markModel`, `recordServedModel`, `getFreeRouteStatus`, `resolvePaidModel` |
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
-| `src/rag/worldLoader.js` | `loadWorld(id, lang)`, `parseWorld`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: identities, paces, phase beats, address forms |
-| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang)`, `buildClassicRoster()`, `composeRosterLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group |
+| `src/rag/worldLoader.js` | `loadWorldIndex()`, `loadWorld(id, lang)`, `parseWorld`, `MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: country, identities, paces, story modes, phase beats, places, and the address register it resolves |
+| `src/rag/rosterResolver.js` | `resolveRoster(roster, lang, world)`, `buildClassicRoster()`, `composeRosterLore()`, `renderCastLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group. **`world` is required and has no default**, the same rule `buildSystemPrompt` follows: since v1.4.1 step 4 the world owns section 4's wording |
 | `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
 | `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
@@ -166,11 +172,12 @@ Player choice
 | `src/rag/saveMigrator.js` | `migrateSave(save, lang)`, `migrateSaveFields`, `SAVE_SCHEMA` — brings a pre-v1.4.0 save up to `groupId`/`worldId`/`roster`/`birthYear`, reproducing what it already implied; plus `correctBirthYear`, the one value it deliberately does **not** fix |
 | `src/config/constants.js` | Numeric game constants (see below) |
 | `src/config/modelConfigs.js` | 4 providers; Aliyun `ALIYUN_FREE_ROUTE`, `ALIYUN_PAID_MODELS`, `getAliyunModelParams`, `MODEL_PRICES_PER_1M`, `estimateCallCostUsd` |
+| `src/config/platformConfig.js` | `PLATFORMS`, `platformsOf`, `filterSocialByPlatforms` — what each social platform IS. The world declares only WHICH ones it has |
 | `src/config/stageConfig.js` | 7 relationship stages with score thresholds and display labels |
 | `src/config/relationshipEvents.js` | Stage-transition special events |
 | `src/config/achievements.js` | 5 ending achievements + trigger conditions |
 | `src/i18n/` | `useTranslation(lang)` hook + `${var}` interpolation; zh/en/ko |
-| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, MemberSelector, UsagePanel |
+| `src/platforms/` | Overlay components: Bubble, Instagram, Weverse, Kakao, Save, Help, Map, MemberSelector, UsagePanel |
 | `src/utils.js` | `STORAGE_KEYS`, `loadFromStorage`, `saveToStorage` (returns a boolean — see below) |
 
 ### State Management
@@ -186,7 +193,7 @@ Player choice
 | --- | --- | --- |
 | `rv_sim_saves_v13` | `STORAGE_KEYS.SAVES` | Save slots |
 | `rv_sim_api_key_v11` | `STORAGE_KEYS.API_KEY` | API key |
-| `rv_sim_form_v11` | `STORAGE_KEYS.FORM` | Character setup form |
+| `rv_sim_form_v11` | `STORAGE_KEYS.FORM` | **Nothing. Dead key** — the constant is defined in `src/utils.js` and no file in `src/` reads or writes it. Found in v1.4.1 step 2 while looking for a legacy `form.pace` to seed the story mode from; the pace actually lives in save slots. This row used to claim "character setup form". Either wire it up or delete the constant — `docs/V140_PLAN.md` §18 carries the decision, beside `STAR_LEVELS` |
 | `rv_sim_social_v11` | `STORAGE_KEYS.SOCIAL_FEEDS` | Social feed cache |
 | `rv_sim_model_v11` | `STORAGE_KEYS.SELECTED_MODEL` | Provider id |
 | `rv_sim_reasoning_v13` | `STORAGE_KEYS.REASONING` | Deep Thinking on/off |
@@ -196,9 +203,11 @@ Player choice
 | `rv_sim_qwen_submodel` | inline literal | **Legacy, read-only** — seeds `ALIYUN_PAID_MODEL` once for players upgrading from the 3-sub-model UI |
 | `rv_sim_theme` | inline literal | `"dark"` / `"light"` |
 | `rv_sim_timespeed` | inline literal | `"slow"` / `"default"` / `"fast"` |
+| `rv_sim_story_mode` | inline literal | `"free"` / `"romance"` / `"pressure"` / `"dramatic"`. Absent until the player opens Settings or loads a pre-v1.4.1 save, which **seeds** it from that save's `form.pace` through `resolveStoryMode` — a seed, not a migration |
 | `rv_sim_fontscale` | inline literal | `1` / `1.25` |
 | `rv_sim_language` | inline literal | `zh` / `en` / `ko` |
 | `rv_sim_group` | inline literal | Selected group id |
+| `rv_sim_world` | inline literal | Selected world id, from the Setup picker (v1.4.1 step 3). Written **only after that world has loaded**, so a world that fails to fetch is not the one the next session opens on; an id the index no longer lists falls back to `DEFAULT_WORLD_ID` |
 | `rv_sim_cast_custom_v14` | `STORAGE_KEYS.CAST_CUSTOM` | Player-authored member palette, capped at 20 |
 | `rv_sim_rosters_v14` | `STORAGE_KEYS.ROSTERS` | Player-saved rosters, capped at 20 |
 | `rv_sim_cast_photos_v14` | `STORAGE_KEYS.CAST_PHOTOS` | `{memberId: dataUrl}`, 256x256 WebP, capped at 30 |
@@ -459,20 +468,40 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.4.0)
+## Add-on Features (v1.4.1)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
 | Deep Thinking | `reasoningEnabled` | `rv_sim_reasoning_v13` | -> `executeRound` -> `callLLM` per-provider flags |
-| Time Speed | `timeSpeed` (`slow`/`default`/`fast`) | `rv_sim_timespeed` | -> `executeRound` -> appended to the **dynamic tail** as a `[Pacing]` line, never the ledger |
+| Story Mode | `storyMode` (`free`/`romance`/`pressure`/`dramatic`) | `rv_sim_story_mode` | -> `executeRound` -> `buildTailRules` -> the world's `modes[id]` rule, appended to the **dynamic tail**, never the system prompt |
+| Time Speed | `timeSpeed` (`slow`/`default`/`fast`) | `rv_sim_timespeed` | -> `executeRound` -> `buildTailRules` -> a `[Time Speed]` line in the **dynamic tail**, never the ledger |
 | Day/Night | `theme` (`dark`/`light`) | `rv_sim_theme` | `THEMES[theme]` -> `th` token object, threaded into every overlay as a `theme` prop |
 | Text size | `fontScale` (`1`/`1.25`) | `rv_sim_fontscale` | `Math.round(base * fontScale)` on story/option text; passed to Bubble and Kakao overlays |
 | Export | `exportClipboard` / `exportTxt` / `exportPdf` | — | Shares `extractStoryText()`; PDF renders themed HTML into a hidden iframe and calls `print()` |
 | Help Center | `showHelp` | — | `HelpOverlay.jsx`, 4 tabs x 3 languages; the Errors tab reads `t.errors` so it always matches the in-game notices |
 
-**Time Speed placement matters.** The pacing hint is concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger. Toggling it mid-run therefore costs nothing in cache terms. Never move it into `buildSystemPrompt` or `buildHistoryLedger`.
+**Placement is what makes both dials free, and `buildTailRules` is the one function that places them.** Both lines are concatenated onto the `[CURRENT STATE]` message, *after* the cached system prompt and ledger, so toggling either mid-run costs nothing in cache terms. Never move either into `buildSystemPrompt` or `buildHistoryLedger` — Layer J asserts the static prompt is byte-identical across a change to each, paired with the assertion that the tail is what moves instead, because either half alone is vacuous.
 
-**Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` or `╚` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+**They used to share one label, and that was the bug v1.4.1 step 2 had to avoid.** Time Speed wrote `[Pacing] slow — …`, and the story-mode rule was about to write a second, different quantity under the same name. That is worse than the `[Stage Changes]` id-vs-name case, which was two labels for one quantity: **two quantities under one label leaves the model to work out which line means what.** They are `[Story Mode: …]` and `[Time Speed]` now, renamed in the same commit. No golden pins either, because the tail is the always-miss message.
+
+**`free` sends a rule; it does not send nothing.** A mode that omitted its line would strip a free-mode game of the slow-burn texture every `慢热现实向` player has today, and would be indistinguishable from the wiring being broken. An unrecognised mode id — localStorage can hold anything a previous build left there — resolves to `free` rather than to silence.
+
+**Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and **classifies** each paragraph: one starting with `╔` or `╚` is the stats box, one matching `/^[A-D]\.\s/` is an option line, the rest is prose. If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+
+**It returns `{n, statsBox, text}` rather than dropping the box, since v1.4.1.** The PDF
+wants the round header the player actually reads — the affections, the three stats, the
+scene, the chapter — and clipboard and TXT do not: the box is a 30-column frame drawn
+out of box-drawing characters, and it only lines up in a fixed-width font, which neither
+of those two controls. **The way to serve both from one filter is to return the parts
+separately, not to grow a second filter beside it** — which is what `extractStoryText`
+and `exportPdf` each having their own copy already cost this repo once. `text` is
+byte-identical to what it always was, which is what says clipboard and TXT did not move.
+
+In the PDF the box **is** the round header: a `<pre>` in a fixed-width family, in place of
+the `Round 9` bar, which survives only for a message that has no box at all (a story the
+player edited down, or a turn written before the box existed). Printing both would be two
+answers to one question — the box already carries the round number. The scene name is the
+model's text and now reaches the header, so **one escaper covers both halves of a card**.
 
 **It is ONE function because it was two, and they had drifted.** `extractStoryText` (clipboard, TXT) and
 `exportPdf` each carried a copy, and the PDF one filtered only `!m.hidden` — so every "tap ↺ Retry"
@@ -512,6 +541,10 @@ beside four fields that all carry a localized label — and is now `t.stats.chap
   stageChanges:      [],     // [{memberId, from, to}] last 10
   memberAppearances: {},     // {memberId: [roundNums]} last 10
   npcAppearances:    {},     // {memberId: lastRoundNum}
+  places:            [],     // [{name, round}] places the MODEL invented, observed from
+                             //   its own `scene` line. CLIENT-SIDE ONLY - it is read by
+                             //   the map picker and reaches no prompt message at all.
+                             //   See "The map grows and the prompt does not"
 }
 ```
 
@@ -593,7 +626,9 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
-  + optional "[Pacing] slow|fast ..." line from Time Speed
+  + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
+  + optional "[Time Speed] slow|fast ..." line, only when it is not the default
+  (both from buildTailRules, which is the only thing allowed to place them)
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
 ```
 
@@ -705,6 +740,37 @@ empty `roundMemberIds` still lists everyone, so a two- or three-argument caller 
 
 **`[KKT Channels]` is the line that stops the model narrating a text it was not allowed to send.** `filterKktByAffection` runs *after* generation, so for two releases the model was asked for `kktMessages` from every target member, wrote the story around the message it had just sent, and then watched us delete the message and keep the prose — "you get a Kakao from Yeri" with nothing in the Kakao overlay. The lock is per-round state, so it belongs in the tail, not in the static schema. Fixed in v1.3.6; the static prompt's rule points at this line.
 
+### Two ways into a run, and one function that starts one
+
+`startNewGame` and `loadSave` both begin a run, and **everything the previous run left
+behind has to be cleared on both paths.** They were separate lists of setters and they
+had drifted three ways by v1.4.1 — reported from hand play as *"the socials and the
+Kakao notices all carry across"*:
+
+- **New Game POPPED the module-level social buffer and merged it in.** Round 1 has no
+  previous round of its own, so what `popPendingSocial()` returns there is the
+  *abandoned* run's last round — and the merge keeps whatever it is handed
+  (`instagram: feed.instagram || p[mid]?.instagram`) against an `initFeeds` entry that is
+  `null`. So a new game opened with somebody else's Instagram post and her notification
+  dots already on the phone. `loadSave` had cleared it since v1.4.0.
+- **And it then wrote that run's feeds into the next save slot**, which is why the
+  symptom looked like it survived a save/load cycle: the pollution happened at New Game
+  and was persisted by the next save. A slot written before this fix keeps it.
+- **`loadSave` left `topMember` pointing at the other run's member**, so the top bar
+  showed her face and read her affection against an id the loaded save has no entry for
+  — `getAffection` returns 0, so she also showed as a Stranger.
+- **Neither closed an open achievement or special-event modal.**
+
+`beginRun({ socialFeeds, kktMessages, kktUnlocked, topMember })` is the one writer.
+**Everything it touches is cleared unconditionally and what a run STARTS with is passed
+in**, and that asymmetry is the point: forgetting a surface in the argument list leaves it
+empty, which is the harmless direction, where forgetting a setter at one of two call sites
+leaks the other run's state into this one — which is what happened here twice. Smoke
+asserts each surface on `beginRun` **and** that neither call site clears anything by hand.
+
+`popPendingSocial()` now has exactly one caller, `sendMessage`, which is the only place a
+previous round exists to display. The guard counts it.
+
 ### Save Compatibility (`isLegacyMemory`)
 
 `rv_sim_saves_v13` is the current standard. On `loadSave`, if `memory.history === undefined`, memory is reset to `createEmptyMemory()` (pool wiped) while stats, form, and affections are still restored. Prevents the old `summaries`/`fullStories` (v12) and `storyRounds` (v11) shapes from crashing the engine.
@@ -746,11 +812,13 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 1. **Language lock** — output language tied to the player's UI language (`zh`/`en`/`ko`)
 2. **JSON schema** — valid JSON every round, no markdown fences
 3. **Member personality matrices** — injected from group RAG JSON
-4. **Identity + Pace blocks** — one of the 7+1 identities and one of the pace settings, selected at build time
+4. **Identity block** — one of the 7+1 identities, selected at build time. The pace block sat beside it until v1.4.1 step 2, which moved it to the dynamic tail as the story mode: a setting the player can change mid-run must not sit in the cached prefix
 5. **Phase rules** — rounds 1-6 (stranger), 7-14 (familiar), 15-24 (pressure), 25+ (consequences)
 6. **Unknown-character rule** — only members in MEMBER PROFILES may appear by name; other roles are unnamed archetypes (manager, assistant, executive, fan)
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
 8. **Speaker contract + address protocol** — who "I" and "you" are, and what each character is allowed to call the others. See below.
+9. **What moves each stat in THIS world** — section 10 prints one line per stat from `world.statNotes`. The stat *keys* are permanent and their *labels* are i18n's; the world supplies only the prose saying what raises and lowers them, which is the half no other file holds a copy of.
+10. **Canon places and the opening** — section 11, from `world.places` and `world.scenario`. See *Where she is decides who is there*.
 
 ### Who is speaking, and what she calls whom
 
@@ -922,16 +990,28 @@ the model to write the parenthetical into prose.
 
 The setting is South Korea and the audience is K-pop fans, so Korean address forms stay Korean in every output language. Rendering 언니 as the Chinese 姐 (or the English "big sister") reads as a domestic family drama and throws away the register the game is built on. The prompt carries a token table plus a markers block that bans the native substitutes **by name** — a generic "keep it Korean" is not enough, because 姐 is what a model reaches for by default.
 
-**Since v1.4.0 that table lives in the world file, not in `buildSystemPrompt`** —
-`public/worlds/kpop_idol/<lang>.json`, under `addressForms`. It reads like a per-*language* table
-and it is not: it is keyed on **(world, language)**. These forms encode Korean seniority, which is
-a birth-year boundary; a Japanese setting needs 先輩/さん/ちゃん and seniority by *school year*,
-and a Chinese one has almost no formal peer register to carry at all. Keeping `unnie`/`xi` while
-changing the country would put Korean grammar in a Tokyo scene.
+**Since v1.4.0 that table is data rather than code**, and since v1.4.1 step 1 it lives in
+`public/worlds/_registers/<lang>.json`, keyed by **register**, with each world naming the register
+its `country` speaks. It reads like a per-*language* table and it is not: it is keyed on
+**(register, language)**. These forms encode Korean seniority, which is a birth-year boundary; a
+Japanese setting needs 先輩/さん/ちゃん and seniority by *school year*, and a Chinese one has almost
+no formal peer register to carry at all. Keeping `unnie`/`xi` while changing the country would put
+Korean grammar in a Tokyo scene.
 
-**So a background country ships *as a world*, never as a second axis crossed with one.** Only the
-tokens are data; the *logic* — direction fixed by birth year, register blended from stage and
-Private Personality — stays in code, because it is behaviour rather than content.
+**A country is a FIELD on the world, not a world of its own** — corrected in v1.4.1, where the
+earlier rule ("a background country ships *as a world*") turned out to be over-cautious. The
+address protocol already has a rank override: `workTitle` makes a `Staff` player `매니저님`
+*regardless of who was born first*, so a professor addressed as `교수님` by her student is that
+same mechanism with new strings, not a second seniority axis. `country` therefore carries a name
+and a `register` pointer and no logic at all.
+
+**Four worlds set in Korea must not carry four copies of one table.** That is why the register is
+resolved rather than duplicated: `parseWorld` looks up `country.register` and attaches the result
+as `world.addressForms`, so `buildSystemPrompt` reads exactly what it always read while exactly
+one copy exists on disk. A world naming a register nobody ships **throws**; it does not fall back,
+because a prompt with no address protocol in it reads as the model simply declining to use
+honorifics. Only the tokens are data; the *logic* — direction fixed by birth year, register blended
+from stage and Private Personality — stays in code, because it is behaviour rather than content.
 
 | | 언니 | 님 | 씨 | 야/아 |
 | --- | --- | --- | --- | --- |
@@ -1196,7 +1276,7 @@ The recency window's reference round comes from the tail of `memory.history`. It
 
 ## Social Media System
 
-4 platforms generated by the LLM per round, displayed in the **next** round (delayed display hides LLM latency — the player checks social while the next round generates):
+The platforms **the world declares** are generated by the LLM per round and displayed in the **next** round (delayed display hides LLM latency — the player checks social while the next round generates). `kpop_idol` declares all four below; a non-idol world declares Instagram and KakaoTalk only — see *The platforms belong to the world, not to the cast*:
 
 | Platform | Content | Unlock |
 | --- | --- | --- |
@@ -1206,6 +1286,83 @@ The recency window's reference round comes from the tail of `memory.history`. It
 | KakaoTalk (KKT) | Private messages | affection >= `KKT_THRESHOLD` (30) |
 
 Social content is stored in module-level `pendingSocialFeeds`. `popPendingSocial()` runs at the start of each round to display the previous round's content; `resetPendingSocial()` discards it during a Retry.
+
+
+### The platforms belong to the world, not to the cast
+
+**A group JSON declared `social_platforms` and `private_chat` from the first version, and nothing
+ever read them.** `parseGroupConfig` manufactured `socialPlatforms` / `privateChat` with defaults,
+[groupLoader.js:108-109](src/rag/groupLoader.js#L108-L109), and no file in `src/` consumed either —
+the fifth instance of the shape this file already tracks four times (`npcAppearances`, bubble
+`photoDesc`, cast photos, `STAR_LEVELS`). Both are **deleted** in v1.4.1 step 6, from the loader,
+from `groupConfigTemplate.json`, and from all 30 group files and their 30 root mirrors.
+
+They were also in the wrong file. **The same five members are idols in one world and law students
+in another**, and a cast file cannot know which — so the platform list is `world.platforms`, and
+step 7's campus, office and chaebol worlds declare Instagram and KakaoTalk only. A member-to-fan
+subscription product and a fan community are idol infrastructure.
+
+**The world declares WHICH platforms exist; `src/config/platformConfig.js` says what each one IS.**
+That split is the opposite of the one `castLore` takes, and the difference is what the text is
+about. `castLore` describes *this world's* organisation, so three worlds genuinely need three
+wordings. Instagram's rule — *"Photo social. Style: aesthetic, short caption + emoji"* — is true in
+a lecture hall exactly as it is in a practice room, so putting it in world files would be four
+copies of one sentence with nothing keeping them in step.
+
+The catalog is the single source for **five** renderings of that list, which is five chances for
+the sixth to be the copy that still says weverse:
+
+| Consumer | Was |
+| --- | --- |
+| section 2's `socialContent` schema | `"bubble":[…],"instagram":null,"weverse":null` inline |
+| section 7's rule lines | six hand-written bullets |
+| the RULES format lines | four hand-written bullets |
+| section 1's `bubble/instagram/weverse/KKT` | a literal inside each language's `socialRule` |
+| the top bar's buttons | four `{icon, type}` literals in the JSX |
+
+The **feed shape** in `App.jsx` is deliberately *not* a sixth consumer. It is internal state, and a
+key for a platform no button opens is unobservable — the filter below is what stops undeclared
+content getting that far.
+
+**An unknown platform in a WORLD FILE throws; an unknown platform in a MODEL RESPONSE is dropped
+silently.** The asymmetry is the design, not an inconsistency. A world file is authored here, so an
+id the app has no overlay for is a typo that must fail loudly — the unknown-register rule from step
+1, and a top-bar button that opens nothing is worse than a load failure. A model response is
+untrusted text, so a stray `weverse` is data to discard: it must never break the round.
+
+**`filterSocialByPlatforms` is where that happens, once, in `executeRound`.** It is pure and
+exported so it is unit-tested directly rather than only through a live round, the same reason
+`addSaveSlot` and `membersNamedIn` are. Two things it does not do: it does not **invent** a declared
+platform the model omitted (an empty `instagram: {}` renders a post nobody wrote), and it does not
+**mutate** the response. And it must run before *both* readers — the notification derivation and the
+feed write — because the notification strip is a live entry point that would otherwise open an
+overlay for a platform with no button anywhere else in the app. The guard **counts the readers**;
+one of two is the `extractStoryText` failure.
+
+**Platforms resolve from the SAVE's world**, never from whichever world is selected. That is already
+true rather than newly built: step 3's `loadSave` sets `world` from `migrated.worldId` before the
+phase flips, so a run started under `kpop_idol` keeps all four platforms for its whole life. No save
+field, no migration.
+
+**That was right about the READER and wrong about the WRITER, for two releases.** `loadSave`
+does resolve platforms from `migrated.worldId` exactly as described — and `migrated.worldId`
+came from a slot that recorded `roster.worldId`, which the cast builder stamps one screen
+before the player picks a world. So a chaebol run saved `kpop_idol` and loaded back with all
+four platform buttons, and the sentence above was true of every line of code it names. Fixed
+in the second phone pass; see *The second phone pass*. **A claim about where a value is read
+from says nothing about whether the value is right.**
+
+**The prompt is byte-identical and the goldens did not move.** Every world on disk declares all three
+social platforms in that order, so a correct implementation renders exactly what step 5 rendered —
+`update-golden.mjs` was not run at all. The trimming is exercised against a synthetic
+instagram-only world in smoke, which is the only way to test it before step 7's content exists.
+
+**One guard here was replaced because it could not fail.** *"Every platform a world declares exists
+in the catalog"* is precisely what `parseWorld` throws on, so the mutation crashed the load before
+the check ran — a check that duplicates a validator is decoration. What can fail independently, and
+what makes the throw worth having, is the other end: **every catalog entry has an overlay `App.jsx`
+can open.** The `ui` field is where that goes wrong, since the world says `kakaotalk` and the
+overlay has always been `kakao`.
 
 **The KKT unlock is enforced in two places, and both are needed.** `filterKktByAffection` drops messages from members below the threshold *after* the response arrives — that is what keeps them out of the overlay. But the story was written in the same response, around a message the model believed it had sent, so filtering alone leaves prose describing a text that never appears. The `[KKT Channels]` line in the dynamic tail tells the model which channels are open *before* it writes, and the static prompt forbids narrating a text from a locked member. Filtering stays as the backstop for a model that ignores the instruction.
 
@@ -1268,6 +1425,166 @@ mean anything. See `docs/PROPOSALS.md`.
 
 **Not fixed, and not a regression: a Kakao the scene makes impossible** — she texts "good night" from inside the room, or while asleep. Affection is the only gate; nothing models presence or physical state, so the prompt lacks the information such a rule would need. See `docs/V140_PLAN.md` §18b, which schedules it with v1.4.1's place canon.
 
+### Three more worlds, and the seven things the prompt still thought were universal
+
+**v1.4.1 step 7 adds `campus`, `office` and `chaebol` as data** — nine world documents, three
+languages each, plus three golden fixtures. The step was scoped as *data only*: every reader it
+needs shipped in steps 1-6. It was not data only, and the reason is worth more than the content.
+
+**Reading the first rendered campus prompt end to end found seven statements in
+`buildSystemPrompt` that are true of an idol world and were asserted in every world.** None is in
+a world file, none throws, and none could ever have failed a test — all three goldens were
+`kpop_idol`, where every one of them is correct. The worst was the ROLE CONTRACT:
+
+> The members' working life — **practice, schedules, comebacks, the dorm, this company** — is
+> THEIRS… she has **no practice here to be late for**
+
+In a campus world that is not merely odd. It **states as fact that the cast have practice,
+comebacks and a company**, two sections after section 4 has said they are students — the
+`[BLACKPINK Background]` shape, a specific claim in an authoritative section contradicting a
+general rule elsewhere, which the model is entitled to build on.
+
+**Four of the seven became `world.castLife`; three became world-neutral wording.** The test is
+step 4's: does the text vary with the thing the file is about? *What these five people do all day*
+is the most world-specific fact there is, so it is data. *"a generic idol type"* is a noun doing
+no work a neutral one cannot do, so it is simply better English.
+
+| `world.castLife` | `kpop_idol` | `campus` |
+| --- | --- | --- |
+| `theirs` | practice, schedules, comebacks, the dorm, this company | classes, deadlines, club activities, the dorm |
+| `notHers` | no practice here to be late for and no place in their schedule | no class here to be late for and no place on their timetable |
+| `recentBeat` | the practice she just left | the class she just walked out of |
+| `sceneExample` | Practice room, 10PM | Lecture hall, 10PM |
+| `socialReach` | 800000 | 340 |
+
+**`socialReach` is there because a schema example is an instruction.** The Instagram format rule
+hardcoded `{"caption":"...","likes":800000}`, so a campus world told the model a student's post
+gets eight hundred thousand likes — a number the player then **reads in the overlay**. The shape
+is Instagram's and stays in `platformConfig.js`; the magnitude is the world's. It is the one thing
+about that platform that is not the same in a practice room and a lecture hall, and step 6 put it
+on the wrong side of the line it drew.
+
+The three that needed no field: *"a generic idol type"* → *"a generic type"*; *"NOT a member of
+the group"* → *"NOT one of them"*; *"her stage name alone"* → *"her name alone"* (a student has no
+stage name); *"in group scenes"* → *"in scenes with the whole cast present"*; *"the only company
+that exists"* → *"the only organisation"*. All three goldens moved by exactly those six lines,
+`update-golden.mjs` was run once, and the diff was read.
+
+**Left alone deliberately:** section 4 is still headed GROUP BACKGROUND and its composed preamble
+still says *"never borrow a real group's history, discography or agency"*. The heading carries a
+number five other sections point at by name, and the preamble's job is to stop the model
+completing the cast from the real groups these members come from — an **idol** leak in every
+world, campus included, so naming a discography there is load-bearing rather than stale.
+
+### A work title points one way, and until step 7 that way was one hardcoded id
+
+`buildSystemPrompt` decided which direction a work title points by comparing the identity id to a
+literal: `form.identity === "练习生"` meant *she uses it for them*, and everything else meant *they
+use it for her*. **Four of the eighteen identities step 7 authors point the title at the cast** —
+`junior_student` and `new_hire` say `선배님` upward, `report_to_cast` says `팀장님` upward,
+`secretary` says `실장님` — and every one of them would have rendered the sentence backwards.
+**That is the inverted age line again:** a statement the model follows correctly because the
+prompt states it wrongly, with nothing failing.
+
+Two fields, and the split is step 6's — the world says which way, the code says what that means:
+
+- **`workTitle.direction`** — `"to_cast"`, or **absent** for today's behaviour, so no existing
+  entry is edited into saying what it already meant.
+- **`workTitle.because`** — the identity-specific reason the to_cast sentence is built from,
+  English like the rest of section 6. `练习生` declares the clause that was already in the code, so
+  its rendering does not move by one byte.
+
+`parseWorld` throws when `direction` is anything but `to_cast`, when a to_cast entry has no
+`because`, and when a `because` appears **without** a direction — that third one is the field that
+would otherwise sit there with no reader, which is the shape this file tracks seven instances of.
+
+**`world.addressContext` is the register around the title**, two language-invariant strings
+(`toPlayer`, `toCast`). The sentences said *"on the job"* and *"at work"*, which is true of an
+agency and an office and false of a lecture hall: a student does not address her professor *on the
+job*. `kpop_idol` declares exactly the two literals it already rendered.
+
+**And the ko fixture found a defect zh and en cannot express.** `workTitle.form` is a
+transliteration in zh and en (`前辈nim`, `sunbae-nim`) and is **already Hangul** in ko — so the
+gloss printed `"선배님" (선배님)`, a parenthetical translating a word into itself. The gloss is now
+dropped when it would repeat the form. No golden had ever pinned it, because the one ko fixture
+uses the identity with no work title. **This is the rotate-the-fixture-language rule paying for
+itself on its first run.**
+
+### The platforms a non-idol world declares, and step 6 rendering for real
+
+`campus`, `office` and `chaebol` declare **Instagram and KakaoTalk only** (Yuhan's call,
+2026-09-29). Bubble is a member-to-fan subscription product and Weverse a fan community; both are
+idol infrastructure with no meaning in a lecture hall.
+
+**This is the first time step 6's trimming renders against real content** — until now every world
+on disk declared all three social platforms, so the trimming was provably a no-op and was
+exercised only against a synthetic world in smoke. All five renderings shorten together: section
+2's schema (`{"instagram":null}`), section 7's rules, the RULES format block, section 1's slash
+list (`DO NOT output Korean in instagram/KKT content`), and the top bar. A guard on the rendered
+campus prompt now asserts that no undeclared platform reaches it **and** that every declared one
+does — either half alone is vacuous.
+
+### A whole group takes the SUBSET template, so "part of" was false
+
+`useGroupLore: false` sends **every** cast down the composed path, and a whole single group then
+takes the `subset` template. `kpop_idol`'s subset says *"This story follows **part of** {label}"*,
+which is true there because it only ever fires on a genuine subset. In the three new worlds it
+fires for a complete roster too, so the same sentence would have been false for most players.
+Their templates say *"The cast of this story is {members}"* instead — true either way. Found by
+reading the first rendered campus prompt, not by any check.
+
+### The golden fixtures now render the way the app does
+
+`test/fixtures/prompts.mjs` built its prompts straight from `loadGroupConfig`, **bypassing
+`resolveRoster`** — which is where section 4 is composed. That was byte-identical for a whole
+single group in `kpop_idol` (`isWholeSingleGroup` keeps the group's own lore verbatim) and would
+have been **wrong** the moment a fixture used a world declaring `useGroupLore: false`: the fixture
+would have pinned Red Velvet's real idol history in a lecture hall, which the running app never
+produces. It also keyed its world cache by **language alone**, so two fixtures in one language but
+different worlds shared the first one's world.
+
+Both are fixed, and routing every fixture through `resolveRoster` left the three existing goldens
+byte-identical — which is what says the change was a correction rather than a rewrite.
+
+| Fixture | Pins the branch |
+| --- | --- |
+| `campus-ko` | a work title pointed **at the cast**, which no golden had ever covered |
+| `office-en` | a title pointed at the player in a world that is not an agency |
+| `chaebol-zh` | the ex-girlfriend backstory in a **second** world, so a re-roll is visible again |
+
+**Six of the twelve (world, language) pairs stay unpinned.** That is an accepted gap, not an
+oversight: a fixture stops a defect recurring, and reading is what finds it.
+
+### Two fields in every world file have no reader
+
+**`world.tone`** is required by `parseWorld`, returned on the parsed world, and read by **nothing**
+in `src/`. **`country.name`** is the same — only `country.register` is ever read. Step 7 authored
+three more copies of each because the validator demands them.
+
+That is the **sixth and seventh** instance of the shape this file tracks by name, after
+`npcAppearances`, bubble `photoDesc`, cast photos, `STAR_LEVELS` and the group library's
+`social_platforms`. Each is one line to delete and one line to render; `docs/V140_PLAN.md` §18
+carries the decision.
+
+### Three checks were deleted from this step's own guards, before the mutation run
+
+Written, then removed for the reason step 6 recorded and this step repeated:
+
+- **"declares seven identities"** pins today's data, not a property, and no single edit breaks it
+  without tripping the loader first.
+- **"a to_cast identity always says why"** and **"a to_player one never does"** duplicate what
+  `parseWorld` throws on, so the only mutation that could break them breaks the load first.
+
+What replaced them is the **rendered** direction, asserted on a real campus prompt, which fails
+independently. **A check that duplicates a validator cannot fail**, and neither can one whose
+mutation crashes: three of the first nineteen mutations here threw instead of failing — a 404 from
+a renamed world, a `parseWorld` throw from a blanked place name — and the harness prints a stack
+trace where a verdict belongs.
+
+**One mutation was left on disk by an interrupted run**, and the world files were regenerated from
+their source rather than hand-repaired. A mutation harness killed mid-entry does not restore; if a
+run is interrupted, verify the tree before trusting the next result.
+
 ### A bubble photo was a UI feature that could not fire and could not have rendered
 
 `BubbleOverlay` draws a photo frame when a post says `hasPhoto`, and the only thing inside that frame
@@ -1321,7 +1638,20 @@ The Korean set (`남남 / 안면 / 관심 / 썸 / 연인 / 열애 / 시험기`) 
 reader's eye — `썸` for the ambiguous stage is the idiomatic choice but `관심`/`연인` are plainer than
 the Chinese originals.
 
-Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` also surfaces `proposal_ready`, `breakup_warning`, and `pressure_warning` as `specialEvent`.
+Stage transitions trigger special events in `relationshipEvents.js`. `executeRound` surfaces
+`proposal_ready` and `breakup_warning` as `specialEvent`.
+
+**It filters on a third type, `pressure_warning`, that nothing produces.**
+[`mainAgent.js:861`](src/agent/mainAgent.js#L861) names three; `checkRelationshipEvents` returns
+`love_triangle`, `proposal_ready` and `breakup_warning` and nothing else. This file claimed all
+three were surfaced — corrected 2026-09-28. **A filter that enumerates is the cheapest place to find
+a missing producer**, cheaper than grepping for writers, and it is the same shape as the four dead
+mechanisms above with the halves swapped.
+
+It is **not deleted**, unlike `NPC_APPEARANCE_CHANCE`, and the difference is stated rather than
+assumed: that constant has no plan, and this one has a designed reader arriving in
+`docs/V140_PLAN.md` section 21 — the natural close of a pressure-mode run. Until then it is a branch
+that cannot be taken, documented as one.
 
 ## Achievements (5 endings)
 
@@ -1329,6 +1659,25 @@ Stage transitions trigger special events in `relationshipEvents.js`. `executeRou
 
 They accumulate rather than ending the run: `checkAchievement` runs every round from 30 on, returns
 the **first** definition whose condition holds, and each id fires at most once.
+
+**And nothing a player reads is derived from which one fired.** The achievement shows a modal whose
+button says *Continue Playing*; the **epilogue** is launched from a different modal — the
+`specialEvent` one — and its prompt is a hardcoded English sentence asking for *"150 words in a
+warm, literary style"* regardless, on the breakup path too ([App.jsx:1945](src/App.jsx#L1945)). So
+the five conditions currently decide a title and nothing else, and two runs that ended in opposite
+places request the identical epilogue.
+
+**A run can also have no way to finish at all.** The only button that reaches an epilogue lives on
+the `specialEvent` modal, which fires on `proposal_ready` or `breakup_warning` and may
+never appear — and the state that matches none of the five conditions (discreet, cheerful,
+moderately loved; see `docs/PROPOSALS.md` §6) is the same run that fires neither event. **The hole
+in the condition table and the hole in the trigger are one run.**
+
+Designed, not built: `docs/V140_PLAN.md` §21, scheduled for v1.4.2, with `PROPOSALS.md` §6 as a
+hard prerequisite because the epilogue's register is keyed on the ending id. **Time Speed is
+deliberately not what shapes an epilogue** — it is a within-round dial and an epilogue is one jump
+past the last scene; the **story mode** and the **world** are, which is Yuhan's correction of
+2026-09-28 and the reason §21 exists.
 
 **Four of the five are what a player actually reaches — read `docs/PROPOSALS.md` §6 before changing a
 condition.** `oe_unspoken_waiting` requires `topAff > 90`, and the two conditions tested before it
@@ -1352,11 +1701,18 @@ Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
 Setup Page
-  -> Main member + Sub members + Identity (7+1) + Pace + Name/Birth year
+  -> Main member + Sub members + Name/Birth year + World + Identity
+     (the pace picker was here until v1.4.1 step 2; step 3 put the WORLD
+      picker in the slot it vacated, which is how BOTH cover doors get
+      worlds - they both pass through this page. Identity follows the world
+      because an identity is a position INSIDE one: the grid is that world's
+      own `identities` plus `H`, and a world change clears an id the new
+      world does not declare)
       |
 Game Page (loop)
-  -> Read story -> Choose A/B/C/D or Custom -> Next round
-     (settings overlay: reasoning, time speed, theme, font, export, help)
+  -> Read story -> Choose A/B/C/D, Custom, or 📍 a place -> Next round
+     (settings overlay: reasoning, story mode, time speed, theme, font,
+      export, help)
 ```
 
 "New Game" is disabled (dimmed + toast) until a group is selected.
@@ -1395,6 +1751,28 @@ disagree, the one with more specific detail wins.
 
 The rules now, all in `rosterResolver.js#composeRosterLore`:
 
+**Since v1.4.1 step 4 the WORDING of all three rows is the world's, not this file's.** The three
+branches below are unchanged — they are chosen by the shape of the cast — but the sentences each one
+emits come from `world.castLore.composed` and `world.castLore.subset`, rendered by
+`renderCastLore`. They used to be four string literals in `rosterResolver.js` saying
+*N-member group under X Entertainment* and *no other idol exists in this story* — true of an idol world
+and false of a lecture hall. `kpop_idol`'s template is those literals verbatim, so the goldens
+did not move.
+
+Two rules the renderer adds, both of them the conditional-field rule section 5 already follows:
+
+- **A template line whose value is absent is DROPPED**, not rendered with a gap in it. That is what
+  lets `Fandom: {fandom}.` be its own element and simply disappear for a cast whose group
+  declares no fanbase — the label lives in the world file instead of in a ternary in code.
+- **An unknown placeholder THROWS.** A template is data, so a typo in a world file would otherwise
+  reach the model as a literal `{labl}` in section 4 — the unresolved-particle class of defect,
+  which renders as plausible text nobody reads.
+
+**And `useGroupLore: false` sends EVERY cast down the composed path**, so a Red Velvet roster in
+an office world cannot inherit Red Velvet's real idol history, SM included. A whole single group then
+takes the **subset** template rather than the composed one: it really is that group, and its real name
+is what the player picked — what it loses is the group file's dated History block.
+
 | Roster shape | Section 4 |
 | --- | --- |
 | exactly one whole group | that group's own `groupLore`, **verbatim** — this is what the classic door always produces, and what keeps the goldens fixed |
@@ -1410,6 +1788,148 @@ stops one being invented.
 **Never name the origin groups in composed lore.** That is the leak: a model told the cast is
 BLACKPINK completes the group from its own knowledge. Nothing downstream needs them — a member's
 profile says who she is, and her real-world affiliation plays no part in the game.
+
+### The idol role is filtered by the world, and stays in the library
+
+A member's `role` — *Main Vocal*, *Leader*, *Maknae* — is a position in an idol **group**. It
+reaches the prompt through `memberLine`, which composes section 4; section 5's profile block
+never reads it. So a campus prompt would have described a student as a main vocal and an office prompt
+an analyst as a maknae — the `[BLACKPINK Background]` shape exactly: a specific-sounding claim
+two sections away from the rule it contradicts, which the model is entitled to build on.
+
+**`castLore.useRole` is the filter, and it filters what the MODEL sees and nothing else.**
+`role` stays on `parseGroupConfig`'s whitelist, in all 30 group files, and on every cast
+screen; stripping it at the loader would take an idol position out of the idol world too. `mbti`
+and `animal_plastic` are world-neutral and are not filtered. `kpop_idol` declares
+`true`, so nothing about today's output moves.
+
+It is a **boolean**, not a label. `roleLabel` was in `docs/V140_PLAN.md` §4.1's sketch and
+never shipped: `memberLine` joins `role` into a bare comma list and prints no label at
+all, so a world-supplied label would be a string read only for its truthiness — a field with no reader
+wearing a noun's clothes. **The goldens cannot catch a regression here**, because all 175 library
+members declare a `role`, so the filtered branch appears in no fixture.
+
+### `useRole` filters the FIELD and the prose says it anyway
+
+**Found in the third phone pass, 2026-09-29, from an Instagram post in the chaebol
+world:** *yerimiese: 录制结束，和成员们吃了顿好的。忙内的快乐就这么简单～*. A recording
+session and a maknae, in a family compound.
+
+`castLore.useRole` is working. It is `false` for campus, office and chaebol, and
+`role: 副rapper·忙内` is correctly kept out of `memberLine`. **The leak is one field
+over and it is prose:** Yeri's `public_image` *begins* with 忙内, and `public_image`
+is Public Texture — one of the three ★ primary differentiators, sent in **every**
+world. Step 7 filtered the structured field and left the sentence saying the same
+thing, which is the shape this file keeps recording: **a rule applied to one field
+while its neighbour states the same fact in a form the rule cannot see.**
+
+**Measured over the library, zh:** **57 of 57 members**, **80 field instances** —
+`public_image` 56, `private_personality` 18, `queer_texture` 6. Counting group
+positions (忙内, 队长, 主唱, 门面, rapper) and idol activities (出道, 打歌, 回归, 专辑,
+舞台, 练习生, 粉丝, 偶像, 女团, 组合, 综艺). This is not a Yeri defect; it is what the
+library IS.
+
+**And Irene is not the counter-example she looked like.** Her post that round read
+fine; her `public_image` is *舞台上高冷优雅，作为队长是全队的定海神针*. She was lucky.
+**Universal and intermittent is the worst failure profile there is**, because no
+amount of clean play establishes that a world is clean — the same reason the
+`[Rounds Absent]` A/B could not conclude.
+
+Authoring per-world texture is 57 x 4 x 3 hand-written fields and is not reachable;
+suppressing `public_image` in three of four worlds gives up the field the whole cast
+differentiation rests on. **The real fix is to translate her into the world at setup
+time**, which is `docs/V140_PLAN.md` §22 — and §22 is also where a defect Yuhan found
+independently turns out to be the same one: `generateCard` reads `world` from state on
+a screen the player reaches BEFORE picking a world.
+
+**Not fixed here.** §22.1 carries the interim prompt rule (read the texture for traits,
+never for facts, with `castLife.theirs` as the substitute) and the reason it needs its
+own commit: it moves the three non-idol goldens.
+
+### Where she is decides who is there
+
+Section 11 carries `world.places` — ten canon places, each `emoji name — desc` — with
+the rule *prefer this list; invent somewhere new only when the story genuinely needs a place this list
+does not have*, and the schema's `scene` rule points at it.
+
+**The rule is cached and the fact is not.** Where the player actually went arrives in the **choice
+string** (*I head to the rooftop*), which is in the always-miss tail; the rule that a member whose
+Habit and personality fit a place is likelier to be there stays in section 11, which is cached. **No
+`[Place]` line is added to the tail beside it** — that is the same fact twice, and the second copy
+is the one that drifts, which is what `[NPC Appearances]` was. Fact in the tail, rule in the
+static part, rule pointing at the fact: the shape `[KKT Channels]` and `[Rounds Absent]` use.
+
+**`draws` is deliberately not rendered.** It is a tag vocabulary feeding the affinity matrix in
+`docs/V140_PLAN.md` §7.3, whose reader is v1.4.2. Printing it would hand the model a lookup
+table for exactly the judgement §7.4 argues the model makes better than a table does — *who would be in
+the recording booth at midnight* is a reasoning question.
+
+**`world.scenario` is unconditional static text, and it cannot be anything else.** Sending it on
+round 1 and dropping it afterwards would make the static system prompt differ between round 1 and round
+2, invalidating the entire ~5,500-token cached prefix on round 2 — the most expensive mistake available
+here. It ships every round, framed as the story's *first scene*: round 1 opens here, and from round 2 it
+has already happened and is never replayed. The model reads which round it is from `[Player Status]`
+`Round` in the tail. `buildSystemPrompt` takes no round argument at all, so the
+cache-unsafe version is not expressible — which is why the guard is on the tail instead.
+
+**The section is 11 because 8, 9 and 10 already exist.** `docs/V140_PLAN.md` §6's table said
+places would be section 8; 8 is NPC rules, 9 game rules, 10 the stat system. Inserting at 8 would have
+renumbered three sections and silently repointed the five places the prompt refers to its own sections
+by number (*the one section 4 names*, *Section 6 SPEAKER CONTRACT is binding*). Smoke derives the
+heading numbers from the rendered prompt and asserts they read 1..11 in order, each exactly once.
+
+### The map grows and the prompt does not
+
+**A place the model invents becomes map content rather than something to suppress — v1.4.1 step 5.**
+When a round's `scene` names none of the world's canon places, the client records it in
+`memory.places` as `{name, round}`, and a 📍 button beside the custom-input row lists the
+canon places and the discovered ones. Tapping one submits *"I head to \<place\>"* as the round's
+choice, so **moving costs a round** — a scene *is* a round, and the phase rules and achievements are
+all driven by the round counter.
+
+**`memory.places` reaches no prompt message, and that is the invariant rather than a detail.** A
+list that gains a row mid-game changes the static prefix the round it changes, which costs the whole
+~5,500 tokens — the same class of defect the ex-girlfriend backstory's `Math.random()` was, and
+that one measured **26.7 points** of cache hit rate. The model needs no list: *where she went* arrives
+in the **choice string**, which is in the always-miss tail, and the ledger already holds the round that
+invented the place. Smoke asserts a sentinel place reaches **none** of the three messages.
+
+**The step-5 plan row asked for a mutation that cannot be written**, and the fix generalises:
+*mutation-verify by making `buildSystemPrompt` read `memory.places`* — it takes no
+`memory` argument at all, so a check built that way would be vacuous. **Put the guard where the
+value could actually leak**: the two builders that do take memory, and `memoryContext`, which is
+the static prompt's only text input and which `executeRound` passes the empty string.
+
+**A discovery is recognised from prose, so it is a heuristic, and the two rules it needs are stated
+rather than left to be found.** A trailing comma-segment containing a **digit** is dropped, because
+section 11 asks `scene` for *a place and a time* and without stripping *Rooftop, 2am* and
+*Rooftop, 3am* are two rows on one map; a name with **no letter in it** is not a place, which is how
+`22:00` is rejected without a per-language list of time words. A time spelled out (`10PM`)
+is therefore recorded as written — accepted, because telling those from place names needs exactly the
+hand-maintained list this avoids. Near-duplicates the normaliser cannot fold (*Rooftop* vs *the rooftop
+stairwell*) are map clutter and cost a row and nothing else.
+
+**At the cap (`PLACES_MAX` = 30) a new place is REFUSED, not swapped for the oldest** —
+`addSaveSlot`'s choice for `addSaveSlot`'s reason: an evicted place is somewhere the player
+can no longer go back to. The guard asserts on the **contents**, because refusing and evicting both
+leave thirty rows and a length check passes against the bug.
+
+**`updateMemory` is the single writer**, beside `memberAppearances` and for the same
+reason — two writers of one record is how the tail's member lines came to disagree. Smoke scans
+`App.jsx` for a write to `.places` and fails on one. And **no migration**:
+`memory.places` is absent from every older save, every reader takes `|| []`, and
+`isLegacyMemory` keys on `history`.
+
+**The picker supplements the four options rather than replacing them.** The plan calls it *an
+alternative to the four options*, which is what it is from the player's side — but the options are
+generated per round and this list is the same every round, so making them exclusive would hide a
+round's own options behind a fixture.
+
+**The sentence it submits is a per-language template, not a concatenation.** `t.map.go` carries
+`{place}`, and ko carries the `으로/로` pair for `resolveKoreanParticles` to
+pick — the word in front of a Korean particle is a variable here, which is the whole reason that
+function exists. A Latin place name in a ko game resolves to the parenthetical dual
+(`Rooftop으로(로)`), which is never wrong. It is inert on zh and en, and smoke asserts that.
 
 Composed lore does **not** repeat the prose fields; section 5 carries them for exactly the members
 present. The single-group lore duplicates them and that is inherited token cost, not a pattern to
@@ -1436,14 +1956,31 @@ with `loadWorld()`, exactly as they already load the group config.
 **`parseWorld` validates and throws; it does not whitelist-copy.** See the `birthday` note below
 for why that distinction is not pedantic.
 
-**An identity carries a `name` as well as an `id`, and the pace carries only a rule.** The `id` is a
-*stored* value sitting in every save on every device, so it can never be renamed — which is why it is
+**An identity carries a `name` as well as an `id`, and a story mode carries only a rule.** The `id` is
+a *stored* value sitting in every save on every device, so it can never be renamed — which is why it is
 Chinese in all three languages and why the prompt must not print it. `name` is what section 6 prints,
-authored per language, and **smoke asserts it equals the Setup label in `src/i18n/<lang>.js`**, since
-it is a second copy of that string and both sides render something plausible when they drift. A pace
-needs no `name`: its `rule` already opens with a self-describing `[Pace: High Pressure]`, and the rule
-is what the model actually needs. Both fall back to the id, so a world file lacking either still
-renders something true rather than a blank line.
+authored per language. It falls back to the id, so a world file lacking one still renders something
+true rather than a blank line.
+
+**Since v1.4.1 step 3 that `name` is also the Setup label, and there is exactly one copy of it.**
+This file used to say smoke asserted the world's `name` equalled a `t.identities[id]` row in
+`src/i18n/<lang>.js` — true, and the wrong remedy: two hand-maintained copies of one string, tied
+together by a check, where the drift is invisible because both sides render something plausible. The
+seven UI rows are **deleted**; the picker reads `world.identities[].name`, so what the player
+picked and what the prompt prints are the same characters by construction, and step 7's three worlds
+owe no i18n rows at all. Only `H` has a label in `t.setup.customIdentityOption`, because it is
+the app's escape hatch and no world declares it. What smoke asserts now is what the old check was
+approximating: the name is present, is not the CJK id showing through in en/ko, and is short enough
+to be a button in a two-column grid at 390px.
+
+**A story mode needs no `name` for two reasons, and the second is the one that matters.** Its rule
+already opens with a self-describing `[Story Mode: Pressure]`, which is what the model needs — and the
+four ids are **universal across every world**, so the labels live once in `t.modes` instead of once per
+world. `world.modes` is therefore a map **keyed by id**, not an array: `paces` was an array read as
+`t.paces[i]` against a hardcoded `PACES[i]` in `App.jsx`, coupling two hand-maintained lists **by
+position**, so a language with a shorter list mislabelled every entry after it and a world with its own
+pace ids would have stored one the world never declared. `PACES`, `t.paces` and `world.paces` are all
+deleted in v1.4.1 step 2 rather than extended per world.
 
 Read `docs/TECH_NOTES.md`, *"World data as a fetched document"*, before changing the world shape,
 and `docs/V140_PLAN.md` §2 and §4 for the full design.
@@ -1735,10 +2272,27 @@ Then:
 
 ---
 
-## Project Status (2026-09-24)
+## Project Status (2026-09-28)
 
-**v1.3.9 is the current release.** Seven player-visible changes, all old-save-safe and none
-touching the save schema.
+**v1.4.0 is the current release, deployed 2026-09-28.** `main` and `origin/main` are at
+`7b3ceea`, the deploy commit, tagged `v1.4.0`; `dev` is level with it plus one `index.html`
+commit. All three mirrors serve `index-BEbGT01U.js`, and the served bundle was checked
+**byte-identical to the local build** rather than only matching by hash.
+
+It is the largest release this project has made — the cast/world/roster split (steps 3-5), the
+custom-cast UI (step 6), the prompt re-read and live re-validation (step 7), and four hand-test
+passes of step 8. Smoke **578 -> 1204**. What a player sees: she builds her own cast from any
+number of groups or from a member the model invents for her, gives anyone a photo and a wallpaper
+she crops herself, states her birth year instead of her age, cannot lose a save to the eleventh
+one, and reads the release notes in the Help Center's new **More Info** tab.
+
+**What it does NOT claim is rotation.** Three of four controlled arms still break section 3 in
+5-27% of (round, member) pairs, and the A/B that was supposed to settle `[Rounds Absent]` is
+inconclusive because within-arm variance exceeded the between-arm gap. The README and the release
+notes say nothing about rotation, which is what the evidence supports.
+
+**v1.3.9 was the release before it**, on 2026-09-24. Seven player-visible changes, all
+old-save-safe and none touching the save schema.
 
 Four were planned: the **usage panel** (the `usage` block every provider returns had never been
 read by anything in `src/`), the **±8 affection clamp**, **quota-guarded `saveToStorage`**, and
@@ -1771,9 +2325,9 @@ and `saveToStorage` swallows quota errors.
 
 Steps 0 (CI), 1 (golden prompts) and 2 (the v1.3.9 release) are **done and released**.
 
-**Step 3 — world extraction + resolver — is done on `dev` and unreleased** (`3bbc033`..`45dcdbe`,
-CI green). It ships no player-visible change by design, so it rides with v1.4.0 rather than
-justifying a release: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
+**Step 3 — world extraction + resolver — shipped in v1.4.0** (`3bbc033`..`45dcdbe`, CI green). It
+ships no player-visible change by design, so it rode with v1.4.0 rather than justifying a release of
+its own: `public/worlds/kpop_idol/<lang>.json` + `worldLoader.js`,
 `buildSystemPrompt` rendering from it, `rosterResolver.js`, and `habit`/`tags` on the
 `parseGroupConfig` whitelist. **The gate held — goldens byte-identical throughout and
 `update-golden.mjs` never run.** Smoke **578 → 630**; the JS bundle shrank 324.73 → 317.51 KB
@@ -1790,35 +2344,410 @@ other end (an English player's prompt carried an unreadable Chinese id) and `get
 what section 6 prints. The second block, a leftover local resolving `"H"` to `form.customIdentity`,
 was inert — `App.jsx` already resolves it upstream — and is deleted.
 
-**Steps 3 through 6 are done, all on `dev`, all unreleased — step 7 is the release.** Smoke
-**578 → 1081**. `dev` is 49 commits ahead of `main`, 0 behind.
+**Steps 3 through 8 all shipped in v1.4.0**, released 2026-09-28. Smoke **578 → 1204** across them.
+Everything from here to the end of this section was written while they were unreleased, and is kept
+as the record of how each one was validated — read the dates, not the tense.
 
-### Pick up here — step 8, third hand-test pass, 2026-09-28
+### The first phone pass of v1.4.1 found eight things, and one was a bug
 
-**Everything below is committed on `dev`.** `npm run build` clean, `node test/smoke.mjs`
-**1204 passed / 0 failed**, and `package.json` now reads **1.4.0**. Nothing is running. Goldens
-untouched throughout — nothing since the
-re-validation is prompt-facing, step 8 included.
+Hand-played on `dev.idol-dating-sim.pages.dev`, 2026-09-29, the first time any of
+v1.4.1 had been seen on a device. **No big bugs** — which is the finding for a release
+validated entirely offline — and eight smaller ones, of which exactly one loses
+something a player would notice.
 
-**Waiting on Yuhan: hand-test on `dev.idol-dating-sim.pages.dev`, then the v1.4.0 release.**
-Cloudflare's branch alias is deterministic, which is why it and not Vercel is the preview to use.
-Five batches are now waiting on that one test:
+| Reported | What it was |
+| --- | --- |
+| the upload-photo button is too small to find | the only entry point to the photo store was a 34px pill in a two-button row whose **other** button wipes the cast |
+| Setup does not fit on one screen | four stacked header lines pushed Start below the fold, behind half a row of identities |
+| an office cast works at `X Group` | the org **noun** and the org **suffix** are two halves of one sentence, and they disagreed in two of the four worlds |
+| the 📍 button's colour is wrong | the two round buttons on the input row said *tappable* two different ways |
+| the socials and the Kakao notices carry across a new game and a load | **the run boundary had two writers** — see *Two ways into a run* |
+| nowhere to change a custom member's emoji | a field with a writer, a whitelist entry and a default, and no editor |
+| the PDF prints `Round 9` where the screen prints the box | see *Export text extraction* |
+| every identity reads like a relationship already under way | see below |
 
-- **the role-first cast picker**, rebuilt on his design — see *The cast picker is organised by role,
-  not by member*;
+**Three of them are the same shape as things already in this file, one field over.**
+
+**`emoji` is the shape this file tracks seven times, with the halves swapped.**
+`npcAppearances`, bubble `photoDesc`, cast photos, `STAR_LEVELS`, `social_platforms`,
+`world.tone` and `country.name` are all a feature complete on one side of a boundary and
+connected to nothing on the other. `emoji` was the inverse: it is on
+`PROFILE_FIELDS`, it is respected by `withDefaults` (`profile.emoji || palette[i]`), it
+is drawn by six surfaces — and **nothing could ever put a value in it**, so the fallback
+was the only branch that had ever run and a custom member was whichever glyph her
+palette index landed on for the life of the save. **A default with no way to override it
+is not a default; it is a constant with an unreachable branch.** The editor now writes
+the field, through `normalizeEmoji` — one *grapheme*, because a flag is two code points
+and a ZWJ family is seven, so slicing by code point stores half an emoji — and the
+palette is `EMOJI_PALETTE`, exported rather than retyped beside it.
+
+**The identity backgrounds described a relationship the affection score contradicted.**
+Step 7 authored eighteen identities whose prose reads as a history already under way —
+*she had already covered for you*, *you were already the last two to leave* — while every
+member starts at **Stranger** and `MAIN_INITIAL_AFFECTION` is 12. So round 1 opened on a
+cast who behaved like old colleagues and scored like strangers, and the whole affection
+curve had nothing to climb from. `kpop_idol` implied the opposite in its own wording
+(`自然相识`, `新任Staff`, `新任年轻女会长`) and the three new worlds did not, which is how
+they were authored without it. **All four worlds now carry one `[初见]` / `[First
+meeting]` / `[첫 만남]` block**, so the check is a scan rather than a reading, and a world
+added later fails smoke until it says the same thing.
+
+**The ex-girlfriend is excluded, in all four worlds, and that is the half that makes the
+guard worth having.** Her premise IS a shared past, and appending *you have never really
+spoken* would have contradicted her own paragraph. Stranger affection is already right
+for her — her block opens the run at a distance (*刻意保持距离、眼神闪躲、礼貌但疏离*), which is
+what 12 points means for someone you used to know. Smoke asserts both directions: every
+other identity carries the block, and she never does. **A blanket append would pass the
+first check and fail the game.** The two fixtures that pin her — `chaebol-zh` and
+`red_velvet-solo-ko` — did not move when the other four did, which is the same statement
+made by the goldens.
+
+**The organisation's noun and its suffix are one sentence.** `orgHint` reads *公司：{org}*
+and `{org}` is `orgNameFor(castName, orgSuffix)`, so a suffix of `Group` under a noun
+meaning *company* told an office player her company was called *X Group*, and under a
+noun meaning *family* told a chaebol player the leading **family** was *X Group*. The
+suffix stays Latin in all three languages — that is the convention `kpop_idol` sets with
+`Entertainment`, and a K-pop audience reads a brand name at sight — so office takes
+`Ltd.` and chaebol keeps `Group` with its noun corrected to the family's **business**,
+which is what a Korean chaebol group actually is. **Nothing derivable catches this**:
+`parseWorld` takes any string, and all three goldens are whole single groups, which take
+the subset template and never render `{org}` at all. It is two pinned regressions and a
+derived shape check, and the shape check now runs on **all four** worlds rather than on
+`kpop_idol`, which is the one world where neither defect could occur.
+
+**What the four UI fixes have in common** is that none of them is a logic error and none
+was reachable by any check written in advance — the fourth batch of this kind in two
+releases. The cast-images control is now a full-width card the size of the main-member
+slot, with `n / total` on it, because *a number the player can see beats a cap that only
+speaks when it refuses* is the third screen to need that lesson; Clear cast moved off its
+row, because **a destructive control and the best thing on the screen should not be the
+same shape**. Setup's header is one row and lost only the heading (which the Start button
+already says) and *Key configured* (which is the normal state — a **missing** key still
+shouts, in red). The 📍 button took the send button's colours, asserted as a **pair**,
+since either one alone is a colour nobody can be wrong about.
+
+**31 mutations, 31 RED, 0 GREEN, 0 WRONG-CHECK**, each reddening its own named check,
+each restored in a `finally`, tree verified afterwards. Smoke **1513 → 1544**. Four
+goldens moved, one line each, and the diff was read.
+
+### The second phone pass: a save recorded a world the run was never played in
+
+The first pass's eight fixes were re-tested on a device on 2026-09-29. Five
+passed, two wanted an adjustment — and the New Game fix being confirmed is what
+made the **bigger** bug visible underneath it: *"the places get mixed across
+worlds… chaebol presents all four platforms… kpop places are shown when loading
+a chaebol save… the cast produce an idol practice social in a chaebol world"*.
+
+**Four symptoms, one stale copy, and it is a copy taken one screen too early.**
+`SaveOverlay` recorded `worldId: roster?.worldId`. A roster is stamped with a
+world by the **cast builder** — `rosterFromPicks(picks, world?.id)` — and the cast
+builder runs on the screen BEFORE Setup, which is where the player picks the
+world. `startNewGame` then spread `pendingRoster` through unchanged. So every run
+started from the custom-cast door saved whichever world was selected on the
+cover, and `loadSave` — which is correct, and fetches `migrated.worldId`
+faithfully — dutifully restored it. A chaebol run reloaded as an idol run:
+`world.places` gave the practice rooms, `platformsOf(world)` gave all four top-bar
+buttons, and `buildSystemPrompt` was handed `kpop_idol`'s `castLife`, which is why
+the cast posted about practice in a family compound.
+
+**The classic door was unaffected**, because `startNewGame` passed `world?.id` at
+the moment the run began. One door correct and one stale is what made it read as
+"sometimes".
+
+**The fix is that a roster carries no world at all.** `resolveRoster(roster, lang,
+world)` has always taken the world as its own argument, so `roster.worldId` had
+**no reader anywhere** — its entire contribution was to be the thing `SaveOverlay`
+read. It is deleted from `buildClassicRoster`, from `rosterFromPicks` and from both
+builder call sites, and the save now takes `worldId` as a prop from the loaded
+`world` object every prompt that round was built from. **Only the run knows what
+was played**, and a second copy of a fact is the copy that drifts. The goldens did
+not move by one byte, which is what says the field was dead.
+
+**Slots written before this fix cannot be repaired.** The intended world was never
+stored, so nothing can recover it — a save written from the custom door is now an
+idol run and will load as one. Same shape as the polluted social feeds one batch
+earlier: **a bug that writes to durable storage leaves a permanent second copy of
+itself, and fixing the writer does not reach it.**
+
+**The guard that should have caught this asserted the field was PRESENT.** A loop
+over `["schema", "groupId", "worldId", "roster"]` checked that a new slot records
+each one — and the field was present and wrong for two releases. *Test the value's
+source, not the key's existence.* The new guards assert where the value comes from,
+and **count both `SaveOverlay` mount sites**, since one of two is the
+`extractStoryText` failure exactly.
+
+**And the platform check could not have found it either, for a different reason:
+it was written about `campus`.** *"No undeclared platform reaches the prompt"* is a
+sentence about every world, and the check named one — the one world where a chaebol
+defect cannot appear. It now loops over `allWorlds`, derives each world's declared
+set from its own file, renders that world's prompt and compares; mutated, it fails
+naming `chaebol` and `office`. This is the org-suffix lesson from the first pass,
+one field over: **a guard pinned to one instance of the class it is about is a
+sample, not a guard.**
+
+**Two adjustments came with it.** The cast-images card counts, and the sheet it
+opens now lists, **main and subs only**: every surface that draws a face is built
+from `allTargetMembers`, and an NPC posts no social and sends no Kakao, so her
+photo has no reader anywhere in the running game while still spending one of the
+30 photo or 8 wallpaper slots. The card is also named for what it does —
+*（可选）上传头像和壁纸* — rather than *照片*. And the PDF's round header band is now
+**lighter than the card** with the box centred in it as a block: the light theme
+was printing `#3a2510` text on a `#3a2210` band, so the stats box was very nearly
+invisible on paper. Centred as a block rather than line by line, because the
+frame's lines are equal width only if every CJK glyph in the monospace fallback is
+exactly two columns — the one thing box-drawing output cannot assume.
+
+**12 mutations, 12 RED, 0 GREEN, 0 WRONG-CHECK.** Two reported GREEN on the first
+run and neither guard was at fault: one mutation **crashed** the suite before it
+printed a verdict (an undefined identifier after the import was removed), which
+produces an empty failure list and is indistinguishable from a guard that cannot
+fail — the harness now reports CRASHED. The other was a real guard weakness: the
+delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
+so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
+
+### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29
+
+**This block is the authority on what is open. The v1.4.0 one below it is history.**
+
+**All eight steps of v1.4.1 are written; step 8's release has not happened.** `main..dev` holds
+the whole release — steps 1–7, the bump, and the harness fix step 8 turned up — and it is **pushed
+to `origin/dev` and nowhere else**. `main` is untouched at `7b3ceea`, tagged `v1.4.0`, and is
+still what players run; `dev` is never deployed. The tree is clean; nothing is stashed and nothing
+is running. A count is deliberately not written here: it goes stale on the next commit, and
+`git log --oneline main..dev` is the authority.
+
+**Verified, by measurement, offline:** `npm run build` clean at **418.29 kB / gzip 146.86**;
+`node test/smoke.mjs` **1511 passed / 0 failed**; `npm run bump 1.4.1` rewrote **15/15** version
+strings and left every historical version in this file and in README's old *What's New* headings
+alone. Mutation rounds across steps 1–8 total **194 RED, 0 GREEN, 0 NOT APPLIED**. The goldens
+moved **three times** in the whole release — step 2's `[Pace: …]` deletion, step 4's sections 10
+and 11, step 7's six generalised wordings — each diff read before committing.
+
+**The live gate is MET — 24 rounds across all three new worlds, 2026-09-29, on `deepseek-flash`:**
+
+| run | rounds | cache | drifts | prefix breaks |
+| --- | --- | --- | --- | --- |
+| `campus` / ko / `junior_student` | **8/8 clean** | 88.2% | 0 | 0 of 2 collapses |
+| `chaebol` / zh / `主线成员前女友` | **8/8 clean** | 90.4% | 0 | 0 of 2 collapses |
+| `office` / en / `report_to_cast` | 7/8, one `parse:FALLBACK` | 89.5% | 0 | 0 of 2 collapses |
+
+**0 static-prompt drifts across all 24 rounds** — including the chaebol run, which is the
+ex-girlfriend identity whose backstory used to re-roll every round, so `backstorySeed` is now
+confirmed stable in a **second** world. The chaebol row is also the only one of the three that
+ran both ROLE CONTRACT graders, `主线成员前女友` being the one id all four worlds share; the other
+two printed their skipped graders, which is the coverage line working as designed.
+
+**The one flag is a pre-existing bug, not a v1.4.1 regression, and it is worse than `docs/
+PROPOSALS.md` §7 recorded.** The round was NOT truncated (`finish: stop`, 832 completion tokens)
+and every parse level still failed, so the player would have seen 500 characters of raw JSON under
+four English buttons — on the healthiest provider this project has. And `MIN_STORY_CHARS` cannot
+fix it: `hasUsableStory` decides whether `bad_response` retries by calling **`parseLLMOutput` and
+measuring the result**, which on a total failure is level 4's own `text.substring(0, 500)`. 500 is
+above every threshold anyone would set, so **the retry machinery can never fire on the one case
+where the output is least usable.** Written up in §7 with the fix stated and deliberately not made
+— it changes the retry path for every player on every provider and wants its own measurement.
+
+**TWO phone passes are done.** The first found eight things and all eight are fixed;
+the second confirmed five of them on the device, adjusted two, and found the save's
+world — see *The second phone pass*, above. What has now been looked at on a phone:
+the Setup world picker, the four-world identity grid, the 📍 button, the cast
+builder, the custom-member editor, the PDF export, the emoji field, and a new game
+and a save load back to back.
+
+**The first-meeting frame has now been read in real prose**, which it never had been:
+a live `chaebol` / `rival_heiress` / zh run opened round 1 with *这是你们第一次真正说话
+——之前你们只在报道照片里见过彼此*, in a scene the model chose for that world (a banquet
+hall after closing). 4/4 clean, 90.3% cache, 0 drifts, 0 prefix breaks.
+
+**NOT verified:** the third batch's own fixes have not been seen on a device — the
+images card, the PDF band and the save's world are offline-green and
+mutation-verified, and two of the three are layout. **The save fix cannot be tested
+offline end to end**: the guards assert the value's source in `SaveOverlay` and that
+both mount sites pass it, which is the ceiling for a React component here — the
+round trip itself wants a device. Steps 5 and 6 remain unexercised live and step 4's
+token delta is still unmeasured.
+
+**A save slot written before this batch records the wrong world if it came from the
+custom-cast door**, and that is unrecoverable. Start a fresh run to test it.
+
+**The third phone pass CONFIRMED the world fix** — the place list and the top bar's
+platforms both follow the save's world now — and found three small things, all fixed
+in `631071b`: the PDF started every round on a new page, a save slot could not tell
+two worlds apart, and a saved cast could not be deleted.
+
+**It also found the biggest open defect in the release, and it is NOT fixed:** the cast
+library's texture prose is written for the idol world and reaches all four. See
+*`useRole` filters the FIELD and the prose says it anyway* — **57 of 57 members**. The
+interim prompt rule and the real fix are both in `docs/V140_PLAN.md` §22, which also
+carries Yuhan's setup-flow restructure and the three places I think it should differ
+(`name_kr` has twelve readers and cannot go; deleting `role` leaves a non-idol world
+with nothing saying what she does; `animal_plastic` is a prompt field, so removing it
+moves every golden).
+
+**Two more from that pass, neither diagnosed, both in §22.4:** a saved cast holding a
+custom member who was later deleted comes back as name + emoji — the prose snapshot is
+provably complete, so the suspect is her photo and wallpaper in the id-keyed stores the
+palette's delete path prunes, **not reproduced**; and whole rounds that name nobody, only
+她, which the player cannot follow **and** which makes `membersNamedIn` record no one as
+present, so `[Rounds Absent]` then reports a false absence. One prompt rule fixes both.
+
+#### The fourth phone pass — three commits confirmed, one UI bug fixed
+
+**`631071b` passed on the device**: the PDF flows continuously, a save slot names its world, a
+saved cast can be deleted. Nothing outstanding from that batch.
+
+**One bug came with the pass and is fixed:** Setup's year wheel displayed a year the form did not
+hold, so Start refused with *请完成所有选项* and nothing on screen was left to fill. See *A wheel
+always displays a value* — the entry the member editor already had, extended rather than
+duplicated. **4 mutations, 4 RED**, one of them GREEN first for reading its own comment. Smoke
+**1558 → 1561**; no golden moved, because nothing prompt-facing changed.
+
+**That fix exposed a second one, confirmed and fixed in the next commit:** the wheel's self-scroll
+latch was cleared on one path only, so seeding it on mount left the latch set and every scroll the
+player made was discarded until she tapped a row. Reproduced in a real browser first — **Setup
+stuck, the member editor unaffected** — see the same section. **4 mutations, 4 RED.** Smoke
+**1561 → 1562**.
+
+**§22.1's interim prompt rule is now DECIDED: take it, this release.** Yuhan, 2026-09-29 —
+*"interim prompt rule now and totally clean it when we do section 22"*. It is the next commit,
+it moves the three non-idol goldens deliberately, and it is the last thing before §22.2.
+
+#### The exact next step — §22 is AGREED and not started
+
+**`docs/V140_PLAN.md` §22 is the authority and it is settled**, agreed with Yuhan on
+2026-09-29 in the form recorded there: player info before the cast picker, one profile
+editor for custom and prebuilt members reached by tapping a chosen member's bubble, two
+tabs, and **only tab 1 persisted**. Tab 1 is `photo · name* · birth year* · private
+personality*` then `wallpaper · MBTI · habit · emoji`, then the one-line description and
+the generate/retry pair. The test for which tab a field is in: *would this sentence still
+be true if she were cast in a different world?*
+
+The three agreed departures from the first draft, each load-bearing: **`name_kr` stays**
+(twelve-plus readers, `membersNamedIn` among them); **`role` is replaced, not deleted**, by
+a generated world-scoped position, or a non-idol world has nothing saying what she does;
+**`animal_plastic` leaves the EDITOR and stays in the data**, since it renders in the
+profile block and removing it would move every golden. An edit to a library member lands
+on `entry.override`, which `resolveRoster` already honours — never a snapshot.
+
+**Nothing of §22 is implemented.** The order of work, and the one decision still open:
+
+1. Yuhan's hand test of `631071b` (the PDF flow, the save-slot world label, the saved-cast
+   ×) — **owed from him, nothing to do until it arrives.**
+2. **DECIDED — take the §22.1 interim prompt rule now** (Yuhan, 2026-09-29), with §22.2's
+   generated tab 2 replacing it properly in v1.4.2. It moves the three non-idol goldens, so
+   it gets its own commit and the diff is read.
+3. Then §22.2, which is a multi-file change and therefore wants its own written plan and
+   confirmation before code, per the global config.
+
+**Every line of the release sequence is still a red line and none of it has been done.**
+`main` is untouched at `7b3ceea`, tagged `v1.4.0`, and is still what players run.
+
+**The exact next command** is the phone pass, on the Cloudflare branch alias (deterministic,
+unlike Vercel's), which needs no deploy because `dev` is pushed:
+
+```
+dev.idol-dating-sim.pages.dev
+```
+
+**`--world` is new, and it is why that gate could be met at all.** The harness
+pinned `kpop_idol` in two places, so it could not exercise a single line of what v1.4.1 adds — the
+fourth instance of the shape this file tracks three times, found by the prediction that said to go
+looking for a fourth. It is added, mutation-verified (**9 RED, 0 GREEN**), and it **refuses a
+`--world` / `--identity` pair the world does not declare** before spending a round. Note what it
+still cannot do: `IDENTITY_ROLE` is keyed on the kpop ids, so both ROLE CONTRACT graders are silent
+in a new world. The run now prints which graders did not execute, so a clean row does not overstate
+itself.
+
+Then the release itself, every line of which is a red line and none of which has been done:
+
+```bash
+git push origin dev
+git checkout main && git pull
+git merge dev --no-ff -m "release: v1.4.1"
+npm run deploy
+git tag v1.4.1 && git push origin v1.4.1
+git checkout -- index.html
+git checkout dev && git merge main && git push origin dev
+node scripts/dev-index.mjs
+```
+
+**Two decisions are still Yuhan's and neither blocks the release:** §18 decision 9 — `world.tone`
+and `country.name` have no reader, and step 7 authored three more copies of each — and
+`PROPOSALS.md` §6's ending precedence, which §21 needs before v1.4.2 can start.
+
+### Pick up here — v1.4.0 is released, 2026-09-28 (historical)
+
+**v1.4.0 is deployed and is what players run, and the tree is clean.** `main` = `origin/main` =
+`7b3ceea`, tagged `v1.4.0`; `dev` = `origin/dev`, which is that commit plus the dev-mode
+`index.html` and the docs. `main..dev` holds only those, so the merge-back is done. **No
+uncommitted changes, nothing stashed, nothing running, nothing waiting on a machine** — this is a
+clean starting point for the next batch.
+
+**Verified, by measurement:** `npm run build` clean at 404.59 kB / gzip 142.78; `node
+test/smoke.mjs` **1204 passed / 0 failed**; all three mirrors serve `index-BEbGT01U.js` and the
+bundle fetched from Cloudflare is **byte-identical** to the local build, contains `v1.4.0`, all
+three More Info labels and the avatar fix's `backgroundOrigin`. Goldens untouched since the step 7
+re-validation — nothing in step 8 is prompt-facing.
+
+**Not verified:** the release was hand-tested on `dev.idol-dating-sim.pages.dev`, not on the
+production URLs. They serve the same bytes, so this is a formality rather than a gap, but it has
+not been done. No live round has been played against v1.4.0's code on a production mirror.
+
+**The zh save button keeps `(最多10个)` — decided, not overlooked.** An in-flight edit dropping it
+sat in the working tree during the release, on the reasonable argument that the panel now shows
+`n / 10` at all times so the caption is redundant. It was **stashed for the deploy and then dropped
+on Yuhan's call**, so `save.saveBtn` reads `💗 保存当前进度 (最多10个)` and matches the deployed
+bundle. Do not re-open it as a tidy-up; the caption is what a player sees before she has opened the
+panel at all, which is the moment the cap matters most.
+
+The release-process lesson from it is worth keeping: an uncommitted change in a path `deploy.sh`
+stages is a **release decision**, not an obstacle. It would have changed the bundle hash — verified,
+the same build with it in produced `index-CSLDaEkY.js` against the deployed `index-BEbGT01U.js` — so
+preflight refusing was correct, and `git stash push <path>` is the resolution that neither ships an
+unreviewed edit nor destroys someone's work.
+
+**The exact next command**, for the highest-value open item — three of the four providers have
+never played a live round, which is what open question 3 has been waiting on:
+
+```bash
+node test/playthrough.mjs --provider gemini --rounds 8    # needs a Gemini key in .env.local
+node test/playthrough.mjs --provider gpt4omini --rounds 8
+```
+
+**Also open, in rough order of value:**
+
+- **`docs/V140_PLAN.md` §10 still carries a calculated storage figure.** The image sheet prints
+  `N KB used` on a real device; read it and replace the arithmetic. See the paragraph below.
+- **The router fix from `56cc684` is live-untested** and needs an Aliyun `sk-ws-` key;
+  `.env.local` holds a DeepSeek one.
+- **The post-fix `[Rounds Absent]` arm is still owed**, and needs 3+ replicates per arm to say
+  anything at all — `docs/PROPOSALS.md` §4.
+- **The harness stores only a count of delivered Kakao, not their text**, so a
+  `kkt-transcribed-in-story` flag cannot be reviewed after the fact. Fix that before acting on the
+  one survivor.
+- **The Bubble avatar repeats on every line** — raised twice, still Yuhan's design call.
+- Pre-existing: the 126-char truncated round accepted with English fallback options
+  (`docs/PROPOSALS.md` §7); Chinese comments in `probabilityEngine.js`, `achievements.js`,
+  `relationshipEvents.js` and `stageConfig.js`; `DEFAULT_CAST_NAME` `"X"` colliding with the
+  shipped group `x`; §18b's impossible Kakao; splitting the classic Setup page; the ~1.7x
+  cost-table understatement (§2) and zero negative affection steps (§1).
+
+**What the five batches in this release were**, kept for the record:
+
+- **the role-first cast picker**, rebuilt on Yuhan's design — see *The cast picker is organised by
+  role, not by member*;
 - **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
   see *The photo store shipped with no reader* and *A birth year is stated once*;
-- **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs**, from
-  his hand test of step 8 — see *Four of those six surfaces were wrong on a phone*;
+- **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs** — see
+  *Four of those six surfaces were wrong on a phone*. **33 mutations, all RED**, three red only
+  after a fix;
 - **step 8's third pass: the avatar clip path, Instagram fitting its panel, the wheel on the name
   field's line, and `npm run bump 1.4.0`** — see *The first fix cured the one surface that was
-  never broken*. **18 mutations, all RED, none needing a fix first.** The version strings are bumped
-  and README carries a hand-written *What's New in v1.4.0*, so the release flow resumes at
-  `git checkout main`.
+  never broken*. **18 mutations, all RED.** That avatar fix was **wrong**; see the next bullet;
 - **step 8's fourth pass: an avatar with nothing to clip, and release notes inside the game** —
-  see *The second fix made the square reachable*. **16 mutations, all RED, none needing a fix
-  first.** The Help Center's last tab is now **More Info** and carries `RELEASE_NOTES`, whose
-  newest entry smoke ties to `package.json`.
+  see *The second fix made the square reachable*. **16 mutations, all RED.** Third attempt at one
+  bug, and the first two were the same mistake in different syntax. Confirmed fixed by hand on a
+  phone before the release.
 
 **Step 8's one unmeasured number is still unmeasured, and it moved.** Canvas WebP cannot be encoded
 outside a browser, so the wallpaper's ~46 KB is calculated and the storage budget it feeds (~2.4 MB
@@ -1884,9 +2813,9 @@ recorded in every arm.** It found two bugs and could not answer the question it 
   open question 3 (`reasoning_effort:'none'` on OpenAI, Gemini with thinking off) has been waiting on
   exactly that.
 
-**The release itself (`npm run bump 1.4.0` onward) is untouched and awaits Yuhan's go.** `main` is still
-v1.3.9 at `758faa3`. The open decision blocking nothing but worth his eye: whether v1.4.0 ships
-claiming rotation is addressed. It should not — the wording above is what the evidence supports.
+**The release happened on 2026-09-28** — `main` at `7b3ceea`, tagged `v1.4.0`. The open decision
+recorded here at the time was whether v1.4.0 should ship claiming rotation is addressed. It did
+**not**, in the README or in the in-game release notes, which is what the evidence supports.
 
 **Step 7's pre-release review found nineteen defects.** The method was the one that worked in step 6, applied harder: read all three
 rendered goldens end to end rather than the diff, read the prompt *against the code that consumes it*,
@@ -2270,7 +3199,86 @@ still empty makes the field look filled while Save stays disabled with nothing t
 member is **seeded** at the year the wheel opens on. The displayed value is the stored one from the
 first frame; scrolling is how she changes it, not how she supplies it.
 
-### …and it could only ever test one of the four providers — the third time
+**Setup was not seeded, and the fourth phone pass found it — the same lie, one screen over.**
+Reported as *"sometimes the Start button is blocked and says 请完成所有选项"*: a fresh run reached
+Setup with `form.birthYear` still `""` while the wheel showed **2000**, so `canStart` refused and
+the button named a missing field with **nothing on screen left to fill**. Every required field was
+visibly answered and one of them was not answered at all.
+
+**It read as a custom-cast-door bug and it belongs to neither door.** `form` is App-level state and
+nothing clears it on the way back to the cover, so loading a save first — which fills `form` from
+the slot — left a real birth year in place for every later trip through Setup. The reporter's own
+A/B (fresh run blocked, same cast after a save load fine) is therefore the diagnosis: **the
+difference between the two paths is not the door, it is whether anything had already written the
+field.** The classic door was equally affected and nobody had happened to hit it.
+
+**And the wheel could not emit the year it opened on at all.** `onScroll` reports only a row that
+differs from `value`, and `value` was `form.birthYear || DEFAULT_YEAR` — so the one year no gesture
+could supply was 2000, and a player who wanted it had to scroll away and come back. Seeding fixes
+that as a side effect, because the displayed value becomes a value the form actually holds.
+
+**The display fallback is DELETED rather than kept beside the seed.** With the field seeded a
+`|| DEFAULT_YEAR` can only ever hide the seed failing, and it hid it for a release. An unseeded
+wheel now renders with **no row highlighted**, which is visible and reportable; a highlighted year
+the form does not hold is neither. Same rule as *a fallback that returns plausible data hides the
+failure that produced it.*
+
+**The guard is derived from the wheels that exist**, not written about Setup: every file in `src/`
+mounting a `<YearWheel>` must write `DEFAULT_YEAR` somewhere that is not the import and not the
+`value=` attribute, so a third wheel cannot ship unseeded — and mutating the **member editor**'s
+seed reddens it naming `platforms/MemberEditor.jsx`, which is what says it is not a sample. A
+second check requires the seeded year to be one `validPlayerBirthYear` accepts, since a
+`DEFAULT_YEAR` moved outside the player's range would reproduce the bug through the fix.
+
+**Its first version reported GREEN against the bug, by reading the comment that explains the
+seed.** That is the third guard in this repo to pass against its own documentation — the file-input
+scan and the release-notes probe were the others — so the scan strips comments before it looks.
+**When a guard greps for a name, ask whether the prose beside it contains that name.**
+
+**And seeding then exposed a latch in the wheel that is cleared on one path only — the same phone
+pass, one commit later.** Reported as *"scrolling 1996 to the centre leaves the old year bold until
+you tap it"*. `selfScroll` suppresses the scroll events the wheel's own parking scroll emits, and
+it was cleared **only** by a 120ms timeout — which the effect's own cleanup cancels. So:
+
+```
+PARK v=1996 from=0 to=1700 ; PARKED top=1700        run 1 parks, arms the clear
+PARK v=2000 from=1700 to=1836 ; PARKED top=1836     the seed lands, re-parks, re-arms
+EARLY v= top=1836 want=1836 latch=true              cleanup cancelled the clear;
+                                                    this run returns early, clearing nothing
+SCROLL latch=true top=1700                          and every later scroll is discarded
+```
+
+The latch was then set **for the life of the component**, so the wheel moved and the bold row did
+not follow it. Only a tap could change the value, because `onClick` calls `onChange` directly and
+never passes the latch. **A latch whose release sits on one path is a latch that will be left set**
+— the `beginRun` asymmetry again, and the remedy is the same: every exit clears it, unconditionally.
+
+**Reproduced in a real browser before being fixed, and that mattered twice.** A scratchpad harness
+bundles the real `YearWheel.jsx`, drives four state sequences with layout already settled, and reads
+which row is `aria-selected` after a scroll. Unfixed: **Setup STUCK, the member editor fine**.
+Fixed: all four land on the target.
+
+**The member editor never had this bug**, which is what the harness was for rather than a guess: its
+`yearDraft` is seeded in `useState`, so the wheel sees one parking run and the timeout clears it. It
+is covered by the fix because the fix is in the shared component. **Sharing a component is not
+sharing a defect — the trigger was the value changing right after mount, which only Setup does.**
+
+**Two harness lessons, both already in this file and both re-earned.** The first three runs said the
+bug did not exist: arms A-C depend on whether the very first programmatic `scrollTop` assignment
+sticks before layout settles, which flips with how much else is on the page — **a repro that
+sometimes passes is not a repro**, so arm D drives the transition with layout already settled. And
+one "unfixed" run was against a file the patch had silently failed to unfix: `YearWheel.jsx` is
+**CRLF** and the multi-line `from` was written with `\n`. Third occurrence. Every patch script here
+now derives the newline from the file and aborts on a missed anchor.
+
+**The guard is derived from the effect's own shape**, not pinned to today's three clears: every
+`return` inside the parking effect must be matched by a clear, except the `if (!el)` guard that runs
+before the latch can be set, and the latch may be set from exactly one place. A fourth early return
+added without a clear fails it. **4 mutations, 4 RED.** The browser harness needs Chrome and is
+deliberately **not** in the suite — `deploy.sh` gates on smoke, and a flaky browser test there would
+block releases. What is in the suite is the invariant the harness established.
+
+### …and it could only ever test one of the four providers — the third time, then the fourth
 
 **Found running the step 7 sanity check against a DeepSeek key.** `playthrough.mjs` hardcoded
 `selectedModel: "qwen"` and `aliyun: { mode: "free" }` into its `executeRound` call, so it could
@@ -2286,6 +3294,7 @@ wrong cause**, which is worse than a bare failure.
 | `identity` | `练习生` | 7 of 8 backgrounds never played live; a bug in one survived every run ever made |
 | `pace` | `浪漫情感向` | three quarters of the coverage, the moment section 6 began sending the pace's authored rule |
 | **provider** | **`qwen`** | **three of four providers have still never played a live round** |
+| **world** | **`kpop_idol`** | **v1.4.1's three new worlds could not be played at all — the release gate was not reachable, not merely unmet** |
 
 `--provider` now defaults to `MODEL_ID` from `.env.local`, so the harness follows the key that is
 actually configured rather than assuming Aliyun; `resolveProvider` consults `MODEL_CONFIGS` instead
@@ -2295,8 +3304,44 @@ the flag list** — adding `--provider` while leaving `selectedModel: "qwen"` in
 flag check, which is the trap the form-literal guard beside it already exists to avoid.
 
 **Generalise it: every field of `executeRound` that selects a whole code path needs a flag, and the
-guard belongs on the call rather than on the flag.** That is now three instances; assume there is a
-fourth and go looking rather than waiting for it to cost a release.
+guard belongs on the call rather than on the flag.** That was three instances, and the sentence that
+used to end here said to assume there was a fourth and go looking rather than wait for it to cost a
+release.
+
+#### The fourth was the world, and it was found the way that sentence said to find it
+
+**v1.4.1 step 8, before the live pass rather than after it.** `playthrough.mjs` hardcoded
+`kpop_idol` in **two** places — `loadWorld("kpop_idol", LANG)` and the `worldId` on the roster the
+`--cast` door builds — so the harness could not play one line of what the whole release adds:
+three worlds, their identities, their places, their platforms, their `castLife`. The step's own
+gate is *a live `playthrough.mjs` pass*, and that gate **was not reachable**. Unmet is a schedule
+problem; unreachable is a different thing, and only reading the harness finds it.
+
+**Both sites moved — and the second one is now DELETED rather than moved.** A roster carries no
+world at all since the second phone pass, in the harness as in `src/`, because that copy is what
+the app's save slots were reading and getting wrong. What the guard asserts is that the loaded
+world reaches `resolveRoster`, which is the site that was hardcoded to begin with. The original
+reasoning, kept because it is why the second site was found at all:
+
+Changing only the `loadWorld` call would load `campus` and
+hand `resolveRoster` a roster still claiming `kpop_idol` — `extractStoryText`'s two-copies failure
+one file over, so the guard asserts both and mutation-verifies each.
+
+**An identity is a position inside ONE world, and the four share exactly one id.** So
+`--world campus --identity 练习生` names nothing: `getIdentity` returns undefined, section 6
+renders an empty background and no work title, and every grader reports a healthy run against a
+prompt missing the block the flag exists to select. The harness now **refuses the pair before the
+first call** and names what that world declares — derived from `world.identities`, because a table
+of which ids belong to which world is precisely the hand-maintained list this repo keeps losing.
+
+**And the graders do not cover a new world, which is stated rather than discovered later.**
+`IDENTITY_ROLE` is keyed on the eight kpop identity ids, so both ROLE CONTRACT graders
+(`role-claimed-by-member`, `player-given-idol-life`) are silent for every identity in `campus`,
+`office` or `chaebol` — `0 issues` in exactly the area step 7 changed most. The run records which
+graders did not execute and prints them under the table. Deliberately **not** in `notes`, which
+feeds the clean/dirty verdict: this is a coverage statement, not a defect, and colouring the row
+would be the metric-that-fails-a-build that gets tuned away. **A grader that cannot run is not a
+grader that passed**, and nothing else on screen tells the two apart.
 
 ### `playthrough.mjs` had been dead since step 3, and that is the second time
 
@@ -2619,17 +3664,39 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
    whole run builds toward — with the literal placeholder `[自定义]` in section 6 where her words
    belong. It is one function now, and smoke counts `executeRound` call sites against uses of it.
 
-   **The trap beside it is worse and is still there.** `IDENTITIES` in `App.jsx` gives every entry a
-   `label` equal to its `id`, so `IDENTITIES.find(...).label` is an identity function today.
-   Localizing those labels is the obvious next thing anyone would do — `src/i18n/*.js` already carries
-   an `identities` table for exactly that — and it would silently empty the identity **background** and
-   the **work title** out of every real game, because `getIdentity(world, "Chaebol")` finds nothing.
+   **The trap beside it was worse, and v1.4.1 step 3 DELETED it.** `IDENTITIES` in `App.jsx` gave
+   every entry a `label` equal to its `id`, so `IDENTITIES.find(...).label` was an identity
+   function — which is what made it dangerous rather than merely redundant. Localizing those labels is
+   the obvious next thing anyone would do, with `src/i18n/*.js` already carrying an `identities`
+   table for exactly that, and it would have silently emptied the identity **background** and the
+   **work title** out of every real game, because `getIdentity(world, "Chaebol")` finds nothing.
    **No test written before step 7 would have noticed**: the goldens, the live harness and every check
-   in `smoke.mjs` pass the raw id, which is the one thing the app does not pass. The guard is therefore
-   written as *what App.jsx forwards must be an id the world declares*, not as "label equals id".
+   in `smoke.mjs` pass the raw id, which is the one thing the app did not pass.
 
-   `PACES` and `STAR_LEVELS` are the same shape one field over — a fourth copy of a list the world
-   file owns, coupled to `t.paces` **by position**. Both are now checked against the world.
+   The list is now `world.identities` plus one named constant, `CUSTOM_IDENTITY_ID`, and
+   `formForRound` forwards `form.identity` unchanged for anything else — so *what App.jsx
+   forwards is an id the world declares* is true by construction and not by assertion. The old guard
+   was written from that requirement rather than from "label equals id", which is why it survived the
+   deletion as a source check on the construction instead of needing to be rewritten from scratch.
+   **Byte-identical the day it shipped**, since every label already equalled its id: the goldens did
+   not move and could not have.
+
+   `PACES` was the same shape one field over — a fourth copy of a list the world file owns, coupled
+   to `t.paces` **by position** — and it is **deleted** in v1.4.1 step 2 rather than guarded. The four
+   story-mode ids that replaced it are universal across every world, so there is no per-world list to
+   keep in step with anything: the labels live once in `t.modes`, keyed by id, and the rules live in
+   `world.modes`, keyed by the same ids. The guards are written so that bringing either list back
+   fails the suite. **A coupling deleted is worth more than a coupling asserted** — the guard that
+   existed here only caught a list that had already drifted.
+
+   **`STAR_LEVELS` is not, and the sentence that used to claim it was wrong.** It is
+   `["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"]` at `App.jsx:58` and it is **referenced
+   nowhere**: `form.starLevel` is initialised to `""`, written by no control, read by no prompt
+   code, and copied into every save. No world file carries `starLevels` and no guard mentions it.
+   That makes it the **fourth** instance of the shape this file already tracks three times —
+   `npcAppearances`, bubble `photoDesc`, cast photos — a field complete on one side of a boundary
+   and connected to nothing on the other, except that this one never had a reader at all. Either
+   delete the constant or give it one; `docs/V140_PLAN.md` §18 carries the decision.
 
 ### Cost strings must track README
 

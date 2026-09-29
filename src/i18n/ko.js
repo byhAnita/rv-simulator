@@ -1,7 +1,7 @@
 const ko = {
   cover: {
     subtitle: "아이돌 데이트 시뮬레이터",
-    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.0",
+    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.1",
     newGame: "✨ 새 게임",
     continue: "💾 이어하기 (불러오기)",
     apiKey: "🔑 API 키 / 모델",
@@ -17,19 +17,23 @@ const ko = {
   },
   setup: {
     title: "💗 캐릭터 생성",
-    ragLoading: "그룹 로드:",
     keyConfigured: "🔑 키 설정됨",
     keyMissing: "⚠️ 키 없음",
     change: "변경",
     mainMember: (aff) => `🌸 메인 멤버 (초기 호감도: ${aff})`,
     subMember: (min, max, total) => `🌿 서브 멤버 (0~${total}명 선택, 초기: ${min}~${max})`,
     npcHint: "🤝 NPC:",
+    // The world picker took the slot the pace picker vacated - v1.4.1 step 3.
+    world: "🌍 세계관",
+    // The one identity option no world declares: `H` is the app's escape hatch.
+    // The other seven labels come from `world.identities[].name`, which is also
+    // the string section 6 of the prompt prints, so there is one copy of each.
+    customIdentityOption: "[사용자 지정]",
     identity: "💼 신분",
     customIdentity: "직접 입력...",
     basicInfo: "📝 기본 정보",
     name: "이름",
     age: "나이",
-    pace: "🎬 스토리 전개",
     start: (name) => `✨ ${name}와(과) 시작`,
     complete: "모든 항목을 입력해주세요",
     loading: "멤버 데이터 로딩 중...",
@@ -54,6 +58,7 @@ const ko = {
     required: "필수",
     optional: "선택",
     fields: {
+      emoji: "아바타 글자",
       name: "이름",
       birthday: "생년월일",
       birthYear: "출생 연도",
@@ -69,6 +74,7 @@ const ko = {
       hidden_conflict: "숨긴 갈등",
     },
     hints: {
+      emoji: "사진이 없을 때 상단 바와 상태 상자에 나타나는 그녀의 얼굴입니다.",
       birthday: "연도가 존댓말의 방향을 결정합니다. 필수입니다.",
       habit: "구체적이고 반복 가능한 신체 동작 — 감정이 아니라 연출할 수 있는 것.",
       private_personality: "아무도 보지 않을 때의 그녀.",
@@ -86,7 +92,7 @@ const ko = {
     wallReplace: "배경 변경",
     wallRemove: "배경 삭제",
     wallFull: (max) => `배경 이미지가 꽉 찼습니다 (${max}장). 하나를 삭제하고 추가하세요.`,
-    castImages: "사진",
+    castImages: "(선택) 프로필 사진·배경 올리기",
     castImagesHint: "사진은 그녀가 나오는 모든 화면에 표시됩니다. 배경 이미지는 대화·Weverse 패널 배경과 Instagram 사진에 쓰입니다.",
     imagesUsed: (kb) => `${kb} KB 사용`,
     cropTitle: (what) => `${what} 맞추기`,
@@ -141,22 +147,39 @@ const ko = {
     clearCast: "캐스트 비우기",
     badYear: "1980년부터 2012년 사이로 입력해주세요",
     confirmDelete: (name) => `"${name}"을(를) 삭제할까요? 되돌릴 수 없습니다.`,
-    castName: "그룹 이름",
-    castNamePlaceholder: "X",
-    castNameHint: (agency) => `이 멤버들은 한 그룹으로 데뷔합니다. 소속사: ${agency}`,
+    confirmDeleteRoster: (name) => `저장된 캐스팅 "${name}"을(를) 삭제할까요? 멤버 자신은 삭제되지 않습니다.`,
+    // The world owns the NOUN and the language owns the grammar around it, so
+    // a college or a company needs no new string here. The hint is the world's
+    // own sentence (`castLore.orgHint`): "they debut as one group" is a
+    // different claim from "they study here", not one sentence with a
+    // different word in it. The placeholder is DEFAULT_CAST_NAME.
+    orgName: (noun) => `${noun} 이름`,
+    orgLoaded: (noun) => `${noun} 로드됨: `,
+
     fictionNote: "커스텀 멤버는 가상의 인물이며 실제 인물과 무관합니다.",
   },
-  identities: {
-    "练习生": "연습생",
-    "Staff": "직원",
-    "韩娱艺人": "K-pop 아티스트",
-    "粉丝": "팬",
-    "留学生": "유학생",
-    "财阀": "재벌",
-    "主线成员前女友": "전 여자친구",
-    "H": "[직접 입력]",
+  // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
+  // laid out in a parallel array. `paces` used to sit here and was read as
+  // `t.paces[i]` against `PACES[i]` in App.jsx, coupling two hand-maintained
+  // lists by POSITION. One string per mode, matching how Time Speed reads: the
+  // section title is the heading and this is the line under it.
+  modes: {
+    free: "🌿 자유 — 외부 사건 없이 관계 자체가 이야기",
+    romance: "💕 로맨스 — 자연스럽게 진행되는 쌍방향 로맨스",
+    pressure: "🔥 고압 — 스캔들과 여론 압박, 비밀 변화 2배",
+    dramatic: "🎭 수라 — 메인과 서브가 당신의 호감을 두고 경쟁",
   },
-  paces: ["현실 느린 전개", "로맨틱 드라마", "고강도 스캔들", "하렘 루트"],
+  // v1.4.1 step 5 - the place picker. `go` is a TEMPLATE rather than a sentence composed
+  // at the call site: Korean needs a particle after the place name, and the word in front
+  // of a particle is a variable - so ko carries the 으로/로 pair and resolveKoreanParticles
+  // picks. zh and en carry no pair, so the resolver is inert on them.
+  map: {
+    title: "어디로 갈까요?",
+    costsRound: "어딘가로 가면 한 라운드가 진행됩니다 — 한 장면이 한 라운드입니다.",
+    discovered: "발견한 장소",
+    foundIn: (r) => `${r}라운드에서 발견`,
+    go: "{place}으로/로 향한다",
+  },
   game: {
     generating: "오프닝 스토리 생성 중...",
     progressing: "스토리 진행 중...",
@@ -279,6 +302,7 @@ const ko = {
     reasoningTitle: "🧠 딥씽킹",
     reasoningOn: "💰 ON — 모델이 작성 전에 추론합니다. 스토리가 더 풍부하지만 비용 ~2배, 속도 느림.",
     reasoningOff: "⚡ OFF — 빠른 응답, 낮은 비용. ",
+    storyModeTitle: "🎬 스토리 모드",
     birthYearTitle: "🎂 출생 연도",
     birthYearApply: "저장",
     birthYearHint: "당신과 멤버 사이의 높임말 방향을 결정합니다. 변경하면 다음 라운드부터 반영됩니다.",

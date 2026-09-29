@@ -3,8 +3,8 @@ import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
-import { loadWorld, DEFAULT_WORLD_ID } from "./rag/worldLoader";
-import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, agencyFor } from "./rag/rosterResolver";
+import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
+import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor } from "./rag/rosterResolver";
 import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
@@ -19,6 +19,8 @@ import InstagramOverlay from "./platforms/InstagramOverlay";
 import WeverseOverlay from "./platforms/WeverseOverlay";
 import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
+import MapOverlay from "./platforms/MapOverlay";
+import { platformsOf } from "./config/platformConfig";
 import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
 import RosterBuilder from "./platforms/RosterBuilder";
@@ -45,18 +47,24 @@ const storyPartOf = (content) => {
   return body.replace(/\n?[ABCD][.、．]\s*.+/g, "").trim();
 };
 
-const IDENTITIES = [
-  { id: "练习生", label: "练习生" },
-  { id: "Staff", label: "Staff" },
-  { id: "韩娱艺人", label: "韩娱艺人" },
-  { id: "粉丝", label: "粉丝" },
-  { id: "留学生", label: "留学生" },
-  { id: "财阀", label: "财阀" },
-  { id: "主线成员前女友", label: "主线成员前女友" },
-  { id: "H", label: "[自定义]" },
-];
+// The identity list is the WORLD's (`world.identities`), plus this one id. `H` is
+// the app's escape hatch — the player typing her own — so no world declares it and
+// every world has it; `formForRound` branches on the literal.
+//
+// `IDENTITIES` used to live here: eight `{id, label}` rows whose label equalled its
+// id, which read as an id-to-label mapping and was an identity function. Localizing
+// those labels is the obvious next edit and would have emptied the identity
+// background and the work title out of every real game, because
+// `getIdentity(world, "Chaebol")` finds nothing. Deleted in v1.4.1 step 3 rather
+// than guarded — the second coupling this release deletes after `PACES`.
+const CUSTOM_IDENTITY_ID = "H";
 const STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱粉"];
-const PACES = ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"];
+
+// The rule itself is `resolveStoryMode` in worldLoader.js, pure and tested. This
+// is the one place that reads the key, so the two callers - App init and loadSave
+// - cannot drift into two different answers about where the value comes from.
+const seededStoryMode = (legacyPace) =>
+  resolveStoryMode(loadFromStorage("rv_sim_story_mode"), legacyPace);
 
 const THEMES = {
   dark: {
@@ -103,7 +111,7 @@ const THEMES = {
     subModelCardBg: "rgba(255,255,255,.03)",
     subModelCardColor: "#bbb",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(232,120,176,.2)}`,
-    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "rgba(255,59,92,.1)",
     notifBarBorder: "rgba(255,59,92,.2)",
     notifBarText: "#ff6b8a",
@@ -197,7 +205,7 @@ const THEMES = {
     subModelCardBg: "rgba(100,65,20,.05)",
     subModelCardColor: "#7a5030",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(100,65,20,.25)}`,
-    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "linear-gradient(135deg,#c8a84b,#a0522d)",
     notifBarBorder: "#a08060",
     notifBarText: "#fff",
@@ -312,10 +320,17 @@ export default function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [groupConfig, setGroupConfig] = useState(null);
-  // The setting the cast lives in: identities, paces, phase beats, address
-  // forms. One world ships today, so it is not yet a player choice; the save
-  // records its id on the roster, so it can become one without a migration.
+  // The setting the cast lives in: identities, story-mode rules, phase beats,
+  // places and the address register. Chosen on Setup since v1.4.1 step 3, and
+  // recorded on the roster — which is what lets a save be loaded back into the
+  // world it was played in rather than whichever one is selected now.
   const [world, setWorld] = useState(null);
+  // The picker's rows. `index.json` is the lazy-load boundary: no world document
+  // is fetched until one is chosen, so adding three worlds in step 7 adds three
+  // rows and no code.
+  const [worldList, setWorldList] = useState([]);
+  const [selectedWorld, setSelectedWorld] = useState(() =>
+    loadFromStorage("rv_sim_world") || DEFAULT_WORLD_ID);
   // Who is in THIS run, and in what slot. Set when a game starts and when one
   // is loaded; it is the thing a save records, and from v1.4.1 the thing the
   // roster builder produces directly. Null outside a game: at Setup there is no
@@ -387,12 +402,30 @@ export default function App() {
   const [debugOn] = useState(() => debugEnabled());
   const [showDebug, setShowDebug] = useState(false);
   const [timeSpeed, setTimeSpeed] = useState(() => loadFromStorage("rv_sim_timespeed") || "default");
+  // Seeded from the newest save slot's pace so the panel shows something true
+  // before anything is loaded; loadSave re-seeds from the slot actually being
+  // played and persists it, which is the point at which "she has never set one"
+  // stops being true. Same shape as rv_sim_qwen_submodel seeding the paid model:
+  // read the legacy value, write the new key, never write the legacy one again.
+  const [storyMode, setStoryMode] = useState(() =>
+    seededStoryMode(loadFromStorage(STORAGE_KEYS.SAVES)?.[0]?.form?.pace));
   const [fontScale, setFontScale] = useState(() => Number(loadFromStorage("rv_sim_fontscale")) || 1);
   const [exportOpen, setExportOpen] = useState(false);
 
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
   const allTargetMembers = [mainMember, ...subMembersList].filter(Boolean);
+
+  // What a save slot is LABELLED with, beside the round and the main member.
+  // Two runs of the same cast in two worlds were indistinguishable in the
+  // panel, which is the screen the player picks from. Derived from the index
+  // rather than from the loaded world, because the index is what carries the
+  // emoji and the per-language name the picker already shows her.
+  const worldLabel = (() => {
+    const w = worldList.find((x) => x.id === world?.id);
+    if (!w) return "";
+    return `${w.emoji || ""}${w.name?.[language] || w.name?.zh || w.id}`;
+  })();
   // `npcMembers` stood here, deriving "everyone not chosen" into a local that
   // nothing read — dead since before the roster existed. NPC identity now comes
   // from the roster: buildSystemPrompt takes `members` minus main minus subs,
@@ -409,6 +442,24 @@ export default function App() {
   const setBirthYear = (v) => setForm(f => ({
     ...f, birthYear: v, age: validBirthYear(v) ? String(GAME_YEAR - parseInt(v)) : "",
   }));
+
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so Setup has to SEED the field rather than
+  // fall back to DEFAULT_YEAR for display alone. Reported from the third phone
+  // pass: reaching Setup on a fresh run showed 2000 in the wheel while
+  // `form.birthYear` was still "", so `canStart` refused and the Start button read
+  // "please complete all options" with nothing on screen left to fill. It looked
+  // like a custom-door bug only because loading a save first fills `form` from the
+  // slot, and `form` survives a return to the cover.
+  //
+  // The wheel also reports only a row that DIFFERS from the one it is showing, so
+  // the single year it could never emit was the year it opened on: a player who
+  // wanted 2000 had to scroll away and come back. Seeding removes that too.
+  //
+  // The member editor was given exactly this treatment in v1.4.0 step 8 and Setup
+  // was not. Same control, same lie, one screen over.
+  useEffect(() => {
+    if (phase === "setup" && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
+  }, [phase, form.birthYear]);
 
   // The correction, mid-run, for a save whose birth year was never stated —
   // migration derives it as GAME_YEAR - age and that is wrong for about half of
@@ -442,13 +493,53 @@ export default function App() {
     }).catch(console.error);
   }, []);
 
+  // Same shape as the group index, and the same correction: a remembered id that
+  // the index no longer carries falls back to the default rather than being left
+  // pointing at a world that cannot be fetched.
+  useEffect(() => {
+    loadWorldIndex().then(list => {
+      setWorldList(list);
+      if (!list.find(w => w.id === selectedWorld)) setSelectedWorld(DEFAULT_WORLD_ID);
+    }).catch(console.error);
+  }, []);
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // Reloads on language change, like the group config: the world file is
   // per-language and carries the identity backgrounds the prompt renders.
+  //
+  // A world SWITCH drops the loaded world first, because the identity grid is its
+  // option list and Setup's gate needs `world` — so the player is offered nothing
+  // to start with rather than the previous world's identities while the new file
+  // is in flight. In game the effect only ever re-fetches the SAME world in a new
+  // language, and dropping it there would hand `executeRound` a null world if she
+  // tapped an option inside that window.
   useEffect(() => {
-    loadWorld(DEFAULT_WORLD_ID, language).then(setWorld).catch(console.error);
-  }, [language]);
+    let live = true;
+    if (phaseRef.current !== "game") setWorld(w => (w && w.id !== selectedWorld ? null : w));
+    loadWorld(selectedWorld, language).then(w => {
+      if (!live) return;   // a second switch already won; a stale world must not land
+      setWorld(w);
+      saveToStorage("rv_sim_world", selectedWorld);
+    }).catch(console.error);
+    return () => { live = false; };
+  }, [selectedWorld, language]);
+
+  // A world owns its identity list, so a switch can leave `form.identity` holding
+  // an id the new world never declares — which renders no background and no work
+  // title while still looking chosen, the empty-value class of defect.
+  //
+  // Keyed on the world that actually LOADED, not on the picker's click: the file is
+  // what declares the list, so the file is what decides. And cleared only when the
+  // id is genuinely absent, which is the whole point of `主线成员前女友` keeping
+  // one id across every world — a route every world has must survive the switch.
+  useEffect(() => {
+    if (!world || phaseRef.current === "game") return;
+    setForm(f => (!f.identity || f.identity === CUSTOM_IDENTITY_ID
+      || world.identities.some(i => i.id === f.identity)
+      ? f
+      : { ...f, identity: "", customIdentity: "" }));
+  }, [world]);
 
   // Two doors, one engine. At Setup this loads a group as a PALETTE to choose
   // from; in game the roster is authoritative and says who was actually chosen,
@@ -460,9 +551,14 @@ export default function App() {
   // `selectedGroup` when a save is loaded, so this already sees it; adding it
   // would additionally re-resolve on every new game, for a cast startNewGame
   // has in hand.
+  // `world` is a dependency because section 4's cast framing is the world's since
+  // v1.4.1 step 4 - `castLore`, `useGroupLore` and `useRole` all decide what the
+  // resolved `groupConfig.groupLore` says. It can be null for the width of a world
+  // fetch, and resolving against a missing world would throw rather than compose.
   useEffect(() => {
+    if (!world) return;
     if (phaseRef.current === "game" && roster) {
-      resolveRoster(roster, language).then(r => {
+      resolveRoster(roster, language, world).then(r => {
         setGroupConfig(r.groupConfig);
         setMembers(r.members);
       }).catch(console.error);
@@ -485,7 +581,7 @@ export default function App() {
       }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
-  }, [selectedGroup, language, pendingRoster]);
+  }, [selectedGroup, language, pendingRoster, world]);
 
   // The custom door, resolved once so Setup sees exactly the `members` shape the
   // classic door gets from a group load. Deriving form.mainMember/subMembers from
@@ -493,8 +589,8 @@ export default function App() {
   // allTargetMembers, createInitialStats, the stats bar — stay untouched: they
   // read the form, and the form now agrees with the builder.
   useEffect(() => {
-    if (!pendingRoster || phaseRef.current === "game") return;
-    resolveRoster(pendingRoster, language).then(r => {
+    if (!pendingRoster || phaseRef.current === "game" || !world) return;
+    resolveRoster(pendingRoster, language, world).then(r => {
       setGroupConfig(r.groupConfig);
       setMembers(r.members);
       setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
@@ -507,7 +603,7 @@ export default function App() {
       setPhase("cover");
       showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
     });
-  }, [pendingRoster, language]);
+  }, [pendingRoster, language, world]);
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -533,9 +629,9 @@ export default function App() {
   // should be. Smoke now counts executeRound call sites against uses of this helper.
   const formForRound = () => ({
     ...form,
-    identity: form.identity === "H"
+    identity: form.identity === CUSTOM_IDENTITY_ID
       ? (form.customIdentity || "Custom")
-      : (IDENTITIES.find(i => i.id === form.identity)?.label || form.identity),
+      : form.identity,
   });
 
   const aliyunOptions = () => selectedModel === "qwen"
@@ -575,14 +671,30 @@ export default function App() {
   // empty — so the bottom border survived into every exported round. That is fixed at
   // the source in buildStatsBox; this stays because the filter is the thing that
   // breaks silently when the box format moves.
+  //
+  // IT SPLITS THE BOX OFF RATHER THAN DROPPING IT, since v1.4.1: the PDF wants
+  // the round header the player actually reads and the other two do not, and the
+  // way to serve both from one filter is to return the parts separately rather
+  // than to grow a second filter beside it. `text` is byte-identical to what it
+  // always was, which is what keeps clipboard and TXT unmoved.
+  const BOX_EDGES = ["╔", "╚"];
+  const isStatsBoxPart = (para) => BOX_EDGES.some((e) => para.startsWith(e));
+  const isOptionLine = (para) => /^[A-D]\.\s/.test(para);
   const storyRounds = () => messages
     .filter(m => m.role === "assistant" && !m.hidden && !m.error)
-    .map((m, i) => ({
-      n: i + 1,
-      text: m.content.split("\n\n")
-        .filter(p => !p.startsWith("╔") && !p.startsWith("╚") && !/^[A-D]\.\s/.test(p))
-        .join("\n\n").trim(),
-    }));
+    .map((m, i) => {
+      const paras = m.content.split("\n\n");
+      return {
+        n: i + 1,
+        // The round header EXACTLY as it is on screen, newlines and all. Joined
+        // with "\n" rather than "\n\n" so a box that was split by a blank line
+        // in an older save comes back as one block instead of two.
+        statsBox: paras.filter(isStatsBoxPart).join("\n").trim(),
+        text: paras
+          .filter(para => !isStatsBoxPart(para) && !isOptionLine(para))
+          .join("\n\n").trim(),
+      };
+    });
 
   const extractStoryText = () =>
     storyRounds().map(r => `=== Round ${r.n} ===\n${r.text}`).join("\n\n---\n\n");
@@ -609,23 +721,60 @@ export default function App() {
     const cardBorder = isLight ? "#a08060"  : "rgba(232,120,176,.15)";
     const cardSolid  = isLight ? "#a08060"  : "#2a1035";
     const textColor  = isLight ? "#1e1408"  : "#f0dce8";
+    // The header band is LIGHTER than the card it sits on, in both themes, and
+    // its text is picked to sit on it. It used to be the darkest thing on the
+    // page, which in the light theme put #3a2510 text on a #3a2210 band - the
+    // stats box was very nearly invisible on a printed page. Asked for from
+    // hand play, 2026-09-29.
     const headColor  = isLight ? "#3a2510"  : "#f8c8d8";
-    const headBg     = isLight ? "linear-gradient(135deg,#5c3820,#3a2210)" : "linear-gradient(135deg,#1e0820,#2d0a2e)";
+    const headBg     = isLight ? "linear-gradient(135deg,#f2e3c9,#e6d2ae)" : "linear-gradient(135deg,#3c1442,#4d1a52)";
     const font = "'Georgia','Noto Serif SC',serif";
 
     const rounds = storyRounds();
+    // One escaper for both halves of a card. The stats box carries the scene
+    // name, which is the model's text: a scene containing `<` must not become
+    // markup in the header any more than in the prose.
+    const esc = (v) => String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
+    // THE ROUND HEADER IS THE BOX, not a bar reading `Round 9`. The box already
+    // carries the round number, the scene and the affections, and printing a bar
+    // above it is a second, poorer answer to the same question - so the bar only
+    // survives as the fallback for a message that has no box at all (a story the
+    // player edited down, or a turn written before the box existed). Asked for
+    // from hand play, 2026-09-29: the export should read like the screen.
     const cards = rounds.map(r => `
       <div class="card">
-        <div class="card-head">Round ${r.n}</div>
-        <div class="card-body">${r.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</div>
+        ${r.statsBox
+          ? `<div class="card-stats"><pre>${esc(r.statsBox)}</pre></div>`
+          : `<div class="card-head">Round ${r.n}</div>`}
+        <div class="card-body">${esc(r.text).replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</div>
       </div>`).join("");
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Story Export</title><style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{background:${pageBg};font-family:${font};padding:28px 20px;min-height:100vh}
-      .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:20px;overflow:hidden;page-break-inside:avoid}
-      .card-head{background:${headBg};color:#f8c8d8;font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
+      /* THE ROUNDS FLOW; the FRAME does not split. An avoid-break on the whole
+         card pushed any round that would not fit whole onto the next
+         page, so a two-page export was mostly white paper. Rounds now run on
+         and a long one breaks across pages like prose - but the stats box is
+         drawn out of box-drawing characters and half a frame is not a frame,
+         so the avoid moves down to it. Asked for from hand play, 2026-09-29. */
+      .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:14px;overflow:hidden}
+      .card-head{background:${headBg};color:${headColor};font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
+      /* A pre block for the box, and a fixed-width family FIRST: the frame is
+         drawn out of box-drawing characters and only lines up when every column
+         is one width. On screen it sits in the story serif and ripples; here it
+         can be what it was meant to be. The app font stays behind it so that
+         the CJK inside the frame still renders in the game typeface. */
+      /* THE BAND IS FULL WIDTH AND THE FRAME IS CENTRED IN IT. Centring the
+         text instead (text-align:center on the pre) would centre each LINE
+         separately, and the lines are only equal width if every CJK glyph in
+         the monospace fallback is exactly two columns - which is the one thing
+         box-drawing output cannot assume. A block centred as a unit keeps the
+         frame square whatever the font does. */
+      .card-stats{background:${headBg};padding:10px 14px;display:flex;justify-content:center;overflow:hidden;page-break-inside:avoid;break-inside:avoid}
+      .card-stats pre{margin:0;color:${headColor};font-family:'Consolas','Menlo','Noto Sans Mono CJK SC',monospace,${font};
+        white-space:pre;font-size:10px;line-height:1.55}
       .card-body{color:${textColor};font-size:13px;line-height:1.85;padding:14px 16px}
       .card-body p{margin-bottom:.9em}
       .card-body p:last-child{margin-bottom:0}
@@ -640,6 +789,44 @@ export default function App() {
     idoc.open(); idoc.write(html); idoc.close();
     iframe.contentWindow.onafterprint = () => document.body.removeChild(iframe);
     setTimeout(() => iframe.contentWindow.print(), 300);
+  };
+
+  // ── the run boundary ────────────────────────────────────────────────────
+  // Every surface that belongs to ONE RUN rather than to the round loop, cleared
+  // in one function - because there are two ways into a run, New Game and Load,
+  // and they had already drifted apart in three places:
+  //
+  //   - New Game POPPED the module-level social buffer and merged it in, so
+  //     round 1 of a new run opened with the abandoned run's Instagram post and
+  //     its notification dots already on the phone. Load cleared it.
+  //   - Load left `topMember` pointing at the other run's member, so the top bar
+  //     showed her face and read her affection against an id the loaded save does
+  //     not have - `getAffection` returns 0, so she also showed as a Stranger.
+  //   - neither cleared an open achievement or special-event modal.
+  //
+  // Everything here is cleared UNCONDITIONALLY and what a run starts with is
+  // passed in. That asymmetry is what makes it safe to add a surface later:
+  // forgetting one in the argument list leaves it empty, which is the harmless
+  // direction, where forgetting a setter at one of two call sites leaks the other
+  // run's state into this one. Reported from hand play, 2026-09-29.
+  const beginRun = ({ socialFeeds = {}, kktMessages = {}, kktUnlocked = {}, topMember = null } = {}) => {
+    // Module-level in mainAgent, so it survives re-renders by design and is the
+    // one piece of this that a re-render cannot clear.
+    resetPendingSocial();
+    setSocialFeeds(socialFeeds);
+    setKktMessages(kktMessages);
+    setKktUnlocked(kktUnlocked);
+    // The strip AND the dots on the top bar: hasNotifDot reads this same array.
+    setActiveNotifications([]);
+    setAchievement(null);
+    setSpecialEvent(null);
+    // null, not the main member: `displayTopMember` already falls back to her,
+    // and the caller's `mainMember` is derived from the form of the render that
+    // is being replaced.
+    setTopMember(topMember);
+    // No ↺ Retry and no ✎ edit until a round has been played in THIS run, or
+    // they would restore the other run's stats and memory into it.
+    preRoundSnapshotRef.current = null;
   };
 
   const startNewGame = async () => {
@@ -657,12 +844,10 @@ export default function App() {
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
     setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
-      || buildClassicRoster(
-      selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
-    setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
+      || buildClassicRoster(selectedGroup, mainId, subIds, members.map(m => m.id)));
+    setMessages([]); setCurrentOptions([]);
     // A new game states its birth year at Setup, so nothing here is an estimate.
     setBirthYearEstimated(false);
-    setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
     setTriggeredAchievements(new Set());
     statsRef.current = null;
     memoryRef.current = createEmptyMemory();
@@ -676,26 +861,16 @@ export default function App() {
     memoryRef.current = mem;
     const initFeeds = {};
     allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
-    setSocialFeeds(initFeeds);
-    setTopMember(mainMember);
+    // A new game has no previous round, so every feed starts empty and nothing
+    // is popped. See beginRun.
+    beginRun({ socialFeeds: initFeeds, topMember: mainMember });
     try {
-      const prevSocial = popPendingSocial();
-      if (prevSocial?.feeds) {
-        setSocialFeeds(p => {
-          const updated = { ...p };
-          for (const [mid, feed] of Object.entries(prevSocial.feeds)) {
-            updated[mid] = { ...(p[mid] || {}), bubble: feed.bubble?.length ? feed.bubble : (p[mid]?.bubble || []), instagram: feed.instagram || p[mid]?.instagram || null, weverse: feed.weverse || p[mid]?.weverse || null, timestamp: feed.timestamp || Date.now(), lastUpdate: Date.now() };
-          }
-          return updated;
-        });
-      }
-      if (prevSocial?.notifs?.length) setActiveNotifications(prevSocial.notifs);
       preRoundSnapshotRef.current = { stats: { ...initialStats }, memory: JSON.parse(JSON.stringify(mem)), kktUnlocked: {}, kktMessages: {}, triggeredAchievements: new Set(), playerChoice: "Game start" };
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: formForRound(),
         members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
-        aliyun: aliyunOptions(), timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       statsRef.current = result.newStats;
       setStats({ ...result.newStats });
@@ -719,10 +894,18 @@ export default function App() {
     // carries no group id before v1.4.0, so identifying its cast means fetching
     // the library — and a half-applied load would leave the player in a game
     // assembled from two different saves.
-    let migrated, resolved;
+    // The save's OWN world is fetched here rather than read off `world` state,
+    // which still holds the world the player was last looking at - and since
+    // v1.4.1 step 4 the world decides what section 4 says about this cast, so
+    // resolving a chaebol save against the idol world would describe a family
+    // compound as a group under an Entertainment agency. It is a fetch, so it can
+    // fail, which is exactly why it belongs inside this try: every fallible step
+    // completes before the first setter runs.
+    let migrated, resolved, saveWorld;
     try {
       migrated = await migrateSave(save, language, { preferGroupId: selectedGroup });
-      resolved = await resolveRoster(migrated.roster, language);
+      saveWorld = await loadWorld(migrated.worldId, language);
+      resolved = await resolveRoster(migrated.roster, language, saveWorld);
       if (!resolved.members.length) throw new Error("roster resolved to an empty cast");
     } catch (e) {
       // Loudly, and without touching the current game. A roster that cannot be
@@ -738,8 +921,16 @@ export default function App() {
     // ✎ edit controls would appear straight away on the loaded save's last
     // message and restore the *other* game's stats and memory into it. It also
     // gives the intended gating: no retry or edit until a round is played here.
-    preRoundSnapshotRef.current = null;
-    resetPendingSocial();
+    // ...which beginRun does, below, along with every other surface that belongs
+    // to the run being replaced.
+
+    // The pace this save was built with becomes its story mode, once, for a
+    // player who has never set one. It is a live SETTING and not a save field,
+    // so this is a seed rather than a migration: persisting it here is what
+    // makes "never set one" false from now on, and Settings owns it afterwards.
+    const seeded = seededStoryMode(migrated.form?.pace);
+    setStoryMode(seeded);
+    saveToStorage("rv_sim_story_mode", seeded);
 
     // Set before setSelectedGroup, and deliberately not through setPhase: the
     // effect that mirrors phase into phaseRef has not run yet, and the group
@@ -752,6 +943,19 @@ export default function App() {
     // config with TWICE member ids in `form` — no crash, just a prompt whose
     // main member was undefined.
     setSelectedGroup(migrated.groupId);
+    // ...and the world, for exactly the reason one line up. A save records its
+    // `worldId`, and playing it in whichever world happens to be selected would
+    // hand it another world's identities, phase beats and address register — the
+    // same bug as a TWICE save loaded under Red Velvet's config, one field over.
+    // After `phaseRef` is pinned to "game", so the identity effect cannot clear an
+    // identity this save legitimately holds.
+    setSelectedWorld(migrated.worldId);
+    // ...and the already-fetched object is applied directly, not left to the load
+    // effect. That effect keeps the PREVIOUS world in place while it fetches when
+    // the phase is "game", so a round played in the gap would be built against the
+    // world the player was last looking at. It cost a fetch above; spending it is
+    // the whole reason it was made fallible there rather than here.
+    setWorld(saveWorld);
     // A save carries its own roster and that one is authoritative. Leaving the
     // builder's behind would make a later New Game silently prefer it over the
     // group the player picked.
@@ -775,15 +979,28 @@ export default function App() {
     } else {
       memoryRef.current = savedMemory;
     }
-    setSocialFeeds(save.socialFeeds || {});
-    setKktMessages(save.kktMessages || {});
-    setKktUnlocked(save.kktUnlocked || {});
+    // The social feeds, the Kakao threads and the unlocks this save carries -
+    // and NOTHING from the run being replaced: no leftover notification dot, no
+    // other run's Instagram post, no pending round waiting to be popped.
+    beginRun({
+      socialFeeds: save.socialFeeds || {},
+      kktMessages: save.kktMessages || {},
+      kktUnlocked: save.kktUnlocked || {},
+    });
     setCurrentOptions(save.currentOptions || []);
-    setActiveNotifications([]);
     setTriggeredAchievements(new Set(save.triggeredAchievements || []));
     setPhase("game");
     showNotif("Save loaded");
   };
+
+  // Tapping a place submits an ordinary choice, which is what makes the picker free:
+  // no schema field, no tail entry, no second input per round (docs/V140_PLAN.md 7.1).
+  // The sentence is a per-language TEMPLATE from i18n, and ko's carries the 으로/로 pair
+  // for resolveKoreanParticles to pick - the word in front of a Korean particle is a
+  // variable here, which is the whole reason that function exists. It is inert on zh
+  // and en, which carry no pair.
+  const placeChoiceText = (place) =>
+    resolveKoreanParticles(t.map.go.replace("{place}", place));
 
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return;
@@ -811,7 +1028,7 @@ export default function App() {
         form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-        aliyun: aliyunOptions(), timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       const prevAff = { ...statsRef.current.multiAff, [form.mainMember]: statsRef.current.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -912,7 +1129,7 @@ export default function App() {
         form: formForRound(),
         members, mainId: form.mainMember, subIds: form.subMembers || [],
         groupConfig, world, apiKey, selectedModel, kktUnlocked: snap.kktUnlocked, language, reasoningEnabled,
-        aliyun: aliyunOptions(), timeSpeed,
+        aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       const prevAff = { ...snap.stats.multiAff, [form.mainMember]: snap.stats.affection };
       const newStats = { ...result.newStats, _prevAffections: prevAff };
@@ -950,6 +1167,19 @@ export default function App() {
     return { letter, text };
   });
   const hasNotifDot = (platform) => activeNotifications.some(n => n.platform === platform);
+  // The top bar's icons are the world's declared platforms, in the world's own order, with
+  // the private channel last and gated on the main member's KKT unlock. This was four
+  // literals in the JSX, so a world declaring two would still have drawn four buttons - two
+  // of them opening an overlay for a platform its story never uses. The world is the SAVE's
+  // world (loadSave sets it from migrated.worldId), so a run keeps the platforms it started
+  // with even if another world is selected afterwards.
+  const platformBar = (() => {
+    const { social, private: priv } = platformsOf(world);
+    return [
+      ...social.map((p) => ({ icon: p.icon, type: p.ui, badge: p.badge, locked: false })),
+      ...(priv ? [{ icon: priv.icon, type: priv.ui, badge: priv.badge, locked: !kktUnlocked[form.mainMember] }] : []),
+    ];
+  })();
   const displayTopMember = topMember || mainMember;
   const topAff = displayTopMember ? getAffection(displayTopMember.id) : 0;
   const stageIdx = getStageIdx(topAff);
@@ -986,9 +1216,9 @@ export default function App() {
   // ── Cover Page ──
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.0", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.0", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.0", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.1", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.1", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.1", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
     const titleGrad = theme === "dark"
@@ -1070,7 +1300,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} worldLabel={worldLabel} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -1295,20 +1525,38 @@ export default function App() {
     // `world` is in the gate because buildSystemPrompt cannot run without it.
     // It is fetched on mount and the player cannot reach this screen faster
     // than that, but a start with no world would throw rather than degrade.
-    const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && form.pace && world;
+    const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && world;
+    // ...and since step 3 the page RENDERS from it too: the identity grid is the
+    // world's list and the cast field's label is the world's noun. A world switch
+    // nulls it for the length of one fetch, so this is a real state and not only
+    // the first paint.
+    if (!world) return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+    );
     return (
       <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
-          <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
-            <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>{language === "zh" ? "创建角色" : language === "ko" ? "캐릭터 생성" : "Character Creation"}</h2>
-            <p style={{ fontSize: 10, color: th.textMuted }}>{language === "zh" ? "已加载组合: " : language === "ko" ? "그룹 로드됨: " : "Group loaded: "}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</p>
-            <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
-              <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
-              <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
-              <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
-            </div>
+          {/* ONE LINE, NOT FOUR - the page ran past 844px and the Start button sat
+              below the fold behind half a row of identities, on the one screen
+              whose whole job is to be completed. What went:
+
+              - the "Character Creation" heading, which says what the labels under
+                it and the Start button at the bottom already say;
+              - "Key configured", which is the NORMAL state and needs no words. A
+                MISSING key is the actionable one, so that still renders, in red,
+                and is the only thing this row ever shouts.
+
+              Every affordance survives, the model switch included; only the
+              stacking is gone. Reported from hand play, 2026-09-29. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, padding: "2px 0 0", fontSize: 10, color: th.textMuted }}>
+            {/* The noun is the world's too. This line said "Group loaded" in all
+                three languages, which is the cast's kind and not a fixed word. */}
+            <span>{t.cast.orgLoaded(world.castLore.orgNoun)}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</span>
+            {!apiKey && <span style={{ color: "#d07070" }}>{language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>}
+            <span>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
+            <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
           </div>
 
           {/* The custom door already chose the cast AND the slots, so Setup shows
@@ -1334,16 +1582,23 @@ export default function App() {
                   {t.cast.changeCast}
                 </button>
               </div>
-              {/* The cast debuts as a group, so it needs a name — and naming the
-                  agency after it is what stops the model inventing one. A
+              {/* The cast belongs to something, so it needs a name — and naming the
+                  organisation after it is what stops the model inventing one. A
                   cross-group cast was previously described as the main member's
-                  group, which is how a BLACKPINK main produced "YG". */}
-              <div className="s-l">{t.cast.castName}</div>
+                  group, which is how a BLACKPINK main produced "YG".
+
+                  WHAT that organisation is comes from the world, not from here:
+                  an idol agency, a university, a company, a family firm. The world
+                  supplies one noun and the sentence around it, because "they debut
+                  as one group" is a different claim from "they study here" rather
+                  than the same sentence with a different word in it. */}
+              <div className="s-l">{t.cast.orgName(world.castLore.orgNoun)}</div>
               <input className="s-in" value={castName} maxLength={24}
                 onChange={e => setCastName(e.target.value)}
-                placeholder={t.cast.castNamePlaceholder} style={{ marginBottom: 3 }} />
+                placeholder={DEFAULT_CAST_NAME} style={{ marginBottom: 3 }} />
               <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-                {t.cast.castNameHint(agencyFor(castName.trim() || DEFAULT_CAST_NAME))}
+                {world.castLore.orgHint.replace("{org}",
+                  orgNameFor(castName.trim(), world.castLore.orgSuffix))}
               </p>
             </>
           ) : (
@@ -1388,18 +1643,10 @@ export default function App() {
           </>
           )}
 
-          <div className="s-l">{t.setup.identity}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {IDENTITIES.map(id => (
-              <div key={id.id} onClick={() => setForm(f => ({ ...f, identity: id.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === id.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === id.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === id.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {t.identities[id.id] || id.label}
-              </div>
-            ))}
-          </div>
-          {form.identity === "H" && (
-            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
-          )}
+          {/* THE IDENTITY PICKER MOVED BELOW THE WORLD PICKER — v1.4.1 step 3.
+              An identity is a position inside a world, so the list means nothing
+              until the world is chosen: Setup now reads name / birth year / world
+              / identity. */}
 
           {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
               second hand test. A caption inside the wheel's own column pushes
@@ -1424,24 +1671,59 @@ export default function App() {
                 a year the address protocol must never see. The wheel cannot
                 produce a partial or out-of-range year at all. */}
             <div style={{ flex: 1, minWidth: 88 }}>
-              <YearWheel value={form.birthYear || DEFAULT_YEAR} onChange={setBirthYear}
+              <YearWheel value={form.birthYear} onChange={setBirthYear}
                 min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
                 ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
                 colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
             </div>
           </div>
 
-          <div className="s-l">{t.setup.pace}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {t.paces.map((p, i) => (
-              <div key={PACES[i]} onClick={() => setForm(f => ({ ...f, pace: PACES[i] }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.pace === PACES[i] ? th.accent : th.groupBtnBorder}`, background: form.pace === PACES[i] ? th.langBtnActiveBg : th.memberBtnBg, color: form.pace === PACES[i] ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {p}
+          {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
+              Settings as the four-way story mode, because a choice frozen at
+              character setup cannot be a choice about how the story is driven -
+              and the tail is where a live one costs nothing. Step 3 put the
+              WORLD picker in this slot, which is why both cover doors get worlds
+              without the entry merge: they both pass through this page.
+
+              One row per world from `index.json`, so step 7 ships three worlds
+              as data. Only the SELECTED world's blurb renders: four blurbs at
+              390px is a wall of text under a control, and the blurb's job is to
+              say what the choice she has made means. */}
+          <div className="s-l">{t.setup.world}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 3 }}>
+            {worldList.map(w => (
+              <div key={w.id} onClick={() => setSelectedWorld(w.id)}
+                style={{ padding: "7px 8px", borderRadius: 10, textAlign: "center", border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                {w.emoji} {w.name?.[language] || w.name?.zh || w.id}
               </div>
             ))}
           </div>
+          <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+            {worldList.find(w => w.id === selectedWorld)?.blurb?.[language]
+              || worldList.find(w => w.id === selectedWorld)?.blurb?.zh || ""}
+          </p>
 
-          <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
+          {/* The world's own identities, plus the custom escape hatch. Not a list
+              in this file: `world.identities` is where they are declared, and the
+              copy that used to live here read as an id-to-label mapping that was
+              an identity function. The label is the world's `name`, which is the
+              same string section 6 of the prompt prints — one copy, so the two
+              cannot disagree about what the player picked. */}
+          <div className="s-l">{t.setup.identity}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
+              { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
+              <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
+                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                {it.label}
+              </div>
+            ))}
+          </div>
+          {form.identity === CUSTOM_IDENTITY_ID && (
+            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
+          )}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             {/* Back goes one step, not all the way out: on the custom door the
                 previous step is the builder, and dropping the player at the cover
                 would discard a cast they may have spent real time assembling. */}
@@ -1504,7 +1786,7 @@ export default function App() {
             })}
           </div>
           <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-            {[{ icon: "💜", type: "bubble" }, { icon: "📸", type: "instagram" }, { icon: "🌿", type: "weverse" }, { icon: "💬", type: "kakao", locked: !kktUnlocked[form.mainMember] }].map(b => {
+            {platformBar.map(b => {
               const showDot = hasNotifDot(b.type) && !b.locked;
               return (
                 <button key={b.type} onClick={() => openSocialPlatform(b.type)}
@@ -1523,10 +1805,10 @@ export default function App() {
           <div style={{ padding: "3px 8px", background: th.notifBarBg, borderBottom: `1px solid ${th.notifBarBorder}`, display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, fontSize: 9, color: th.notifBarText }}>
             {activeNotifications.map((n, i) => {
               const m = members.find(mb => mb.id === n.memberId);
-              const pn = { bubble: "bubble", instagram: "IG", weverse: "Weverse", kakao: "KKT" };
+              // The badge comes from the catalog rather than a second list of four here.
               return (
                 <span key={i} onClick={() => openSocialPlatform(n.platform, n.memberId)} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
-                  {m?.name_kr || m?.name} {t.notif.updated} {pn[n.platform] || n.platform}
+                  {m?.name_kr || m?.name} {t.notif.updated} {platformBar.find(b => b.type === n.platform)?.badge || n.platform}
                 </span>
               );
             })}
@@ -1660,6 +1942,21 @@ export default function App() {
             would append a turn and leave the open draft on the wrong index. */}
         {editingIdx === null && (
         <div style={{ padding: "6px 8px", background: th.inputAreaBg, borderTop: `1px solid ${th.borderFaint}`, display: "flex", gap: 5, alignItems: "flex-end", flexShrink: 0 }}>
+          {/* The map SUPPLEMENTS the four options rather than replacing them: the options
+              are generated per round and this list is the same every round, so making them
+              exclusive would hide a round's own options behind a fixture. Disabled rather
+              than hidden while the world loads, so the row does not change shape. */}
+          {/* IT WEARS THE SEND BUTTON'S COLOURS, and that is the point rather than
+              a preference: these are the two round 34px buttons on the same row,
+              they both submit a choice, and they were the only pair in the app
+              saying "tappable" two different ways - a bordered neutral circle here
+              against the accent fill three elements over. One state, one colour:
+              the accent gradient when it will act, the disabled fill when it will
+              not. The opacity .45 went with it, because the disabled fill IS the
+              signal now and dimming it as well made the row look faulty. */}
+          <button onClick={() => setOverlay({ type: "map" })} disabled={loading || !world}
+            aria-label={t.map.title} title={t.map.title}
+            style={{ width: 34, height: 34, borderRadius: "50%", border: th.border, background: !loading && world ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 15, cursor: !loading && world ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>📍</button>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
             placeholder={language === "zh" ? "输入你的选择..." : language === "ko" ? "선택 사항 입력..." : "Type your choice..."}
@@ -1671,8 +1968,15 @@ export default function App() {
         )}
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} worldLabel={worldLabel} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
+        {overlay?.type === "map" && (
+          <MapOverlay theme={theme} t={t} fontScale={fontScale}
+            canon={world?.places || []}
+            discovered={memoryRef.current?.places || []}
+            onPick={(name) => { setOverlay(null); sendMessage(placeChoiceText(name)); }}
+            onClose={() => setOverlay(null)} />
+        )}
 
         {/* Settings Overlay */}
         {showSettings && (
@@ -1714,6 +2018,41 @@ export default function App() {
                   {reasoningEnabled ? t.settings?.reasoningOn : t.settings?.reasoningOff}
                 </div>
               </div>
+
+              {/* Story Mode - four-way, the same control shape as Time Speed
+                  below it, and deliberately beside it: both are live pacing
+                  dials that ride in the dynamic tail, so toggling either
+                  mid-run costs nothing in cache terms.
+
+                  The knob geometry is derived from the number of modes rather
+                  than written out, because MODE_IDS is the authority on how
+                  many there are and a hardcoded fourth position would go wrong
+                  the moment a fifth mode is added. 16px knob, 3px inset, 21px
+                  step - the same numbers Time Speed uses for three. */}
+              {(() => {
+                const idx = Math.max(0, MODE_IDS.indexOf(storyMode));
+                const width = 6 + 16 + (MODE_IDS.length - 1) * 21;
+                const cycle = () => {
+                  const next = MODE_IDS[(idx + 1) % MODE_IDS.length];
+                  setStoryMode(next);
+                  saveToStorage('rv_sim_story_mode', next);
+                };
+                // `free` reads as the off position: no authored events. The other
+                // three all add something, so they all read as on.
+                const on = storyMode !== 'free';
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, color: th.textPrimary, fontWeight: 600 }}>{t.settings?.storyModeTitle}</div>
+                      <div onClick={cycle}
+                        style={{ width, height: 24, borderRadius: 12, background: on ? th.reasoningOnBg : th.reasoningOffBg, border: `1px solid ${on ? th.reasoningOnBorder : th.reasoningOffBorder}`, cursor: 'pointer', position: 'relative', transition: 'all .2s', flexShrink: 0 }}>
+                        <div style={{ position: 'absolute', top: 3, left: 3 + idx * 21, width: 16, height: 16, borderRadius: '50%', background: on ? '#fff' : th.reasoningKnob, transition: 'left .2s' }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: th.textMuted, lineHeight: 1.5 }}>{t.modes?.[MODE_IDS[idx]]}</div>
+                  </div>
+                );
+              })()}
 
               {/* Time Speed */}
               {(() => {
@@ -1895,7 +2234,7 @@ export default function App() {
                       form: formForRound(),
                       members, mainId: form.mainMember, subIds: form.subMembers || [],
                       groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled,
-                      aliyun: aliyunOptions(),
+                      aliyun: aliyunOptions(), timeSpeed, storyMode,
                     });
                     const epStats = epilogue.newStats || statsRef.current;
                     const statsBox = buildStatsBox(epStats, members, form.mainMember, form.subMembers || [], t);

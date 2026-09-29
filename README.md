@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.0
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.1
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.4.0-e887b0)
+![Version](https://img.shields.io/badge/version-1.4.1-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -44,10 +44,10 @@
 
 1. **Cover Page** — Select girl group → choose language → New Game or Load Save
 2. **Key Input** — Paste your API Key → pick a provider (for Aliyun: 🎁 Free credits or 💳 Paid + model)
-3. **Character Creation** — Main member + Sub members + Identity + Name/Age + Pace
+3. **Character Creation** — Main member + Sub members + Identity + Name/Birth year
 4. **Game** — Read story → choose A/B/C/D (or type a custom action) → repeat
 5. **Social Media** — Check Bubble / Instagram / Weverse / KKT for member updates while the next round generates
-6. **Settings (⚙️)** — Deep Thinking, Time Speed, Day/Night, Text Size, Export, Help, Switch Model
+6. **Settings (⚙️)** — Deep Thinking, Story Mode, Time Speed, Day/Night, Text Size, Export, Help, Switch Model
 7. **Save** — Tap 💾 anytime
 
 ---
@@ -57,7 +57,8 @@
 | Control | Options | Effect |
 | --- | --- | --- |
 | 🧠 **Deep Thinking** | On / **Off (default)** | Off → faster, roughly half the cost, and story quality holds up. On → the model reasons before writing; richer output, ~2x cost, slower. |
-| ⏳ **Time Speed** | 🐌 Slow / **🕛 Normal** / ⚡ Fast | Injected as a `[Pacing]` hint in the dynamic tail. Slow keeps the scene in place; Fast jumps ahead to the next event or date. |
+| 🎬 **Story Mode** | 🌿 **Free (default)** / 💕 Romance / 🔥 Pressure / 🎭 Dramatic | What drives the plot. Free means no external events — the relationship is the story. Pressure doubles scandal and secrecy swings; Dramatic has the main and sub members compete for you. Sent as a `[Story Mode]` rule in the dynamic tail, so switching mid-run is instant and free. |
+| ⏳ **Time Speed** | 🐌 Slow / **🕛 Normal** / ⚡ Fast | Injected as a `[Time Speed]` hint in the dynamic tail. Slow keeps the scene in place; Fast jumps ahead to the next event or date. |
 | 🌗 **Day / Night** | Dark (default) / Light | Full theme swap. Persisted in `rv_sim_theme`. |
 | 🔠 **Text Size** | A (1x) / A+ (1.25x) | Scales story, options, and social overlay text. |
 | 📖 **Export** | Clipboard / `.txt` / PDF | Strips stat boxes and option lines — pure narrative, round by round. PDF respects your current theme. |
@@ -65,7 +66,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.4.0)
+## 💰 API Cost & Performance (v1.4.1)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -176,6 +177,19 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.4.1
+
+The same cast, in four different worlds.
+
+* 🌏 **Three new worlds beside the idol industry** — **Campus**, **Office** and **Chaebol Houses**. You pick one at character setup, beside your name and birth year, and whichever cast you have assembled lives there instead. Each world brings its own opening scene, its own ten places, its own seven identities for you to play, and its own account of what raises and lowers each of your three stats.
+* 🎓 **An identity is a position inside the world you picked** — their professor or their junior on campus, their team lead or a new hire in the office, a rival heiress or the house's chief of staff among the chaebol families. Each one points the register the right way: as their professor *they* address *you* as `교수님`, and as a first-year you are the one saying `선배님`. The ex-girlfriend route exists in every world.
+* 🎬 **Story Mode lives in Settings now, and it changes mid-game** — it used to be chosen once at character setup and frozen for the whole run. Free, Romance, Pressure and Dramatic sit beside Deep Thinking and Time Speed, and switching mid-run costs nothing. Saves made before this release keep the pace they were started on.
+* 📍 **A map, beside the input row** — it lists the world's own places and every place the story has invented as you played, and tapping one becomes that round's choice. Moving costs a round, because a scene *is* a round.
+* 🏫 **Nobody has a comeback in a lecture hall** — the world now states what the cast does all day, so a campus cast has classes, deadlines and club activities rather than practice, schedules and a company. Their Instagram posts get the likes a student's post gets, instead of the eight hundred thousand an idol's does.
+* 💬 **Only the platforms a world actually has** — Bubble is a member-to-fan subscription and Weverse a fan community, both of which mean nothing outside the idol industry. The three new worlds carry Instagram and KakaoTalk only, in the panel strip as well as in the writing.
+
+> 🔎 Honest about coverage: the idol world is unchanged to play, and the three new ones are brand new writing. They were checked offline against the rendered prompt in all three languages, but they have had a fraction of the hours of play the idol world has — if something reads wrong, it is likeliest there, and the fastest thing you can send is the round it happened in.
 
 ## 🎉 What's New in v1.4.0
 
@@ -331,7 +345,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.4.0              | |
+|  |              LLM Text Adventure . v1.4.1              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -356,7 +370,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  |  Sub Members: [Seulgi] [Joy]                          | |
 |  |  NPC: Seulgi, Joy                                     | |
 |  |  Identity: [Trainee] [Staff] [Artist] [Fan] ...       | |
-|  |  Info: [Name] [Age]     Pace: [Slow/Normal/Pressure]  | |
+|  |  Info: [Name]           Birth year: [ 1998 ]          | |
 |  |  [ Back ]  [ Start with Irene ]                       | |
 |  +-------------------------------------------------------+ |
 +------------------------------------------------------------+
@@ -434,7 +448,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.4.0 - Architecture                     |
+|          Idol Dating Sim  v1.4.1 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -448,7 +462,7 @@ npm run deploy                  # build + patch index.html + push main
 |  | Tier 1 - Static System Prompt (100% cache hit after R1)        |  |
 |  | |-- System instructions + Language rules                       |  |
 |  | |-- Member profiles (personality / queer texture)              |  |
-|  | |-- Identity backgrounds (7+1 types) + Pace rules              |  |
+|  | |-- Identity backgrounds (7+1 types)                           |  |
 |  | |-- Social platform rules (Bubble/INS/Weverse/KKT)             |  |
 |  | |-- NPC rules + Game rules + Prohibitions                      |  |
 |  | +-- JSON Schema                                                |  |
@@ -461,7 +475,8 @@ npm run deploy                  # build + patch index.html + push main
 |  | |-- Player stats + affections                                  |  |
 |  | |-- Stage changes + NPC appearance state                       |  |
 |  | |-- KKT messages (unlocked members)                            |  |
-|  | +-- [Pacing] hint from the Time Speed setting                  |  |
+|  | |-- [Story Mode] rule from the Story Mode setting              |  |
+|  | +-- [Time Speed] hint from the Time Speed setting              |  |
 |  +---------------------------------------------------------------+  |
 |                  |  ~87% of input tokens bill at cache-hit rate     |
 |                  v                                                  |
@@ -490,7 +505,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.4.0 Round Flow                            |
+|                    v1.4.1 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |
@@ -498,7 +513,7 @@ npm run deploy                  # build + patch index.html + push main
 |  Step 0: preRoundSnapshotRef captures state (enables Retry)     |
 |        |                                                        |
 |  Step 1: collapseHistoryIfNeeded -> buildHistoryLedger +        |
-|          buildDynamicTail (+ [Pacing] from Time Speed)          |
+|          buildDynamicTail (+ [Story Mode] and [Time Speed])     |
 |        |                                                        |
 |  Step 1.5: popPendingSocial() -> Display last round's social    |
 |    |-- Notification bar + red dots -> Instant                   |

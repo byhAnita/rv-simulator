@@ -17,12 +17,47 @@ export function createEmptyMemory() {
     // second record in a different shape; nothing ever wrote it, so the tail line it
     // fed was never sent to any model. An old save may still carry the key.
     memberAppearances: {},
+    // Places the model INVENTED, observed from its own `scene` line: [{name, round}].
+    // Client-side only, and that is an invariant rather than a detail: a list that grows
+    // mid-game must never reach the static system prompt, because the round it changed
+    // would invalidate the whole ~5,500-token cached prefix. A discovered place reaches
+    // the model only as the text of a choice the player tapped. docs/V140_PLAN.md 6.1.
+    places:            [],
   };
 }
 
 // Detects any save without the new history field (v12 had summaries/fullStories, v11 had storyRounds)
 export function isLegacyMemory(memory) {
   return memory && memory.history === undefined;
+}
+
+// The map is a list, so it needs a bound. 30 is a display bound and not a quota: the
+// list can gain at most one entry per round, and only in a round whose scene named no
+// canon place.
+export const PLACES_MAX = 30;
+
+// Two spellings of one place must be one row on the map, so the identity of a place is
+// its name with case, whitespace and punctuation removed. `Rooftop`, `rooftop` and
+// `Rooftop.` are the same place. `Rooftop` and `the rooftop stairwell` are NOT, and that
+// is accepted map clutter rather than a guess: a discovered place reaches the model only
+// as the text of a choice the player tapped, so a duplicate row costs a row and nothing
+// else.
+export function placeKey(name) {
+  return String(name || "").toLowerCase().replace(/[\s\p{P}]+/gu, "");
+}
+
+// Appends a discovered place if it is new. At the cap it REFUSES rather than dropping the
+// oldest, the same choice addSaveSlot makes one file over and for the same reason: an
+// evicted entry takes away somewhere the player can currently tap, while refusing only
+// stops recording new ones. Returns the same array object when nothing is added, so a
+// caller that renders the result cannot show a place that was not recorded.
+export function recordPlace(places, name, round) {
+  const list = Array.isArray(places) ? places : [];
+  const key = placeKey(name);
+  if (!key) return list;
+  if (list.length >= PLACES_MAX) return list;
+  if (list.some((p) => placeKey(p?.name) === key)) return list;
+  return [...list, { name: String(name).trim(), round }];
 }
 
 // Called at the START of each round, before building the prompt.
@@ -57,7 +92,7 @@ export function collapseHistoryIfNeeded(memory) {
 export function updateMemory(memory, updates) {
   const {
     playerStats, affections, historyEntry,
-    kktMessages, stageChanges, memberAppearances,
+    kktMessages, stageChanges, memberAppearances, discoveredPlace,
   } = updates;
 
   if (playerStats) memory.playerStats = playerStats;
@@ -91,6 +126,13 @@ export function updateMemory(memory, updates) {
     Object.entries(memberAppearances).forEach(([mid, rounds]) => {
       memory.memberAppearances[mid] = [...(memory.memberAppearances[mid] || []), ...rounds].slice(-10);
     });
+  }
+  // Written here, beside the appearance record, because both are observed from what the
+  // model wrote and this function is the single writer of memory. Deriving it in App.jsx
+  // instead would make two writers of one record, which is how the tail's member lines
+  // came to disagree with each other.
+  if (discoveredPlace?.name) {
+    memory.places = recordPlace(memory.places, discoveredPlace.name, discoveredPlace.round);
   }
   return memory;
 }

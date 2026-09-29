@@ -8,7 +8,8 @@ import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
-import { getIdentity, getPaceRule, renderIdentityBackground } from "../rag/worldLoader";
+import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground } from "../rag/worldLoader";
+import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -61,6 +62,16 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const subList = subIds.map(id => members.find(m => m.id === id)).filter(Boolean);
   const npcList = npcIds.map(id => members.find(m => m.id === id)).filter(Boolean);
 
+  // The world declares WHICH platforms exist; src/config/platformConfig.js holds what
+  // each one is. Derived here because section 1 names them, section 2's schema is built
+  // from them and section 7's rules are theirs - five renderings of one list, which is
+  // five chances for the sixth to be the copy that still says weverse.
+  const plat = platformsOf(world);
+  // "bubble/instagram/weverse/KKT" - the private channel last, as section 1 has always
+  // written it.
+  const platformNames = [...plat.social.map((p) => p.promptName), plat.private?.promptName]
+    .filter(Boolean).join("/");
+
   // Language rules
   const langRules = {
     zh: {
@@ -73,13 +84,13 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
       // competing.
       rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in Simplified Chinese.",
-      socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
+      socialRule: `Social media content must be in Simplified Chinese. DO NOT output Korean in ${platformNames} content.`,
     },
     en: {
       lang: "English",
       rule: "ALL generated content MUST be in English. DO NOT output Chinese characters. Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in English.",
-      socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
+      socialRule: `Social media content must be in English. DO NOT output Korean in ${platformNames} content.`,
     },
     ko: {
       lang: "Korean",
@@ -108,15 +119,17 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Pressure Scandal". Two vocabularies for one thing, and the model got the one
   // nobody can read: exactly the stage-label bug from step 6, one section up.
   //
-  // `name` fixes the identity. The pace needs no name field, because its authored
-  // rule already opens with a self-describing "[Pace: High Pressure]" — and
-  // sending the rule closes a live feature gap as well: `paceRules` was built into
-  // a local and never referenced, so "secrecy changes doubled" and "love triangle
-  // scenes probability doubled" were things the player could select and the model
-  // could not know. Both fall back to the id, so a world file without either still
-  // renders something true.
+  // `name` fixes the identity, and falls back to the id so a world file without
+  // one still renders something true.
+  //
+  // THE PACE IS NOT HERE ANY MORE. v1.4.1 step 2 replaced it with the four-way
+  // story mode, which is a live Settings switch rather than a setup choice — so
+  // its rule is appended to the DYNAMIC TAIL by `buildTailRules` and this
+  // function must never read it. That is the whole point: a mid-run change to
+  // how the story is driven costs no cached prefix, the same trade Time Speed
+  // already made. Anything that puts a mode rule back in here silently charges
+  // full price for ~5,500 tokens on the round after every toggle.
   const identityName = getIdentity(world, form.identity)?.name || form.identity;
-  const paceLine = getPaceRule(world, form.pace) || `Progression Pace: ${form.pace}`;
 
   // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
   // 1995 idol are not peers even though they may be months apart. Direction is
@@ -156,7 +169,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // and a custom identity has no background and rendered a second blank line.
   const castLines = [
     `${playerName}'s identity: ${identityName}`,
-    paceLine,
     `Main Member: ${mainMember?.name}${mainMember?.name_kr ? `(${mainMember.name_kr})` : ""}`,
     subList.length > 0 ? `Sub Members: ${subList.map(m => m.name).join(", ")}` : "",
     npcList.length > 0
@@ -205,6 +217,36 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Both are English rule text in every language file, so the three world files
   // must agree on them - smoke Layer I asserts they do.
   const phaseLines = world.phases.map(p => p.line).join("\n");
+
+  // Section 10: what actually moves each stat IN THIS WORLD. The stat KEYS never
+  // change (they are in the JSON schema, in validateAndFixOutput and in every
+  // save) and their display labels are i18n's - the world supplies only the prose
+  // saying what raises and lowers them, which is the half no other file holds a
+  // copy of. Secrecy in a lecture hall is broken by different things than secrecy
+  // in an agency, and until v1.4.1 step 4 the prompt said nothing about either.
+  //
+  // The icons are written as escapes rather than pasted, so this file stays ASCII;
+  // they must match the face section 10 already shows one line above, because two
+  // spellings of one quantity is what the [Stage Changes] id-vs-name bug was.
+  const STAT_FACE = {
+    selfId: "\u{1F308}Self-Identity",
+    secrecy: "\u{1F512}Secrecy",
+    mood: "\u{1F4AB}Mood",
+  };
+  const statNoteLines = ["selfId", "secrecy", "mood"]
+    .map(k => `- ${STAT_FACE[k]}: ${world.statNotes[k]}`).join("\n");
+
+  // Section 11: the canon places, and the one sentence that makes going somewhere
+  // mean something. `desc` is conditional for the same reason every member field
+  // is - an absent one renders nothing, never a dangling separator.
+  //
+  // `draws` is deliberately NOT rendered. It is a tag vocabulary feeding the
+  // affinity matrix in docs/V140_PLAN.md section 7.3, whose reader is v1.4.2;
+  // printing it would hand the model a lookup table for exactly the judgement
+  // section 7.4 argues the model makes better than a table does.
+  const placeLines = world.places
+    .map(p => `${p.emoji ? `${p.emoji} ` : ""}${p.name}${p.desc ? ` \u2014 ${p.desc}` : ""}`)
+    .join("\n");
   const a = world.npcArchetypes;
   const archetypeList = a.length > 1
     ? `${a.slice(0, -1).join(", ")}, or ${a[a.length - 1]}`
@@ -215,15 +257,35 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // file is per-language, so `form` is already the right language and `kr` is
   // the Hangul the prompt shows alongside it.
   const WORK_TITLE = getIdentity(world, form.identity)?.workTitle || null;
-  const workTitle = WORK_TITLE ? `"${WORK_TITLE.form}" (${WORK_TITLE.kr})` : null;
-  // The two branches point the title in OPPOSITE directions — a trainee uses it
-  // FOR the members, everyone else is called it BY them — so the "it relaxes as
+  // The gloss is dropped when it would repeat the form. In a ko world file the two
+  // ARE the same string - `form` is already Hangul there - so this printed
+  // `"선배님" (선배님)`, a parenthetical translating a word into itself.
+  // Invisible in zh and en, where the form is a transliteration and the gloss earns
+  // its place; the ko fixture is what showed it, which is the whole reason step 7
+  // rotates the fixture language.
+  const workTitle = !WORK_TITLE ? null
+    : WORK_TITLE.form === WORK_TITLE.kr ? `"${WORK_TITLE.form}"`
+    : `"${WORK_TITLE.form}" (${WORK_TITLE.kr})`;
+  // The two branches point the title in OPPOSITE directions - a trainee uses it
+  // FOR the members, everyone else is called it BY them - so the "it relaxes as
   // they grow close" clause has to live inside each branch. Shared, it read "It
   // relaxes toward her given name", which named the wrong person in one of the two.
+  //
+  // WHICH direction is the WORLD's, not a literal here. Until v1.4.1 step 7 this
+  // branched on `form.identity === "练习生"`, so to_cast was one hardcoded id and
+  // to_player was everything else - and four of the identities step 7 authors point
+  // the title at the cast (`junior_student` and `new_hire` say 선배님 upward,
+  // `secretary` and `bodyguard` use their employer's). Every one of them would have
+  // rendered this sentence backwards, which is the inverted age line again: a
+  // statement the model follows correctly because the prompt states it wrongly.
+  //
+  // `because` carries the identity-specific reason and `addressContext` the world's
+  // register - a student does not address her professor "on the job". Both are
+  // English, like the rest of section 6, so both sit in the language-invariant half.
   const identityAddress = !workTitle ? null
-    : form.identity === "练习生"
-      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work, relaxing toward a member's plain stage name as that member grows close to her`
-      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages, relaxing toward "${playerName}" as they grow close`;
+    : WORK_TITLE.direction === "to_cast"
+      ? `${playerName} ${WORK_TITLE.because}, so ${playerName} also uses ${workTitle} for them ${world.addressContext.toCast}, relaxing toward a member's plain name as that member grows close to her`
+      : `she addresses ${playerName} as ${workTitle} ${world.addressContext.toPlayer} whatever their ages, relaxing toward "${playerName}" as they grow close`;
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
@@ -284,10 +346,25 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // model was never asked for, so the frame could only ever come out empty. And the
   // example pinned the flag to `false` twice over (here and in RULES), so it was
   // never set anyway — a UI feature that could not fire and could not have rendered
-  // if it had.
-  const bubbleShape = `{"content":"msg","hasPhoto":false,"photoDesc":""}`;
-  const mainSocial = `"${mainId}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`;
-  const subSocials = subIds.map(id => `"${id}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`).join(",");
+  // if it had. Both shapes now live in src/config/platformConfig.js, one per platform.
+  // One fragment per declared platform, in the world's order. A world that declares only
+  // Instagram asks for only Instagram, so the model is never shown a key it has nowhere to
+  // put - and `kpop_idol` declares all three in this order, so today's schema is unchanged
+  // to the byte.
+  const socialShape = plat.social.map((p) => p.schema).join(",");
+  const mainSocial = `"${mainId}": {${socialShape}}`;
+  const subSocials = subIds.map(id => `"${id}": {${socialShape}}`).join(",");
+  // One context for both renderers, so a catalog entry that needs a world-varying
+  // value cannot get it in one list and not the other.
+  const platformCtx = { playerName, socialReach: world.castLife.socialReach };
+  const platformRules = [
+    ...plat.social.flatMap((p) => p.rules(platformCtx)),
+    ...(plat.private ? plat.private.rules(platformCtx) : []),
+  ].join("\n");
+  const platformFormatRules = [
+    ...plat.social.flatMap((p) => p.formatRules(platformCtx)),
+    ...(plat.private ? plat.private.formatRules(platformCtx) : []),
+  ].join("\n");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
   return `You are the Dungeon Master (DM) of a yuri dating simulator. You must respond with valid json output. This is a parallel-universe fictional work. Current AI: ${modelName}
 
@@ -336,13 +413,13 @@ ${groupConfig.groupLore}
 ╔══════════════════════════════════════════╗
 ║ 5. MEMBER PROFILES                       ║
 ╚══════════════════════════════════════════╝
-CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic idol type.
+CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗
 ║ 6. CAST IDENTITY & ADDRESS               ║
 ╚══════════════════════════════════════════╝
-THE PLAYER: ${playerName} — a WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
+THE PLAYER: ${playerName} — a WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT one of them and never appears in MEMBER PROFILES.
 ${castLines}
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
@@ -351,12 +428,12 @@ ${castLines}
 - A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
-- The members' working life — practice, schedules, comebacks, the dorm, this company — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no practice here to be late for and no place in their schedule, and no member reminds her of one.
-- When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from the group's calendar.
+- The members' working life — ${world.castLife.theirs} — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has ${world.castLife.notHers}, and no member reminds her of one.
+- When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from theirs.
 
 -- REGISTER: blend these, do not look one up --
 Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}.` : ""}
@@ -374,20 +451,15 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
 - LANGUAGE: ${lr.lang}.
-- ALL of it comes out of THIS round. A member posts about the day she has just had — the practice she just left, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
-- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual. A post may carry a photo.
-- Instagram: Photo social. Style: aesthetic, short caption + emoji.
-- Weverse: Fan community. Style: friendly, natural.
-- KKT (KakaoTalk): Private chat, member-to-player. Style: flirty/caring/casual.
-- KKT IS DELIVERED BY THE APP, NEVER BY THE STORY. Whatever you put in kktMessages is shown to ${playerName} in her own Kakao window after this round. The story therefore NEVER contains a Kakao message, a chat transcript, a phone screen lighting up, or a notification — for EVERY member, the unlocked ones included. Writing the message into the prose delivers it twice, in the wrong voice, before she has looked at her phone.
-- KKT IS A LOCKED CHANNEL. [KKT Channels] in CURRENT STATE lists every member as unlocked or LOCKED. A LOCKED member has no private line to ${playerName} yet: output [] for her id. Those messages do not exist, and narrating one produces a scene about a message the player never receives.
+- ALL of it comes out of THIS round. A member posts about the day she has just had — ${world.castLife.recentBeat}, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
+${platformRules}
 - Only main and sub members generate social content. NPC members DO NOT generate social content.
 
 ╔══════════════════════════════════════════╗
 ║ 8. NPC RULES                             ║
 ╚══════════════════════════════════════════╝
 - NPC: max 1 dialogue/round, 2-round cooldown. [Rounds Absent] marks them (npc) and counts the cooldown for you — one at 2 or more may speak this round.
-- All members must be present in group scenes.
+- All members must be present in scenes with the whole cast present.
 
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
@@ -401,6 +473,17 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 Player stats you may change: 🌈Self-Identity | 🔒Secrecy(lower=more exposed) | 💫Mood — those three and no others.
 📅Round is a counter the app keeps. It is not a stat and never appears in statChanges.
 Pick their values yourself from what happened this round, +/-1 to +/-10, and move at least one.
+What moves them in THIS world:
+${statNoteLines}
+
+╔══════════════════════════════════════════╗
+║ 11. PLACES & THE OPENING                 ║
+╚══════════════════════════════════════════╝
+CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
+${placeLines}
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
+THE OPENING — round 1 begins here: ${world.scenario}
+From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -421,18 +504,15 @@ Pick their values yourself from what happened this round, +/-1 to +/-10, and mov
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "${world.castLife.sceneExample}". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only organisation that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
-- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
-- socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
-- socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
-- kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
+${platformFormatRules}
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
-- For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
+- For Chinese/English: ${plat.social[0]?.promptName || "social"}/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}` : ''}`;
 }
@@ -455,6 +535,15 @@ ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}
 //
 // The text it indexes into now lives in the world file, as `variants` on the
 // identity; renderIdentityBackground applies this seed to it.
+//
+// `form.pace` STAYS in this hash although v1.4.1 step 2 stopped Setup writing it
+// and the prompt reading it. It is a frozen setup token now, exactly like `age`:
+// every existing save carries one, and dropping it from the seed would re-roll
+// the breakup reason and keepsake of every ex-girlfriend save in flight — the
+// one thing this function exists to prevent. New saves hash an empty string
+// there, which is stable for the life of the save; the variety comes from the
+// other three fields. Do NOT swap in the story mode: that value is live, so
+// hashing it would make the static prompt drift on every toggle.
 function backstorySeed(form, mainId) {
   let h = 0x811c9dc5;                                            // FNV-1a, as in aliyunRoute.js
   for (const ch of `${form.name || ""}|${form.age || ""}|${form.pace || ""}|${mainId || ""}`) {
@@ -508,6 +597,39 @@ export function membersNamedIn(story, members = []) {
     scan = scan.split(alias).join(" ");
   }
   return found;
+}
+
+// Section 11 asks the model to prefer the world's canon places and to invent one only when
+// the story genuinely needs somewhere the list does not have. When it does invent one, that
+// is map content rather than something to suppress — so a `scene` naming no canon place is
+// recorded as a DISCOVERED place. Returns "" when the scene is canon, empty, or carries no
+// letter at all — "22:00" is a time the model put where a place belongs. A scene that is a
+// time SPELLED OUT ("10PM") is recorded as written, because telling those from place names
+// needs the per-language word list this function exists to avoid.
+//
+// Both sides are the player's own language: `scene` is written in it and so are the world's
+// place names, so this is never a cross-language comparison.
+export function discoveredPlaceIn(scene, world) {
+  const raw = String(scene || "").trim();
+  if (!raw) return "";
+  const hay = raw.toLowerCase();
+  const isCanon = (world?.places || []).some((p) => {
+    const n = String(p?.name || "").trim().toLowerCase();
+    return n.length > 0 && hay.includes(n);
+  });
+  if (isCanon) return "";
+  // Section 11 asks `scene` for a place AND a time, so almost every one carries one, and
+  // "Rooftop, 2am" and "Rooftop, 3am" would otherwise be two rows on the map. A trailing
+  // segment containing a digit is the time. `midnight` and 深夜 survive on purpose: that is
+  // what the model wrote and what the player will recognise, and a list of time words per
+  // language is the kind of hand-maintained list this repo keeps regretting.
+  let name = raw, m;
+  // Greedy, so it splits on the LAST separator rather than the first.
+  while ((m = name.match(/^(.*)[,，、·]\s*([^,，、·]*)$/)) && /\d/.test(m[2])) {
+    name = m[1].trim();
+  }
+  name = name.replace(/[\s,，、·:：]+$/, "").slice(0, 40);
+  return /\p{L}/u.test(name) ? name : "";
 }
 
 export function createInitialStats(mainId, subIds) {
@@ -709,12 +831,48 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 }
 
 // ============================================================
+// The two live pacing dials
+// ============================================================
+// Both belong in the dynamic tail and neither may ever reach buildSystemPrompt.
+// That placement is what makes changing either mid-run free in cache terms, and
+// it is the whole reason the story mode left section 6 in v1.4.1 step 2.
+//
+// THEY USED TO SHARE ONE LABEL. Time Speed wrote `[Pacing] slow - ...`, and the
+// story mode would have written a second, different quantity under the same
+// name. That is worse than the `[Stage Changes]` id-vs-name case, which was two
+// labels for one quantity: two quantities under one label leaves the model to
+// work out which line means what. Renamed together, in the same commit, and no
+// golden pins either - the tail is the always-miss message.
+//
+// `free` SENDS ITS RULE; it does not send nothing. Omitting the line would strip
+// a free-mode game of the slow-burn texture today's slow-burn players have, and
+// a mode that sends nothing is indistinguishable from a wiring bug.
+//
+// An unrecognised mode id resolves to `free` rather than sending no line at all.
+// The value comes from localStorage, so it can hold anything a previous build or
+// a hand edit left there, and the failure to avoid is a game that silently stops
+// driving its own plot.
+export function buildTailRules(world, storyMode, timeSpeed) {
+  const lines = [];
+  // The rule carries its own "[Story Mode: X]" prefix, exactly as the pace rule
+  // carried "[Pace: X]", so nothing is prepended here.
+  const rule = getModeRule(world, MODE_IDS.includes(storyMode) ? storyMode : "free");
+  if (rule) lines.push(rule);
+  if (timeSpeed === "slow") {
+    lines.push("[Time Speed] slow — stay in this moment, don't advance time much this round");
+  } else if (timeSpeed === "fast") {
+    lines.push("[Time Speed] fast — advance time noticeably, skip ahead to the next event or date");
+  }
+  return lines.map((line) => `\n${line}`).join("");
+}
+
+// ============================================================
 // Main Loop
 // ============================================================
 export async function executeRound({
   playerChoice, stats, memory, form, members, mainId, subIds,
   groupConfig, world, apiKey, selectedModel, kktUnlocked, language, reasoningEnabled, aliyun = null,
-  timeSpeed = "default",
+  timeSpeed = "default", storyMode = "free",
 }) {
   const allTargetIds = [mainId, ...subIds];
   const roundNum = stats.week;
@@ -745,7 +903,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${timeSpeed === "slow" ? "\n[Pacing] slow — stay in this moment, don't advance time much this round" : timeSpeed === "fast" ? "\n[Pacing] fast — advance time noticeably, skip ahead to the next event or date" : ""}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   // A response that parses but carries no real story is a wasted round. Rather
@@ -816,15 +974,28 @@ export async function executeRound({
     ? relationshipEvent : null;
 
   // Step 4: Notifications
-  const socialContent = parsed.socialContent || {};
+  // Filtered to what THIS world declares before anything reads it. An undeclared platform
+  // is not an error - the model's output is untrusted text and the round has to survive it -
+  // but it must not become a notification: the strip is a live entry point, and it would
+  // open an overlay for a platform with no button anywhere else in the app.
+  //
+  // Both readers below take the filtered object, and that is what the guard counts. One of
+  // two is the failure mode, and it is the one extractStoryText is the standing example of.
+  const declaredSocial = world?.platforms?.social || [];
+  const socialContent = filterSocialByPlatforms(parsed.socialContent || {}, declaredSocial);
   for (const [mid, platforms] of Object.entries(socialContent)) {
     if (!allTargetIds.includes(mid)) continue;
-    if (platforms?.bubble) roundNotifs.push({ platform: "bubble", memberId: mid });
-    if (platforms?.instagram) roundNotifs.push({ platform: "instagram", memberId: mid });
-    if (platforms?.weverse) roundNotifs.push({ platform: "weverse", memberId: mid });
+    // Iterated in the world's declared order rather than by a hand-written list of three,
+    // which is what this was and is the list that keeps going out of date.
+    for (const pid of declaredSocial) {
+      if (platforms?.[pid]) roundNotifs.push({ platform: pid, memberId: mid });
+    }
   }
+  // The private channel's overlay key comes from the catalog too. It is `kakao` while the
+  // world calls it `kakaotalk`, which is precisely the mapping a literal here would get wrong.
+  const privateUi = platformsOf(world).private?.ui;
   for (const [mid, msgs] of Object.entries(filteredKkt)) {
-    if (msgs.length > 0) roundNotifs.push({ platform: "kakao", memberId: mid });
+    if (privateUi && msgs.length > 0) roundNotifs.push({ platform: privateUi, memberId: mid });
   }
 
   const topMember = getTopMember(members.filter(m => allTargetIds.includes(m.id)), currentAff);
@@ -843,6 +1014,10 @@ export async function executeRound({
   pendingNotifications = roundNotifs;
 
   const namedInStory = membersNamedIn(parsed.story || "", members);
+  // `parsed.scene` rather than `newStats.scene`: that one falls back to the previous
+  // round's scene when the model omits the field, and a round that produced no scene has
+  // discovered nothing.
+  const foundPlace = discoveredPlaceIn(parsed.scene, world);
 
   // Update memory — append new full-story entry to history ledger
   const updatedMemory = updateMemory(memory, {
@@ -852,6 +1027,7 @@ export async function executeRound({
     kktMessages: filteredKkt,
     stageChanges,
     memberAppearances: Object.fromEntries(namedInStory.map(id => [id, [roundNum]])),
+    discoveredPlace: foundPlace ? { name: foundPlace, round: roundNum } : null,
   });
 
   return {

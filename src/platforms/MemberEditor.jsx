@@ -21,6 +21,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   REQUIRED_FIELDS, missingRequired, sanitizeProfile,
   birthYearOf, birthdayFromYear, validBirthYear, BIRTH_YEAR_MIN, BIRTH_YEAR_MAX,
+  EMOJI_PALETTE, normalizeEmoji,
 } from "../rag/customCast";
 import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
 import { castTokens, scaleFont } from "./castTheme";
@@ -314,6 +315,41 @@ export default function MemberEditor({
                   colors={{ text: textMain, textDim, accent, tint: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.14)", border: inputBorder, fieldBg: inputBg }} />
                 <div style={{ fontSize: fs(9), color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
                   {birthYearValid ? c.hints?.birthday : c.badYear}
+                </div>
+              </div>
+
+              {/* HER GLYPH, and it is not decoration: with no photo it is what the
+                  top bar, the stats box, the Setup chips and every social tab strip
+                  draw for her - and a photo is optional, so for most custom members
+                  it is the only face she has. It was auto-assigned by palette index
+                  and there was NOWHERE to change it, so she was a violin for the
+                  life of the save. Reported from hand play, 2026-09-29.
+
+                  The palette is offered rather than enforced: ten taps for the
+                  common case, and the box takes anything the emoji keyboard can
+                  produce. It is the same array withDefaults falls back to, imported
+                  rather than retyped. */}
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 4 }}>
+                  {fieldLabel("emoji")}
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <input value={profile.emoji || ""}
+                    onChange={(e) => set("emoji", normalizeEmoji(e.target.value))}
+                    aria-label={fieldLabel("emoji")} inputMode="text" maxLength={24}
+                    style={{ width: 46, flexShrink: 0, textAlign: "center", padding: "5px 0", borderRadius: 9, background: inputBg, border: `1px solid ${inputBorder}`, color: textMain, fontSize: fs(20), lineHeight: 1.2, outline: "none", fontFamily: "inherit" }} />
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1, minWidth: 0 }}>
+                    {EMOJI_PALETTE.map((g) => (
+                      <button key={g} onClick={() => set("emoji", g)}
+                        aria-label={g} aria-pressed={profile.emoji === g}
+                        style={{ width: 28, height: 28, padding: 0, borderRadius: 8, cursor: "pointer", fontSize: fs(15), lineHeight: 1, background: profile.emoji === g ? k.tint : "transparent", border: `1px solid ${profile.emoji === g ? accent : border}` }}>
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: fs(9), color: textFaint, marginTop: 3, lineHeight: 1.4 }}>
+                  {c.hints?.emoji}
                 </div>
               </div>
 

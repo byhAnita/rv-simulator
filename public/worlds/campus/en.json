@@ -1,0 +1,240 @@
+{
+  "world": {
+    "id": "campus",
+    "name": "Campus",
+    "emoji": "🎓",
+    "color": "#7aa6d6"
+  },
+  "country": {
+    "id": "korea",
+    "name": "South Korea",
+    "register": "korea"
+  },
+  "setting": "The story is set at a university in present-day Seoul. Timetables, club rooms, study rooms that stay open all night and a convenience store that never turns its lights off are the texture of an ordinary day. There is no contract here and no company that can fire anyone - which is exactly why every constraint comes from people: the eyes of her own year, the fixed places of senior and junior, and talk that moves through a department faster than the syllabus does. Romance is not forbidden, but the moment it is seen it becomes somebody else's subject.",
+  "tone": "slow-burn, campus seasons, social exposure",
+  "statNotes": {
+    "selfId": "Rises when she says what she actually wants in a room where an answer is expected - a seminar, a club meeting, a group project. Falls when she gives the answer that keeps things smooth.",
+    "secrecy": "Falls when the relationship becomes legible to anyone on campus - a classmate in the same seminar, a club group chat, a photo someone else posted, being seen leaving together late. Rises when an ordinary explanation holds.",
+    "mood": "Driven by deadlines, exams and where the semester is, and by how the last conversation with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "instagram"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "useRole": false,
+    "orgSuffix": "University",
+    "orgNoun": "school",
+    "orgHint": "These members are students in the same year at the same school. School: {org}",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a circle of {n} students at {org}.",
+      "{name} exists only in this story. These {n} are in the same year and have known each other since their first semester. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else on campus is unnamed - a classmate, a professor, a staff member - and no other name may be used, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "The cast of this story is {members}.",
+      "In this world they are students in the same year at the same university. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": false,
+  "identities": [
+    {
+      "id": "prof_of_cast",
+      "name": "Professor",
+      "background": "[Identity: Professor] You are a young professor in {name}'s department, and she is taking your course this semester. Typical events: She stays behind after class to ask a question she already knows the answer to; In office hours you notice her notes are more careful than your own slides; A department dinner ends with the two of you the last to leave; Grading finals, you have to prove to yourself that you were not partial. Advantage: You have what she needs - supervision, a reference, attention. Disadvantage: This is the relationship the university's rules name explicitly, and every meeting alone has to have a reason. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "workTitle": {
+        "form": "Professor-nim",
+        "kr": "교수님"
+      }
+    },
+    {
+      "id": "peer_student",
+      "name": "Classmate",
+      "background": "[Identity: Classmate] You and {name} are in the same year and the same department, on the same attendance list since your first day. Typical events: Assigned to the same group project, still awake at the convenience store on your third coffee; Picking courses and finding you have chosen the same one again; She falls asleep in the seat beside you and her head tips slowly toward your shoulder; On the last day of finals the whole department is celebrating and the two of you leave early. Advantage: The shortest distance and the most reasons - being in the same room needs no explanation at all. Disadvantage: And for exactly that reason, any change is seen by the same people. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "senior_student",
+      "name": "Senior",
+      "background": "[Identity: Senior] You are a year above {name} in the same department. Typical events: At the first-year orientation you are the one assigned to look after her; She brings her course list to ask which classes are worth taking; A club dinner ends and you walk her back to the dorms; The first time she presents, her hands shake, and you are sitting in the back row. Advantage: You have a natural reason for her to come to you, and being a senior makes looking after her look obvious. Disadvantage: The moment the senior-junior position turns into something else, the whole department knows which of you crossed the line first. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "workTitle": {
+        "form": "sunbae-nim",
+        "kr": "선배님"
+      }
+    },
+    {
+      "id": "junior_student",
+      "name": "Junior",
+      "background": "[Identity: Junior] You are a year below {name}, and she is the first senior in the department whose name you learned. Typical events: You could not get into a class, so she hands you her entire set of notes; In the club she takes on the errand that was about to be pushed onto you; At a dinner someone keeps refilling your glass and she takes it away; You are up all night on an assignment and she stays in the study room until you finish. Advantage: Asking a senior for help is the most natural way to get close, and nobody finds it strange. Disadvantage: Care between a senior and a junior is easy to read as something else, and the people reading it will not be the two of you. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "workTitle": {
+        "form": "sunbae-nim",
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is a year below them and every member is her senior"
+      }
+    },
+    {
+      "id": "ta",
+      "name": "Teaching assistant",
+      "background": "[Identity: Teaching Assistant] You are the TA for this course and {name} is a student in it - you are not her professor, but you mark her work. Typical events: You write a note in the margin of her report that is longer than the grade comment; Office hours empty out until it is just the two of you and the subject left the course a while ago; She hands an assignment in at the last possible minute and you do not ask why; Entering final marks, you notice you have checked her line three times. Advantage: The position is ambiguous - you have a little authority and not much, which makes getting close far easier than it would be for a professor. Disadvantage: Because it is not much, you can protect neither her nor yourself; if it is ever talked about, you are the one who was supposed to know better. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "exchange_student",
+      "name": "Exchange student",
+      "background": "[Identity: Exchange Student] You are here on exchange - one semester, or a year. Typical events: In a group discussion you cannot keep up with the speed and she slows hers down; She takes you to the place only local students know about; You say a word wrong, she laughs for a long time, and then teaches you how to say it; You get as far as when you are leaving and you both change the subject. Advantage: Being an outsider puts you in none of the existing networks, and the rules sit more loosely on you. Disadvantage: Everyone knows you are leaving, her included - it has been underneath every conversation since the first day. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "主线成员前女友",
+      "name": "Main Member's Ex-Girlfriend",
+      "background": "[Special Identity: Main Member's Ex-Girlfriend]\n- You and {name} were lovers, breaking up years ago due to {reason}\n- You still keep {keepsake} to this day\n- Now she is back at the same university - a transfer, a return from leave, or simply the same course. The reunion is awkward: complicated feelings, things left unsaid. Early interactions involve deliberate distance, averted eyes, polite but distant\n- Other people may or may not know about your past. As the game progresses, you may reconcile or go your separate ways",
+      "variants": {
+        "reason": [
+          "different plans after graduation",
+          "her family",
+          "you were both too young",
+          "she transferred to another city"
+        ],
+        "keepsake": [
+          "the book she lent you",
+          "the student-ID photos you took together",
+          "a note she wrote on the back of a handout",
+          "the earphones you used to share"
+        ]
+      }
+    }
+  ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: the same seats, the same walk back, a semester passing. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Department gossip and social visibility higher, secrecy changes doubled. Being seen together carries weight: a classmate's photo, a club group chat, a name that travels faster than the syllabus.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Shared classes and corridors, polite distance, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, late-night study rooms, accidental touches, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Department talk, a photo someone else posted, family expectations, plans after graduation against feelings."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "places": [
+    {
+      "id": "lecture_hall",
+      "name": "Lecture hall",
+      "emoji": "📚",
+      "desc": "The back row sees everyone, and is seen by everyone.",
+      "draws": []
+    },
+    {
+      "id": "library",
+      "name": "Library",
+      "emoji": "📖",
+      "desc": "Quiet enough that turning a page is careful; talking means leaning close.",
+      "draws": [
+        "studious"
+      ]
+    },
+    {
+      "id": "seminar_room",
+      "name": "Seminar room",
+      "emoji": "🗒️",
+      "desc": "A long table for six, and a small window in the door.",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "club_room",
+      "name": "Club room",
+      "emoji": "🎸",
+      "desc": "Stacked with equipment and old posters. Only a few people have a key.",
+      "draws": [
+        "performer"
+      ]
+    },
+    {
+      "id": "campus_cafe",
+      "name": "Campus cafe",
+      "emoji": "☕",
+      "desc": "Busiest between classes, and who is sitting with whom gets remembered.",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "dorm_room",
+      "name": "Dorm room",
+      "emoji": "🛏️",
+      "desc": "The most private place and the one with the least privacy; a roommate can come back at any moment.",
+      "draws": []
+    },
+    {
+      "id": "track_field",
+      "name": "Running track",
+      "emoji": "🏃",
+      "desc": "Empty at night, with only half the lights along it switched on.",
+      "draws": [
+        "athletic"
+      ]
+    },
+    {
+      "id": "quad",
+      "name": "The quad",
+      "emoji": "🌳",
+      "desc": "Open, public, everyone walks through it - but the air is good.",
+      "draws": []
+    },
+    {
+      "id": "convenience_store",
+      "name": "Convenience store",
+      "emoji": "🏪",
+      "desc": "Two in the morning, steam off the hot counter, and the clerk does not look up.",
+      "draws": []
+    },
+    {
+      "id": "night_study",
+      "name": "All-night study room",
+      "emoji": "💡",
+      "desc": "A whole row of desk lamps, and only your two still on.",
+      "draws": [
+        "quiet"
+      ]
+    }
+  ],
+  "scenario": "The study room is close to closing. There is nobody left on the floor but the two of you, and the sensor light at the end of the corridor keeps going out and coming back on. Some small thing kept you both here to the end. It is the first time you have talked anywhere nobody else is listening.",
+  "npcArchetypes": [
+    "professor",
+    "classmate",
+    "club member",
+    "campus staff member"
+  ],
+  "addressContext": {
+    "toPlayer": "on campus",
+    "toCast": "on campus"
+  },
+  "castLife": {
+    "theirs": "classes, deadlines, club activities, the dorm",
+    "notHers": "no class here to be late for and no place on their timetable",
+    "recentBeat": "the class she just walked out of",
+    "sceneExample": "Lecture hall, 10PM",
+    "socialReach": "340"
+  }
+}

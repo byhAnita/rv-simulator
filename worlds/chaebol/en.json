@@ -1,0 +1,236 @@
+{
+  "world": {
+    "id": "chaebol",
+    "name": "Chaebol Houses",
+    "emoji": "👑",
+    "color": "#c9a227"
+  },
+  "country": {
+    "id": "korea",
+    "name": "South Korea",
+    "register": "korea"
+  },
+  "setting": "The story is set in the chaebol world of present-day Seoul. The drawing room of a main house, a boardroom, a private gallery, a hotel banquet hall and the car with a driver always waiting outside are the texture of an ordinary day. Nobody here can be fired and nobody clocks in - the constraints come from a surname: marriages, shareholdings, and whether two companies are working together or against each other this quarter. Romance is not forbidden, but who these women marry has never belonged only to them, and anything photographed turns up the next morning as one line in the business pages.",
+  "tone": "slow-burn, family obligation, reputational stakes",
+  "statNotes": {
+    "selfId": "Rises when she chooses something her family would not have chosen for her, in front of someone who will report it. Falls when she performs the daughter the name requires.",
+    "secrecy": "Falls when the relationship becomes legible to anyone outside the circle - a driver, a house staff member, a photographer outside a hotel, a line in a business column. Rises when a plausible reason is on the record first.",
+    "mood": "Driven by the family's calendar, what the companies are doing to each other this quarter, and how the last exchange with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "instagram"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "useRole": false,
+    "orgSuffix": "Group",
+    "orgNoun": "family business",
+    "orgHint": "These members are heirs of different houses in one circle. The leading family business: {org}",
+    "composed": [
+      "[{name} Background]",
+      "{name} is the circle these {n} women move in: each of them an heir of a different chaebol house.",
+      "{org} is the largest of those houses and the one the others orbit. {name} exists only in this story. These {n} have known each other since childhood - the same schools, the same weddings, the same board dinners - and their families do business with and against each other constantly. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else is unnamed - a driver, a house staff member, an executive, a reporter - and no other name may be used, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "The cast of this story is {members}.",
+      "In this world they are heirs of chaebol houses who have known each other since childhood. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": false,
+  "identities": [
+    {
+      "id": "rival_heiress",
+      "name": "Rival heiress",
+      "background": "[Identity: Rival Heiress] You are the daughter of another chaebol house, and your family competes directly with {name}'s in the same industry. Typical events: You are seated next to each other at the same banquet and the whole room is watching what you say; Both families bid on the same project and you are looking at her from across the table; A reporter asks for your view of her family and you give an answer with nothing in it; Afterwards she is waiting in the car park, and what she asks about is not business. Advantage: You are her equal - one of the few people in this circle who does not have to look up at her. Disadvantage: Every contact between you is read as a commercial move first, including the sincere ones. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "heiress_fallen",
+      "name": "Fallen heiress",
+      "background": "[Identity: Fallen Heiress] Your family was in this circle once and lost everything a few years ago. You are still among these people, but your position is not what it was. Typical events: Someone at a banquet remembers your surname, with sympathy in it; You are wearing something two seasons old and she says nothing, only stands a little closer to you; Somebody brings up what happened to your family in front of you and she changes the subject; You need a job, and the person who can give you one is sitting opposite. Advantage: You understand this circle's rules better than anyone, because you were inside them. Disadvantage: Everyone remembers where you are now, you included - so anything she gives you looks like charity. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "lawyer",
+      "name": "Family counsel",
+      "background": "[Identity: Family Counsel] You are legal counsel to {name}'s house, handling succession, shareholdings, and the things that must never reach a court. Typical events: A document needs her signature and you know what signing it commits her to; You are called to the main house late at night over something that cannot be in tomorrow's papers; She asks you a hypothetical legal question and you can hear that it is not hypothetical; The family asks you to draft a prenuptial agreement and she is the party to it. Advantage: You know every secret this family has, and you are obliged to keep them. Disadvantage: You work for the family, not for her - and when those two conflict, which side your professional duty is on is written into your contract. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "workTitle": {
+        "form": "Counsel-nim",
+        "kr": "변호사님"
+      }
+    },
+    {
+      "id": "secretary",
+      "name": "Chief of staff",
+      "background": "[Identity: Chief of Staff] You are executive aide to {name}'s house - her diary, her movements, who she does and does not see, all of it goes through you. Typical events: You know who she is being introduced to next week before she does; Late in the car it is only the two of you, and in the mirror you watch her put her expression down; The family asks you to report where she goes, and the version you file has a gap in it; She says tonight does not need to be written down, and you remember it anyway. Advantage: You are the closest person to her, close enough to know everything she does not say out loud. Disadvantage: Her family pays you, so half your loyalty was bought before you ever met her. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "workTitle": {
+        "form": "Director-nim",
+        "kr": "실장님",
+        "direction": "to_cast",
+        "because": "works for the main member's house and every member of the circle outranks her inside it"
+      }
+    },
+    {
+      "id": "bodyguard",
+      "name": "Bodyguard",
+      "background": "[Identity: Bodyguard] You are responsible for {name}'s security. You stand two steps behind her, all day, nearly every day. Typical events: Someone gets too close at a banquet, you move half a step forward, and she puts a hand on your arm; Photographers block the entrance and you clear a path while she says nothing behind you; She slips her schedule and goes out alone, and you are the one who finds her - and you do not report it; Driving her home at dawn she asks whether you are tired, which nobody has asked before. Advantage: The shortest physical distance of anyone; you are present for nearly every hour of her life. Disadvantage: You have no social standing here at all. You speak to her formally and nobody speaks to you that way; you are permitted to protect her and not permitted to know her. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "journalist",
+      "name": "Journalist",
+      "background": "[Identity: Journalist] You are a reporter investigating this family. You got close to her for a story - at least at first. Typical events: You get into a banquet under another name and she sees immediately that you do not belong there; You obtain material that could destroy her family, and her with it; Once she knows who you are she does not call security, she sits down and asks what you want to know; The deadline gets closer and you start deleting your own sentences. Advantage: You are outside this circle and owe it nothing, so you can ask what nobody else dares to. Disadvantage: Your relationship began in a deception - whatever it becomes later, that page is still in it. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+    },
+    {
+      "id": "主线成员前女友",
+      "name": "Main Member's Ex-Girlfriend",
+      "background": "[Special Identity: Main Member's Ex-Girlfriend]\n- You and {name} were lovers, breaking up years ago due to {reason}\n- You still keep {keepsake} to this day\n- Now the two families' business has put you in the same room again: awkwardness, complicated feelings, things left unsaid. Early interactions involve deliberate distance, averted eyes, polite but distant\n- People in the circle may or may not know about your past. As the game progresses, you may reconcile or go your separate ways",
+      "variants": {
+        "reason": [
+          "the merger that collapsed",
+          "an engagement arranged for her",
+          "the scandal",
+          "your family's fall"
+        ],
+        "keepsake": [
+          "the cufflink she gave you",
+          "the place card she wrote on at a banquet",
+          "what she wrote on the back of an invitation",
+          "the ticket from the dinner you both skipped"
+        ]
+      }
+    }
+  ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: what is said in front of staff, what is said in the car, what is never said at the table. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Press attention and family obligation higher, secrecy changes doubled. Being seen together carries weight: a photographer outside a hotel, a line in a business column, an engagement someone else has already agreed to.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Dinners and obligations, practised politeness, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, conversations in cars, accidental touches, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Press interest, an arrangement made on her behalf, what the families owe each other, duty against feelings."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "places": [
+    {
+      "id": "main_house",
+      "name": "Main house drawing room",
+      "emoji": "🏛️",
+      "desc": "Too large and too quiet, and staff pass through it without a sound.",
+      "draws": []
+    },
+    {
+      "id": "boardroom",
+      "name": "Boardroom",
+      "emoji": "🗂️",
+      "desc": "Opposite ends of a long table, names on cards, and an order in which people speak.",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "private_gallery",
+      "name": "Private gallery",
+      "emoji": "🖼️",
+      "desc": "Not open to the public, which means nobody else is in it.",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "members_club",
+      "name": "Members' club",
+      "emoji": "🥃",
+      "desc": "You give a surname at the door, and everyone inside already knows everyone.",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "greenhouse",
+      "name": "Greenhouse",
+      "emoji": "🌿",
+      "desc": "Glass walls, a held temperature, and orchids looked after more carefully than people.",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "banquet_hall",
+      "name": "Hotel banquet hall",
+      "emoji": "🥂",
+      "desc": "Familiar faces under the chandeliers, and lenses waiting outside the doors.",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "back_seat",
+      "name": "Back of the car",
+      "emoji": "🚘",
+      "desc": "Until the partition goes up, the driver hears everything.",
+      "draws": []
+    },
+    {
+      "id": "penthouse",
+      "name": "Penthouse",
+      "emoji": "🌆",
+      "desc": "A wall of glass, the city underneath, and nobody able to see in.",
+      "draws": []
+    },
+    {
+      "id": "family_office",
+      "name": "Family office",
+      "emoji": "🖋️",
+      "desc": "The room that manages the money, the shareholdings and the marriages alike.",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "late_night_diner",
+      "name": "Late-night diner",
+      "emoji": "🍜",
+      "desc": "Plastic stools, steam off the pot, and nobody here who would recognise either of you.",
+      "draws": []
+    }
+  ],
+  "scenario": "After the banquet has broken up. The guests are being collected by their cars, the hall has only staff clearing it, and the two of you have stayed to the end for your own separate reasons. It is the first time you have talked when nobody needed either of you to perform.",
+  "npcArchetypes": [
+    "house staff member",
+    "driver",
+    "executive",
+    "reporter"
+  ],
+  "addressContext": {
+    "toPlayer": "in their circle",
+    "toCast": "in their circle"
+  },
+  "castLife": {
+    "theirs": "board dinners, the family calendar, the companies their names are on, the houses they grew up in",
+    "notHers": "no seat at their family's table and no name on any of it",
+    "recentBeat": "the dinner she just left",
+    "sceneExample": "Drawing room, 11PM",
+    "socialReach": "24000"
+  }
+}

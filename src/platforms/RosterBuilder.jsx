@@ -79,6 +79,10 @@ export default function RosterBuilder({
   const [pickerSlot, setPickerSlot] = useState(null);
   // Deleting an authored member throws away work that cannot be recovered, so it
   // asks first. Holds the member id awaiting confirmation.
+  // {kind: "member" | "roster", id} - one dialog, two things it can be asked
+  // about. A saved cast had no way to be deleted at all; giving it one means
+  // the confirm stops being member-specific, which is cheaper than a second
+  // dialog that would drift from this one.
   const [confirmDelete, setConfirmDelete] = useState(null);
   // The save-roster naming prompt: null when closed, a draft string when open.
   const [castLabel, setCastLabel] = useState(null);
@@ -103,8 +107,18 @@ export default function RosterBuilder({
   // prompt order is a cache boundary, so two answers to "what order" is one
   // answer too many.
   const roster = useMemo(
-    () => rosterFromPicks(picks, world?.id || "kpop_idol"), [picks, world]);
+    () => rosterFromPicks(picks), [picks]);
   const idsIn = (slot) => roster.entries.filter((e) => e.slot === slot).map((e) => e.memberId);
+
+  // MAIN AND SUBS ONLY, and this is the images sheet's whole population as
+  // well as its denominator. An NPC's photo and wallpaper have no reader
+  // anywhere in the running game: every surface that draws a face - the top
+  // bar and all four social overlays' member strips - is built from
+  // `allTargetMembers`, which is main plus subs, and an NPC produces no
+  // social post and no Kakao to put a face beside. So an NPC upload could
+  // never be looked at, while still spending one of the 30 photo or 8
+  // wallpaper slots. Reported from hand play, 2026-09-29.
+  const facedIds = roster.entries.filter((e) => e.slot !== "npc").map((e) => e.memberId);
 
   const chosen = useMemo(
     () => Object.entries(picks).map(([id, p]) => ({ id, ...p })), [picks]);
@@ -152,7 +166,7 @@ export default function RosterBuilder({
   // Shaped by rosterFromPicks (customCast.js) rather than here: entry order is
   // prompt order and prompt order is a cache boundary, so that logic is unit
   // tested as behaviour instead of asserted as a regex.
-  const buildRoster = () => rosterFromPicks(picks, world?.id || "kpop_idol");
+  const buildRoster = () => rosterFromPicks(picks);
 
   const saveMember = (entry) => {
     const res = upsertMember(cast, entry);
@@ -232,6 +246,16 @@ export default function RosterBuilder({
   // Commit the saved roster under the name the player just typed. The entry's
   // shape — and specifically the rule that this label never reaches
   // `roster.name`, which IS sent to the model — is `savedRosterEntry`.
+  // A saved cast is deletable. It is player data, so it goes through the same
+  // confirm the palette uses rather than dying to one mis-tap on a 20px target
+  // sitting on the control that APPLIES it.
+  const deleteRoster = (id) => {
+    const next = saved.filter((s) => s.id !== id);
+    if (!saveToStorage(STORAGE_KEYS.ROSTERS, next)) { notify?.(c.saveFailed, "error"); return; }
+    setSaved(next);
+    setConfirmDelete(null);
+  };
+
   const commitRoster = () => {
     const entry = savedRosterEntry({
       label: castLabel, roster: buildRoster(), fallbackName: nameOf(mainPick.id),
@@ -263,6 +287,9 @@ export default function RosterBuilder({
     const libGroups = new Set(chosen.filter((p) => p.src === "library").map((p) => p.groupId));
     return chosen.some((p) => p.src === "custom") || libGroups.size > 1;
   }, [chosen]);
+
+  // Members who already have a face, over the members who can show one.
+  const withPhoto = facedIds.filter((id) => photos[id]).length;
 
   const chipStyle = {
     display: "flex", alignItems: "center", gap: 5, padding: "7px 9px", minHeight: 36,
@@ -307,11 +334,21 @@ export default function RosterBuilder({
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: fs(11), color: k.textFaint, marginBottom: 5 }}>{c.savedRosters}</div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {/* Two controls, not one with a decorative x: tapping the bubble
+                    APPLIES the cast, so the delete has to be its own target. The
+                    member chips put the x inside the button because there the
+                    whole chip is the unassign control and the glyph is a label. */}
                 {saved.map((s) => (
-                  <button key={s.id} onClick={() => applyRoster(s.roster)}
-                    style={{ padding: "7px 10px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: k.cardBg, color: k.textDim, fontSize: fs(11), cursor: "pointer" }}>
-                    {s.name} ({s.roster?.entries?.length || 0})
-                  </button>
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", borderRadius: 16, border: `1px solid ${k.border}`, background: k.cardBg, overflow: "hidden" }}>
+                    <button onClick={() => applyRoster(s.roster)}
+                      style={{ padding: "7px 4px 7px 10px", minHeight: 34, border: "none", background: "transparent", color: k.textDim, fontSize: fs(11), cursor: "pointer" }}>
+                      {s.name} ({s.roster?.entries?.length || 0})
+                    </button>
+                    <button aria-label="delete" onClick={() => setConfirmDelete({ kind: "roster", id: s.id })}
+                      style={{ padding: "7px 9px 7px 4px", minHeight: 34, border: "none", background: "transparent", color: k.textFaint, fontSize: fs(12), cursor: "pointer" }}>
+                      {"×"}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -399,16 +436,36 @@ export default function RosterBuilder({
               sits below the three sections because a photo is something you give
               a member you have already chosen. */}
           {chosen.length > 0 && (
-            <div style={{ display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" }}>
+            <>
+              {/* A CARD, THE SIZE OF THE MAIN-MEMBER SLOT, not a pill beside Clear.
+                  Giving the cast faces is the single biggest thing a player can do
+                  to how the game reads - every overlay, the top bar and the chat
+                  wallpapers all draw from it - and it was a 34px chip in a row of
+                  two, the smaller-looking of which wipes the cast. A destructive
+                  control and the best thing on the screen should not be the same
+                  shape. Reported from hand play, 2026-09-29.
+
+                  It carries the count for the reason the save slots and the
+                  palette both had to learn: a number the player can see beats a
+                  cap that only speaks when it refuses. */}
               <button onClick={() => setShowImages(true)}
-                style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.accent}`, background: k.tint, color: k.accent, fontSize: fs(11), cursor: "pointer" }}>
-                {"📷"} {c.castImages}
+                style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", marginTop: 14, padding: 11, minHeight: 62, borderRadius: 12, border: `1px solid ${k.accent}`, background: k.tint, color: k.textMain, cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: fs(24), lineHeight: 1, flexShrink: 0 }}>{"📷"}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: fs(13), color: k.accent, fontWeight: 700 }}>{c.castImages}</span>
+                  <span style={{ display: "block", fontSize: fs(11), color: k.textFaint, marginTop: 2, lineHeight: 1.35 }}>
+                    {c.photo} {c.castCount?.(withPhoto, facedIds.length)}
+                  </span>
+                </span>
+                <span aria-hidden style={{ color: k.textFaint, fontSize: fs(14), flexShrink: 0 }}>{"›"}</span>
               </button>
-              <button onClick={() => setPicks({})}
-                style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
-                {c.clearCast}
-              </button>
-            </div>
+              <div style={{ display: "flex", marginTop: 8 }}>
+                <button onClick={() => setPicks({})}
+                  style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
+                  {c.clearCast}
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -435,16 +492,17 @@ export default function RosterBuilder({
           onClose={() => setPickerSlot(null)}
           onCreate={() => setEditing({ id: newMemberId(), profile: {}, isNew: true })}
           onEdit={(id) => setEditing(cast.find((x) => x.id === id))}
-          onDelete={(id) => setConfirmDelete(id)}
+          onDelete={(id) => setConfirmDelete({ kind: "member", id })}
         />
       )}
 
       {showImages && (
         <CastImageSheet
           // Roster order, not picks order — the same derivation the chips use, so
-          // the sheet lists the cast in the order the player sees it.
-          rows={roster.entries.map((e) => ({
-            id: e.memberId, name: nameOf(e.memberId), member: memberOf(e.memberId) || {},
+          // the sheet lists the cast in the order the player sees it. NPCs are
+          // absent: see facedIds.
+          rows={facedIds.map((id) => ({
+            id, name: nameOf(id), member: memberOf(id) || {},
           }))}
           photos={photos} walls={walls}
           onPickPhoto={setPhotoFor} onPickWall={setWallFor}
@@ -503,14 +561,17 @@ export default function RosterBuilder({
         <div style={{ position: "fixed", inset: 0, zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, padding: 24 }}>
           <div style={{ width: "100%", maxWidth: 300, background: k.panelBg, border: `1px solid ${k.border}`, borderRadius: 14, padding: 16 }}>
             <div style={{ fontSize: fs(12), color: k.textMain, lineHeight: 1.6, marginBottom: 14 }}>
-              {c.confirmDelete?.(nameOf(confirmDelete))}
+              {confirmDelete.kind === "roster"
+                ? c.confirmDeleteRoster?.(saved.find((x) => x.id === confirmDelete.id)?.name || "")
+                : c.confirmDelete?.(nameOf(confirmDelete.id))}
             </div>
             <div style={{ display: "flex", gap: 7 }}>
               <button onClick={() => setConfirmDelete(null)}
                 style={{ flex: 1, padding: 11, minHeight: 42, borderRadius: 9, border: `1px solid ${k.border}`, background: "transparent", color: k.textDim, fontSize: fs(11.5), cursor: "pointer" }}>
                 {c.cancel}
               </button>
-              <button onClick={() => deleteMember(confirmDelete)}
+              <button onClick={() => (confirmDelete.kind === "roster"
+                ? deleteRoster(confirmDelete.id) : deleteMember(confirmDelete.id))}
                 style={{ flex: 1, padding: 11, minHeight: 42, borderRadius: 9, border: "none", background: k.dangerBg, color: "#fff", fontSize: fs(11.5), fontWeight: 700, cursor: "pointer" }}>
                 {c.deleteShort}
               </button>

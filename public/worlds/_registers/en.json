@@ -1,0 +1,12 @@
+{
+  "korea": {
+    "tokens": {
+      "unnie": "unnie",
+      "ya": "ya",
+      "nim": "nim",
+      "ssi": "ssi",
+      "sep": "-"
+    },
+    "guide": "  언니 -> \"unnie\" (e.g. \"Irene-unnie\") — NEVER \"big sister\", \"sis\" or \"miss\"\n  씨 -> \"-ssi\" (e.g. \"Ju-hyun-ssi\")\n  님 -> \"-nim\" (e.g. \"Manager-nim\")\n  야/아 -> \"-ya\"/\"-ah\" (e.g. \"Yerim-ah\") — warm and close, or a flash of irritation\n  선배 -> \"sunbae\"\n  존댓말 vs 반말 — show the difference in how formal the phrasing feels"
+  }
+}

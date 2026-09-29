@@ -1,7 +1,7 @@
 const zh = {
   cover: {
     subtitle: "嫂嫂模拟器",
-    desc: "LLM文游·女女恋爱养成·v1.4.0",
+    desc: "LLM文游·女女恋爱养成·v1.4.1",
     newGame: "✨ 开始新游戏",
     continue: "💾 继续游戏 (读档)",
     apiKey: "🔑 修改API Key/切换模型",
@@ -17,19 +17,23 @@ const zh = {
   },
   setup: {
     title: "💗 角色创建",
-    ragLoading: "组合 加载:",
     keyConfigured: "🔑 Key 已配置",
     keyMissing: "⚠️ Key 未配置",
     change: "修改",
     mainMember: (aff) => `🌸 主线成员 (初始好感${aff})`,
     subMember: (min, max, total) => `🌿 支线成员 (可选0~${total}位，初始好感${min}~${max})`,
     npcHint: "🤝 NPC:",
+    // The world picker took the slot the pace picker vacated - v1.4.1 step 3.
+    world: "🌍 世界观",
+    // The one identity option no world declares: `H` is the app's escape hatch.
+    // The other seven labels come from `world.identities[].name`, which is also
+    // the string section 6 of the prompt prints, so there is one copy of each.
+    customIdentityOption: "[自定义]",
     identity: "💼 身份",
     customIdentity: "自定义身份...",
     basicInfo: "📝 基础信息",
     name: "名字",
     age: "年龄",
-    pace: "🎬 剧情节奏",
     start: (name) => `✨ 与${name} 开始故事`,
     complete: "请填写完整信息",
     loading: "加载成员数据...",
@@ -54,6 +58,7 @@ const zh = {
     required: "必填",
     optional: "可选",
     fields: {
+      emoji: "头像符号",
       name: "名字",
       birthday: "出生日期",
       birthYear: "出生年份",
@@ -69,6 +74,7 @@ const zh = {
       hidden_conflict: "隐藏矛盾",
     },
     hints: {
+      emoji: "没有照片时，顶栏和状态框里就用这个符号代表她。",
       birthday: "年份决定敬语方向，必填。",
       habit: "一个具体、可重复的身体动作 —— 能演出来的，不是感受。",
       private_personality: "没人看着的时候她是什么样。",
@@ -86,7 +92,7 @@ const zh = {
     wallReplace: "更换背景图",
     wallRemove: "移除背景图",
     wallFull: (max) => `背景图已满（${max} 张），删掉一张再添加。`,
-    castImages: "照片",
+    castImages: "（可选）上传头像和壁纸",
     castImagesHint: "照片会出现在她露面的每个界面。背景图用作她的聊天与 Weverse 面板背景，以及 Instagram 配图。",
     imagesUsed: (kb) => `已用 ${kb} KB`,
     cropTitle: (what) => `调整${what}`,
@@ -141,22 +147,39 @@ const zh = {
     clearCast: "清空卡司",
     badYear: "请输入 1980 到 2012 之间的年份",
     confirmDelete: (name) => `删除「${name}」？此操作无法撤销。`,
-    castName: "组合名",
-    castNamePlaceholder: "X",
-    castNameHint: (agency) => `这些成员将作为一个组合出道。经纪公司：${agency}`,
+    confirmDeleteRoster: (name) => `删除已存阵容「${name}」？成员本人不会被删除。`,
+    // The world owns the NOUN and the language owns the grammar around it, so
+    // a college or a company needs no new string here. The hint is the world's
+    // own sentence (`castLore.orgHint`): "they debut as one group" is a
+    // different claim from "they study here", not one sentence with a
+    // different word in it. The placeholder is DEFAULT_CAST_NAME.
+    orgName: (noun) => `${noun}名`,
+    orgLoaded: (noun) => `已加载${noun}: `,
+
     fictionNote: "自定义成员是虚构角色，与任何真实人物无关。",
   },
-  identities: {
-    "练习生": "练习生",
-    "Staff": "助理",
-    "韩娱艺人": "韩娱艺人",
-    "粉丝": "粉丝",
-    "留学生": "留学生",
-    "财阀": "财阀会长",
-    "主线成员前女友": "主线成员前女友",
-    "H": "[自定义]",
+  // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
+  // laid out in a parallel array. `paces` used to sit here and was read as
+  // `t.paces[i]` against `PACES[i]` in App.jsx, coupling two hand-maintained
+  // lists by POSITION. One string per mode, matching how Time Speed reads: the
+  // section title is the heading and this is the line under it.
+  modes: {
+    free: "🌿 自由 — 没有外部剧情事件，关系本身就是剧情",
+    romance: "💕 浪漫 — 自然推进的浪漫戏份，双向心动",
+    pressure: "🔥 高压 — 舆论与丑闻压力，保密度变化加倍",
+    dramatic: "🎭 修罗 — 主线与支线成员公开争夺你的好感",
   },
-  paces: ["慢热现实向", "浪漫情感向", "高压舆论向", "修罗海王向"],
+  // v1.4.1 step 5 - the place picker. `go` is a TEMPLATE rather than a sentence composed
+  // at the call site: Korean needs a particle after the place name, and the word in front
+  // of a particle is a variable - so ko carries the 으로/로 pair and resolveKoreanParticles
+  // picks. zh and en carry no pair, so the resolver is inert on them.
+  map: {
+    title: "去哪里？",
+    costsRound: "去一个地方会推进一轮 —— 一个场景就是一轮。",
+    discovered: "已发现",
+    foundIn: (r) => `第 ${r} 轮发现`,
+    go: "我去{place}",
+  },
   game: {
     generating: "生成开局剧情...",
     progressing: "剧情推进中...",
@@ -279,6 +302,7 @@ const zh = {
     reasoningTitle: "🧠 深度思考",
     reasoningOn: "💰 已开启 — 模型在写作前会进行推理。故事更丰富，费用约 2 倍，速度较慢。",
     reasoningOff: "⚡ 已关闭 — 响应更快，费用更低。",
+    storyModeTitle: "🎬 剧情模式",
     birthYearTitle: "🎂 你的出生年份",
     birthYearApply: "保存",
     birthYearHint: "决定你和成员之间敬语的方向。修改后从下一回合起生效。",

@@ -1,7 +1,7 @@
 const en = {
   cover: {
     subtitle: "Idol Dating Simulator",
-    desc: "LLM Text Adventure · Yuri Dating Sim · v1.4.0",
+    desc: "LLM Text Adventure · Yuri Dating Sim · v1.4.1",
     newGame: "✨ New Game",
     continue: "💾 Continue (Load Save)",
     apiKey: "🔑 API Key / Model",
@@ -17,19 +17,23 @@ const en = {
   },
   setup: {
     title: "💗 Character Creation",
-    ragLoading: "Group loaded:",
     keyConfigured: "🔑 Key configured",
     keyMissing: "⚠️ Key missing",
     change: "Change",
     mainMember: (aff) => `🌸 Main Member (Initial Affection: ${aff})`,
     subMember: (min, max, total) => `🌿 Sub Members (0~${total} selectable, Initial: ${min}~${max})`,
     npcHint: "🤝 NPC:",
+    // The world picker took the slot the pace picker vacated - v1.4.1 step 3.
+    world: "🌍 World",
+    // The one identity option no world declares: `H` is the app's escape hatch.
+    // The other seven labels come from `world.identities[].name`, which is also
+    // the string section 6 of the prompt prints, so there is one copy of each.
+    customIdentityOption: "[Custom]",
     identity: "💼 Identity",
     customIdentity: "Custom identity...",
     basicInfo: "📝 Basic Info",
     name: "Name",
     age: "Age",
-    pace: "🎬 Story Pace",
     start: (name) => `✨ Start with ${name}`,
     complete: "Please complete all fields",
     loading: "Loading members...",
@@ -54,6 +58,7 @@ const en = {
     required: "required",
     optional: "optional",
     fields: {
+      emoji: "Avatar glyph",
       name: "Name",
       birthday: "Date of birth",
       birthYear: "Birth year",
@@ -69,6 +74,7 @@ const en = {
       hidden_conflict: "Hidden conflict",
     },
     hints: {
+      emoji: "With no photo, this is her face in the top bar and the stats box.",
       birthday: "The year sets which way honorifics point. Required.",
       habit: "One concrete, repeatable physical action — something stageable, not a feeling.",
       private_personality: "Who she is when no one is watching.",
@@ -89,7 +95,7 @@ const en = {
     wallReplace: "Change wallpaper",
     wallRemove: "Remove wallpaper",
     wallFull: (max) => `Wallpapers are full (${max}). Remove one to add another.`,
-    castImages: "Photos",
+    castImages: "(Optional) Upload photos & wallpapers",
     castImagesHint: "Her photo shows on every screen she appears on. Her wallpaper backs her chat and Weverse panels, and is her Instagram post.",
     imagesUsed: (kb) => `${kb} KB used`,
     // The crop step. It is a confirmation, so the title names WHAT is being
@@ -146,22 +152,39 @@ const en = {
     clearCast: "Clear cast",
     badYear: "Enter a year between 1980 and 2012",
     confirmDelete: (name) => `Delete "${name}"? This cannot be undone.`,
-    castName: "Group name",
-    castNamePlaceholder: "X",
-    castNameHint: (agency) => `Your cast debuts as one group. Agency: ${agency}`,
+    confirmDeleteRoster: (name) => `Delete the saved cast "${name}"? The members themselves are kept.`,
+    // The world owns the NOUN and the language owns the grammar around it, so
+    // a college or a company needs no new string here. The hint is the world's
+    // own sentence (`castLore.orgHint`): "they debut as one group" is a
+    // different claim from "they study here", not one sentence with a
+    // different word in it. The placeholder is DEFAULT_CAST_NAME.
+    orgName: (noun) => `${noun} name`,
+    orgLoaded: (noun) => `${noun} loaded: `,
+
     fictionNote: "Custom members are fictional characters and describe no real person.",
   },
-  identities: {
-    "练习生": "Trainee",
-    "Staff": "Staff",
-    "韩娱艺人": "K-pop Artist",
-    "粉丝": "Fan",
-    "留学生": "Student",
-    "财阀": "Chaebol",
-    "主线成员前女友": "Ex-Girlfriend",
-    "H": "[Custom]",
+  // v1.4.1 step 2 - the four story modes, keyed by the universal id rather than
+  // laid out in a parallel array. `paces` used to sit here and was read as
+  // `t.paces[i]` against `PACES[i]` in App.jsx, coupling two hand-maintained
+  // lists by POSITION. One string per mode, matching how Time Speed reads: the
+  // section title is the heading and this is the line under it.
+  modes: {
+    free: "🌿 Free — no plot events; the relationship itself is the story",
+    romance: "💕 Romance — romantic beats and natural mutual progression",
+    pressure: "🔥 Pressure — scandal and scrutiny; secrecy changes doubled",
+    dramatic: "🎭 Dramatic — main and sub members openly compete for you",
   },
-  paces: ["Slow Burn Realistic", "Romantic Drama", "High Pressure Scandal", "Harem Route"],
+  // v1.4.1 step 5 - the place picker. `go` is a TEMPLATE rather than a sentence composed
+  // at the call site: Korean needs a particle after the place name, and the word in front
+  // of a particle is a variable - so ko carries the 으로/로 pair and resolveKoreanParticles
+  // picks. zh and en carry no pair, so the resolver is inert on them.
+  map: {
+    title: "Where to?",
+    costsRound: "Going somewhere advances a round — a scene is a round.",
+    discovered: "discovered",
+    foundIn: (r) => `found in round ${r}`,
+    go: "I head to {place}",
+  },
   game: {
     generating: "Generating opening story...",
     progressing: "Story progressing...",
@@ -284,6 +307,7 @@ const en = {
     reasoningTitle: "🧠 Deep Thinking (Reasoning)",
     reasoningOn: "💰 ON — model thinks before writing. Richer story, ~2× cost, slower.",
     reasoningOff: "⚡ OFF — faster responses, lower cost. ",
+    storyModeTitle: "🎬 Story Mode",
     birthYearTitle: "🎂 Your birth year",
     birthYearApply: "Save",
     birthYearHint: "Decides which way honorifics point between you and the cast. Changing it takes effect next round.",

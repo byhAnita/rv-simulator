@@ -356,6 +356,25 @@ five conditions partition the reachable state space, so that whatever the answer
 through and no ending is shadowed. That guard is worth writing **after** the conditions are decided,
 not before — written now it would pin today's behaviour as the requirement.
 
+### It now blocks something — 2026-09-28
+
+**This stopped being a cleanup when the epilogue got a design.** `docs/V140_PLAN.md` §21 composes
+the epilogue's prompt from the **ending id** plus the story mode plus the world, which means the
+ending table stops being a set of badges and becomes the key an authored register hangs off. Writing
+an epilogue register for `oe_unspoken_waiting` — reachable only at `secrecy === 60` exactly —
+is authoring three languages of prose for an ending almost nobody sees.
+
+Two more facts found while designing §21, both of which make the precedence question more urgent
+rather than differently shaped:
+
+- **The epilogue is handed no ending today.** It is triggered by `specialEvent` (two reachable
+  types) and `checkAchievement` (five ids) never reaches it, so the five conditions currently
+  decide nothing a player reads except a modal's title.
+- **The state that reaches no ending is also the state with no way to finish.** A discreet, cheerful,
+  moderately loved run matches none of the five *and* fires neither special event, so it has no
+  epilogue path at all — the hole in the condition table and the hole in the trigger are the same
+  run. §21.2's *End this story* entry closes the second half; only a decision closes the first.
+
 ---
 
 ## 7. The option fallbacks are English in every language
@@ -387,6 +406,59 @@ interacts with §2's undecided length band — set it to 300 and a deliberately 
 is not what produced this one: the round that triggered it was served by `glm-5.1`, the weakest model on
 the route and the one CLAUDE.md records as having run away to the output cap. Measure on a good model,
 then set the floor well under that minimum but far above 40.
+
+### It fired again on a healthy model, it was NOT truncated, and the threshold cannot fix it
+
+**Observed 2026-09-29**, during v1.4.1 step 8's live release gate: `--world office --lang en
+--identity report_to_cast --rounds 8`, round 7 of 8, on **`deepseek-flash`** — the best-behaved
+provider this project has, not `glm-5.1`. The player would have been shown 500 characters of raw
+JSON under the same four English buttons.
+
+Two things separate it from the 2026-09-27 case above, and the second is the important one.
+
+**It was not truncated.** `finish: "stop"` and 832 completion tokens, against a cap of 8192. The
+model emitted a complete response and all four parse levels still failed on it. So the paragraph
+above is incomplete: a healthy model produces this too, and "measure the floor on a good model"
+would not have predicted it.
+
+**And `MIN_STORY_CHARS` cannot fix this class at all.** `hasUsableStory` is the content probe that
+decides whether `bad_response` retries a round, and it works by calling **`parseLLMOutput` and
+measuring the result**. On a total parse failure that result is level 4's `text.substring(0, 500)`
+— so the probe measures 500 characters and passes, for **any** response long enough to slice. The
+probe consults the very parser whose failure produced the fallback, and cannot tell the fallback
+from a real story:
+
+```js
+// mainAgent.js - the probe
+const story = parseLLMOutput(content)?.story || "";
+return story.trim().length >= MIN_STORY_CHARS;   // 40
+
+// mainAgent.js - level 4, when every level has failed
+story: text.substring(0, 500) || "The story continues...",
+```
+
+**500 >= 40 for every threshold anyone would set**, so raising it from 40 to 300 changes nothing
+here — and the machinery that exists to stop unusable output reaching the player can never fire on
+the one case where the output is least usable. That is a structural blindness, not a tuning gap,
+and it is why this entry is no longer only about the English buttons.
+
+**What the fix would be**, stated but NOT done: the probe has to know the parse *level*, not the
+story *length* — `parseLLMOutput` already logs its level, so returning it is the small half.
+`hasUsableStory` then rejects level 4 outright and `bad_response` retries as designed. That changes
+the retry path for every player on every provider, which is not a thing to ship in the same breath
+as a release that has not been deployed yet; it wants its own change and its own measurement.
+
+**Frequency, measured, and it is not rare:** once in the 24 live rounds of the v1.4.1 gate (3 worlds
+x 8), plus the 2026-09-27 occurrence. Call it low single-digit percent and do not sharpen that
+number — it is two events.
+
+**What the next occurrence will have that this one does not.** `playthrough.mjs` stored only the
+*parsed* story, so on a total failure the evidence and the symptom were the same 500 bytes and the
+flag could not be diagnosed at all — the identical gap CLAUDE.md records for delivered Kakao, one
+field over. The harness now keeps the raw response body whenever the parse level is not `direct`
+(`rawResponse`), guarded and mutation-verified. **Read that field before acting on this entry**: it
+is still unknown *why* the response failed to parse, and this proposal should not be actioned on a
+guess about it.
 
 ---
 

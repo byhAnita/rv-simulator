@@ -25,6 +25,12 @@
 
 export const RELEASE_NOTES = [
   {
+    version: "1.4.1",
+    zh: "新增三个世界：校园、职场、财阀家族。同一批成员可以换一个世界重新开始——每个世界有自己的开场、十个地点、专属身份和社交平台。剧情模式从角色设定移到了设置里，随时可改；输入框旁新增 📍 按钮，可以直接去某个地方（移动会消耗一个回合）。",
+    en: "Three new worlds — campus, office and chaebol houses. The same cast can start again somewhere else, and each world has its own opening scene, its own ten places, its own identities for you and its own social platforms. Story Mode has moved out of character setup and into Settings, so it can be changed mid-run, and a 📍 button beside the input row takes you straight to a place — moving costs a round.",
+    ko: "새로운 세계 세 개가 추가되었습니다: 캠퍼스, 오피스, 재벌가. 같은 출연진으로 다른 세계에서 다시 시작할 수 있으며, 각 세계는 고유한 오프닝과 열 개의 장소, 전용 정체성, 자체 소셜 플랫폼을 가집니다. 스토리 모드는 캐릭터 설정에서 설정 메뉴로 옮겨져 플레이 도중에도 바꿀 수 있고, 입력창 옆 📍 버튼으로 원하는 장소로 바로 이동할 수 있습니다(이동은 한 라운드를 소모합니다).",
+  },
+  {
     version: "1.4.0",
     zh: "现在可以自己组建卡司：从任意一个或多个团里挑主线、副线和背景成员，也可以用一句话描述、让 AI 生成一位并不存在的成员。任何成员都能上传头像和壁纸，裁剪由你决定，并会跟着她出现在游戏和四个社交面板里；角色设定改为直接选择出生年份，第十一个存档也不会再顶掉第一个。",
     en: "You can now build your own cast — pick a main, subs and background faces from one group or several, or describe a member who does not exist in one line and let the model write her card. Anyone can be given a photo and a wallpaper, cropped the way you choose, which follow her into the game and all four social panels; setup asks for your birth year directly, and the eleventh save no longer deletes the first.",
