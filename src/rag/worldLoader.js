@@ -8,6 +8,11 @@
 // prefix comes from the build and never from the hostname. See groupLoader.js
 // for why that rule exists.
 
+// Extensionless would be fine under Vite and is what every other src module writes, but
+// smoke imports this file RAW under Node - no bundler - and Node needs the extension. Same
+// reason imageStore.js names its own import "../utils.js".
+import { SOCIAL_PLATFORM_IDS, PRIVATE_PLATFORM_IDS } from "../config/platformConfig.js";
+
 const base = () => import.meta.env.BASE_URL;
 
 export const DEFAULT_WORLD_ID = "kpop_idol";
@@ -193,6 +198,20 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
   }
   if (!Array.isArray(platforms?.social) || typeof platforms?.private !== "string") {
     throw new Error(`world ${where}: "platforms" needs a social array and a private string`);
+  }
+  // A platform the app has no overlay for is a typo in a world file, and it renders as a
+  // top-bar button that opens nothing - so it throws, the same rule an unknown address
+  // register follows. The offending id is named, because a message that only says the
+  // field is wrong sends the reader back to the file to guess which entry.
+  // A MODEL naming an undeclared platform is the opposite case and is filtered, not
+  // raised: see filterSocialByPlatforms.
+  for (const id of platforms.social) {
+    if (!SOCIAL_PLATFORM_IDS.includes(id)) {
+      throw new Error(`world ${where}: "platforms.social" names ${id}, which the app has no overlay for`);
+    }
+  }
+  if (!PRIVATE_PLATFORM_IDS.includes(platforms.private)) {
+    throw new Error(`world ${where}: "platforms.private" names ${platforms.private}, which the app has no overlay for`);
   }
   // Section 10 prints one note per stat and the three stat keys are permanent, so
   // all three are required by name. An absent one would render as `undefined` in

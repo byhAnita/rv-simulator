@@ -20,6 +20,7 @@ import WeverseOverlay from "./platforms/WeverseOverlay";
 import KakaoOverlay from "./platforms/KakaoOverlay";
 import SaveOverlay from "./platforms/SaveOverlay";
 import MapOverlay from "./platforms/MapOverlay";
+import { platformsOf } from "./config/platformConfig";
 import HelpOverlay from "./platforms/HelpOverlay";
 import UsagePanel from "./platforms/UsagePanel";
 import RosterBuilder from "./platforms/RosterBuilder";
@@ -1054,6 +1055,19 @@ export default function App() {
     return { letter, text };
   });
   const hasNotifDot = (platform) => activeNotifications.some(n => n.platform === platform);
+  // The top bar's icons are the world's declared platforms, in the world's own order, with
+  // the private channel last and gated on the main member's KKT unlock. This was four
+  // literals in the JSX, so a world declaring two would still have drawn four buttons - two
+  // of them opening an overlay for a platform its story never uses. The world is the SAVE's
+  // world (loadSave sets it from migrated.worldId), so a run keeps the platforms it started
+  // with even if another world is selected afterwards.
+  const platformBar = (() => {
+    const { social, private: priv } = platformsOf(world);
+    return [
+      ...social.map((p) => ({ icon: p.icon, type: p.ui, badge: p.badge, locked: false })),
+      ...(priv ? [{ icon: priv.icon, type: priv.ui, badge: priv.badge, locked: !kktUnlocked[form.mainMember] }] : []),
+    ];
+  })();
   const displayTopMember = topMember || mainMember;
   const topAff = displayTopMember ? getAffection(displayTopMember.id) : 0;
   const stageIdx = getStageIdx(topAff);
@@ -1651,7 +1665,7 @@ export default function App() {
             })}
           </div>
           <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-            {[{ icon: "💜", type: "bubble" }, { icon: "📸", type: "instagram" }, { icon: "🌿", type: "weverse" }, { icon: "💬", type: "kakao", locked: !kktUnlocked[form.mainMember] }].map(b => {
+            {platformBar.map(b => {
               const showDot = hasNotifDot(b.type) && !b.locked;
               return (
                 <button key={b.type} onClick={() => openSocialPlatform(b.type)}
@@ -1670,10 +1684,10 @@ export default function App() {
           <div style={{ padding: "3px 8px", background: th.notifBarBg, borderBottom: `1px solid ${th.notifBarBorder}`, display: "flex", gap: 6, overflowX: "auto", flexShrink: 0, fontSize: 9, color: th.notifBarText }}>
             {activeNotifications.map((n, i) => {
               const m = members.find(mb => mb.id === n.memberId);
-              const pn = { bubble: "bubble", instagram: "IG", weverse: "Weverse", kakao: "KKT" };
+              // The badge comes from the catalog rather than a second list of four here.
               return (
                 <span key={i} onClick={() => openSocialPlatform(n.platform, n.memberId)} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
-                  {m?.name_kr || m?.name} {t.notif.updated} {pn[n.platform] || n.platform}
+                  {m?.name_kr || m?.name} {t.notif.updated} {platformBar.find(b => b.type === n.platform)?.badge || n.platform}
                 </span>
               );
             })}

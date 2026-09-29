@@ -314,7 +314,7 @@ export async function resolveRoster(roster, language = "zh", world) {
   const groupConfig = primary
     ? { ...primary, groupLore, loreComposed: Boolean(composed),
         group: composed ? { ...primary.group, name: composed.name } : primary.group }
-    : { group: { name: composed?.name || castName, fandom: "", socialPlatforms: ["bubble", "instagram", "weverse"], privateChat: "kakaotalk" },
+    : { group: { name: composed?.name || castName, fandom: "" },
         members: [], groupLore, loreComposed: true };
 
   return {

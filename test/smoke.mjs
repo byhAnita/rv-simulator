@@ -3618,6 +3618,217 @@ async function layerI() {
       && goIn("en", "Rooftop") === goFor("en").replace("{place}", "Rooftop"),
     "a resolver that can rewrite a language it was not written for is worse than none");
 
+  // ===== v1.4.1 step 6: the platforms belong to the world ==================
+  //
+  // `world.platforms` names ids; src/config/platformConfig.js says what each one is.
+  // Every world on disk declares all three social platforms today, so the trimming is
+  // exercised against a synthetic instagram-only world here - which is also the only way
+  // to test it before step 7's content exists.
+  const platMod = await import("../src/config/platformConfig.js?t=" + Date.now());
+  const PLAT = platMod.PLATFORMS;
+
+  for (const [pid, entry] of Object.entries(PLAT)) {
+    check(`the ${pid} catalog entry is complete`,
+      entry.id === pid && typeof entry.ui === "string" && typeof entry.icon === "string"
+        && typeof entry.promptName === "string" && typeof entry.badge === "string"
+        && typeof entry.rules === "function" && typeof entry.formatRules === "function",
+      JSON.stringify(Object.keys(entry)));
+    check(`...and ${pid} carries a schema fragment only if it is a social platform`,
+      entry.private ? entry.schema === null : typeof entry.schema === "string",
+      String(entry.schema));
+  }
+  check("the social and private id sets partition the catalog",
+    [...platMod.SOCIAL_PLATFORM_IDS, ...platMod.PRIVATE_PLATFORM_IDS].sort().join()
+      === Object.keys(PLAT).sort().join()
+      && platMod.SOCIAL_PLATFORM_IDS.every((id) => !platMod.PRIVATE_PLATFORM_IDS.includes(id)),
+    platMod.SOCIAL_PLATFORM_IDS.join() + " | " + platMod.PRIVATE_PLATFORM_IDS.join());
+  // Not `every id a world declares is in the catalog` - parseWorld validates exactly that
+  // and throws first, so such a check cannot fail and would be decoration. What can fail,
+  // and what makes the throw worth having, is the other end: a catalog entry the app has
+  // no overlay for would put a button in the top bar that opens nothing.
+  const platAppRaw = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+  const platNoOverlay = Object.values(PLAT)
+    .filter((e) => !platAppRaw.includes(`overlay?.type === "${e.ui}"`));
+  check("every platform in the catalog has an overlay App.jsx can open",
+    platNoOverlay.length === 0, platNoOverlay.map((e) => e.id + " -> " + e.ui).join(", "));
+
+  // The prompt renders the declared platforms and nothing else. kpop_idol declares all
+  // three in this order, which is why the goldens do not move.
+  const platPromptFor = (w, lang = "en") =>
+    buildSystemPrompt(form(), members, "irene", ["yeri"], GROUP, "", "qwen", lang, w);
+  const platFull = platPromptFor(worldFor.en);
+  check("the schema asks for every platform the world declares, in its order",
+    platFull.includes('{"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null}'),
+    platFull.split("\n").find((l) => l.includes('"bubble"')) || "(no socialContent line)");
+  check("...and section 7 carries one rule line per declared platform",
+    /- Bubble: member-to-fan/.test(platFull) && /- Instagram: Photo social/.test(platFull)
+      && /- Weverse: Fan community/.test(platFull),
+    "a platform the world declares with no rule is a key the model fills blind");
+
+  // The trimmed world: Instagram and KakaoTalk only, which is what campus, office and
+  // chaebol ship in step 7.
+  const platTrim = (lang) => ({
+    ...worldFor[lang],
+    platforms: { social: ["instagram"], private: "kakaotalk" },
+  });
+  const platThin = platPromptFor(platTrim("en"));
+  check("a world declaring one social platform asks for one",
+    platThin.includes('"instagram":null') && !platThin.includes('"bubble":[')
+      && !platThin.includes('"weverse":null'),
+    platThin.split("\n").find((l) => l.includes("instagram")) || "(no socialContent line)");
+  check("...and section 7 loses the rules for the platforms it does not have",
+    /- Instagram: Photo social/.test(platThin)
+      && !/- Bubble: member-to-fan/.test(platThin) && !/- Weverse: Fan community/.test(platThin),
+    "a rule for a platform with no key is a rule the model cannot follow");
+  check("...and the RULES block loses their format lines too",
+    /- socialContent\.instagram: MUST be an object/.test(platThin)
+      && !/- socialContent\.bubble:/.test(platThin) && !/- socialContent\.weverse:/.test(platThin),
+    "a format rule naming a key the schema does not have is the other half of the defect");
+  check("...and section 1 names the platforms that exist, not a fixed four",
+    platThin.includes("DO NOT output Korean in instagram/KKT content")
+      && platFull.includes("DO NOT output Korean in bubble/instagram/weverse/KKT content"),
+    platThin.split("\n").find((l) => l.includes("DO NOT output Korean")) || "(no social rule)");
+  check("...and the Hangul clause names a platform the world has",
+    /- For Chinese\/English: instagram\/social content/.test(platThin)
+      && /- For Chinese\/English: bubble\/social content/.test(platFull),
+    platThin.split("\n").find((l) => l.includes("For Chinese/English")) || "(no Hangul clause)");
+  check("the private channel survives a world that trims every social platform",
+    /- KKT \(KakaoTalk\): Private chat/.test(platThin)
+      && /- KKT IS DELIVERED BY THE APP/.test(platThin)
+      && /- KKT IS A LOCKED CHANNEL/.test(platThin)
+      && /- kktMessages: Object with member IDs/.test(platThin),
+    "KKT is gated on affection, not on the social list");
+  check("...and trimming platforms removes no section from the prompt",
+    (platThin.match(/^║ (\d+)\. /gm) || []).length
+      === (platFull.match(/^║ (\d+)\. /gm) || []).length,
+    "the section numbering is referred to by number from five places");
+
+  // A world file is authored HERE, so a platform the app cannot render is a typo that must
+  // fail loudly - the unknown-register rule. A MODEL naming one is the opposite case and is
+  // filtered below. The two sit together on purpose: the asymmetry is the design.
+  const platGood = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "kpop_idol", "zh.json"), "utf8"));
+  const platRegs = JSON.parse(readFileSync(
+    join(ROOT, "public", "worlds", "_registers", "zh.json"), "utf8"));
+  const platParse = (platforms) => {
+    try { loader.parseWorld({ ...platGood, platforms }, "kpop_idol", "zh", platRegs); return null; }
+    catch (e) { return e.message; }
+  };
+  const badSocial = platParse({ social: ["instagram", "mastodon"], private: "kakaotalk" });
+  check("parseWorld rejects a social platform the app has no overlay for",
+    badSocial !== null && badSocial.includes("mastodon"),
+    badSocial || "parsed without complaint");
+  const badPriv = platParse({ social: ["instagram"], private: "signal" });
+  check("parseWorld rejects a private channel the app has no overlay for",
+    badPriv !== null && badPriv.includes("signal"),
+    badPriv || "parsed without complaint");
+  check("...and accepts a world that declares a SUBSET of the platforms",
+    platParse({ social: ["instagram"], private: "kakaotalk" }) === null,
+    "trimming is the feature; only an unknown id is an error");
+
+  // filterSocialByPlatforms - pure and exported, tested directly rather than only through
+  // a round, the same reason addSaveSlot and membersNamedIn are.
+  const platRaw = {
+    irene: { bubble: [{ content: "hi" }], instagram: { caption: "x" }, weverse: { content: "y" } },
+    yeri: { weverse: { content: "z" } },
+  };
+  const platKept = platMod.filterSocialByPlatforms(platRaw, ["instagram"]);
+  check("an undeclared platform is dropped from the model's social content",
+    !("bubble" in platKept.irene) && !("weverse" in platKept.irene),
+    JSON.stringify(Object.keys(platKept.irene)));
+  check("...and a declared one is kept exactly as the model wrote it",
+    platKept.irene?.instagram?.caption === "x", JSON.stringify(platKept.irene?.instagram));
+  check("...and a declared platform the model omitted is NOT invented",
+    !("instagram" in (platKept.yeri || {})) && Object.keys(platKept.yeri || {}).length === 0,
+    JSON.stringify(platKept.yeri));
+  check("...and the member survives even when every platform she carried is dropped",
+    "yeri" in platKept, JSON.stringify(Object.keys(platKept)));
+  check("...and the model's own object is not mutated",
+    "bubble" in platRaw.irene && "weverse" in platRaw.yeri,
+    "a filter that mutates its input makes the raw response unreadable afterwards");
+  let platEmpty = null;
+  try {
+    platEmpty = JSON.stringify(platMod.filterSocialByPlatforms({}, ["instagram"]))
+      + JSON.stringify(platMod.filterSocialByPlatforms(undefined, ["instagram"]));
+  } catch (e) { platEmpty = e.message; }
+  check("...and an empty response filters to an empty object rather than throwing",
+    platEmpty === "{}{}", platEmpty);
+
+  // executeRound filters ONCE and both readers take the filtered value. One of two is the
+  // failure mode here, and it is extractStoryText's.
+  const platAgentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+  check("executeRound filters the model's social content against the world",
+    (platAgentSrc.match(/filterSocialByPlatforms\(/g) || []).length === 1
+      && /const socialContent = filterSocialByPlatforms\(parsed\.socialContent \|\| \{\}, declaredSocial\)/
+        .test(platAgentSrc),
+    "the filter is the only thing between an undeclared platform and a live notification");
+  check("...and nothing downstream reads the unfiltered response",
+    (platAgentSrc.match(/parsed\.socialContent/g) || []).length === 1,
+    "both the notification derivation and the feed write must read the filtered object");
+  check("...and the private channel's notification names the catalog's overlay key",
+    /const privateUi = platformsOf\(world\)\.private\?\.ui/.test(platAgentSrc)
+      && !/roundNotifs\.push\(\{ platform: "kakao"/.test(platAgentSrc),
+    "the world says kakaotalk and the overlay is kakao - a literal here gets that mapping wrong");
+  check("...and the notifications iterate the declared list, not three named platforms",
+    /for \(const pid of declaredSocial\)/.test(platAgentSrc)
+      && !/roundNotifs\.push\(\{ platform: "weverse"/.test(platAgentSrc),
+    "a hand-written list of three is the list that goes out of date");
+
+  // The group library no longer claims to own platforms. Read through loadGroupConfig,
+  // never off the JSON: a fixture tests the formatter and not the feature.
+  const platGroupCfg = await fromDisk(() => loader.loadGroupConfig("red_velvet", "en"));
+  check("a loaded group config carries no platform fields",
+    platGroupCfg.group.socialPlatforms === undefined
+      && platGroupCfg.group.privateChat === undefined,
+    JSON.stringify(Object.keys(platGroupCfg.group)));
+  const platTreeHits = [];
+  for (const tree of ["public/groups", "groups"]) {
+    for (const e of readdirSync(join(ROOT, tree), { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const d = join(ROOT, tree, e.name);
+      const dir = e.name;
+      for (const f of readdirSync(d)) {
+        if (!f.endsWith(".json")) continue;
+        if (/social_platforms|private_chat/.test(readFileSync(join(d, f), "utf8"))) {
+          platTreeHits.push(tree + "/" + dir + "/" + f);
+        }
+      }
+    }
+  }
+  check("no group file in either tree still declares platforms",
+    platTreeHits.length === 0, platTreeHits.slice(0, 4).join(", "));
+  check("...nor the template, which is where the next group would inherit them",
+    !/social_platforms|private_chat/.test(
+      readFileSync(join(ROOT, "src/rag/groupConfigTemplate.json"), "utf8")),
+    "a dead key in the template is how the next author is taught to set it");
+  check("...nor the config an all-custom cast synthesises",
+    !/socialPlatforms|privateChat/.test(
+      readFileSync(join(ROOT, "src/rag/rosterResolver.js"), "utf8")),
+    "the branch with no group file is where a default quietly reappears");
+
+  // The top bar is the world's platform list. Comment-stripped, so a guard cannot pass on
+  // the prose that explains it - which has happened twice in this file.
+  const platAppSrc = readFileSync(join(ROOT, "src/App.jsx"), "utf8")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  check("the top bar's icons are built from the world's declared platforms",
+    /const \{ social, private: priv \} = platformsOf\(world\)/.test(platAppSrc)
+      && /\{platformBar\.map\(b => \{/.test(platAppSrc),
+    "four literals in the JSX would draw four buttons in a world that declares two");
+  check("...with the private channel last and the only one that can be locked",
+    /priv \? \[\{ icon: priv\.icon, type: priv\.ui, badge: priv\.badge, locked: !kktUnlocked\[form\.mainMember\] \}\] : \[\]/
+      .test(platAppSrc)
+      && /social\.map\(\(p\) => \(\{ icon: p\.icon, type: p\.ui, badge: p\.badge, locked: false \}\)\)/
+        .test(platAppSrc),
+    "a social platform has no unlock and the private one has nothing else");
+  check("...and the notification strip reads its label from the catalog",
+    !/const pn = \{ bubble:/.test(platAppSrc)
+      && /platformBar\.find\(b => b\.type === n\.platform\)\?\.badge/.test(platAppSrc),
+    "a second list of four labels is the list that disagrees with the first");
+  check("...and App.jsx names no platform id of its own any more",
+    !/type: "weverse"/.test(platAppSrc) && !/type: "bubble"/.test(platAppSrc),
+    "the catalog owns the icons, so a fifth platform is one entry and not six edits");
+
   // --- background rendering: stable for one save, varied across saves -------
   const exGf = (seed, lang = "zh") =>
     loader.renderIdentityBackground(worlds[lang], "主线成员前女友", "Joy", seed);

@@ -980,9 +980,11 @@ New optional output field `playerPostReactions: {memberId: {liked, comment}}`. I
 optional in the parser — a model that ignores it returns nothing and the round is still valid.
 
 Non-idol worlds declare `platforms.social: ["instagram"]`, so Bubble and Weverse disappear from
-both the UI and the JSON schema. The hook already exists and is currently dead:
-[groupLoader.js:97-98](../src/rag/groupLoader.js#L97-L98) parses `socialPlatforms` and
-`privateChat` and nothing reads them.
+both the UI and the JSON schema. **Shipped in v1.4.1 step 6** — see its design section below.
+The group-side hook this paragraph used to point at (`socialPlatforms` / `privateChat` in
+`groupLoader.js`, parsed since the first version and read by nothing) is **deleted** rather than
+wired: platforms belong to the world, because the same five members are idols in one world and
+law students in another.
 
 ---
 
@@ -1684,9 +1686,120 @@ all three languages, and smoke should assert that no world's display name equals
 | **3** | ✅ Setup page: pace picker out, **world picker in** at the same slot, reading `loadWorldIndex` so step 7 adds worlds as **data**; order becomes name / birth year / world / identity; the identity grid is the **world's own** `identities` plus `H`; a world change clears `identity`/`customIdentity` **only when the new world does not declare the id**; `rv_sim_world` persists the pick; `loadSave` restores the save's `worldId` | ✅ **Done.** Goldens byte-identical and untouched. `IDENTITIES` and the seven `t.identities` rows **deleted** — see *What step 3 deleted*. Asserted on what Setup **forwards**, not on its source |
 | **4** | ✅ Section **11** (not 8 — see §6) + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` in the cached prefix, `statNotes` into section 10, `castLore.composed`/`subset` rendered by `renderCastLore` in place of four string literals, `useGroupLore` honoured, `resolveRoster` taking a required `world`, `loadSave` fetching the **save's own** world, and `castLore.useRole` filtering the idol `role` out of a non-idol world's prompt | ✅ **Done.** Section 4 and section 5 did **not** move: the only golden diff is section 10's three notes, all of section 11, and the `scene` rule's pointer at it. `update-golden.mjs` run once and the diff read. Smoke **1304 → 1356**, **36 mutations RED**. The token delta is **still unmeasured** — see below |
 | **5** | ✅ Discovered places + map picker: `memory.places` client-side (`recordPlace` / `placeKey` / `PLACES_MAX`), `discoveredPlaceIn` reading the model's own `scene` line, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting the world-language `t.map.go` template as the round's choice (§7.1 — moving costs a round, by design). **§7.4's engine is NOT here:** the affinity matrix stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | ✅ **Done.** The goldens did not move and `update-golden.mjs` was **not run at all** — nothing in step 5 is prompt-facing, which is §6.1's point. A sentinel place is asserted to reach **none** of the three messages; the row's own mutation was not expressible, so the guard sits on every route by which the value could leak (see above). Smoke **1356 → 1383**, **23 mutations RED, 0 GREEN** |
-| **6** | Platform-aware schema and overlays: `world.platforms` replaces the group's `socialPlatforms`/`privateChat`, parsed since forever and read by nothing ([groupLoader.js:108-109](../src/rag/groupLoader.js#L108-L109)) | `parseLLMOutput` and `validateAndFixOutput` accept a response with a declared platform **absent** and one carrying a platform the world did **not** declare — a stray `weverse` must not break the round. Both mutation-verified |
+| **6** | ✅ Platform-aware schema and overlays: `world.platforms` names ids and `src/config/platformConfig.js` says what each one is; `filterSocialByPlatforms` drops what the world did not declare; the group's `socialPlatforms`/`privateChat` are **deleted** from the loader, the template and all 60 group files | ✅ **Done.** The goldens did not move and `update-golden.mjs` was **not run at all** — every world declares all three social platforms today, so the trimming is provably a no-op until step 7. The row's stated gate (`parseLLMOutput` / `validateAndFixOutput` tolerate an absent or a stray platform) is a property both already had, so the guard sits on the filter and **counts its two readers** instead. Trimming is exercised against a synthetic instagram-only world. Smoke **1383 → 1423**, **34 mutations RED, 0 GREEN, 0 NOT APPLIED** |
 | **7** | Content: campus, office, chaebol — each with the ex-girlfriend identity (see below) and six structural ones. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+#### Step 6's design, written before any code — nine decisions, and the row's gate is one the code already passes
+
+**1. The per-platform rules are CODE, keyed by platform id. The world declares only which ids.**
+This is the opposite call from step 4's `castLore`, and the difference is what the text is about.
+`castLore`'s wording describes *this world's* organisation, so three worlds need three wordings.
+Instagram's does not: *"Photo social. Style: aesthetic, short caption + emoji"* is true in a lecture
+hall, an office and a practice room, and putting it in world files means four copies of one sentence
+with nothing keeping them in step. So `src/config/platformConfig.js` holds the catalog — icon,
+prompt name, schema fragment, section 7 rule lines, RULES format lines — and `world.platforms`
+holds `{social: [ids], private: id}` and no prose at all.
+
+**2. One catalog, five consumers, counted rather than checked for presence.** The schema's
+`socialContent` example, section 7's rule lines, the RULES format lines, section 1's
+`bubble/instagram/weverse/KKT` slash list, and the top-bar buttons. Five is exactly the number of
+places a platform is currently named by hand, and `extractStoryText` is the standing example of what
+two copies do; a helper that exists and is used in four of five is the other.
+
+The feed shape (`{bubble: [], instagram: null, weverse: null}` in `App.jsx`) is deliberately **not**
+a consumer. It is internal state, and a key for a platform no button opens is unobservable — the
+filter in decision 4 is what stops undeclared content getting that far. Adding a sixth derivation
+for a value nobody can see is the kind of tidy change that breaks something.
+
+**3. An unknown platform in a WORLD FILE throws at `parseWorld`; an unknown platform in a MODEL
+RESPONSE is dropped silently.** The asymmetry is the point and it is not inconsistency. A world file
+is authored here, so a platform the app has no overlay for is a typo that must fail loudly — the
+unknown-register precedent from step 1, and a top-bar button that opens nothing is worse than a load
+failure. A model response is untrusted text, so a stray `weverse` is data to discard, never an error
+to raise: it must not break the round.
+
+**4. The row's stated gate is tolerance, and `parseLLMOutput` / `validateAndFixOutput` already have
+it — so the guard goes somewhere else.** Both iterate `Object.entries(socialContent)` and neither
+enumerates platforms, so a response missing a declared platform or carrying an undeclared one
+already parses today. A check written from the row's words would pass against the unfixed code,
+which is step 5's lesson arriving a second time: **when the mutation you would need is not
+expressible, the guard is aimed at the wrong place.**
+
+What can actually go wrong is downstream of the parse. `executeRound` derives `roundNotifs` and the
+stored `socialFeeds` from `parsed.socialContent`, so an undeclared `weverse` becomes a notification
+in the strip — a live entry point opening an overlay for a platform this world does not have, with
+no button anywhere else in the app. So:
+
+- **`filterSocialByPlatforms(socialContent, socialIds)`** is exported and pure, unit-tested
+  directly, the `addSaveSlot` / `membersNamedIn` pattern.
+- It is called **once**, in `executeRound`, and the guard **counts the readers**: both the
+  notification derivation and the feed write must read the filtered object. One of two is the
+  failure mode, and it is the `extractStoryText` failure mode.
+- A **declared platform that is absent** stays absent. Nothing is fabricated to fill it, because a
+  fabricated `instagram: {}` renders an empty post the model never wrote.
+
+**5. The private channel stays singular.** KKT is wired through `KKT_THRESHOLD`, `kktUnlocked`,
+`filterKktByAffection` and the `[KKT Channels]` tail line; every world ships
+`private: "kakaotalk"` and all three new worlds are set in Korea. Reading the id from the world
+instead of hardcoding it is in scope. Making the private channel plural is not, and would be a
+change to the unlock model rather than to platforms.
+
+**6. Platforms resolve from the SAVE's world, and that is already true rather than newly built.**
+Step 3's `loadSave` sets `world` from `migrated.worldId` before the phase flips, so a run started
+under `kpop_idol` keeps all four platforms for its whole life even if another world is selected
+afterwards. The guard asserts that property; it does not re-implement it.
+
+**7. `social_platforms` / `private_chat` leave the group library entirely.** They are parsed at
+`groupLoader.js:108-109`, defaulted, and read by nothing — the fifth instance of the shape this
+project tracks (`npcAppearances`, bubble `photoDesc`, cast photos, `STAR_LEVELS`). Removing the two
+lines from the loader is the fix; removing the keys from `groupConfigTemplate.json` is what stops
+the next person setting them and expecting them to work, which is the only way this trap is
+actually laid. All 30 group files and their 30 root mirrors lose both keys in the same commit, and
+Layer C's mirror check is what proves the two trees still agree. Confirmed by Yuhan, 2026-09-29.
+
+**8. Non-idol worlds declare Instagram and KakaoTalk only.** Confirmed by Yuhan, 2026-09-29, for
+step 7's campus, office and chaebol worlds. A member-to-fan subscription product and a fan
+community are idol infrastructure; a law student and an aide to a chaebol house have neither. The
+consequence is deliberate: in those worlds a round's social content is one post per member instead
+of three, and the top bar carries two icons instead of four.
+
+**9. The notification strip reads its label from the catalog, and the hardcoded map goes.**
+`{bubble: "bubble", instagram: "IG", weverse: "Weverse", kakao: "KKT"}` in `App.jsx` is a sixth
+hand-maintained platform list.
+
+> **Amended during implementation, and the first draft of this decision was wrong.** It said to
+> read `t[<platform>].title`, on the reasoning that the per-platform i18n blocks already carry
+> one. They do — and `t.kakao.title` is `카카오톡`, the **overlay header**, which is Hangul in all
+> three languages. Reading the strip off it would have retitled the strip everywhere for no
+> reason anyone asked for. They are two strings with two jobs that happened to agree for three
+> platforms out of four. So the catalog carries a `badge` beside `promptName`, the strings are
+> unchanged, and step 6 ships **no visible change at all** — which is the right outcome for a
+> step whose gate is that the prompt is byte-identical.
+
+**No save field and no migration.** Platforms are derived from `worldId`, which every save has
+carried since step 4's migration.
+
+**The gate, in its strong form.** Every world on disk declares all three social platforms today, so
+a correct implementation renders a **byte-identical** prompt: the goldens must not move and
+`update-golden.mjs` must not be run at all. The trimming is then exercised against a synthetic
+instagram-only world in smoke, which is also the only way to test it before step 7's content exists.
+
+**What the mutation run changed, recorded because it is the useful half.** 4 of the first 33
+mutations reported GREEN and **not one of them was a weak guard** — all four were guards that
+**crashed** rather than failed:
+
+- Three reached into `filterSocialByPlatforms`'s output (`platKept.irene.instagram.caption`) and
+  threw a `TypeError` when a mutation changed its shape. The suite died, the harness saw no
+  `failed:` line, and it printed GREEN. They are crash-safe now (`?.`, `|| {}`, a `try`).
+  **A guard that throws is indistinguishable from a suite that never ran** — the same output, and
+  the same wrong conclusion.
+- The fourth could not fail at all. *"Every platform a world declares exists in the catalog"* is
+  precisely what `parseWorld` throws on, so the only mutation that would break it breaks the world
+  load first. **A check that duplicates a validator is decoration.** Replaced with the property
+  that fails independently and is what makes the throw worth having: every catalog entry has an
+  overlay `App.jsx` can open — which is exactly where the `kakaotalk` / `kakao` id split would
+  go wrong.
 
 #### Step 5's design, written before any code — seven decisions, and one the row got wrong
 

@@ -105,8 +105,11 @@ function parseGroupConfig(config) {
     group: {
       name: group.name,
       fandom: group.fandom,
-      socialPlatforms: group.social_platforms || ["bubble", "instagram", "weverse"],
-      privateChat: group.private_chat || "kakaotalk",
+      // `socialPlatforms` and `privateChat` were here from the first version and were read
+      // by nothing for the life of the project. Platforms belong to the WORLD, not to the
+      // cast: the same five members are idols in one world and law students in another, and
+      // a group file cannot know which. See src/config/platformConfig.js + world.platforms.
+      // Deleted in v1.4.1 step 6, with the two keys in all 30 group files and the template.
     },
     members: parsedMembers,
     groupLore,

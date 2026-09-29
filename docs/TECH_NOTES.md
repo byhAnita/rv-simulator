@@ -703,6 +703,55 @@ it is panned and zoomed by transform and genuinely must be a child.
 And when the failing platform is out of reach, reproduce the *failure mode* rather than the cause:
 disable the mechanism you suspect and look at what the component does without it.
 
+### Data says WHICH, code says WHAT — v1.4.1
+
+**What it is.** A world file declares a list of platform ids (`{social: [...], private: "..."}`) and
+nothing else. Everything a platform *is* — its icon, its prompt rule, its JSON schema fragment, its
+format rule, its notification badge — lives in one catalog in `src/config/platformConfig.js`, keyed
+by that id.
+
+**What it replaced, and how that fell short.** Four platforms named by hand in five places: the JSON
+schema example, section 7's rule bullets, the RULES format bullets, section 1's
+`bubble/instagram/weverse/KKT` list, and the top bar's four `{icon, type}` literals. Adding a world
+with two platforms would have meant editing five lists and remembering all five; the sixth reader
+is always the one that still says weverse. Separately, the group library carried
+`social_platforms` / `private_chat` that nothing had ever read — the wrong file as well as a dead
+field, because the same five members are idols in one world and law students in another.
+
+**Why not put the rules in the world files instead?** That is the split `castLore` takes one field
+over, and it is right there and wrong here. `castLore` describes *this world's* organisation, so
+three worlds genuinely need three wordings. *"Instagram: Photo social. Style: aesthetic, short
+caption + emoji"* is true in a lecture hall exactly as it is in a practice room, so three worlds
+would carry three copies of one sentence with nothing keeping them in step — and a translation
+layer on top of that, since each world ships in three languages. **Put in data what varies between
+worlds; put in code what varies between platforms.**
+
+**The asymmetry that falls out of it.** An unknown id in a *world file* throws at `parseWorld`; an
+unknown platform in a *model response* is dropped silently. Both are "an id the catalog does not
+have", and they are opposite cases: a world file is authored in this repo, so a typo must fail
+loudly rather than render a top-bar button that opens nothing, while a model response is untrusted
+text that must never break a round. Filtering happens once, in `executeRound`, before either reader
+— the notification strip is a live entry point, and an unfiltered `weverse` would open an overlay
+for a platform with no button anywhere else in the app.
+
+**What it bought.** A world declares its platforms and the prompt, the schema and the UI follow. The
+step that introduced it rendered a **byte-identical** prompt — `update-golden.mjs` was not run at
+all — because every world on disk declares the same three in the same order, so the trimming is
+provably a no-op until step 7's content arrives.
+
+**What it costs.** The catalog and the world files must agree on ids, which is a coupling across a
+`public/` boundary; that is what the throw is for. And a platform that genuinely behaves differently
+in two worlds has nowhere to say so — it would need its rule moved back into world data, at which
+point the copies return. Nothing in v1.4.x needs that.
+
+**One guard had to be replaced because it could not fail.** *"Every platform a world declares exists
+in the catalog"* is exactly what `parseWorld` throws on, so the mutation crashed the load before the
+check ran. A check that duplicates a validator is decoration. The property that *can* fail
+independently is the other end — every catalog entry has an overlay the app can open — and it is
+what makes the throw worth having.
+
+---
+
 ### A list that grows, kept out of the cached prefix — v1.4.1
 
 **What it is.** Places the model invents become map content the player can revisit, while the static

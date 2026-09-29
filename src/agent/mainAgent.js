@@ -9,6 +9,7 @@ import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_M
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground } from "../rag/worldLoader";
+import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -61,6 +62,16 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const subList = subIds.map(id => members.find(m => m.id === id)).filter(Boolean);
   const npcList = npcIds.map(id => members.find(m => m.id === id)).filter(Boolean);
 
+  // The world declares WHICH platforms exist; src/config/platformConfig.js holds what
+  // each one is. Derived here because section 1 names them, section 2's schema is built
+  // from them and section 7's rules are theirs - five renderings of one list, which is
+  // five chances for the sixth to be the copy that still says weverse.
+  const plat = platformsOf(world);
+  // "bubble/instagram/weverse/KKT" - the private channel last, as section 1 has always
+  // written it.
+  const platformNames = [...plat.social.map((p) => p.promptName), plat.private?.promptName]
+    .filter(Boolean).join("/");
+
   // Language rules
   const langRules = {
     zh: {
@@ -73,13 +84,13 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
       // competing.
       rule: "ALL generated content MUST be in Simplified Chinese (简体中文). DO NOT use Traditional Chinese (繁体中文). Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in Simplified Chinese.",
-      socialRule: "Social media content must be in Simplified Chinese. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
+      socialRule: `Social media content must be in Simplified Chinese. DO NOT output Korean in ${platformNames} content.`,
     },
     en: {
       lang: "English",
       rule: "ALL generated content MUST be in English. DO NOT output Chinese characters. Korean address forms are the one exception and follow section 6's table exactly: they are texture rather than untranslated text, and take no parenthetical gloss.",
       storyRule: "Story text must be in English.",
-      socialRule: "Social media content must be in English. DO NOT output Korean in bubble/instagram/weverse/KKT content.",
+      socialRule: `Social media content must be in English. DO NOT output Korean in ${platformNames} content.`,
     },
     ko: {
       lang: "Korean",
@@ -315,10 +326,22 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // model was never asked for, so the frame could only ever come out empty. And the
   // example pinned the flag to `false` twice over (here and in RULES), so it was
   // never set anyway — a UI feature that could not fire and could not have rendered
-  // if it had.
-  const bubbleShape = `{"content":"msg","hasPhoto":false,"photoDesc":""}`;
-  const mainSocial = `"${mainId}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`;
-  const subSocials = subIds.map(id => `"${id}": {"bubble":[${bubbleShape}],"instagram":null,"weverse":null}`).join(",");
+  // if it had. Both shapes now live in src/config/platformConfig.js, one per platform.
+  // One fragment per declared platform, in the world's order. A world that declares only
+  // Instagram asks for only Instagram, so the model is never shown a key it has nowhere to
+  // put - and `kpop_idol` declares all three in this order, so today's schema is unchanged
+  // to the byte.
+  const socialShape = plat.social.map((p) => p.schema).join(",");
+  const mainSocial = `"${mainId}": {${socialShape}}`;
+  const subSocials = subIds.map(id => `"${id}": {${socialShape}}`).join(",");
+  const platformRules = [
+    ...plat.social.flatMap((p) => p.rules({ playerName })),
+    ...(plat.private ? plat.private.rules({ playerName }) : []),
+  ].join("\n");
+  const platformFormatRules = [
+    ...plat.social.flatMap((p) => p.formatRules()),
+    ...(plat.private ? plat.private.formatRules() : []),
+  ].join("\n");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
   return `You are the Dungeon Master (DM) of a yuri dating simulator. You must respond with valid json output. This is a parallel-universe fictional work. Current AI: ${modelName}
 
@@ -406,12 +429,7 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ╚══════════════════════════════════════════╝
 - LANGUAGE: ${lr.lang}.
 - ALL of it comes out of THIS round. A member posts about the day she has just had — the practice she just left, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
-- Bubble: member-to-fan daily sharing. 1-3 posts. Style: warm, cute, casual. A post may carry a photo.
-- Instagram: Photo social. Style: aesthetic, short caption + emoji.
-- Weverse: Fan community. Style: friendly, natural.
-- KKT (KakaoTalk): Private chat, member-to-player. Style: flirty/caring/casual.
-- KKT IS DELIVERED BY THE APP, NEVER BY THE STORY. Whatever you put in kktMessages is shown to ${playerName} in her own Kakao window after this round. The story therefore NEVER contains a Kakao message, a chat transcript, a phone screen lighting up, or a notification — for EVERY member, the unlocked ones included. Writing the message into the prose delivers it twice, in the wrong voice, before she has looked at her phone.
-- KKT IS A LOCKED CHANNEL. [KKT Channels] in CURRENT STATE lists every member as unlocked or LOCKED. A LOCKED member has no private line to ${playerName} yet: output [] for her id. Those messages do not exist, and narrating one produces a scene about a message the player never receives.
+${platformRules}
 - Only main and sub members generate social content. NPC members DO NOT generate social content.
 
 ╔══════════════════════════════════════════╗
@@ -466,15 +484,12 @@ RULES:
 - scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
-- socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
-- socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
-- socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
-- kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
+${platformFormatRules}
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
-- For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
+- For Chinese/English: ${plat.social[0]?.promptName || "social"}/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}` : ''}`;
 }
@@ -936,15 +951,28 @@ export async function executeRound({
     ? relationshipEvent : null;
 
   // Step 4: Notifications
-  const socialContent = parsed.socialContent || {};
+  // Filtered to what THIS world declares before anything reads it. An undeclared platform
+  // is not an error - the model's output is untrusted text and the round has to survive it -
+  // but it must not become a notification: the strip is a live entry point, and it would
+  // open an overlay for a platform with no button anywhere else in the app.
+  //
+  // Both readers below take the filtered object, and that is what the guard counts. One of
+  // two is the failure mode, and it is the one extractStoryText is the standing example of.
+  const declaredSocial = world?.platforms?.social || [];
+  const socialContent = filterSocialByPlatforms(parsed.socialContent || {}, declaredSocial);
   for (const [mid, platforms] of Object.entries(socialContent)) {
     if (!allTargetIds.includes(mid)) continue;
-    if (platforms?.bubble) roundNotifs.push({ platform: "bubble", memberId: mid });
-    if (platforms?.instagram) roundNotifs.push({ platform: "instagram", memberId: mid });
-    if (platforms?.weverse) roundNotifs.push({ platform: "weverse", memberId: mid });
+    // Iterated in the world's declared order rather than by a hand-written list of three,
+    // which is what this was and is the list that keeps going out of date.
+    for (const pid of declaredSocial) {
+      if (platforms?.[pid]) roundNotifs.push({ platform: pid, memberId: mid });
+    }
   }
+  // The private channel's overlay key comes from the catalog too. It is `kakao` while the
+  // world calls it `kakaotalk`, which is precisely the mapping a literal here would get wrong.
+  const privateUi = platformsOf(world).private?.ui;
   for (const [mid, msgs] of Object.entries(filteredKkt)) {
-    if (msgs.length > 0) roundNotifs.push({ platform: "kakao", memberId: mid });
+    if (privateUi && msgs.length > 0) roundNotifs.push({ platform: privateUi, memberId: mid });
   }
 
   const topMember = getTopMember(members.filter(m => allTargetIds.includes(m.id)), currentAff);
