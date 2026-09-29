@@ -930,10 +930,8 @@ async function runParent() {
   // where they did, and nothing else on screen distinguishes the two.
   const skipped = [...new Set(results.flatMap((r) => r.gradersSkipped || []))];
   if (skipped.length) {
-    console.log(`
-graders that did not run for this identity: ${skipped.join(", ")}` +
-      `
-  (IDENTITY_ROLE has no entry for "${IDENTITY}", so a clean row is silent about the ROLE CONTRACT)`);
+    console.log(`\ngraders that did not run for this identity: ${skipped.join(", ")}` +
+      `\n  (IDENTITY_ROLE has no entry for "${IDENTITY}", so a clean row is silent about the ROLE CONTRACT)`);
   }
 
   const collapses = results.reduce((s, r) => s + (r.collapses || 0), 0);
