@@ -402,7 +402,9 @@ function parseCastSpec(spec) {
 function rosterFromSpec(parsed, castName) {
   const main = parsed.find((e) => e.slot === "main") || parsed[0];
   return {
-    worldId: WORLD,
+    // No worldId. A roster carries no world - resolveRoster takes it as its own
+    // argument, and the copy that used to sit here was the one the app's save
+    // slots read and got wrong. See CLAUDE.md, *The second phone pass*.
     // A cross-group cast is its OWN group, and `name` is load-bearing: it is the
     // group name section 4 is composed around. The origin groups are never named
     // there — that is the leak the fix exists to close.

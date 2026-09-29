@@ -92,7 +92,7 @@ const zh = {
     wallReplace: "更换背景图",
     wallRemove: "移除背景图",
     wallFull: (max) => `背景图已满（${max} 张），删掉一张再添加。`,
-    castImages: "照片",
+    castImages: "（可选）上传头像和壁纸",
     castImagesHint: "照片会出现在她露面的每个界面。背景图用作她的聊天与 Weverse 面板背景，以及 Instagram 配图。",
     imagesUsed: (kb) => `已用 ${kb} KB`,
     cropTitle: (what) => `调整${what}`,

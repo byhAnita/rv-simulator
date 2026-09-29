@@ -305,15 +305,17 @@ export function savedRosterEntry({ label, roster, fallbackName = "", now = Date.
  * slots are walked in a fixed sequence — main, then subs, then NPCs — rather
  * than however the picks object happens to iterate.
  *
+ * It takes no world, and the builder cannot supply one that would still be true:
+ * the world is picked at Setup, one screen LATER. See buildClassicRoster.
+ *
  * Lives here rather than in the component so it can be tested as behaviour
  * instead of asserted as a regex: it is the part of the builder that has to be
  * right.
  */
-export function rosterFromPicks(picks = {}, worldId = "kpop_idol") {
+export function rosterFromPicks(picks = {}) {
   const chosen = Object.entries(picks).map(([id, p]) => ({ id, ...p }));
   const main = chosen.find((p) => p.slot === "main");
   return {
-    worldId,
     // The group whose lore the prompt uses. The main member's group is the right
     // answer for a single-group cast and the only defensible one for a mixed
     // cast until composed lore lands in v1.4.1.

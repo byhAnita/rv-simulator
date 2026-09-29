@@ -199,7 +199,7 @@ export async function renderFixtures(outDir) {
     // composed path. The fixture would have pinned a Red Velvet idol history
     // that the running app never produces in a lecture hall.
     const roster = mod.buildClassicRoster(
-      f.group, f.mainId, f.subIds, cfg.members.map((m) => m.id), worldId);
+      f.group, f.mainId, f.subIds, cfg.members.map((m) => m.id));
     const cast = await withDiskFetch(() => mod.resolveRoster(roster, f.lang, world));
     out.push({
       id: f.id,

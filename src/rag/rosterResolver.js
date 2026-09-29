@@ -15,7 +15,6 @@
 //     is not a dependency.
 
 import { loadGroupConfig } from "./groupLoader";
-import { DEFAULT_WORLD_ID } from "./worldLoader";
 
 export const SLOTS = ["main", "sub", "npc"];
 
@@ -23,15 +22,24 @@ export const SLOTS = ["main", "sub", "npc"];
  * The classic path expressed as a roster: one group, one main, some subs, and
  * everyone else an NPC.
  *
+ * A ROSTER CARRIES NO WORLD. It answers which of them are in this run and in
+ * what slot; `resolveRoster(roster, lang, world)` already takes the world as its
+ * own argument, so a `worldId` on the roster was a second copy of a fact that
+ * lives on the save. It drifted, exactly as a second copy does: the builder
+ * stamped it with whatever world was selected on the COVER, the player then
+ * chose a different one at Setup, and the save recorded the builder's answer.
+ * Loading that slot gave a chaebol run the idol world's canon places, all four
+ * social platforms and an idol system prompt. See CLAUDE.md, *The second phone
+ * pass: a save recorded a world the run was never played in*.
+ *
  * `memberIds` is passed in rather than fetched so this stays synchronous and
  * pure, and so the ORDER is the caller's. That order matters: it is the order
  * member profiles appear in the system prompt, so a roster built from the group
  * JSON's own member order reproduces today's prompt exactly.
  */
-export function buildClassicRoster(groupId, mainId, subIds = [], memberIds = [], worldId = DEFAULT_WORLD_ID) {
+export function buildClassicRoster(groupId, mainId, subIds = [], memberIds = []) {
   const subs = new Set(subIds);
   return {
-    worldId,
     groupId,
     entries: memberIds.map((id) => ({
       src: "library",

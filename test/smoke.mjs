@@ -1182,9 +1182,26 @@ async function layerG(mod, MODEL_CONFIGS) {
   // The box already carries the round number, so the bar is a second and poorer
   // answer to the same question and survives only where there is no box.
   check("the PDF prints the stats box as the round header",
-    /`<pre class="card-stats">\$\{esc\(r\.statsBox\)\}<\/pre>`/.test(app)
+    /class="card-stats">[\s\S]{0,30}\$\{esc\(r\.statsBox\)\}/.test(app)
       && /\.card-stats\{/.test(app),
     "what the player sees at the top of every round");
+  // The band is the LIGHTER thing on the card now, and its text has to be
+  // picked for it. `.card-head` carried a hardcoded pink chosen for a near-black
+  // band, and on the light theme the old band put #3a2510 text on #3a2210 - the
+  // printed stats box was very nearly invisible. Asked for from hand play,
+  // 2026-09-29.
+  check("...and the header band takes the theme's own text colour",
+    /\.card-head\{background:\$\{headBg\};color:\$\{headColor\}/.test(app)
+      && !/color:#f8c8d8;font-size:11px/.test(app),
+    "a colour picked for one theme's band cannot be hardcoded across both");
+  // Centred as a BLOCK, not line by line: the frame's lines are equal width only
+  // if every CJK glyph in the monospace fallback is exactly two columns, which is
+  // the one thing box-drawing output cannot assume. text-align:center would
+  // centre each line on its own and pull the frame apart.
+  check("...and the box is centred in its band as one block",
+    /\.card-stats\{[\s\S]{0,90}justify-content:center/.test(app)
+      && !/\.card-stats\{[\s\S]{0,90}text-align:center/.test(app),
+    "per-line centring ragged by a font is worse than left-aligned");
   check("...and the plain bar survives only for a round that has no box at all",
     /\$\{r\.statsBox[\s\S]{0,200}: `<div class="card-head">Round \$\{r\.n\}<\/div>`\}/.test(app),
     "an edited-down story, or a turn written before the box existed");
@@ -1370,6 +1387,24 @@ async function layerG(mod, MODEL_CONFIGS) {
       new RegExp(`(^|[\\s,{])${field}[,:]`, "m").test(saveBody),
       "a save that does not say which cast it used has to guess on load");
   }
+
+  // ...and WHERE that world comes from, which the loop above cannot see: it
+  // asserts the field is PRESENT, and the field was present and wrong. The slot
+  // recorded `roster.worldId`, and a roster is stamped by the builder one screen
+  // BEFORE the player picks a world at Setup - so a chaebol run saved kpop_idol,
+  // and loading it brought back the idol world's canon places, all four social
+  // platforms and an idol system prompt. Reported from hand play, 2026-09-29.
+  // The world a run is played in is the loaded `world` object every prompt that
+  // round was built from, and only the run knows it.
+  check("a save records the world the run is being played in",
+    /worldId: worldId \|\| DEFAULT_WORLD_ID/.test(saveBody)
+      && !/roster\?\.worldId/.test(overlay),
+    "the roster is stamped a screen earlier and drifts from what is played");
+  // Two mount sites. One of two is the extractStoryText failure exactly.
+  const saveMounts = app.match(/<SaveOverlay [^>]*>/g) || [];
+  check("...and App hands that world to every SaveOverlay it mounts",
+    saveMounts.length >= 2 && saveMounts.every((m) => /worldId=\{world\?\.id\}/.test(m)),
+    `${saveMounts.filter((m) => !/worldId=/.test(m)).length} of ${saveMounts.length} mounts pass no world`);
 
   // Both notices, in all three languages, or a player hits a blank panel.
   for (const lang of ["zh", "en", "ko"]) {
@@ -3773,7 +3808,7 @@ async function layerI() {
   const campusWorld = allWorlds.campus?.en;
   if (campusWorld) {
     const campusRoster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
-      members.map((m) => m.id), "campus");
+      members.map((m) => m.id));
     const campusCast = await fromDisk(() => loader.resolveRoster(campusRoster, "en", campusWorld));
     const campusPrompt = buildSystemPrompt(form({ identity: "peer_student" }), campusCast.members,
       "irene", ["seulgi"], campusCast.groupConfig, "", "qwen", "en", campusWorld);
@@ -3808,6 +3843,37 @@ async function layerI() {
       /Instagram: Photo social/.test(campusPrompt) && /KKT \(KakaoTalk\)/.test(campusPrompt)
         && /"instagram":null/.test(campusPrompt),
       "a declared platform missing from the schema is a post nobody can write");
+  // ...and the same question asked of EVERY world rather than of the one world
+  // it was first asked of. The two checks above are pinned to campus, which is
+  // the world where a chaebol defect cannot appear - the shape the org-suffix
+  // scan had to learn one batch earlier. A player reported chaebol showing all
+  // four platform buttons; that was the wrong world being LOADED rather than the
+  // wrong prompt being built, but a per-world scan is what says so.
+  {
+    const MARKERS = {
+      bubble: /bubble/i, weverse: /weverse/i,
+      instagram: /instagram/i, kakaotalk: /KakaoTalk|KKT/,
+    };
+    const platformStrays = [];
+    for (const [id, byLang] of Object.entries(allWorlds)) {
+      const w = byLang.en;
+      if (!w) continue;
+      const declared = new Set([...(w.platforms?.social || []), w.platforms?.private].filter(Boolean));
+      const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"], members.map((m) => m.id));
+      const cast = await fromDisk(() => loader.resolveRoster(roster, "en", w));
+      const rendered = buildSystemPrompt(form({ identity: w.identities[0].id }), cast.members,
+        "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", w);
+      for (const [plat, re] of Object.entries(MARKERS)) {
+        const present = re.test(rendered);
+        if (present !== declared.has(plat)) {
+          platformStrays.push(`${id}: ${plat} ${present ? "reaches the prompt undeclared" : "declared but missing"}`);
+        }
+      }
+    }
+    check("every world's prompt carries exactly the platforms that world declares",
+      platformStrays.length === 0, platformStrays.join(" | "));
+  }
+
     // Direction, rendered. `prof_of_cast` points the title at the player and
     // `junior_student` points it at the cast, and before step 7 the second one
     // could only have come out backwards.
@@ -5954,10 +6020,20 @@ async function layerI() {
     "a mis-tap between adjacent targets was what made the previous builder unusable");
   // A number the player can see beats a cap that only speaks when it refuses -
   // which the save slots and the member palette each cost a bug to learn.
-  check("...and it says how many of THIS cast already have a face",
-    /const withPhoto = chosen\.filter\(\(pk\) => photos\[pk\.id\]\)\.length/.test(builderSrc)
-      && /castCount\?\.\(withPhoto, chosen\.length\)/.test(builderSrc),
-    "chosen members with a photo, not the size of a store shared across every cast");
+  // MAIN AND SUBS ONLY, on both halves of the fraction AND on the sheet the card
+  // opens. An NPC's photo and wallpaper have no reader anywhere in the running
+  // game: every surface that draws a face is built from `allTargetMembers`, which
+  // is main plus subs, and an NPC posts no social and sends no Kakao to put a
+  // face beside. An upload that can never be seen still spends one of the 30
+  // photo or 8 wallpaper slots. Reported from hand play, 2026-09-29.
+  check("...and it says how many of the members who CAN show a face have one",
+    /facedIds = roster\.entries\.filter\(\(e\) => e\.slot !== "npc"\)/.test(builderSrc)
+      && /const withPhoto = facedIds\.filter/.test(builderSrc)
+      && /castCount\?\.\(withPhoto, facedIds\.length\)/.test(builderSrc),
+    "an NPC has no surface that draws her, so counting her is counting nothing");
+  check("...and the sheet it opens offers an upload for exactly those members",
+    /rows=\{facedIds\.map/.test(builderSrc),
+    "a row offering something no screen can ever show");
 
   const IRENE = { id: "irene", __groupId: "red_velvet" };
   const twoSlots = store.assignSlot(
@@ -5981,7 +6057,15 @@ async function layerI() {
     c_1: { slot: "main", src: "custom", lang: "zh", profile: { name: "Lin Xia" } },
     yeri: { slot: "sub", src: "library", groupId: "red_velvet" },
   };
-  const built = store.rosterFromPicks(PICKS, "kpop_idol");
+  const built = store.rosterFromPicks(PICKS);
+  // A ROSTER CARRIES NO WORLD. It answers which of them are in this run and in
+  // what slot; resolveRoster takes the world as its own argument. A `worldId` on
+  // it was a second copy of the save's world, stamped one screen before the
+  // player picks one - and a second copy of a fact is the one that drifts.
+  check("a roster carries no world of its own to disagree with the save",
+    !("worldId" in built)
+      && !("worldId" in loader.buildClassicRoster("red_velvet", "irene", ["yeri"], ["irene", "yeri"])),
+    "the builder cannot know a world the player picks one screen later");
   // Entry order IS prompt order, and prompt order is a cache boundary: the same
   // cast in a different order is the same game and a total cache miss. Iterating
   // the picks object would tie it to insertion order instead.
@@ -5990,7 +6074,7 @@ async function layerI() {
     built.entries.map((e) => `${e.memberId}:${e.slot}`).join(" "));
   check("...and that order is stable however the picks were inserted",
     JSON.stringify(store.rosterFromPicks(
-      Object.fromEntries(Object.entries(PICKS).reverse()), "kpop_idol").entries.map((e) => e.slot))
+      Object.fromEntries(Object.entries(PICKS).reverse())).entries.map((e) => e.slot))
       === JSON.stringify(built.entries.map((e) => e.slot)),
     "object key order must not reach the prompt");
   check("a custom pick is snapshotted inline and a library pick stays a reference",
@@ -6246,10 +6330,15 @@ async function layerI() {
   // The ordering itself is asserted as behaviour above, on rosterFromPicks. This
   // only pins that the builder delegates to it rather than re-deriving an order
   // of its own, which would be a second source of truth for a cache boundary.
+  // EVERY call site, not one of them: the builder calls rosterFromPicks twice -
+  // once for the memo the chips and the images sheet read, once for the roster
+  // it hands to Setup - and a guard matching the first left the second free to
+  // shape its own. One of two is the extractStoryText failure exactly.
+  const rfpCalls = builderSrc.match(/rosterFromPicks\([^)]*\)/g) || [];
   check("the builder delegates roster shaping rather than ordering entries itself",
-    /rosterFromPicks\(picks, world\?\.id/.test(builderSrc)
+    rfpCalls.length >= 2 && rfpCalls.every((c) => c === "rosterFromPicks(picks)")
       && !/entries:/.test(builderSrc),
-    "prompt order is a cache boundary and belongs in one place");
+    `prompt order is a cache boundary and belongs in one place: ${rfpCalls.join(" | ")}`);
 
   // Editing a picked member has to refresh the snapshot, or the roster carries
   // her profile as it was before the edit.
@@ -7613,9 +7702,14 @@ async function layerL() {
   check("the harness loads the world the flag names, not a hardcoded one",
     /await loadWorld\(WORLD, LANG\)/.test(harness) && !/loadWorld\("kpop_idol"/.test(harness),
     "loadWorld must take WORLD - a pinned world cannot exercise any world but one");
-  check("...and the roster it builds names that same world",
-    /worldId: WORLD,/.test(harness) && !/worldId: "kpop_idol"/.test(harness),
-    "the --cast door builds its own roster and must not pin a second world");
+  // The roster it builds carries NO world - the same shape `src/` now has, since
+  // a second copy of the world is exactly what the app's save slots were reading
+  // and getting wrong. What has to reach the cast is the LOADED world, passed to
+  // resolveRoster, which is the site that was hardcoded in the first place.
+  check("...and hands that same world to resolveRoster, rather than a roster pinning one",
+    /resolveRoster\(rosterFromSpec\([^)]*\), LANG, world\)/.test(harness)
+      && !/worldId:/.test(harness),
+    "the --cast door must not carry a second answer to which world this is");
   check("...and --world reaches both",
     /const WORLD = arg\("world",/.test(harness),
     "WORLD must come from arg('world', ...)");

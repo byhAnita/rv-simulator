@@ -190,6 +190,6 @@ export async function migrateSave(save, language = "zh", opts = {}) {
     ...migrated,
     groupId,
     roster: migrated.roster || buildClassicRoster(
-      groupId, form.mainMember, form.subMembers || [], memberIds, migrated.worldId),
+      groupId, form.mainMember, form.subMembers || [], memberIds),
   };
 }

@@ -103,8 +103,18 @@ export default function RosterBuilder({
   // prompt order is a cache boundary, so two answers to "what order" is one
   // answer too many.
   const roster = useMemo(
-    () => rosterFromPicks(picks, world?.id || "kpop_idol"), [picks, world]);
+    () => rosterFromPicks(picks), [picks]);
   const idsIn = (slot) => roster.entries.filter((e) => e.slot === slot).map((e) => e.memberId);
+
+  // MAIN AND SUBS ONLY, and this is the images sheet's whole population as
+  // well as its denominator. An NPC's photo and wallpaper have no reader
+  // anywhere in the running game: every surface that draws a face - the top
+  // bar and all four social overlays' member strips - is built from
+  // `allTargetMembers`, which is main plus subs, and an NPC produces no
+  // social post and no Kakao to put a face beside. So an NPC upload could
+  // never be looked at, while still spending one of the 30 photo or 8
+  // wallpaper slots. Reported from hand play, 2026-09-29.
+  const facedIds = roster.entries.filter((e) => e.slot !== "npc").map((e) => e.memberId);
 
   const chosen = useMemo(
     () => Object.entries(picks).map(([id, p]) => ({ id, ...p })), [picks]);
@@ -152,7 +162,7 @@ export default function RosterBuilder({
   // Shaped by rosterFromPicks (customCast.js) rather than here: entry order is
   // prompt order and prompt order is a cache boundary, so that logic is unit
   // tested as behaviour instead of asserted as a regex.
-  const buildRoster = () => rosterFromPicks(picks, world?.id || "kpop_idol");
+  const buildRoster = () => rosterFromPicks(picks);
 
   const saveMember = (entry) => {
     const res = upsertMember(cast, entry);
@@ -264,8 +274,8 @@ export default function RosterBuilder({
     return chosen.some((p) => p.src === "custom") || libGroups.size > 1;
   }, [chosen]);
 
-  // Chosen members who already have a face. See the images card below.
-  const withPhoto = chosen.filter((pk) => photos[pk.id]).length;
+  // Members who already have a face, over the members who can show one.
+  const withPhoto = facedIds.filter((id) => photos[id]).length;
 
   const chipStyle = {
     display: "flex", alignItems: "center", gap: 5, padding: "7px 9px", minHeight: 36,
@@ -420,7 +430,7 @@ export default function RosterBuilder({
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: fs(13), color: k.accent, fontWeight: 700 }}>{c.castImages}</span>
                   <span style={{ display: "block", fontSize: fs(11), color: k.textFaint, marginTop: 2, lineHeight: 1.35 }}>
-                    {c.photo} {c.castCount?.(withPhoto, chosen.length)}
+                    {c.photo} {c.castCount?.(withPhoto, facedIds.length)}
                   </span>
                 </span>
                 <span aria-hidden style={{ color: k.textFaint, fontSize: fs(14), flexShrink: 0 }}>{"›"}</span>
@@ -465,9 +475,10 @@ export default function RosterBuilder({
       {showImages && (
         <CastImageSheet
           // Roster order, not picks order — the same derivation the chips use, so
-          // the sheet lists the cast in the order the player sees it.
-          rows={roster.entries.map((e) => ({
-            id: e.memberId, name: nameOf(e.memberId), member: memberOf(e.memberId) || {},
+          // the sheet lists the cast in the order the player sees it. NPCs are
+          // absent: see facedIds.
+          rows={facedIds.map((id) => ({
+            id, name: nameOf(id), member: memberOf(id) || {},
           }))}
           photos={photos} walls={walls}
           onPickPhoto={setPhotoFor} onPickWall={setWallFor}

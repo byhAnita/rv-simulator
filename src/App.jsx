@@ -692,8 +692,13 @@ export default function App() {
     const cardBorder = isLight ? "#a08060"  : "rgba(232,120,176,.15)";
     const cardSolid  = isLight ? "#a08060"  : "#2a1035";
     const textColor  = isLight ? "#1e1408"  : "#f0dce8";
+    // The header band is LIGHTER than the card it sits on, in both themes, and
+    // its text is picked to sit on it. It used to be the darkest thing on the
+    // page, which in the light theme put #3a2510 text on a #3a2210 band - the
+    // stats box was very nearly invisible on a printed page. Asked for from
+    // hand play, 2026-09-29.
     const headColor  = isLight ? "#3a2510"  : "#f8c8d8";
-    const headBg     = isLight ? "linear-gradient(135deg,#5c3820,#3a2210)" : "linear-gradient(135deg,#1e0820,#2d0a2e)";
+    const headBg     = isLight ? "linear-gradient(135deg,#f2e3c9,#e6d2ae)" : "linear-gradient(135deg,#3c1442,#4d1a52)";
     const font = "'Georgia','Noto Serif SC',serif";
 
     const rounds = storyRounds();
@@ -711,7 +716,7 @@ export default function App() {
     const cards = rounds.map(r => `
       <div class="card">
         ${r.statsBox
-          ? `<pre class="card-stats">${esc(r.statsBox)}</pre>`
+          ? `<div class="card-stats"><pre>${esc(r.statsBox)}</pre></div>`
           : `<div class="card-head">Round ${r.n}</div>`}
         <div class="card-body">${esc(r.text).replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</div>
       </div>`).join("");
@@ -720,14 +725,21 @@ export default function App() {
       *{box-sizing:border-box;margin:0;padding:0}
       body{background:${pageBg};font-family:${font};padding:28px 20px;min-height:100vh}
       .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:20px;overflow:hidden;page-break-inside:avoid}
-      .card-head{background:${headBg};color:#f8c8d8;font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
+      .card-head{background:${headBg};color:${headColor};font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
       /* A pre block for the box, and a fixed-width family FIRST: the frame is
          drawn out of box-drawing characters and only lines up when every column
          is one width. On screen it sits in the story serif and ripples; here it
          can be what it was meant to be. The app font stays behind it so that
          the CJK inside the frame still renders in the game typeface. */
-      .card-stats{background:${headBg};color:${headColor};font-family:'Consolas','Menlo','Noto Sans Mono CJK SC',monospace,${font};
-        white-space:pre;font-size:10px;line-height:1.55;padding:10px 14px;overflow:hidden}
+      /* THE BAND IS FULL WIDTH AND THE FRAME IS CENTRED IN IT. Centring the
+         text instead (text-align:center on the pre) would centre each LINE
+         separately, and the lines are only equal width if every CJK glyph in
+         the monospace fallback is exactly two columns - which is the one thing
+         box-drawing output cannot assume. A block centred as a unit keeps the
+         frame square whatever the font does. */
+      .card-stats{background:${headBg};padding:10px 14px;display:flex;justify-content:center;overflow:hidden}
+      .card-stats pre{margin:0;color:${headColor};font-family:'Consolas','Menlo','Noto Sans Mono CJK SC',monospace,${font};
+        white-space:pre;font-size:10px;line-height:1.55}
       .card-body{color:${textColor};font-size:13px;line-height:1.85;padding:14px 16px}
       .card-body p{margin-bottom:.9em}
       .card-body p:last-child{margin-bottom:0}
@@ -797,8 +809,7 @@ export default function App() {
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
     setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
-      || buildClassicRoster(
-      selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
+      || buildClassicRoster(selectedGroup, mainId, subIds, members.map(m => m.id)));
     setMessages([]); setCurrentOptions([]);
     // A new game states its birth year at Setup, so nothing here is an estimate.
     setBirthYearEstimated(false);
@@ -1254,7 +1265,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -1922,7 +1933,7 @@ export default function App() {
         )}
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
         {overlay?.type === "map" && (
           <MapOverlay theme={theme} t={t} fontScale={fontScale}

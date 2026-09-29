@@ -95,7 +95,7 @@ const en = {
     wallReplace: "Change wallpaper",
     wallRemove: "Remove wallpaper",
     wallFull: (max) => `Wallpapers are full (${max}). Remove one to add another.`,
-    castImages: "Photos",
+    castImages: "(Optional) Upload photos & wallpapers",
     castImagesHint: "Her photo shows on every screen she appears on. Her wallpaper backs her chat and Weverse panels, and is her Instagram post.",
     imagesUsed: (kb) => `${kb} KB used`,
     // The crop step. It is a confirmation, so the title names WHAT is being

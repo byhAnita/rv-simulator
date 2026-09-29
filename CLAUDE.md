@@ -1344,6 +1344,14 @@ true rather than newly built: step 3's `loadSave` sets `world` from `migrated.wo
 phase flips, so a run started under `kpop_idol` keeps all four platforms for its whole life. No save
 field, no migration.
 
+**That was right about the READER and wrong about the WRITER, for two releases.** `loadSave`
+does resolve platforms from `migrated.worldId` exactly as described — and `migrated.worldId`
+came from a slot that recorded `roster.worldId`, which the cast builder stamps one screen
+before the player picks a world. So a chaebol run saved `kpop_idol` and loaded back with all
+four platform buttons, and the sentence above was true of every line of code it names. Fixed
+in the second phone pass; see *The second phone pass*. **A claim about where a value is read
+from says nothing about whether the value is right.**
+
 **The prompt is byte-identical and the goldens did not move.** Every world on disk declares all three
 social platforms in that order, so a correct implementation renders exactly what step 5 rendered —
 `update-golden.mjs` was not run at all. The trimming is exercised against a synthetic
@@ -2385,6 +2393,81 @@ since either one alone is a colour nobody can be wrong about.
 each restored in a `finally`, tree verified afterwards. Smoke **1513 → 1544**. Four
 goldens moved, one line each, and the diff was read.
 
+### The second phone pass: a save recorded a world the run was never played in
+
+The first pass's eight fixes were re-tested on a device on 2026-09-29. Five
+passed, two wanted an adjustment — and the New Game fix being confirmed is what
+made the **bigger** bug visible underneath it: *"the places get mixed across
+worlds… chaebol presents all four platforms… kpop places are shown when loading
+a chaebol save… the cast produce an idol practice social in a chaebol world"*.
+
+**Four symptoms, one stale copy, and it is a copy taken one screen too early.**
+`SaveOverlay` recorded `worldId: roster?.worldId`. A roster is stamped with a
+world by the **cast builder** — `rosterFromPicks(picks, world?.id)` — and the cast
+builder runs on the screen BEFORE Setup, which is where the player picks the
+world. `startNewGame` then spread `pendingRoster` through unchanged. So every run
+started from the custom-cast door saved whichever world was selected on the
+cover, and `loadSave` — which is correct, and fetches `migrated.worldId`
+faithfully — dutifully restored it. A chaebol run reloaded as an idol run:
+`world.places` gave the practice rooms, `platformsOf(world)` gave all four top-bar
+buttons, and `buildSystemPrompt` was handed `kpop_idol`'s `castLife`, which is why
+the cast posted about practice in a family compound.
+
+**The classic door was unaffected**, because `startNewGame` passed `world?.id` at
+the moment the run began. One door correct and one stale is what made it read as
+"sometimes".
+
+**The fix is that a roster carries no world at all.** `resolveRoster(roster, lang,
+world)` has always taken the world as its own argument, so `roster.worldId` had
+**no reader anywhere** — its entire contribution was to be the thing `SaveOverlay`
+read. It is deleted from `buildClassicRoster`, from `rosterFromPicks` and from both
+builder call sites, and the save now takes `worldId` as a prop from the loaded
+`world` object every prompt that round was built from. **Only the run knows what
+was played**, and a second copy of a fact is the copy that drifts. The goldens did
+not move by one byte, which is what says the field was dead.
+
+**Slots written before this fix cannot be repaired.** The intended world was never
+stored, so nothing can recover it — a save written from the custom door is now an
+idol run and will load as one. Same shape as the polluted social feeds one batch
+earlier: **a bug that writes to durable storage leaves a permanent second copy of
+itself, and fixing the writer does not reach it.**
+
+**The guard that should have caught this asserted the field was PRESENT.** A loop
+over `["schema", "groupId", "worldId", "roster"]` checked that a new slot records
+each one — and the field was present and wrong for two releases. *Test the value's
+source, not the key's existence.* The new guards assert where the value comes from,
+and **count both `SaveOverlay` mount sites**, since one of two is the
+`extractStoryText` failure exactly.
+
+**And the platform check could not have found it either, for a different reason:
+it was written about `campus`.** *"No undeclared platform reaches the prompt"* is a
+sentence about every world, and the check named one — the one world where a chaebol
+defect cannot appear. It now loops over `allWorlds`, derives each world's declared
+set from its own file, renders that world's prompt and compares; mutated, it fails
+naming `chaebol` and `office`. This is the org-suffix lesson from the first pass,
+one field over: **a guard pinned to one instance of the class it is about is a
+sample, not a guard.**
+
+**Two adjustments came with it.** The cast-images card counts, and the sheet it
+opens now lists, **main and subs only**: every surface that draws a face is built
+from `allTargetMembers`, and an NPC posts no social and sends no Kakao, so her
+photo has no reader anywhere in the running game while still spending one of the
+30 photo or 8 wallpaper slots. The card is also named for what it does —
+*（可选）上传头像和壁纸* — rather than *照片*. And the PDF's round header band is now
+**lighter than the card** with the box centred in it as a block: the light theme
+was printing `#3a2510` text on a `#3a2210` band, so the stats box was very nearly
+invisible on paper. Centred as a block rather than line by line, because the
+frame's lines are equal width only if every CJK glyph in the monospace fallback is
+exactly two columns — the one thing box-drawing output cannot assume.
+
+**12 mutations, 12 RED, 0 GREEN, 0 WRONG-CHECK.** Two reported GREEN on the first
+run and neither guard was at fault: one mutation **crashed** the suite before it
+printed a verdict (an undefined identifier after the import was removed), which
+produces an empty failure list and is indistinguishable from a guard that cannot
+fail — the harness now reports CRASHED. The other was a real guard weakness: the
+delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
+so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
+
 ### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29
 
 **This block is the authority on what is open. The v1.4.0 one below it is history.**
@@ -2427,16 +2510,28 @@ above every threshold anyone would set, so **the retry machinery can never fire 
 where the output is least usable.** Written up in §7 with the fix stated and deliberately not made
 — it changes the retry path for every player on every provider and wants its own measurement.
 
-**The phone pass is DONE and its eight findings are fixed** — see *The first phone pass of
-v1.4.1 found eight things*, above. What that pass covered: the Setup world picker, the
-four-world identity grid, the 📍 button, the cast builder, the custom-member editor, the
-PDF export, and a new game and a save load back to back.
+**TWO phone passes are done.** The first found eight things and all eight are fixed;
+the second confirmed five of them on the device, adjusted two, and found the save's
+world — see *The second phone pass*, above. What has now been looked at on a phone:
+the Setup world picker, the four-world identity grid, the 📍 button, the cast
+builder, the custom-member editor, the PDF export, the emoji field, and a new game
+and a save load back to back.
 
-**NOT verified:** the eight fixes have not themselves been seen on a device — they are
-offline-green and mutation-verified, and four of them are layout. **No live round has been
-played since them**, so the identity change (every world's round 1 now states it is a first
-meeting) has never been read in real prose. Steps 5 and 6 remain unexercised live and step
-4's token delta is still unmeasured.
+**The first-meeting frame has now been read in real prose**, which it never had been:
+a live `chaebol` / `rival_heiress` / zh run opened round 1 with *这是你们第一次真正说话
+——之前你们只在报道照片里见过彼此*, in a scene the model chose for that world (a banquet
+hall after closing). 4/4 clean, 90.3% cache, 0 drifts, 0 prefix breaks.
+
+**NOT verified:** the third batch's own fixes have not been seen on a device — the
+images card, the PDF band and the save's world are offline-green and
+mutation-verified, and two of the three are layout. **The save fix cannot be tested
+offline end to end**: the guards assert the value's source in `SaveOverlay` and that
+both mount sites pass it, which is the ceiling for a React component here — the
+round trip itself wants a device. Steps 5 and 6 remain unexercised live and step 4's
+token delta is still unmeasured.
+
+**A save slot written before this batch records the wrong world if it came from the
+custom-cast door**, and that is unrecoverable. Start a fresh run to test it.
 
 **The exact next command** is the phone pass, on the Cloudflare branch alias (deterministic,
 unlike Vercel's), which needs no deploy because `dev` is pushed:
@@ -3034,7 +3129,13 @@ three worlds, their identities, their places, their platforms, their `castLife`.
 gate is *a live `playthrough.mjs` pass*, and that gate **was not reachable**. Unmet is a schedule
 problem; unreachable is a different thing, and only reading the harness finds it.
 
-**Both sites move or neither does.** Changing only the `loadWorld` call would load `campus` and
+**Both sites moved — and the second one is now DELETED rather than moved.** A roster carries no
+world at all since the second phone pass, in the harness as in `src/`, because that copy is what
+the app's save slots were reading and getting wrong. What the guard asserts is that the loaded
+world reaches `resolveRoster`, which is the site that was hardcoded to begin with. The original
+reasoning, kept because it is why the second site was found at all:
+
+Changing only the `loadWorld` call would load `campus` and
 hand `resolveRoster` a roster still claiming `kpop_idol` — `extractStoryText`'s two-copies failure
 one file over, so the guard asserts both and mutation-verifies each.
 

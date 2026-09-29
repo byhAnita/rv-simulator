@@ -92,7 +92,7 @@ const ko = {
     wallReplace: "배경 변경",
     wallRemove: "배경 삭제",
     wallFull: (max) => `배경 이미지가 꽉 찼습니다 (${max}장). 하나를 삭제하고 추가하세요.`,
-    castImages: "사진",
+    castImages: "(선택) 프로필 사진·배경 올리기",
     castImagesHint: "사진은 그녀가 나오는 모든 화면에 표시됩니다. 배경 이미지는 대화·Weverse 패널 배경과 Instagram 사진에 쓰입니다.",
     imagesUsed: (kb) => `${kb} KB 사용`,
     cropTitle: (what) => `${what} 맞추기`,
