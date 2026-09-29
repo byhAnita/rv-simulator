@@ -42,6 +42,9 @@ node scripts/analyze-prose.mjs        # writing quality from the newest playthro
 npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
+node scripts/verify-mirrors.mjs       # AFTER a deploy: fetch the bundle AND every data file from all three mirrors
+scripts/hotfix-worktree.sh new <slug> # a clean checkout of main to fix one player-reported bug in
+scripts/hotfix-worktree.sh status     # what worktrees and hotfix branches exist, and which are debris
 ```
 
 `npm run deploy` refuses to run unless it is on `main`, the staged paths are clean, `main` is level with `origin/main`, **and the smoke suite passes** — see Branch & Deploy Workflow.
@@ -2047,7 +2050,7 @@ Group JSON size directly drives the static-prompt token count (Red Velvet ~8KB, 
 | --- | --- |
 | `main` | Exactly what players are running. Served by GitHub Pages + Vercel. Tagged on every release. |
 | `dev` | Integration branch for feature work. Branched from `main` at v1.3.2. **Never deployed.** |
-| `hotfix/<slug>` | Off `main`, one bug, short-lived. Merged into `main`, then `main` into `dev`. |
+| `hotfix/<slug>` | Off `origin/main`, one bug, **temporary** - merged into `main`, then `main` into `dev`, then deleted. `scripts/hotfix-worktree.sh` creates and reports on these. |
 | `feat/<slug>` | Optional, off `dev`, for work risky enough to want to abandon cleanly. Not needed for routine changes. |
 | `dev-v12.0.0` | **Frozen**, last active 2026-07-31, 46 commits behind the v1.3.x line. Never merge it. Also reachable as tag `archive/dev-v12.0.0`. |
 
@@ -2126,11 +2129,96 @@ git checkout dev && git merge main && git push origin dev
 node scripts/dev-index.mjs
 ```
 
-Deleting the merged `hotfix/*` branch afterwards is your call — the merge commit and the tag both record it, so nothing is lost, but branch deletion is a red-line action and is never done automatically.
+**A hotfix branch is TEMPORARY, and the last step is the one that gets skipped.** Deleting it is
+still your call - branch deletion is a red-line action and is never done automatically - but it is
+no longer left to memory: `scripts/hotfix-worktree.sh status` lists every `hotfix/*` branch with
+whether its commits are contained in `main`, and prints the exact removal commands. Nothing is
+lost by deleting a merged one: the merge commit and the tag both record it.
+
+**Read `ahead` as a fact, not a verdict.** A branch can be finished and still show commits not in
+`main`, because the fix reached players another way: the v1.4.1 year-wheel fix shipped through
+`dev`, so its abandoned hotfix branch still reads `1 commit not in main` while `main` carries the
+same behaviour by a different commit. That is why the report says *contained* or *not contained*
+and leaves the judgement to a human - and why the command it prints for that case is `-D`.
+
+#### Work a hotfix in a WORKTREE, not by switching this checkout
+
+```bash
+scripts/hotfix-worktree.sh new registers-404
+```
+
+A git worktree is a second working directory on the same repository, so `main` is checked out
+somewhere else and **`dev` is left exactly as it was** - nothing stashed, no rebuild of whatever
+was in flight, and `deploy.sh` is not one `git checkout` away from the wrong branch. The script
+starts the branch from **`origin/main`** after a fetch, because a local `main` can be behind and a
+hotfix has to sit on exactly what players are running.
+
+**The location is the whole lesson, and we got it wrong the first time.** The v1.4.1 hotfix
+worktree was created under `.../AppData/Local/Temp/claude/<session>/scratchpad/main-hotfix`, and a
+session-scoped temp directory is the one place it must never go:
+
+1. **Git's registration in `.git/worktrees/` outlives the directory.** Clean temp and the checkout
+   is gone while `git worktree list` still advertises the path.
+2. **A worktree LOCKS its branch.** `git branch -d hotfix/<slug>` is refused while any worktree
+   claims it - so the cleanup that should be one command needs `git worktree remove` first, by a
+   checkout nobody can find.
+3. **Nobody can read the path.** Three weeks later there is no way to tell live work from debris.
+
+So the path is a boring sibling of the repo - `../rv-simulator-v11-hotfix-<slug>` - and never
+inside the repo either, where it is untracked in a tree `deploy.sh` stages from and every tree
+scan walks a second copy of the app. **Smoke fails on a worktree inside the repo** and is
+deliberately silent about a temp one: nested breaks the suite's own scans, temp is untidy and
+harmless at deploy time, and only you can delete it - blocking a release on housekeeping nobody
+but Yuhan may action is the wrong trade.
+
+`node_modules` is the one wrinkle: a fresh worktree has none and `deploy.sh` runs a build. The
+script junctions this checkout's when `package.json` and `package-lock.json` are identical between
+the branches, and tells you to run `npm ci` when they are not - checked rather than assumed,
+because a junction writes through and `npm install` inside a linked worktree would rewrite this
+checkout's dependencies.
+
+**Deploy from the worktree** - it is the checkout that has `main`. Then merge back **here**, which
+is the step that keeps `dev` alive:
+
+```bash
+git fetch origin && git checkout dev && git merge origin/main && git push origin dev
+node scripts/dev-index.mjs
+```
+
+#### Two version rules the goal implies, and neither was written down
+
+**A planned version number is not reserved.** `docs/V140_PLAN.md` has called the next feature
+release v1.4.2 for weeks, and a hotfix on v1.4.1 wants the same number - which is what produced a
+version collision during the v1.4.1 release. The rule is that **the next number goes to whatever
+ships first**, and a plan's version label is a nickname rather than a claim on the digit: if a
+hotfix takes v1.4.2, the feature release becomes v1.4.3 and the plan document is edited. The
+alternative considered was 4-part hotfix versioning (`1.4.1.1`), and it was rejected: it needs
+three machinery edits - the `SEMVER` gate in `scripts/bump-version.mjs`, smoke's `package.json
+version is x.y.z`, and smoke's `What's New in v<version>` guard - and it lengthens every version
+string in the app for a case that arises once a release at most. **Deleting the reservation is
+cheaper than supporting it.**
+
+**A fix that changes no bundled file does NOT bump, tag, or open a README section.** The Pages
+`.nojekyll` fix is the case: it touched no file Vite bundles, and the rebuild reproduced
+`index-CiihP5yH.js`, the hash already deployed. There is nothing for a version to distinguish -
+every player's cached bundle was already correct and only a data fetch was failing - so bumping
+would have told players the code changed when it had not, and re-tagging would have moved a tag
+that still names the right source. It is recorded in Project Status instead.
+
+**The rule is measurable, which is the point:** build, and compare the hash against what `main`
+already serves. Same hash means no bump. This is also why `deploy.sh` only **warns** when
+`v<version>` is already a tag rather than aborting - re-deploying at the same version is a
+legitimate act, and this is the shape of it.
 
 **Always add a regression check to `test/smoke.mjs` as part of the fix**, and verify it fails against the unfixed code. This is already the convention in this repo — the Layer G key-page guards each encode a bug that reached a hand test. It also does double duty on the merge-back: if `dev` has rewritten the same area, the merge will conflict, and the guard is what proves the fix survived however you resolve it. Resolve in favour of `dev`'s structure, keep the fix's behaviour, and let the check confirm it.
 
-**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and adds a line to the current README "What's New" section rather than opening a new one.
+**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and **opens its own README "What's New" section**, marked `(hotfix)`.
+
+**That sentence used to say the opposite** - *"adds a line to the current section rather than opening a new one"* - **and the suite forbids it.** Smoke asserts `README has a "What's New in v<package.json version>" section`, so a bump with no new section is a red suite and therefore a blocked deploy: the rule as written described a process that cannot complete. Two things make the section the right answer anyway - notes filed under the *previous* version's heading are notes a player cannot find, and `src/config/releaseNotes.js` needs its own entry for the new version regardless, because smoke ties `RELEASE_NOTES[0].version` to `package.json`.
+
+**Keep the new version string out of the section's BODY.** `bumpFile` skips any line containing `What's New in`, so the heading is free - but a body line naming the version is counted, and README's expected count is exactly 6. Found on an abandoned hotfix branch, where the count failed at 7 with a perfectly reasonable sentence in it.
+
+The correction was written on that same abandoned branch and therefore never shipped until now; a **version bump is not itself a hotfix**, so the Pages `.nojekyll` fix bumped nothing and opened no section - it changed no source at all.
 
 ### Version strings
 
@@ -2294,6 +2382,36 @@ not a code read. **After a release, fetch a file from each mirror, not just the 
 the on-device console, which would have shown the 404 and the `parseWorld` throw immediately.
 It is read before React mounts and is host-independent. Nothing needed adding; it needed
 remembering.
+
+**The check that would have caught this is an HTTP request, so it is now a script.**
+`node scripts/verify-mirrors.mjs` fetches, from each of the three mirrors, `index.html`, the
+bundle and stylesheet that file references, both `manifest.json` copies, and **every file in
+the mirrored data trees** - 47 data paths today, derived by walking `groups/` and `worlds/`
+rather than listed. `MIRRORED_TREES` and `MIRRORS` are exported from that script and
+**imported by smoke**, so the offline Jekyll guard and the live verifier cannot drift into
+covering different trees or a stale host list.
+
+It is **not in the smoke suite and must not be.** `deploy.sh` gates on smoke, so a check that
+needs three public hosts to answer would block a release on a bad connection - the same reason
+the `YearWheel` browser harness stays out. `deploy.sh` prints the command on completion
+instead, beside the merge-back it already prints.
+
+**A 200 does not mean the file is there, and on one of these three hosts it routinely does
+not.** Measured 2026-09-30, requesting `worlds/__nope__/zz.json` from each:
+
+| host | a missing data path answers |
+| --- | --- |
+| GitHub Pages | `404`, `text/html` |
+| Vercel | `404`, `text/plain` |
+| **Cloudflare Pages** | **`200`, `text/html`, 678 bytes - byte-for-byte the app's own `index.html`** |
+
+So a status-code check would have called a missing register **served** on Cloudflare. That is
+*a fallback that returns plausible data hides the failure that produced it* arriving at the
+host layer, and it inverts which mirror is the dangerous one: Pages failed loudly and was
+diagnosable in 47 curls, while the two hosts that happened to be right this time include the
+one that could hide the identical defect indefinitely. **The verifier therefore requires every
+`.json` path to PARSE as JSON**, and reports `200 not-json` as its own failure kind, naming the
+SPA shell when it recognises it.
 
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
@@ -2579,59 +2697,82 @@ fail — the harness now reports CRASHED. The other was a real guard weakness: t
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
 
-### Pick up here — v1.4.1 is released; the Pages mirror is fixed, 2026-09-30
+### Pick up here — v1.4.1 is released and VERIFIED on all three hosts, 2026-09-30
 
 **This block is the authority on what is open. Every block below it is history — read the
 dates, not the tense.**
 
-**v1.4.1 is live.** `main` = `origin/main` = `0e27d8b`, tagged `v1.4.1`; `dev` is that commit
-plus the dev-mode `index.html`. Verified: all three mirrors serve `index-CiihP5yH.js`, the
-served bytes match the local build after normalising line endings, and the suite was green on
-the merged tree.
+**v1.4.1 is live and the Pages hang is fixed.** `main` = `origin/main` = `d052226`; `dev` =
+`origin/dev` = `1e25191`, which is that commit plus the dev-mode `index.html` plus this batch.
+Tag `v1.4.1` still points at `0e27d8b`.
 
-**The Pages-only `Loading...` hang is fixed on `dev` and NOT yet deployed.** One commit:
-an empty `.nojekyll` plus two derived guards. Smoke **1562 → 1564**, **3 mutations, 3 RED, 0
-GREEN**, `npm run build` clean and reproducing `index-CiihP5yH.js` — no source changed, so the
-bundle is unchanged. **No version bump**, deliberately: the code players run is already
-correct, nothing distinguishes two builds, and `deploy.sh` blesses re-deploying at the same
-version with a warning rather than a stop. v1.4.2 stays available for §21/§22.2.
+**Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of the
+three mirrors — 47 data files, `index.html`, both manifests, the bundle and the stylesheet —
+and reported **51/51 served on all three, every JSON parsed, all three on
+`index-CiihP5yH.js`**. Yuhan confirmed the io page reaches Setup on a phone.
 
-**The exact next commands, every one of them a red line and none of them done:**
+**The tag is the one loose end and it is Yuhan's call.** `v1.4.1` = `0e27d8b`, which predates
+`.nojekyll`; the source there is identical, so it still names the right code, and moving a tag
+is a force-update. Leaving it is the recommendation.
 
-```bash
-git push origin dev
-git checkout main && git pull
-git merge dev --no-ff -m "fix: serve _registers on GitHub Pages (.nojekyll)"
-npm run deploy          # warns that v1.4.1 is already a tag; that is correct here
-git checkout -- index.html
-git checkout dev && git merge main && git push origin dev
-node scripts/dev-index.mjs
-```
+#### What this batch added, and why
 
-**No new tag** — `v1.4.1` already points at `0e27d8b` and the source is unchanged.
+**`scripts/verify-mirrors.mjs`** — the instrument the Jekyll bug proved was missing. Every
+offline mirror check compares `public/` against root, which is a statement about the *repo*; a
+static host may filter what it was handed, and only an HTTP request sees that. It is **out of
+smoke on purpose** (`deploy.sh` gates on smoke, and three public hosts are not a release
+dependency) and `deploy.sh` now prints it as the last step. See *Pages serves the root THROUGH
+Jekyll*.
 
-**Then verify on the device**, which is the only thing that can:
-`byhanita.github.io/rv-simulator/worlds/_registers/zh.json` must return JSON rather than a 404,
-and the custom-cast door must reach Setup. `?debug=1` on that host opens the on-device console.
+**It requires JSON to PARSE, not merely to return 200 — and that is not theoretical.** Measured:
+**Cloudflare Pages answers a missing data path with `200 text/html` and the app's own
+`index.html`, byte for byte.** A status-only check would have called a missing register served
+there. Verified end to end by pointing one mirror at a path that does not exist: **48 files
+reported `200 not-json (SPA shell)`, exit 1**. The host that would hide this defect is one of
+the two that were *right* about the Jekyll one.
+
+**`scripts/hotfix-worktree.sh` + `scripts/worktree-hygiene.mjs`** — the hotfix flow, made clean
+on Yuhan's ask. A worktree keeps `dev`'s in-flight work untouched; the v1.4.1 one was created in
+a session temp directory, which is the one place it must not go. See *Work a hotfix in a
+WORKTREE*.
+
+**Two version rules were missing and are now written down:** a planned version number is **not
+reserved** (which is what collided during the v1.4.1 release), and a fix that changes no bundled
+file **does not bump, tag, or open a README section** — measurable by rebuilding and comparing
+the hash. See *Two version rules the goal implies*.
+
+**The owed CLAUDE.md correction is made:** the Hotfix section said a hotfix *"adds a line to the
+current README 'What's New' section rather than opening a new one"*, which describes a
+guaranteed red suite, because smoke asserts a section exists for `package.json`'s version.
+
+**Numbers:** smoke **1564 → 1578**. **14 mutations, 14 RED, 0 GREEN, 0 WRONG, 0 CRASHED** — but
+**three assertions passed against broken code on the first attempt** and were rewritten, all
+three the same shape: two rules covering one fixture, so neither could be shown to work. A 404
+fixture with an empty body let `JSON.parse("")` cover for the status check; a nested-worktree
+fixture containing `/scratchpad/` let the temp rule cover for the nested rule. **`cropRect`'s
+double clamp, twice more.** No golden moved and no source under `src/` changed.
+
+#### Still next in the feature queue
+
+1. **§22.1's interim prompt rule — DECIDED, not started.** When `castLore.useRole` is false the
+   profile block gains one line saying the texture prose was authored for a performing-idol
+   context and is to be read for traits, never facts, with `castLife.theirs` as the substitute.
+   It moves the three non-idol goldens, so it gets its own commit and the diff is read.
+2. Then **`docs/V140_PLAN.md` §22.2**, the setup-flow restructure — multi-file, so it wants its
+   own written plan and confirmation before code.
 
 **Offered and not taken:** make a failed world fetch *visible*. `loadWorld(...).catch(
 console.error)` in `App.jsx` means any data 404 renders as a permanent spinner with nothing a
 player can report — the swallow that `loadGroupIndex`'s Red Velvet fallback already cost this
-repo a release. It touches `App.jsx` + three i18n files, so it is a multi-file change wanting
-its own written plan, and it is worth nothing for *this* bug now that the 404 is gone.
+repo a release. It touches `App.jsx` + three i18n files, so it wants its own plan, and it is
+worth nothing for *that* bug now the 404 is gone.
 
-**Still next in the feature queue:** §22.1's interim prompt rule (DECIDED, moves the three
-non-idol goldens, own commit), then the written plan for §22.2.
-
-**Housekeeping, both Yuhan's because deletion is a red line:** the merged-and-redundant
-`hotfix/year-wheel-start-blocked` branch on the remote, and the worktree plus `node_modules`
-junction under `scratchpad/main-hotfix`.
-
-**One correction owed to this file:** the hotfix rule under *Hotfix* still says a hotfix *"adds
-a line to the current README "What's New" section rather than opening a new one"*. Smoke
-asserts a section for `package.json`'s version exists, so that sentence describes a guaranteed
-red suite and a blocked deploy. It was corrected on the abandoned hotfix branch and therefore
-never shipped.
+**Housekeeping, Yuhan's because deletion is a red line.** `scripts/hotfix-worktree.sh status`
+prints the exact commands. The worktree under the session temp path, and
+`hotfix/year-wheel-start-blocked` locally and on the remote. **It needs `-D`, not `-d`:** the
+branch is redundant **by content, not by merge** — `main` carries the same year-wheel fix by a
+different commit (7 `selfScroll` hits), so its one commit is not an ancestor of `main`. An
+earlier note in this file called it "merged"; that was wrong.
 
 ### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29 (historical)
 

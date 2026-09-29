@@ -28,6 +28,8 @@
 
 import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
+import { MIRRORED_TREES, MIRRORS, buildProbePlan, classifyResponse } from "../scripts/verify-mirrors.mjs";
+import { classifyWorktree, parseWorktreeList, auditWorktrees, classifyHotfixBranch } from "../scripts/worktree-hygiene.mjs";
 import { PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "../src/config/constants.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -1832,7 +1834,10 @@ function layerC() {
     }
     return out.sort();
   };
-  const MIRRORED_TREES = ["groups", "worlds"];
+  // MIRRORED_TREES is imported from scripts/verify-mirrors.mjs rather than
+  // written here. This guard proves the two trees MATCH offline; that script
+  // proves a live host can SERVE them. Two copies of the list is how the
+  // offline guard and the live verifier come to cover different trees.
   for (const tree of MIRRORED_TREES) {
     const rootTree = walkTree(tree);
     const pubTree = walkTree(`public/${tree}`);
@@ -1893,6 +1898,139 @@ function layerC() {
     !existsSync(join(ROOT, ".nojekyll"))
       || execFileSync("git", ["ls-files", "--", ".nojekyll"], { cwd: ROOT, encoding: "utf8" }).trim() !== "",
     "an untracked .nojekyll fixes nothing on Pages - git add it");
+
+  // --- the live verifier's two pure functions ---
+  //
+  // scripts/verify-mirrors.mjs is the instrument that WOULD have caught the
+  // Jekyll bug: it fetches every mirrored data file from all three hosts. It
+  // cannot run in this suite, because deploy.sh gates on smoke and a check
+  // needing three public hosts to answer would block a release on a bad
+  // connection. So its two decisions are pure, exported, and tested here -
+  // the addSaveSlot / membersNamedIn pattern, for the same reason: the
+  // alternative is a rule only a live run can exercise, and a harness nothing
+  // exercises is a harness that rots. playthrough.mjs was dead for four
+  // steps that way.
+  //
+  // Written from the requirement, not the implementation: what must hold is
+  // that a DATA file is probed and not only the bundle, which is precisely
+  // what the v1.4.1 post-deploy check got wrong.
+  const planned = buildProbePlan({
+    treeFiles: ["worlds/_registers/zh.json", "groups/index.json"],
+    assetRefs: ["assets/index-abc123.js", "assets/index-abc123.css"],
+  }).map((e) => e.path);
+  check("the live verifier probes data files, not just the bundle",
+    planned.includes("worlds/_registers/zh.json") && planned.includes("groups/index.json"),
+    `buildProbePlan dropped the data files: ${planned.join(", ")}`);
+  check("the live verifier probes the bundle and the page too",
+    planned.includes("assets/index-abc123.js") && planned.includes(""),
+    `buildProbePlan covers ${planned.join(", ")}`);
+
+  // A 200 is not proof the file is there. MEASURED 2026-09-30: Cloudflare
+  // Pages answers a missing data path with 200 text/html and the app's own
+  // index.html, byte for byte, so a status-only check calls a missing
+  // register SERVED. Pages 404s and Vercel 404s; the host that would hide
+  // this defect is one of the two that were right about the Jekyll one.
+  const spa = classifyResponse({ kind: "json", status: 200, body: "<!DOCTYPE html><html><head></head></html>" });
+  check("a 200 serving the SPA shell instead of JSON is a failure",
+    spa.ok === false && /not-json/.test(spa.reason),
+    `classifyResponse accepted the app shell as a JSON file: ${JSON.stringify(spa)}`);
+  // Note the 404 body is VALID JSON on purpose. The first version of this
+  // check passed body: "" - JSON.parse("") throws, so the not-json branch
+  // produced ok:false and covered for the status branch, and deleting the
+  // status check left this guard GREEN. Two enforcements of one rule is two
+  // neither of which can be shown to work; cropRect cost an hour to the same
+  // shape. A host serving a JSON error document is the real case.
+  const notFound = classifyResponse({ kind: "json", status: 404, body: '{"error":"not found"}' });
+  check("a non-200 fails on its status, whatever its body parses as",
+    notFound.ok === false && /HTTP 404/.test(notFound.reason)
+      && classifyResponse({ kind: "json", status: 200, body: '{"korea":{}}' }).ok === true,
+    `classifyResponse read a 404 carrying valid JSON as: ${JSON.stringify(notFound)}`);
+
+  // The host list is the verifier's, and exactly one mirror serves the
+  // committed tree. That asymmetry IS the diagnosis - when one mirror fails
+  // and two do not, the fault is in what makes that one different - so it is
+  // a field on the data rather than a sentence in a comment.
+  check("exactly one mirror serves the committed tree",
+    MIRRORS.filter((m) => m.servesCommittedTree).length === 1
+      && MIRRORS.find((m) => m.servesCommittedTree).id === "pages",
+    `servesCommittedTree: ${MIRRORS.filter((m) => m.servesCommittedTree).map((m) => m.id).join(", ") || "none"}`);
+
+  // --- hotfix worktree hygiene ---
+  //
+  // A hotfix off main is worked in a second checkout so dev's in-flight work
+  // is neither stashed nor one command away from deploy.sh. The v1.4.1 one was
+  // created in a SESSION-SCOPED TEMP DIRECTORY, and git's registration in
+  // .git/worktrees/ outlives the directory - so the repo keeps advertising a
+  // path that no longer exists, and because a worktree LOCKS its branch,
+  // `git branch -d` is refused by a checkout nobody can find.
+  //
+  // The rule lives in scripts/worktree-hygiene.mjs with two consumers - that
+  // script's report and these checks - rather than once in bash and once here.
+  const REPO_ROOT = "C:/Users/Yuhan/repo";
+  const wt = (path, extra = {}) => classifyWorktree({ path, branch: "hotfix/x", repoRoot: REPO_ROOT, ...extra });
+
+  check("a worktree in a temp directory is reported as wrong",
+    wt("C:/Users/Yuhan/AppData/Local/Temp/claude/abc/scratchpad/main-hotfix").ok === false,
+    "a temp-dir worktree outlives its own checkout and locks its branch - it must not pass");
+
+  check("a worktree inside the repo is reported as wrong",
+    wt("C:/Users/Yuhan/repo/worktrees/hotfix-x").ok === false,
+    "a nested worktree shows as untracked and every tree scan walks it");
+  // The path deliberately contains neither `temp` nor `scratchpad`: the first
+  // fixture here did, so the temp rule matched first and this check stayed
+  // green when the nested rule was deleted.
+
+  check("a worktree registered but gone from disk is reported as wrong",
+    wt("D:/elsewhere/repo-hotfix-x", { existsOnDisk: false }).ok === false,
+    "a pruned directory still locks its branch, which is the state that blocks cleanup");
+
+  // Pinned regression: the first version of this rule lived in bash and
+  // compared git's `C:/foo` against bash's `/c/foo`, so it classified the
+  // PRIMARY checkout as a stranger and its inside-the-repo branch was
+  // unreachable. Both spellings must read as the same directory.
+  check("the primary checkout is recognised whichever way its path is spelled",
+    classifyWorktree({ path: "C:/Users/Yuhan/repo", repoRoot: "/c/Users/Yuhan/repo" }).kind === "primary"
+      && classifyWorktree({ path: "/c/Users/Yuhan/repo", repoRoot: "C:\\Users\\Yuhan\\repo" }).kind === "primary",
+    "a path-style mismatch makes the primary checkout look like debris and kills the nested check");
+
+  check("a sibling worktree outside the repo is fine",
+    wt("C:/Users/Yuhan/repo-hotfix-registers-404").ok === true,
+    "the recommended location must not be reported as a problem");
+
+  const parsed = parseWorktreeList([
+    "worktree C:/a", "HEAD abc", "branch refs/heads/dev", "",
+    "worktree C:/b", "HEAD def", "detached", "",
+  ].join("\n"));
+  check("the porcelain parser reads every entry and its branch",
+    parsed.length === 2 && parsed[0].branch === "dev" && parsed[1].branch === null,
+    `parsed ${JSON.stringify(parsed)}`);
+
+  // LIVE, and deliberately narrow. Only a worktree INSIDE the repo fails the
+  // suite: it is untracked in a tree deploy.sh stages from, and the mirror and
+  // secret scans would walk a second copy of the app. A temp-dir worktree is
+  // untidy and harmless at deploy time, and removing it deletes files - so it
+  // is `hotfix-worktree.sh status`'s business, not a blocked release's.
+  const liveAudit = auditWorktrees(
+    execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: ROOT, encoding: "utf8" }), ROOT);
+  const nested = liveAudit.filter((w) => w.kind === "nested");
+  check("no git worktree is registered inside this repo",
+    nested.length === 0,
+    `${nested.map((w) => w.path).join(", ")} - move it beside the repo: scripts/hotfix-worktree.sh new <slug>`);
+
+  // A hotfix branch is temporary BY DESIGN - off main, one bug, merged, gone -
+  // and the only thing that makes the last step happen is someone noticing. So
+  // the report states what is true rather than issuing a verdict: `ahead` is
+  // commits not in main and does NOT mean unshipped. The v1.4.1 year-wheel fix
+  // reached main through dev while its abandoned hotfix branch still read 1
+  // ahead, because a reimplementation is a different commit - a tool that
+  // called that branch unfinished would be wrong, and one that called it
+  // merged would invite -D on work nobody had checked.
+  check("a hotfix branch contained in main is reported as safe to delete",
+    classifyHotfixBranch({ branch: "hotfix/x", ahead: 0, containedInMain: true }).state === "merged",
+    "a finished hotfix must be visibly finished, or it accumulates");
+  check("a hotfix branch NOT in main is never reported as merged",
+    classifyHotfixBranch({ branch: "hotfix/x", ahead: 1, containedInMain: false }).state === "open",
+    "reporting an unmerged branch as merged invites git branch -D on unreviewed work");
 
   // Referencing the manifest as "/manifest.json" makes Vite treat it as a
   // public-dir asset and rewrite it to "./manifest.json" for the relative base.
