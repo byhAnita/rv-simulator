@@ -2275,20 +2275,42 @@ alone. Mutation rounds across steps 1–8 total **194 RED, 0 GREEN, 0 NOT APPLIE
 moved **three times** in the whole release — step 2's `[Pace: …]` deletion, step 4's sections 10
 and 11, step 7's six generalised wordings — each diff read before committing.
 
-**NOT verified, and this is the gate:** **no live round has ever been played in `campus`, `office`
-or `chaebol`.** Every claim about them is offline. Steps 5 and 6 are likewise unexercised live,
-and step 4's token delta is still unmeasured. Nothing in v1.4.1 has been seen on a phone: the
-Setup page now offers a world picker and a four-world identity grid, Settings has a fourth switch,
-and the game page has a 📍 button, none of which has been looked at at 390px.
+**The live gate is MET — 24 rounds across all three new worlds, 2026-09-29, on `deepseek-flash`:**
 
-**The exact next commands**, in order, the first two being the release's own gate:
+| run | rounds | cache | drifts | prefix breaks |
+| --- | --- | --- | --- | --- |
+| `campus` / ko / `junior_student` | **8/8 clean** | 88.2% | 0 | 0 of 2 collapses |
+| `chaebol` / zh / `主线成员前女友` | **8/8 clean** | 90.4% | 0 | 0 of 2 collapses |
+| `office` / en / `report_to_cast` | 7/8, one `parse:FALLBACK` | 89.5% | 0 | 0 of 2 collapses |
 
-```bash
-node test/playthrough.mjs --world campus --lang ko --identity junior_student --rounds 8
-node test/playthrough.mjs --world chaebol --lang zh --identity 主线成员前女友 --rounds 8
+**0 static-prompt drifts across all 24 rounds** — including the chaebol run, which is the
+ex-girlfriend identity whose backstory used to re-roll every round, so `backstorySeed` is now
+confirmed stable in a **second** world. The chaebol row is also the only one of the three that
+ran both ROLE CONTRACT graders, `主线成员前女友` being the one id all four worlds share; the other
+two printed their skipped graders, which is the coverage line working as designed.
+
+**The one flag is a pre-existing bug, not a v1.4.1 regression, and it is worse than `docs/
+PROPOSALS.md` §7 recorded.** The round was NOT truncated (`finish: stop`, 832 completion tokens)
+and every parse level still failed, so the player would have seen 500 characters of raw JSON under
+four English buttons — on the healthiest provider this project has. And `MIN_STORY_CHARS` cannot
+fix it: `hasUsableStory` decides whether `bad_response` retries by calling **`parseLLMOutput` and
+measuring the result**, which on a total failure is level 4's own `text.substring(0, 500)`. 500 is
+above every threshold anyone would set, so **the retry machinery can never fire on the one case
+where the output is least usable.** Written up in §7 with the fix stated and deliberately not made
+— it changes the retry path for every player on every provider and wants its own measurement.
+
+**NOT verified:** nothing in v1.4.1 has been seen on a phone — the Setup world picker, the
+four-world identity grid, Settings' fourth switch and the 📍 button have not been looked at at
+390px. Steps 5 and 6 are unexercised live, and step 4's token delta is still unmeasured.
+
+**The exact next command** is the phone pass, on the Cloudflare branch alias (deterministic,
+unlike Vercel's), which needs no deploy because `dev` is pushed:
+
+```
+dev.idol-dating-sim.pages.dev
 ```
 
-**`--world` is new, and it is why this is the next command rather than a red line.** The harness
+**`--world` is new, and it is why that gate could be met at all.** The harness
 pinned `kpop_idol` in two places, so it could not exercise a single line of what v1.4.1 adds — the
 fourth instance of the shape this file tracks three times, found by the prediction that said to go
 looking for a fourth. It is added, mutation-verified (**9 RED, 0 GREEN**), and it **refuses a

@@ -469,6 +469,14 @@ async function runWorker(model) {
   // adding `rosters/` here must be one string, not another branch.
   const SERVED_TREES = ["/groups/", "/worlds/"];
   let meta = null;
+  // The RAW model response. `storyContent` is the PARSED story, so when the
+  // parser gives up entirely it is parseLLMOutput's own 500-char slice OF THIS
+  // STRING - the evidence and the symptom become the same bytes and the flag
+  // cannot be judged at all. Observed live: office/en round 7, `finish: stop`
+  // and 832 completion tokens, so not a truncation, and nothing left to say
+  // what the model actually sent. Same gap CLAUDE.md records for delivered
+  // Kakao, one field over: a flag whose evidence was not kept is not a flag.
+  let rawContent = null;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     const u = String(url);
@@ -482,6 +490,7 @@ async function runWorker(model) {
     if (!resp.ok) return resp;
     const data = await resp.json();
     const usage = data.usage || {};
+    rawContent = data.choices?.[0]?.message?.content ?? null;
     meta = {
       finish: data.choices?.[0]?.finish_reason || null,
       prompt: usage.prompt_tokens ?? null,
@@ -760,6 +769,11 @@ async function runWorker(model) {
         // Full text, not a 400-char head: a grader can fire past the truncation
         // point, and then the report cannot be used to judge the flag.
         ...(bad.length ? { storyText: story, optionsText: res.options } : {}),
+        // Any level but `direct` means the parser had to repair the response or
+        // gave up on it, so keep what the model actually sent rather than what
+        // survived. Kept on the repaired levels too: a repair that succeeded is
+        // how you find out which repair is load-bearing.
+        ...(parseLevel !== "direct" ? { rawResponse: rawContent } : {}),
         // Graders only ever report what went wrong, and that cannot show whether a
         // positive instruction was FOLLOWED: "0 issues" reads the same whether the
         // model used 欧尼 all game or avoided honorifics altogether, whether every

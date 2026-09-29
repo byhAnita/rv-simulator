@@ -7420,6 +7420,27 @@ async function layerL() {
     /world: WORLD,/.test(harness) && /LANG, GROUP, WORLD,/.test(harness),
     "a report that does not name its world cannot be compared with another");
 
+  // A flag whose evidence was not kept is not a flag. `storyContent` is the
+  // PARSED story, so when the parser gives up the stored text is its own
+  // 500-char slice of the response - the symptom and the evidence become the
+  // same bytes. Observed live 2026-09-29, office/en round 7: `finish: stop`,
+  // 832 completion tokens, so NOT truncated, and nothing left to say what the
+  // model sent. Same gap CLAUDE.md records for delivered Kakao, one field over.
+  // Asserted as ONE expression, gate and field together, because
+  // `parseLevel !== "direct"` also appears in gradeRound - so asserting the two
+  // halves separately would stay green with the gate dropped entirely, and the
+  // half that matters would be the vacuous one. Found by asking what the
+  // mutation would be, not by running it.
+  check("a round the parser could not take as-is keeps what the model sent",
+    harness.includes(`...(parseLevel !== "direct" ? { rawResponse: rawContent } : {})`),
+    "a parse flag with no raw response cannot be judged after the run");
+  // The point is that it comes off the RESPONSE. Storing the parsed story under
+  // a new name would satisfy a presence check and preserve nothing.
+  check("...and it is the response body rather than the parsed story",
+    harness.includes("rawContent = data.choices")
+      && !harness.includes("rawResponse: story"),
+    "raw must be captured in the fetch stub, not copied from storyContent");
+
   // Prose is kept for every round, not a head of the first. A grader reports only
   // what went wrong, so the transcript is the only record of whether a positive
   // instruction was followed — and round 0 is the worst round to sample, being the
