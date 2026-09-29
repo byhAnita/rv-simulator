@@ -1832,7 +1832,8 @@ function layerC() {
     }
     return out.sort();
   };
-  for (const tree of ["groups", "worlds"]) {
+  const MIRRORED_TREES = ["groups", "worlds"];
+  for (const tree of MIRRORED_TREES) {
     const rootTree = walkTree(tree);
     const pubTree = walkTree(`public/${tree}`);
     const missing = pubTree.filter((f) => !rootTree.includes(f));
@@ -1849,6 +1850,49 @@ function layerC() {
       drifted.length === 0,
       `drifted: ${drifted.join(", ")} - copy public/${tree}/ over root ${tree}/`);
   }
+
+  // --- GitHub Pages serves the root THROUGH Jekyll, and Jekyll hides `_*` ---
+  //
+  // The loop above proves the two trees MATCH. It says nothing about whether
+  // the host can serve them, and on Pages it could not: Jekyll excludes every
+  // path whose name begins with `_` or `.`, so `worlds/_registers/<lang>.json`
+  // returned 404 on Pages alone while both build-from-source mirrors served it.
+  // That file is the address-form register EVERY world resolves through, and
+  // `parseWorld` throws on a register nobody ships rather than defaulting - so
+  // `loadWorld` rejected into `.catch(console.error)`, `world` stayed null, and
+  // Setup rendered a full-screen "Loading..." for ever. Reported from a phone
+  // on 2026-09-30, hours after v1.4.1 shipped.
+  //
+  // v1.4.1 step 1 introduced the first underscore-prefixed path anything
+  // FETCHES. `groups/_template/` had been unserved on Pages since the repo
+  // began and cost nothing, because no code reads it - which is why three
+  // releases of mirror checks never surfaced the rule.
+  //
+  // `.nojekyll` is the whole fix: it turns Jekyll off and Pages serves the
+  // tree verbatim. No path is renamed, so no world file's `country.register`
+  // pointer moves.
+  //
+  // DERIVED from the trees, not written about `_registers`: a later
+  // `rosters/_shared/` is covered the day it lands, and a tree needing no
+  // marker keeps the check silent instead of asserting a file for its own sake.
+  const jekyllHidden = MIRRORED_TREES.flatMap((tree) =>
+    walkTree(tree)
+      .filter((f) => f.split("/").some((seg) => /^[_.]/.test(seg)))
+      .map((f) => `${tree}/${f}`));
+  check("every mirrored data file is reachable on a Jekyll-served root",
+    jekyllHidden.length === 0 || existsSync(join(ROOT, ".nojekyll")),
+    `GitHub Pages 404s these: ${jekyllHidden.join(", ")} - add an empty .nojekyll at the repo root`);
+
+  // A marker that is not COMMITTED reaches no host, and Pages serves only what
+  // is committed. `.gitignore` carries deliberately broad secret patterns
+  // (`.env.*`, `*.local`), so a dotfile at the root is exactly the thing that
+  // can sit on disk, satisfy the check above, and be absent from the tree
+  // players are served. Vacuous by design when the file does not exist - that
+  // case is the previous check's, and one failure per defect is the point.
+  check(".nojekyll is committed, not merely present on disk",
+    !existsSync(join(ROOT, ".nojekyll"))
+      || execFileSync("git", ["ls-files", "--", ".nojekyll"], { cwd: ROOT, encoding: "utf8" }).trim() !== "",
+    "an untracked .nojekyll fixes nothing on Pages - git add it");
 
   // Referencing the manifest as "/manifest.json" makes Vite treat it as a
   // public-dir asset and rewrite it to "./manifest.json" for the relative base.
