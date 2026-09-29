@@ -4169,6 +4169,63 @@ async function layerI() {
     check("every world's prompt carries exactly the platforms that world declares",
       platformStrays.length === 0, platformStrays.join(" | "));
   }
+  // --- docs/V140_PLAN.md 22.1: idol prose in a non-idol world ---------------
+  //
+  // `castLore.useRole` keeps the STRUCTURED `role` out of section 4, and step 7
+  // stopped there - so the prose one field over went on saying the same thing.
+  // 57 of 57 library members carry idol vocabulary in a world-agnostic prose
+  // field (80 instances, `public_image` 56 of them), which is why a chaebol
+  // heiress posted about a recording session and being the maknae from a family
+  // compound. The interim rule tells the model how to READ that prose; 22.2
+  // fixes the data and must delete the rule.
+  //
+  // Derived over every world rather than asserted about campus, which is the
+  // lesson the org-suffix scan and the platform loop above both had to learn: a
+  // guard pinned to one instance of the class it is about is a sample. Both
+  // directions are one comparison against `useRole`, so a fifth world is covered
+  // the day it lands - and the idol world must NOT be told that this story is
+  // not an idol story.
+  {
+    const TRAITS_RULE = /TRAITS, NEVER FOR FACTS/;
+    const wrongSide = [];
+    const noSubstitute = [];
+    const misplaced = [];
+    for (const [id, byLang] of Object.entries(allWorlds)) {
+      const w = byLang.en;
+      if (!w) continue;
+      const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+        members.map((m) => m.id));
+      const cast = await fromDisk(() => loader.resolveRoster(roster, "en", w));
+      const rendered = buildSystemPrompt(form({ identity: w.identities[0].id }), cast.members,
+        "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", w);
+      // Section 5 up to the first profile. Scoping matters for the substitute:
+      // `castLife.theirs` already renders in the ROLE CONTRACT, so an unscoped
+      // search would pass on the OTHER section's copy and prove nothing here.
+      const head = rendered.slice(rendered.indexOf("CRITICAL: \u2605"),
+        rendered.indexOf("\n  Age: "));
+      const wants = w.castLore.useRole === false;
+      if (TRAITS_RULE.test(rendered) !== wants) {
+        wrongSide.push(id + ": useRole=" + w.castLore.useRole + " and the rule is "
+          + (wants ? "missing" : "present"));
+      }
+      if (!wants) continue;
+      // The load-bearing half. A prohibition with no substitute gets routed
+      // around - CLAUDE.md records that twice, and the second time the model
+      // INVENTED a channel to escape a list of named ones. The substitute has to
+      // be THIS world's, so a hardcoded one fails here.
+      if (!head.includes(w.castLife.theirs)) {
+        noSubstitute.push(`${id}: the rule never names ${JSON.stringify(w.castLife.theirs)}`);
+      }
+      // A rule about how to read the prose is read too late if it follows it.
+      if (!TRAITS_RULE.test(head)) misplaced.push(id);
+    }
+    check("the traits-not-facts rule reaches every non-idol world and no idol one",
+      wrongSide.length === 0, wrongSide.join(" | "));
+    check("...and supplies that world's own life as the substitute, not a prohibition alone",
+      noSubstitute.length === 0, noSubstitute.join(" | "));
+    check("...and sits BEFORE the profiles it tells the model how to read",
+      misplaced.length === 0, misplaced.join(" | "));
+  }
 
     // Direction, rendered. `prof_of_cast` points the title at the player and
     // `junior_student` points it at the cast, and before step 7 the second one

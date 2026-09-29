@@ -354,6 +354,36 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const socialShape = plat.social.map((p) => p.schema).join(",");
   const mainSocial = `"${mainId}": {${socialShape}}`;
   const subSocials = subIds.map(id => `"${id}": {${socialShape}}`).join(",");
+  // docs/V140_PLAN.md §22.1's INTERIM rule, and the word interim is load-bearing.
+  //
+  // The cast library's prose is authored for the idol world and reaches all four:
+  // 57 of 57 members carry idol vocabulary in a world-agnostic prose field, 80
+  // instances, `public_image` 56 of them (measured on the zh library, 2026-09-29).
+  // Step 7 filtered the STRUCTURED field - `castLore.useRole` keeps `role` out of
+  // `memberLine` - and left the sentence one field over saying the same thing, so a
+  // chaebol heiress posted 忙内的快乐就这么简单 from a family compound. A rule applied
+  // to one field while its neighbour states the same fact in a form the rule cannot
+  // see.
+  //
+  // THE SUBSTITUTE IS THE LOAD-BEARING HALF, not the prohibition. `A prohibition with
+  // no substitute gets routed around` is in CLAUDE.md twice, and the second time the
+  // model escaped a list of named channels by INVENTING one (`通过公司内部系统发来的消息`).
+  // So this does not say `do not mention her stage`; it says read the line for the
+  // trait and restage it in castLife.theirs, which is the field that already answers
+  // `what do these people do all day` for each world.
+  //
+  // DELETE THIS when §22.2 lands the generated per-world texture, in that same commit.
+  // It tells the model how to read data that is wrong for the world; §22.2 makes the
+  // data right, and keeping both would put two answers to one question in the prompt -
+  // the `a prompt is not append-only` failure CLAUDE.md records five instances of.
+  //
+  // It is appended to the CRITICAL line rather than placed on its own line, so a world
+  // with useRole:true renders byte-identically - not even a newline moves - and it sits
+  // BEFORE the profiles, because a rule about how to read the prose has to reach the
+  // model before the prose does.
+  const textureCaveat = world.castLore.useRole ? "" : `
+READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting and this story is not one. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through: here she has no stage, no debut, no comeback, no fandom, and no rank in a performing group such as leader, main vocal or maknae. What she has instead is ${world.castLife.theirs}. Where a line describes her through idol work, keep the trait and restage it there.`;
+
   // One context for both renderers, so a catalog entry that needs a world-varying
   // value cannot get it in one list and not the other.
   const platformCtx = { playerName, socialReach: world.castLife.socialReach };
@@ -413,7 +443,7 @@ ${groupConfig.groupLore}
 ╔══════════════════════════════════════════╗
 ║ 5. MEMBER PROFILES                       ║
 ╚══════════════════════════════════════════╝
-CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.
+CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.${textureCaveat}
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗

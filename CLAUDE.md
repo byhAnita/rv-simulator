@@ -1845,9 +1845,37 @@ time**, which is `docs/V140_PLAN.md` §22 — and §22 is also where a defect Yu
 independently turns out to be the same one: `generateCard` reads `world` from state on
 a screen the player reaches BEFORE picking a world.
 
-**Not fixed here.** §22.1 carries the interim prompt rule (read the texture for traits,
-never for facts, with `castLife.theirs` as the substitute) and the reason it needs its
-own commit: it moves the three non-idol goldens.
+**The interim rule is TAKEN, and it is the one line section 5 gains when `castLore.useRole`
+is false.** Yuhan's call, 2026-09-29 - *"interim prompt rule now and totally clean it when we
+do section 22"*. It sits immediately after the `CRITICAL: ★` line and **before** the profiles,
+because a rule about how to read the prose has to reach the model before the prose does:
+
+> READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a
+> performing-idol setting and this story is not one. [...] here she has no stage, no debut, no
+> comeback, no fandom, and no rank in a performing group such as leader, main vocal or maknae.
+> What she has instead is `${world.castLife.theirs}`. Where a line describes her through idol
+> work, keep the trait and restage it there.
+
+**The substitute is the load-bearing half, not the prohibition.** *A prohibition with no
+substitute gets routed around* is recorded twice in this file already, and the second time the
+model escaped a list of named channels by **inventing** one - `通过公司内部系统发来的消息`. So
+this rule does not say *do not mention her stage*; it says read the line for the trait and
+restage it in `castLife.theirs`, which is the field that already answers *what do these people
+do all day* for each world.
+
+**It renders identically in all three languages**, because `castLife.theirs` is
+language-invariant English exactly as the ROLE CONTRACT already renders it - so what moved is
+one block per non-idol world, not per (world, language) pair.
+
+**`kpop_idol` is byte-identical and the three idol goldens did not move**, which is what says
+this is a filter rather than a rewrite: the caveat is the empty string when `useRole` is true,
+appended to the `CRITICAL` line rather than placed on a line of its own, so no newline moves
+either. The three non-idol goldens moved by exactly this block and the diff was read.
+
+**It is INTERIM and the comment in `mainAgent.js` says so.** It tells the model how to read
+data that is wrong for the world; §22.2 fixes the data. Delete it in the same commit that lands
+the generated per-world texture, or the prompt will carry two answers to one question - which
+is the *a prompt is not append-only* failure this file records five instances of.
 
 ### Where she is decides who is there
 
@@ -2752,14 +2780,44 @@ fixture with an empty body let `JSON.parse("")` cover for the status check; a ne
 fixture containing `/scratchpad/` let the temp rule cover for the nested rule. **`cropRect`'s
 double clamp, twice more.** No golden moved and no source under `src/` changed.
 
+#### §22.1's interim prompt rule is SHIPPED, 2026-09-30
+
+Section 5 gains one line when `castLore.useRole` is false: read the three ★ texture fields for
+**traits, never for facts** - no stage, no debut, no comeback, no fandom, no rank in a performing
+group - with `castLife.theirs` supplying what she does instead. See *`useRole` filters the FIELD
+and the prose says it anyway*.
+
+**The substitute is the load-bearing half**, not the prohibition. It sits **before** the profiles,
+because a rule about how to read the prose is read too late after it. `kpop_idol` is
+byte-identical - the caveat is the empty string when `useRole` is true, appended to the `CRITICAL`
+line so not even a newline moves - and **the three idol goldens did not move while the three
+non-idol ones moved by exactly one line each**, carrying their own world's `castLife.theirs`. The
+diff was read.
+
+**It is INTERIM and the comment in `mainAgent.js` names the commit that must delete it.** It tells
+the model how to read data that is wrong for the world; §22.2 makes the data right, and keeping
+both would put two answers to one question in the prompt.
+
+**What it does NOT do:** the library is unchanged, so all 80 field instances are still sent, and
+**no claim is made about how often the rule works** - that needs live play in a non-idol world,
+and the failure profile is *universal and intermittent*, so a clean run would establish nothing.
+
+**Numbers:** smoke **1578 → 1581**. **5 mutations, 5 RED, 0 GREEN, 0 WRONG, 0 CRASHED** - the
+presence check verified in **both** directions (sent to every world, and to none), the substitute
+check against both a hardcoded substitute and none at all, and the placement check by moving the
+caveat after the profiles. Build clean at **423.34 kB / gzip 148.88**, `index-CdL8R8RE.js`.
+
+**This one DOES bump at release time** - unlike the `.nojekyll` fix, it changes a bundled file, so
+the hash moved. The bump is the last commit on `dev` before the release merge, not now.
+
 #### Still next in the feature queue
 
-1. **§22.1's interim prompt rule — DECIDED, not started.** When `castLore.useRole` is false the
-   profile block gains one line saying the texture prose was authored for a performing-idol
-   context and is to be read for traits, never facts, with `castLife.theirs` as the substitute.
-   It moves the three non-idol goldens, so it gets its own commit and the diff is read.
-2. Then **`docs/V140_PLAN.md` §22.2**, the setup-flow restructure — multi-file, so it wants its
-   own written plan and confirmation before code.
+1. **`docs/V140_PLAN.md` §22.2**, the setup-flow restructure — multi-file, so it wants its own
+   written plan and Yuhan's confirmation before any code.
+2. §22.4's two undiagnosed items, which one prompt rule may close together: the saved cast whose
+   deleted custom member returns as name + emoji (**not reproduced**), and the round that names
+   nobody, only 她 — which also makes `membersNamedIn` record no one present, so `[Rounds Absent]`
+   then reports a false absence.
 
 **Offered and not taken:** make a failed world fetch *visible*. `loadWorld(...).catch(
 console.error)` in `App.jsx` means any data 404 renders as a permanent spinner with nothing a

@@ -2884,13 +2884,31 @@ universal and intermittent**, so no amount of play establishes that a world is c
 | suppress `public_image` when `useRole:false` | drops one of the three fields the whole cast differentiation rests on, in 3 of 4 worlds |
 | **translate her into the world at setup time** | one LLM call per member per run, and it is §22.2 |
 
-**An interim prompt rule is available and is worth taking first**, because §22.2 is a release
-away: when `castLore.useRole` is false, the profile block gains one line saying the texture
-prose was authored for a performing-idol context and is to be read for **traits, never for
-facts** — she has no stage, no comeback and no group position here — with `castLife.theirs`
-supplying what she does instead. **A prohibition with no substitute gets routed around**, which
-this file has recorded twice, so the substitute is the load-bearing half. It is static-prompt
-text, so it costs no cache; it moves the three non-idol goldens, deliberately.
+**The interim prompt rule is TAKEN — SHIPPED, 2026-09-30.** When `castLore.useRole` is false,
+section 5 gains one line saying the texture prose was authored for a performing-idol context
+and is to be read for **traits, never for facts** — no stage, no debut, no comeback, no fandom
+and no rank in a performing group — with `castLife.theirs` supplying what she does instead.
+**A prohibition with no substitute gets routed around**, which this file has recorded twice, so
+the substitute is the load-bearing half. It is static-prompt text, so it costs no cache.
+
+It sits immediately after section 5's `CRITICAL: ★` line and **before** the profiles, because a
+rule about how to read the prose has to reach the model before the prose does. `kpop_idol` is
+byte-identical (the caveat is the empty string when `useRole` is true, appended to the
+`CRITICAL` line so not even a newline moves), and the three non-idol goldens — `campus-ko`,
+`office-en`, `chaebol-zh` — moved by exactly this block, diff read. It renders identically in
+all three languages, because `castLife.theirs` is language-invariant English exactly as the
+ROLE CONTRACT already renders it.
+
+**It is INTERIM and must be DELETED by §22.2**, in the same commit that lands the generated
+per-world texture. Leaving it would put two answers to one question in the prompt, which is the
+*a prompt is not append-only* failure recorded five times in `CLAUDE.md`. The comment in
+`mainAgent.js` beside the rule says so.
+
+**What it does NOT do, stated so it is not mistaken for the fix:** the library is unchanged, so
+all 80 field instances are still sent. This tells the model how to read data that is wrong for
+the world; it does not make the data right. No claim about how often it works — that needs live
+play in a non-idol world, and the failure profile is *universal and intermittent*, so a clean
+run establishes nothing.
 
 ### 22.2 The restructure: world-independent identity, world-scoped detail
 
