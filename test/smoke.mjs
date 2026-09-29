@@ -1202,6 +1202,22 @@ async function layerG(mod, MODEL_CONFIGS) {
     /\.card-stats\{[\s\S]{0,90}justify-content:center/.test(app)
       && !/\.card-stats\{[\s\S]{0,90}text-align:center/.test(app),
     "per-line centring ragged by a font is worse than left-aligned");
+  // THE ROUNDS FLOW AND THE FRAME DOES NOT SPLIT, which is two halves of one
+  // requirement: avoid-break on the card pushed any round that would not fit
+  // whole onto the next page, so a two-page export was mostly white paper - and
+  // simply dropping it would let a page break land inside the box-drawing frame,
+  // where half a frame is not a frame. Asked for from hand play, 2026-09-29.
+  check("the PDF lets rounds flow rather than starting each on its own page",
+    !/\.card\{[\s\S]{0,180}page-break-inside:avoid/.test(app),
+    "a round that does not fit whole left the rest of the page blank");
+  // Both properties, and the modern one is matched on its OWN boundary: plain
+  // `break-inside:avoid` is a SUBSTRING of `page-break-inside:avoid`, so a guard
+  // written without the [;{] could not fail when the standard property was the
+  // one deleted. Caught by mutation, not by reading it.
+  check("...and never splits the stats box across a page",
+    /\.card-stats\{[\s\S]{0,140}page-break-inside:avoid/.test(app)
+      && /\.card-stats\{[\s\S]{0,140}[;{]break-inside:avoid/.test(app),
+    "the frame is drawn out of box-drawing characters and only reads whole");
   check("...and the plain bar survives only for a round that has no box at all",
     /\$\{r\.statsBox[\s\S]{0,200}: `<div class="card-head">Round \$\{r\.n\}<\/div>`\}/.test(app),
     "an edited-down story, or a turn written before the box existed");
@@ -1405,6 +1421,17 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("...and App hands that world to every SaveOverlay it mounts",
     saveMounts.length >= 2 && saveMounts.every((m) => /worldId=\{world\?\.id\}/.test(m)),
     `${saveMounts.filter((m) => !/worldId=/.test(m)).length} of ${saveMounts.length} mounts pass no world`);
+  // ...and the slot the player READS says which world it was, because the panel
+  // is the screen she picks from and two runs of one cast in two worlds were
+  // indistinguishable there. The label leads, so it survives the ellipsis when a
+  // row is too narrow. Asked for from hand play, 2026-09-29.
+  check("a save slot is labelled with the world it was played in",
+    /name: `\$\{worldLabel \? worldLabel \+ " " : ""\}\$\{t\.stats\.week\.label\}/.test(saveBody),
+    "week and main member alone cannot tell two worlds apart");
+  check("...and App derives that label from the world index, at every mount",
+    /const worldLabel = \(\(\) => \{[\s\S]{0,320}worldList\.find\(\(x\) => x\.id === world\?\.id\)/.test(app)
+      && saveMounts.every((m) => /worldLabel=\{worldLabel\}/.test(m)),
+    "the index is what carries the emoji and the per-language name");
 
   // Both notices, in all three languages, or a player hits a blank panel.
   for (const lang of ["zh", "en", "ko"]) {
@@ -6196,9 +6223,32 @@ async function layerI() {
   // a small card in the picker, so the confirmation lives in the builder.
   check("deleting a custom member asks first, and names her",
     /onDelete\?\.\(m\.id\)/.test(pickerSrc)
-      && /setConfirmDelete\(id\)/.test(builderSrc)
-      && /c\.confirmDelete\?\.\(nameOf\(confirmDelete\)\)/.test(builderSrc),
+      && /setConfirmDelete\(\{ kind: "member", id \}\)/.test(builderSrc)
+      && /c\.confirmDelete\?\.\(nameOf\(confirmDelete\.id\)\)/.test(builderSrc),
     "\"are you sure\" beside a grid of twelve faces is not an answerable question");
+  // ...and so does deleting a SAVED CAST, which had no way to be deleted at all.
+  // One dialog for both, because a second would drift from this one - so it is
+  // asked which kind of thing it is about rather than assuming a member.
+  check("...and so does deleting a saved cast",
+    /setConfirmDelete\(\{ kind: "roster", id: s\.id \}\)/.test(builderSrc)
+      && /confirmDelete\.kind === "roster"[\s\S]{0,120}deleteRoster\(confirmDelete\.id\)/.test(builderSrc)
+      && /c\.confirmDeleteRoster\?\./.test(builderSrc),
+    "a saved cast is player data and must not die to one mis-tap");
+  // The x is its OWN target. Tapping the bubble APPLIES the cast, so a
+  // decorative glyph inside that button - which is what the member chips use,
+  // where the whole chip IS the unassign control - would delete on apply.
+  const savedRow = builderSrc.slice(builderSrc.indexOf("{saved.map((s) => ("),
+    builderSrc.indexOf("{/* One section per role"));
+  check("...and its x is a separate control from the bubble that applies it",
+    /applyRoster\(s\.roster\)/.test(savedRow)
+      && (savedRow.match(/<button/g) || []).length === 2,
+    "one button cannot both apply and delete");
+  // Deleting a saved cast must not touch the palette: the members in it are
+  // referenced, and a player reading "delete X?" reasonably fears losing them.
+  check("...and deleting one leaves the member palette alone",
+    /const deleteRoster = \(id\) => \{[\s\S]{0,260}saved\.filter/.test(builderSrc)
+      && !/const deleteRoster = \(id\) => \{[\s\S]{0,260}(saveCustomCast|removeMember)/.test(builderSrc),
+    "a saved roster holds references, not the people");
 
   // --- what the player is shown a member CALLED ------------------------------
   // The picker shows the name she recognises, which is language-specific. The

@@ -152,6 +152,7 @@ const en = {
     clearCast: "Clear cast",
     badYear: "Enter a year between 1980 and 2012",
     confirmDelete: (name) => `Delete "${name}"? This cannot be undone.`,
+    confirmDeleteRoster: (name) => `Delete the saved cast "${name}"? The members themselves are kept.`,
     // The world owns the NOUN and the language owns the grammar around it, so
     // a college or a company needs no new string here. The hint is the world's
     // own sentence (`castLore.orgHint`): "they debut as one group" is a

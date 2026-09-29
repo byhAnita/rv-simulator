@@ -79,6 +79,10 @@ export default function RosterBuilder({
   const [pickerSlot, setPickerSlot] = useState(null);
   // Deleting an authored member throws away work that cannot be recovered, so it
   // asks first. Holds the member id awaiting confirmation.
+  // {kind: "member" | "roster", id} - one dialog, two things it can be asked
+  // about. A saved cast had no way to be deleted at all; giving it one means
+  // the confirm stops being member-specific, which is cheaper than a second
+  // dialog that would drift from this one.
   const [confirmDelete, setConfirmDelete] = useState(null);
   // The save-roster naming prompt: null when closed, a draft string when open.
   const [castLabel, setCastLabel] = useState(null);
@@ -242,6 +246,16 @@ export default function RosterBuilder({
   // Commit the saved roster under the name the player just typed. The entry's
   // shape — and specifically the rule that this label never reaches
   // `roster.name`, which IS sent to the model — is `savedRosterEntry`.
+  // A saved cast is deletable. It is player data, so it goes through the same
+  // confirm the palette uses rather than dying to one mis-tap on a 20px target
+  // sitting on the control that APPLIES it.
+  const deleteRoster = (id) => {
+    const next = saved.filter((s) => s.id !== id);
+    if (!saveToStorage(STORAGE_KEYS.ROSTERS, next)) { notify?.(c.saveFailed, "error"); return; }
+    setSaved(next);
+    setConfirmDelete(null);
+  };
+
   const commitRoster = () => {
     const entry = savedRosterEntry({
       label: castLabel, roster: buildRoster(), fallbackName: nameOf(mainPick.id),
@@ -320,11 +334,21 @@ export default function RosterBuilder({
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: fs(11), color: k.textFaint, marginBottom: 5 }}>{c.savedRosters}</div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {/* Two controls, not one with a decorative x: tapping the bubble
+                    APPLIES the cast, so the delete has to be its own target. The
+                    member chips put the x inside the button because there the
+                    whole chip is the unassign control and the glyph is a label. */}
                 {saved.map((s) => (
-                  <button key={s.id} onClick={() => applyRoster(s.roster)}
-                    style={{ padding: "7px 10px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: k.cardBg, color: k.textDim, fontSize: fs(11), cursor: "pointer" }}>
-                    {s.name} ({s.roster?.entries?.length || 0})
-                  </button>
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", borderRadius: 16, border: `1px solid ${k.border}`, background: k.cardBg, overflow: "hidden" }}>
+                    <button onClick={() => applyRoster(s.roster)}
+                      style={{ padding: "7px 4px 7px 10px", minHeight: 34, border: "none", background: "transparent", color: k.textDim, fontSize: fs(11), cursor: "pointer" }}>
+                      {s.name} ({s.roster?.entries?.length || 0})
+                    </button>
+                    <button aria-label="delete" onClick={() => setConfirmDelete({ kind: "roster", id: s.id })}
+                      style={{ padding: "7px 9px 7px 4px", minHeight: 34, border: "none", background: "transparent", color: k.textFaint, fontSize: fs(12), cursor: "pointer" }}>
+                      {"×"}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -468,7 +492,7 @@ export default function RosterBuilder({
           onClose={() => setPickerSlot(null)}
           onCreate={() => setEditing({ id: newMemberId(), profile: {}, isNew: true })}
           onEdit={(id) => setEditing(cast.find((x) => x.id === id))}
-          onDelete={(id) => setConfirmDelete(id)}
+          onDelete={(id) => setConfirmDelete({ kind: "member", id })}
         />
       )}
 
@@ -537,14 +561,17 @@ export default function RosterBuilder({
         <div style={{ position: "fixed", inset: 0, zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, padding: 24 }}>
           <div style={{ width: "100%", maxWidth: 300, background: k.panelBg, border: `1px solid ${k.border}`, borderRadius: 14, padding: 16 }}>
             <div style={{ fontSize: fs(12), color: k.textMain, lineHeight: 1.6, marginBottom: 14 }}>
-              {c.confirmDelete?.(nameOf(confirmDelete))}
+              {confirmDelete.kind === "roster"
+                ? c.confirmDeleteRoster?.(saved.find((x) => x.id === confirmDelete.id)?.name || "")
+                : c.confirmDelete?.(nameOf(confirmDelete.id))}
             </div>
             <div style={{ display: "flex", gap: 7 }}>
               <button onClick={() => setConfirmDelete(null)}
                 style={{ flex: 1, padding: 11, minHeight: 42, borderRadius: 9, border: `1px solid ${k.border}`, background: "transparent", color: k.textDim, fontSize: fs(11.5), cursor: "pointer" }}>
                 {c.cancel}
               </button>
-              <button onClick={() => deleteMember(confirmDelete)}
+              <button onClick={() => (confirmDelete.kind === "roster"
+                ? deleteRoster(confirmDelete.id) : deleteMember(confirmDelete.id))}
                 style={{ flex: 1, padding: 11, minHeight: 42, borderRadius: 9, border: "none", background: k.dangerBg, color: "#fff", fontSize: fs(11.5), fontWeight: 700, cursor: "pointer" }}>
                 {c.deleteShort}
               </button>

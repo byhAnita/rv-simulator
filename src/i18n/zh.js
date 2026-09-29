@@ -147,6 +147,7 @@ const zh = {
     clearCast: "清空卡司",
     badYear: "请输入 1980 到 2012 之间的年份",
     confirmDelete: (name) => `删除「${name}」？此操作无法撤销。`,
+    confirmDeleteRoster: (name) => `删除已存阵容「${name}」？成员本人不会被删除。`,
     // The world owns the NOUN and the language owns the grammar around it, so
     // a college or a company needs no new string here. The hint is the world's
     // own sentence (`castLore.orgHint`): "they debut as one group" is a

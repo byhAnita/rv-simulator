@@ -415,6 +415,17 @@ export default function App() {
   const mainMember = members.find(m => m.id === form.mainMember);
   const subMembersList = (form.subMembers || []).map(id => members.find(m => m.id === id)).filter(Boolean);
   const allTargetMembers = [mainMember, ...subMembersList].filter(Boolean);
+
+  // What a save slot is LABELLED with, beside the round and the main member.
+  // Two runs of the same cast in two worlds were indistinguishable in the
+  // panel, which is the screen the player picks from. Derived from the index
+  // rather than from the loaded world, because the index is what carries the
+  // emoji and the per-language name the picker already shows her.
+  const worldLabel = (() => {
+    const w = worldList.find((x) => x.id === world?.id);
+    if (!w) return "";
+    return `${w.emoji || ""}${w.name?.[language] || w.name?.zh || w.id}`;
+  })();
   // `npcMembers` stood here, deriving "everyone not chosen" into a local that
   // nothing read — dead since before the roster existed. NPC identity now comes
   // from the roster: buildSystemPrompt takes `members` minus main minus subs,
@@ -724,7 +735,13 @@ export default function App() {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Story Export</title><style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{background:${pageBg};font-family:${font};padding:28px 20px;min-height:100vh}
-      .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:20px;overflow:hidden;page-break-inside:avoid}
+      /* THE ROUNDS FLOW; the FRAME does not split. An avoid-break on the whole
+         card pushed any round that would not fit whole onto the next
+         page, so a two-page export was mostly white paper. Rounds now run on
+         and a long one breaks across pages like prose - but the stats box is
+         drawn out of box-drawing characters and half a frame is not a frame,
+         so the avoid moves down to it. Asked for from hand play, 2026-09-29. */
+      .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:14px;overflow:hidden}
       .card-head{background:${headBg};color:${headColor};font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
       /* A pre block for the box, and a fixed-width family FIRST: the frame is
          drawn out of box-drawing characters and only lines up when every column
@@ -737,7 +754,7 @@ export default function App() {
          the monospace fallback is exactly two columns - which is the one thing
          box-drawing output cannot assume. A block centred as a unit keeps the
          frame square whatever the font does. */
-      .card-stats{background:${headBg};padding:10px 14px;display:flex;justify-content:center;overflow:hidden}
+      .card-stats{background:${headBg};padding:10px 14px;display:flex;justify-content:center;overflow:hidden;page-break-inside:avoid;break-inside:avoid}
       .card-stats pre{margin:0;color:${headColor};font-family:'Consolas','Menlo','Noto Sans Mono CJK SC',monospace,${font};
         white-space:pre;font-size:10px;line-height:1.55}
       .card-body{color:${textColor};font-size:13px;line-height:1.85;padding:14px 16px}
@@ -1265,7 +1282,7 @@ export default function App() {
             {language === "zh" ? "📖 帮助 / 常见问题" : language === "ko" ? "📖 도움말 / 자주 묻는 질문" : "📖 Help / FAQ"}
           </button>
         </div>
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} worldLabel={worldLabel} roster={roster} messages={storyMessages(messages)} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
       </div>
     );
@@ -1933,7 +1950,7 @@ export default function App() {
         )}
 
         {/* Overlays */}
-        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
+        {overlay?.type === "save" && <SaveOverlay theme={theme} t={t} stats={stats} member={displayTopMember} form={form} groupId={selectedGroup} worldId={world?.id} worldLabel={worldLabel} roster={roster} messages={storyMessages(messages)} currentOptions={currentOptions} socialFeeds={socialFeeds} kktMessages={kktMessages} kktUnlocked={kktUnlocked} memory={memoryRef.current} triggeredAchievements={triggeredAchievements} onLoad={loadSave} onClose={() => setOverlay(null)} />}
         {showHelp && <HelpOverlay language={language} theme={theme} onClose={() => setShowHelp(false)} />}
         {overlay?.type === "map" && (
           <MapOverlay theme={theme} t={t} fontScale={fontScale}

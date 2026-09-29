@@ -3,7 +3,7 @@ import { STORAGE_KEYS, loadFromStorage, saveToStorage, addSaveSlot, SAVE_SLOT_MA
 import { SAVE_SCHEMA } from "../rag/saveMigrator";
 import { DEFAULT_WORLD_ID } from "../rag/worldLoader";
 
-export default function SaveOverlay({ stats, member, form, groupId, worldId, roster, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
+export default function SaveOverlay({ stats, member, form, groupId, worldId, worldLabel, roster, messages, currentOptions, socialFeeds, kktMessages, kktUnlocked, memory, triggeredAchievements, onLoad, onClose, t, theme }) {
   const [saves, setSaves] = useState(() => loadFromStorage(STORAGE_KEYS.SAVES) || []);
   // Set when localStorage refuses the write. The list must keep showing what is
   // actually stored, so this is the only signal the player gets that the slot
@@ -22,7 +22,10 @@ export default function SaveOverlay({ stats, member, form, groupId, worldId, ros
   const handleSave = () => {
     const newSave = {
       id: Date.now(),
-      name: `${t.stats.week.label} ${stats?.week || 1} - ${member?.name || "RV"}`,
+      // The world leads, because it is what tells two runs of the same cast
+       // apart - and it is prefixed rather than appended so it survives the
+       // ellipsis when a slot name is too long for the row.
+      name: `${worldLabel ? worldLabel + " " : ""}${t.stats.week.label} ${stats?.week || 1} - ${member?.name || "RV"}`,
       date: new Date().toLocaleDateString("zh-CN"),
       // A save slot recorded who the player chose but never where they came
       // from, so loading a TWICE save while Red Velvet was selected produced
