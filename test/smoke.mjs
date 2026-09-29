@@ -1358,6 +1358,36 @@ async function layerG(mod, MODEL_CONFIGS) {
       && defaultYear >= PLAYER_BIRTH_YEAR_MIN && defaultYear <= PLAYER_BIRTH_YEAR_MAX,
     `DEFAULT_YEAR ${defaultYear} against ${PLAYER_BIRTH_YEAR_MIN}-${PLAYER_BIRTH_YEAR_MAX}`);
 
+  // THE LATCH THAT SUPPRESSES THE WHEEL'S OWN SCROLL MUST BE CLEARED ON EVERY
+  // EXIT, and seeding the value is what made that matter. The parking effect set
+  // the latch on one path and cleared it only from a timeout, which the effect's
+  // own cleanup cancels — so a `value` change arriving inside that 120ms window
+  // left the next run taking the early return, clearing nothing, and the latch
+  // set for the life of the component. Every scroll the player made was then
+  // discarded: the wheel moved and the bold row did not follow it, and only a
+  // tap could change the value. Reported from the fourth phone pass, one commit
+  // after Setup began seeding on mount.
+  //
+  // REPRODUCED IN A REAL BROWSER, not reasoned about: a scratchpad harness
+  // bundles this module, drives the state sequence with layout already settled,
+  // and reads which row is aria-selected after a scroll. Unfixed it logs
+  // `EARLY ... latch=true` then `SCROLL latch=true` and the selection never
+  // moves; fixed, all four arms land on the target. That harness needs Chrome,
+  // so it is NOT in this suite — what is here is the invariant it established.
+  //
+  // DERIVED from the effect's own shape rather than pinned to today's three
+  // clears: every `return` inside the effect must be matched by a clear, except
+  // the `if (!el)` guard that runs before the latch can be set. A fourth early
+  // return added without a clear fails this.
+  const parkEffect = (wheelSrc.match(/\/\/ Park the wheel on[\s\S]*?\n  \}, \[value, idxOf\]\);/) || [""])[0];
+  const parkReturns = (parkEffect.match(/\breturn\b/g) || []).length;
+  const parkClears = (parkEffect.match(/selfScroll\.current = false/g) || []).length;
+  check("the wheel clears its self-scroll latch on every exit",
+    parkEffect.length > 0
+      && (parkEffect.match(/selfScroll\.current = true/g) || []).length === 1
+      && parkClears >= parkReturns - 1,
+    `${parkClears} clears against ${parkReturns} returns — a latch left set discards every scroll the player makes`);
+
   check("provider id 'qwen' still exists (rv_sim_model_v11 = \"qwen\" keeps working)", !!MODEL_CONFIGS.qwen);
   check("App falls back to legacy rv_sim_qwen_submodel", /loadFromStorage\("rv_sim_qwen_submodel"\)/.test(app));
 

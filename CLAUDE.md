@@ -2602,6 +2602,12 @@ always displays a value* — the entry the member editor already had, extended r
 duplicated. **4 mutations, 4 RED**, one of them GREEN first for reading its own comment. Smoke
 **1558 → 1561**; no golden moved, because nothing prompt-facing changed.
 
+**That fix exposed a second one, confirmed and fixed in the next commit:** the wheel's self-scroll
+latch was cleared on one path only, so seeding it on mount left the latch set and every scroll the
+player made was discarded until she tapped a row. Reproduced in a real browser first — **Setup
+stuck, the member editor unaffected** — see the same section. **4 mutations, 4 RED.** Smoke
+**1561 → 1562**.
+
 **§22.1's interim prompt rule is now DECIDED: take it, this release.** Yuhan, 2026-09-29 —
 *"interim prompt rule now and totally clean it when we do section 22"*. It is the next commit,
 it moves the three non-idol goldens deliberately, and it is the last thing before §22.2.
@@ -3228,6 +3234,49 @@ second check requires the seeded year to be one `validPlayerBirthYear` accepts, 
 seed.** That is the third guard in this repo to pass against its own documentation — the file-input
 scan and the release-notes probe were the others — so the scan strips comments before it looks.
 **When a guard greps for a name, ask whether the prose beside it contains that name.**
+
+**And seeding then exposed a latch in the wheel that is cleared on one path only — the same phone
+pass, one commit later.** Reported as *"scrolling 1996 to the centre leaves the old year bold until
+you tap it"*. `selfScroll` suppresses the scroll events the wheel's own parking scroll emits, and
+it was cleared **only** by a 120ms timeout — which the effect's own cleanup cancels. So:
+
+```
+PARK v=1996 from=0 to=1700 ; PARKED top=1700        run 1 parks, arms the clear
+PARK v=2000 from=1700 to=1836 ; PARKED top=1836     the seed lands, re-parks, re-arms
+EARLY v= top=1836 want=1836 latch=true              cleanup cancelled the clear;
+                                                    this run returns early, clearing nothing
+SCROLL latch=true top=1700                          and every later scroll is discarded
+```
+
+The latch was then set **for the life of the component**, so the wheel moved and the bold row did
+not follow it. Only a tap could change the value, because `onClick` calls `onChange` directly and
+never passes the latch. **A latch whose release sits on one path is a latch that will be left set**
+— the `beginRun` asymmetry again, and the remedy is the same: every exit clears it, unconditionally.
+
+**Reproduced in a real browser before being fixed, and that mattered twice.** A scratchpad harness
+bundles the real `YearWheel.jsx`, drives four state sequences with layout already settled, and reads
+which row is `aria-selected` after a scroll. Unfixed: **Setup STUCK, the member editor fine**.
+Fixed: all four land on the target.
+
+**The member editor never had this bug**, which is what the harness was for rather than a guess: its
+`yearDraft` is seeded in `useState`, so the wheel sees one parking run and the timeout clears it. It
+is covered by the fix because the fix is in the shared component. **Sharing a component is not
+sharing a defect — the trigger was the value changing right after mount, which only Setup does.**
+
+**Two harness lessons, both already in this file and both re-earned.** The first three runs said the
+bug did not exist: arms A-C depend on whether the very first programmatic `scrollTop` assignment
+sticks before layout settles, which flips with how much else is on the page — **a repro that
+sometimes passes is not a repro**, so arm D drives the transition with layout already settled. And
+one "unfixed" run was against a file the patch had silently failed to unfix: `YearWheel.jsx` is
+**CRLF** and the multi-line `from` was written with `\n`. Third occurrence. Every patch script here
+now derives the newline from the file and aborts on a missed anchor.
+
+**The guard is derived from the effect's own shape**, not pinned to today's three clears: every
+`return` inside the parking effect must be matched by a clear, except the `if (!el)` guard that runs
+before the latch can be set, and the latch may be set from exactly one place. A fourth early return
+added without a clear fails it. **4 mutations, 4 RED.** The browser harness needs Chrome and is
+deliberately **not** in the suite — `deploy.sh` gates on smoke, and a flaky browser test there would
+block releases. What is in the suite is the invariant the harness established.
 
 ### …and it could only ever test one of the four providers — the third time, then the fourth
 
