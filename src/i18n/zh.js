@@ -58,6 +58,7 @@ const zh = {
     required: "必填",
     optional: "可选",
     fields: {
+      emoji: "头像符号",
       name: "名字",
       birthday: "出生日期",
       birthYear: "出生年份",
@@ -73,6 +74,7 @@ const zh = {
       hidden_conflict: "隐藏矛盾",
     },
     hints: {
+      emoji: "没有照片时，顶栏和状态框里就用这个符号代表她。",
       birthday: "年份决定敬语方向，必填。",
       habit: "一个具体、可重复的身体动作 —— 能演出来的，不是感受。",
       private_personality: "没人看着的时候她是什么样。",

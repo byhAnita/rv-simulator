@@ -486,7 +486,22 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 **`free` sends a rule; it does not send nothing.** A mode that omitted its line would strip a free-mode game of the slow-burn texture every `慢热现实向` player has today, and would be indistinguishable from the wiring being broken. An unrecognised mode id — localStorage can hold anything a previous build left there — resolves to `free` rather than to silence.
 
-**Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and drops any paragraph starting with `╔` or `╚` (stats box) or matching `/^[A-D]\.\s/` (option line). If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+**Export text extraction.** `storyRounds()` filters `messages` for visible, non-error assistant turns, splits on `\n\n`, and **classifies** each paragraph: one starting with `╔` or `╚` is the stats box, one matching `/^[A-D]\.\s/` is an option line, the rest is prose. If the stats-box glyph or option prefix format ever changes, this filter breaks silently.
+
+**It returns `{n, statsBox, text}` rather than dropping the box, since v1.4.1.** The PDF
+wants the round header the player actually reads — the affections, the three stats, the
+scene, the chapter — and clipboard and TXT do not: the box is a 30-column frame drawn
+out of box-drawing characters, and it only lines up in a fixed-width font, which neither
+of those two controls. **The way to serve both from one filter is to return the parts
+separately, not to grow a second filter beside it** — which is what `extractStoryText`
+and `exportPdf` each having their own copy already cost this repo once. `text` is
+byte-identical to what it always was, which is what says clipboard and TXT did not move.
+
+In the PDF the box **is** the round header: a `<pre>` in a fixed-width family, in place of
+the `Round 9` bar, which survives only for a message that has no box at all (a story the
+player edited down, or a turn written before the box existed). Printing both would be two
+answers to one question — the box already carries the round number. The scene name is the
+model's text and now reaches the header, so **one escaper covers both halves of a card**.
 
 **It is ONE function because it was two, and they had drifted.** `extractStoryText` (clipboard, TXT) and
 `exportPdf` each carried a copy, and the PDF one filtered only `!m.hidden` — so every "tap ↺ Retry"
@@ -724,6 +739,37 @@ empty `roundMemberIds` still lists everyone, so a two- or three-argument caller 
 **KKT injection rule**: only inject KKT history for `roundMemberIds` whose **current** affection is at or above `KKT_THRESHOLD`, and only in the dynamic tail — never in the ledger. Affection can fall, and the stored messages do not disappear when it does; re-checking the threshold at build time is what stops a member who dropped back below 30 from silently keeping her channel open in the prompt.
 
 **`[KKT Channels]` is the line that stops the model narrating a text it was not allowed to send.** `filterKktByAffection` runs *after* generation, so for two releases the model was asked for `kktMessages` from every target member, wrote the story around the message it had just sent, and then watched us delete the message and keep the prose — "you get a Kakao from Yeri" with nothing in the Kakao overlay. The lock is per-round state, so it belongs in the tail, not in the static schema. Fixed in v1.3.6; the static prompt's rule points at this line.
+
+### Two ways into a run, and one function that starts one
+
+`startNewGame` and `loadSave` both begin a run, and **everything the previous run left
+behind has to be cleared on both paths.** They were separate lists of setters and they
+had drifted three ways by v1.4.1 — reported from hand play as *"the socials and the
+Kakao notices all carry across"*:
+
+- **New Game POPPED the module-level social buffer and merged it in.** Round 1 has no
+  previous round of its own, so what `popPendingSocial()` returns there is the
+  *abandoned* run's last round — and the merge keeps whatever it is handed
+  (`instagram: feed.instagram || p[mid]?.instagram`) against an `initFeeds` entry that is
+  `null`. So a new game opened with somebody else's Instagram post and her notification
+  dots already on the phone. `loadSave` had cleared it since v1.4.0.
+- **And it then wrote that run's feeds into the next save slot**, which is why the
+  symptom looked like it survived a save/load cycle: the pollution happened at New Game
+  and was persisted by the next save. A slot written before this fix keeps it.
+- **`loadSave` left `topMember` pointing at the other run's member**, so the top bar
+  showed her face and read her affection against an id the loaded save has no entry for
+  — `getAffection` returns 0, so she also showed as a Stranger.
+- **Neither closed an open achievement or special-event modal.**
+
+`beginRun({ socialFeeds, kktMessages, kktUnlocked, topMember })` is the one writer.
+**Everything it touches is cleared unconditionally and what a run STARTS with is passed
+in**, and that asymmetry is the point: forgetting a surface in the argument list leaves it
+empty, which is the harmless direction, where forgetting a setter at one of two call sites
+leaks the other run's state into this one — which is what happened here twice. Smoke
+asserts each surface on `beginRun` **and** that neither call site clears anything by hand.
+
+`popPendingSocial()` now has exactly one caller, `sendMessage`, which is the only place a
+previous round exists to display. The guard counts it.
 
 ### Save Compatibility (`isLegacyMemory`)
 
@@ -2257,6 +2303,88 @@ was inert — `App.jsx` already resolves it upstream — and is deleted.
 Everything from here to the end of this section was written while they were unreleased, and is kept
 as the record of how each one was validated — read the dates, not the tense.
 
+### The first phone pass of v1.4.1 found eight things, and one was a bug
+
+Hand-played on `dev.idol-dating-sim.pages.dev`, 2026-09-29, the first time any of
+v1.4.1 had been seen on a device. **No big bugs** — which is the finding for a release
+validated entirely offline — and eight smaller ones, of which exactly one loses
+something a player would notice.
+
+| Reported | What it was |
+| --- | --- |
+| the upload-photo button is too small to find | the only entry point to the photo store was a 34px pill in a two-button row whose **other** button wipes the cast |
+| Setup does not fit on one screen | four stacked header lines pushed Start below the fold, behind half a row of identities |
+| an office cast works at `X Group` | the org **noun** and the org **suffix** are two halves of one sentence, and they disagreed in two of the four worlds |
+| the 📍 button's colour is wrong | the two round buttons on the input row said *tappable* two different ways |
+| the socials and the Kakao notices carry across a new game and a load | **the run boundary had two writers** — see *Two ways into a run* |
+| nowhere to change a custom member's emoji | a field with a writer, a whitelist entry and a default, and no editor |
+| the PDF prints `Round 9` where the screen prints the box | see *Export text extraction* |
+| every identity reads like a relationship already under way | see below |
+
+**Three of them are the same shape as things already in this file, one field over.**
+
+**`emoji` is the shape this file tracks seven times, with the halves swapped.**
+`npcAppearances`, bubble `photoDesc`, cast photos, `STAR_LEVELS`, `social_platforms`,
+`world.tone` and `country.name` are all a feature complete on one side of a boundary and
+connected to nothing on the other. `emoji` was the inverse: it is on
+`PROFILE_FIELDS`, it is respected by `withDefaults` (`profile.emoji || palette[i]`), it
+is drawn by six surfaces — and **nothing could ever put a value in it**, so the fallback
+was the only branch that had ever run and a custom member was whichever glyph her
+palette index landed on for the life of the save. **A default with no way to override it
+is not a default; it is a constant with an unreachable branch.** The editor now writes
+the field, through `normalizeEmoji` — one *grapheme*, because a flag is two code points
+and a ZWJ family is seven, so slicing by code point stores half an emoji — and the
+palette is `EMOJI_PALETTE`, exported rather than retyped beside it.
+
+**The identity backgrounds described a relationship the affection score contradicted.**
+Step 7 authored eighteen identities whose prose reads as a history already under way —
+*she had already covered for you*, *you were already the last two to leave* — while every
+member starts at **Stranger** and `MAIN_INITIAL_AFFECTION` is 12. So round 1 opened on a
+cast who behaved like old colleagues and scored like strangers, and the whole affection
+curve had nothing to climb from. `kpop_idol` implied the opposite in its own wording
+(`自然相识`, `新任Staff`, `新任年轻女会长`) and the three new worlds did not, which is how
+they were authored without it. **All four worlds now carry one `[初见]` / `[First
+meeting]` / `[첫 만남]` block**, so the check is a scan rather than a reading, and a world
+added later fails smoke until it says the same thing.
+
+**The ex-girlfriend is excluded, in all four worlds, and that is the half that makes the
+guard worth having.** Her premise IS a shared past, and appending *you have never really
+spoken* would have contradicted her own paragraph. Stranger affection is already right
+for her — her block opens the run at a distance (*刻意保持距离、眼神闪躲、礼貌但疏离*), which is
+what 12 points means for someone you used to know. Smoke asserts both directions: every
+other identity carries the block, and she never does. **A blanket append would pass the
+first check and fail the game.** The two fixtures that pin her — `chaebol-zh` and
+`red_velvet-solo-ko` — did not move when the other four did, which is the same statement
+made by the goldens.
+
+**The organisation's noun and its suffix are one sentence.** `orgHint` reads *公司：{org}*
+and `{org}` is `orgNameFor(castName, orgSuffix)`, so a suffix of `Group` under a noun
+meaning *company* told an office player her company was called *X Group*, and under a
+noun meaning *family* told a chaebol player the leading **family** was *X Group*. The
+suffix stays Latin in all three languages — that is the convention `kpop_idol` sets with
+`Entertainment`, and a K-pop audience reads a brand name at sight — so office takes
+`Ltd.` and chaebol keeps `Group` with its noun corrected to the family's **business**,
+which is what a Korean chaebol group actually is. **Nothing derivable catches this**:
+`parseWorld` takes any string, and all three goldens are whole single groups, which take
+the subset template and never render `{org}` at all. It is two pinned regressions and a
+derived shape check, and the shape check now runs on **all four** worlds rather than on
+`kpop_idol`, which is the one world where neither defect could occur.
+
+**What the four UI fixes have in common** is that none of them is a logic error and none
+was reachable by any check written in advance — the fourth batch of this kind in two
+releases. The cast-images control is now a full-width card the size of the main-member
+slot, with `n / total` on it, because *a number the player can see beats a cap that only
+speaks when it refuses* is the third screen to need that lesson; Clear cast moved off its
+row, because **a destructive control and the best thing on the screen should not be the
+same shape**. Setup's header is one row and lost only the heading (which the Start button
+already says) and *Key configured* (which is the normal state — a **missing** key still
+shouts, in red). The 📍 button took the send button's colours, asserted as a **pair**,
+since either one alone is a colour nobody can be wrong about.
+
+**31 mutations, 31 RED, 0 GREEN, 0 WRONG-CHECK**, each reddening its own named check,
+each restored in a `finally`, tree verified afterwards. Smoke **1513 → 1544**. Four
+goldens moved, one line each, and the diff was read.
+
 ### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29
 
 **This block is the authority on what is open. The v1.4.0 one below it is history.**
@@ -2299,9 +2427,16 @@ above every threshold anyone would set, so **the retry machinery can never fire 
 where the output is least usable.** Written up in §7 with the fix stated and deliberately not made
 — it changes the retry path for every player on every provider and wants its own measurement.
 
-**NOT verified:** nothing in v1.4.1 has been seen on a phone — the Setup world picker, the
-four-world identity grid, Settings' fourth switch and the 📍 button have not been looked at at
-390px. Steps 5 and 6 are unexercised live, and step 4's token delta is still unmeasured.
+**The phone pass is DONE and its eight findings are fixed** — see *The first phone pass of
+v1.4.1 found eight things*, above. What that pass covered: the Setup world picker, the
+four-world identity grid, the 📍 button, the cast builder, the custom-member editor, the
+PDF export, and a new game and a save load back to back.
+
+**NOT verified:** the eight fixes have not themselves been seen on a device — they are
+offline-green and mutation-verified, and four of them are layout. **No live round has been
+played since them**, so the identity change (every world's round 1 now states it is a first
+meeting) has never been read in real prose. Steps 5 and 6 remain unexercised live and step
+4's token delta is still unmeasured.
 
 **The exact next command** is the phone pass, on the Cloudflare branch alias (deterministic,
 unlike Vercel's), which needs no deploy because `dev` is pushed:

@@ -58,6 +58,7 @@ const en = {
     required: "required",
     optional: "optional",
     fields: {
+      emoji: "Avatar glyph",
       name: "Name",
       birthday: "Date of birth",
       birthYear: "Birth year",
@@ -73,6 +74,7 @@ const en = {
       hidden_conflict: "Hidden conflict",
     },
     hints: {
+      emoji: "With no photo, this is her face in the top bar and the stats box.",
       birthday: "The year sets which way honorifics point. Required.",
       habit: "One concrete, repeatable physical action — something stageable, not a feeling.",
       private_personality: "Who she is when no one is watching.",

@@ -264,6 +264,9 @@ export default function RosterBuilder({
     return chosen.some((p) => p.src === "custom") || libGroups.size > 1;
   }, [chosen]);
 
+  // Chosen members who already have a face. See the images card below.
+  const withPhoto = chosen.filter((pk) => photos[pk.id]).length;
+
   const chipStyle = {
     display: "flex", alignItems: "center", gap: 5, padding: "7px 9px", minHeight: 36,
     borderRadius: 18, border: `1px solid ${k.border}`, background: k.cardBg,
@@ -399,16 +402,36 @@ export default function RosterBuilder({
               sits below the three sections because a photo is something you give
               a member you have already chosen. */}
           {chosen.length > 0 && (
-            <div style={{ display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" }}>
+            <>
+              {/* A CARD, THE SIZE OF THE MAIN-MEMBER SLOT, not a pill beside Clear.
+                  Giving the cast faces is the single biggest thing a player can do
+                  to how the game reads - every overlay, the top bar and the chat
+                  wallpapers all draw from it - and it was a 34px chip in a row of
+                  two, the smaller-looking of which wipes the cast. A destructive
+                  control and the best thing on the screen should not be the same
+                  shape. Reported from hand play, 2026-09-29.
+
+                  It carries the count for the reason the save slots and the
+                  palette both had to learn: a number the player can see beats a
+                  cap that only speaks when it refuses. */}
               <button onClick={() => setShowImages(true)}
-                style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.accent}`, background: k.tint, color: k.accent, fontSize: fs(11), cursor: "pointer" }}>
-                {"📷"} {c.castImages}
+                style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", marginTop: 14, padding: 11, minHeight: 62, borderRadius: 12, border: `1px solid ${k.accent}`, background: k.tint, color: k.textMain, cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: fs(24), lineHeight: 1, flexShrink: 0 }}>{"📷"}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: fs(13), color: k.accent, fontWeight: 700 }}>{c.castImages}</span>
+                  <span style={{ display: "block", fontSize: fs(11), color: k.textFaint, marginTop: 2, lineHeight: 1.35 }}>
+                    {c.photo} {c.castCount?.(withPhoto, chosen.length)}
+                  </span>
+                </span>
+                <span aria-hidden style={{ color: k.textFaint, fontSize: fs(14), flexShrink: 0 }}>{"›"}</span>
               </button>
-              <button onClick={() => setPicks({})}
-                style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
-                {c.clearCast}
-              </button>
-            </div>
+              <div style={{ display: "flex", marginTop: 8 }}>
+                <button onClick={() => setPicks({})}
+                  style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
+                  {c.clearCast}
+                </button>
+              </div>
+            </>
           )}
         </div>
 

@@ -111,7 +111,7 @@ const THEMES = {
     subModelCardBg: "rgba(255,255,255,.03)",
     subModelCardColor: "#bbb",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(232,120,176,.2)}`,
-    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "rgba(255,59,92,.1)",
     notifBarBorder: "rgba(255,59,92,.2)",
     notifBarText: "#ff6b8a",
@@ -205,7 +205,7 @@ const THEMES = {
     subModelCardBg: "rgba(100,65,20,.05)",
     subModelCardColor: "#7a5030",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(100,65,20,.25)}`,
-    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:6px;margin-top:14px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "linear-gradient(135deg,#c8a84b,#a0522d)",
     notifBarBorder: "#a08060",
     notifBarText: "#fff",
@@ -642,14 +642,30 @@ export default function App() {
   // empty — so the bottom border survived into every exported round. That is fixed at
   // the source in buildStatsBox; this stays because the filter is the thing that
   // breaks silently when the box format moves.
+  //
+  // IT SPLITS THE BOX OFF RATHER THAN DROPPING IT, since v1.4.1: the PDF wants
+  // the round header the player actually reads and the other two do not, and the
+  // way to serve both from one filter is to return the parts separately rather
+  // than to grow a second filter beside it. `text` is byte-identical to what it
+  // always was, which is what keeps clipboard and TXT unmoved.
+  const BOX_EDGES = ["╔", "╚"];
+  const isStatsBoxPart = (para) => BOX_EDGES.some((e) => para.startsWith(e));
+  const isOptionLine = (para) => /^[A-D]\.\s/.test(para);
   const storyRounds = () => messages
     .filter(m => m.role === "assistant" && !m.hidden && !m.error)
-    .map((m, i) => ({
-      n: i + 1,
-      text: m.content.split("\n\n")
-        .filter(p => !p.startsWith("╔") && !p.startsWith("╚") && !/^[A-D]\.\s/.test(p))
-        .join("\n\n").trim(),
-    }));
+    .map((m, i) => {
+      const paras = m.content.split("\n\n");
+      return {
+        n: i + 1,
+        // The round header EXACTLY as it is on screen, newlines and all. Joined
+        // with "\n" rather than "\n\n" so a box that was split by a blank line
+        // in an older save comes back as one block instead of two.
+        statsBox: paras.filter(isStatsBoxPart).join("\n").trim(),
+        text: paras
+          .filter(para => !isStatsBoxPart(para) && !isOptionLine(para))
+          .join("\n\n").trim(),
+      };
+    });
 
   const extractStoryText = () =>
     storyRounds().map(r => `=== Round ${r.n} ===\n${r.text}`).join("\n\n---\n\n");
@@ -681,11 +697,23 @@ export default function App() {
     const font = "'Georgia','Noto Serif SC',serif";
 
     const rounds = storyRounds();
+    // One escaper for both halves of a card. The stats box carries the scene
+    // name, which is the model's text: a scene containing `<` must not become
+    // markup in the header any more than in the prose.
+    const esc = (v) => String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
+    // THE ROUND HEADER IS THE BOX, not a bar reading `Round 9`. The box already
+    // carries the round number, the scene and the affections, and printing a bar
+    // above it is a second, poorer answer to the same question - so the bar only
+    // survives as the fallback for a message that has no box at all (a story the
+    // player edited down, or a turn written before the box existed). Asked for
+    // from hand play, 2026-09-29: the export should read like the screen.
     const cards = rounds.map(r => `
       <div class="card">
-        <div class="card-head">Round ${r.n}</div>
-        <div class="card-body">${r.text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</div>
+        ${r.statsBox
+          ? `<pre class="card-stats">${esc(r.statsBox)}</pre>`
+          : `<div class="card-head">Round ${r.n}</div>`}
+        <div class="card-body">${esc(r.text).replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</div>
       </div>`).join("");
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Story Export</title><style>
@@ -693,6 +721,13 @@ export default function App() {
       body{background:${pageBg};font-family:${font};padding:28px 20px;min-height:100vh}
       .card{background:${cardBg};border:1px solid ${cardSolid};border-radius:0 14px 14px 14px;margin-bottom:20px;overflow:hidden;page-break-inside:avoid}
       .card-head{background:${headBg};color:#f8c8d8;font-size:11px;font-weight:700;padding:6px 14px;letter-spacing:.08em}
+      /* A pre block for the box, and a fixed-width family FIRST: the frame is
+         drawn out of box-drawing characters and only lines up when every column
+         is one width. On screen it sits in the story serif and ripples; here it
+         can be what it was meant to be. The app font stays behind it so that
+         the CJK inside the frame still renders in the game typeface. */
+      .card-stats{background:${headBg};color:${headColor};font-family:'Consolas','Menlo','Noto Sans Mono CJK SC',monospace,${font};
+        white-space:pre;font-size:10px;line-height:1.55;padding:10px 14px;overflow:hidden}
       .card-body{color:${textColor};font-size:13px;line-height:1.85;padding:14px 16px}
       .card-body p{margin-bottom:.9em}
       .card-body p:last-child{margin-bottom:0}
@@ -707,6 +742,44 @@ export default function App() {
     idoc.open(); idoc.write(html); idoc.close();
     iframe.contentWindow.onafterprint = () => document.body.removeChild(iframe);
     setTimeout(() => iframe.contentWindow.print(), 300);
+  };
+
+  // ── the run boundary ────────────────────────────────────────────────────
+  // Every surface that belongs to ONE RUN rather than to the round loop, cleared
+  // in one function - because there are two ways into a run, New Game and Load,
+  // and they had already drifted apart in three places:
+  //
+  //   - New Game POPPED the module-level social buffer and merged it in, so
+  //     round 1 of a new run opened with the abandoned run's Instagram post and
+  //     its notification dots already on the phone. Load cleared it.
+  //   - Load left `topMember` pointing at the other run's member, so the top bar
+  //     showed her face and read her affection against an id the loaded save does
+  //     not have - `getAffection` returns 0, so she also showed as a Stranger.
+  //   - neither cleared an open achievement or special-event modal.
+  //
+  // Everything here is cleared UNCONDITIONALLY and what a run starts with is
+  // passed in. That asymmetry is what makes it safe to add a surface later:
+  // forgetting one in the argument list leaves it empty, which is the harmless
+  // direction, where forgetting a setter at one of two call sites leaks the other
+  // run's state into this one. Reported from hand play, 2026-09-29.
+  const beginRun = ({ socialFeeds = {}, kktMessages = {}, kktUnlocked = {}, topMember = null } = {}) => {
+    // Module-level in mainAgent, so it survives re-renders by design and is the
+    // one piece of this that a re-render cannot clear.
+    resetPendingSocial();
+    setSocialFeeds(socialFeeds);
+    setKktMessages(kktMessages);
+    setKktUnlocked(kktUnlocked);
+    // The strip AND the dots on the top bar: hasNotifDot reads this same array.
+    setActiveNotifications([]);
+    setAchievement(null);
+    setSpecialEvent(null);
+    // null, not the main member: `displayTopMember` already falls back to her,
+    // and the caller's `mainMember` is derived from the form of the render that
+    // is being replaced.
+    setTopMember(topMember);
+    // No ↺ Retry and no ✎ edit until a round has been played in THIS run, or
+    // they would restore the other run's stats and memory into it.
+    preRoundSnapshotRef.current = null;
   };
 
   const startNewGame = async () => {
@@ -726,10 +799,9 @@ export default function App() {
     setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
       || buildClassicRoster(
       selectedGroup, mainId, subIds, members.map(m => m.id), world?.id || DEFAULT_WORLD_ID));
-    setMessages([]); setCurrentOptions([]); setActiveNotifications([]);
+    setMessages([]); setCurrentOptions([]);
     // A new game states its birth year at Setup, so nothing here is an estimate.
     setBirthYearEstimated(false);
-    setKktUnlocked({}); setKktMessages({}); setAchievement(null); setSpecialEvent(null);
     setTriggeredAchievements(new Set());
     statsRef.current = null;
     memoryRef.current = createEmptyMemory();
@@ -743,20 +815,10 @@ export default function App() {
     memoryRef.current = mem;
     const initFeeds = {};
     allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
-    setSocialFeeds(initFeeds);
-    setTopMember(mainMember);
+    // A new game has no previous round, so every feed starts empty and nothing
+    // is popped. See beginRun.
+    beginRun({ socialFeeds: initFeeds, topMember: mainMember });
     try {
-      const prevSocial = popPendingSocial();
-      if (prevSocial?.feeds) {
-        setSocialFeeds(p => {
-          const updated = { ...p };
-          for (const [mid, feed] of Object.entries(prevSocial.feeds)) {
-            updated[mid] = { ...(p[mid] || {}), bubble: feed.bubble?.length ? feed.bubble : (p[mid]?.bubble || []), instagram: feed.instagram || p[mid]?.instagram || null, weverse: feed.weverse || p[mid]?.weverse || null, timestamp: feed.timestamp || Date.now(), lastUpdate: Date.now() };
-          }
-          return updated;
-        });
-      }
-      if (prevSocial?.notifs?.length) setActiveNotifications(prevSocial.notifs);
       preRoundSnapshotRef.current = { stats: { ...initialStats }, memory: JSON.parse(JSON.stringify(mem)), kktUnlocked: {}, kktMessages: {}, triggeredAchievements: new Set(), playerChoice: "Game start" };
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
@@ -813,8 +875,8 @@ export default function App() {
     // ✎ edit controls would appear straight away on the loaded save's last
     // message and restore the *other* game's stats and memory into it. It also
     // gives the intended gating: no retry or edit until a round is played here.
-    preRoundSnapshotRef.current = null;
-    resetPendingSocial();
+    // ...which beginRun does, below, along with every other surface that belongs
+    // to the run being replaced.
 
     // The pace this save was built with becomes its story mode, once, for a
     // player who has never set one. It is a live SETTING and not a save field,
@@ -871,11 +933,15 @@ export default function App() {
     } else {
       memoryRef.current = savedMemory;
     }
-    setSocialFeeds(save.socialFeeds || {});
-    setKktMessages(save.kktMessages || {});
-    setKktUnlocked(save.kktUnlocked || {});
+    // The social feeds, the Kakao threads and the unlocks this save carries -
+    // and NOTHING from the run being replaced: no leftover notification dot, no
+    // other run's Instagram post, no pending round waiting to be popped.
+    beginRun({
+      socialFeeds: save.socialFeeds || {},
+      kktMessages: save.kktMessages || {},
+      kktUnlocked: save.kktUnlocked || {},
+    });
     setCurrentOptions(save.currentOptions || []);
-    setActiveNotifications([]);
     setTriggeredAchievements(new Set(save.triggeredAchievements || []));
     setPhase("game");
     showNotif("Save loaded");
@@ -1426,16 +1492,25 @@ export default function App() {
         <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
-          <div style={{ textAlign: "center", padding: "10px 0 2px" }}>
-            <h2 style={{ fontSize: 18, color: th.textHeading, marginBottom: 2 }}>{language === "zh" ? "创建角色" : language === "ko" ? "캐릭터 생성" : "Character Creation"}</h2>
+          {/* ONE LINE, NOT FOUR - the page ran past 844px and the Start button sat
+              below the fold behind half a row of identities, on the one screen
+              whose whole job is to be completed. What went:
+
+              - the "Character Creation" heading, which says what the labels under
+                it and the Start button at the bottom already say;
+              - "Key configured", which is the NORMAL state and needs no words. A
+                MISSING key is the actionable one, so that still renders, in red,
+                and is the only thing this row ever shouts.
+
+              Every affordance survives, the model switch included; only the
+              stacking is gone. Reported from hand play, 2026-09-29. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, padding: "2px 0 0", fontSize: 10, color: th.textMuted }}>
             {/* The noun is the world's too. This line said "Group loaded" in all
                 three languages, which is the cast's kind and not a fixed word. */}
-            <p style={{ fontSize: 10, color: th.textMuted }}>{t.cast.orgLoaded(world.castLore.orgNoun)}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</p>
-            <div style={{ marginTop: 6, fontSize: 10, color: apiKey ? "#6d9b6d" : "#d07070", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
-              <span>{apiKey ? language === "zh" ? "密钥已配置" : language === "ko" ? "키 설정됨" : "Key configured" : language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>
-              <span style={{ color: th.textMuted }}>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
-              <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
-            </div>
+            <span>{t.cast.orgLoaded(world.castLore.orgNoun)}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</span>
+            {!apiKey && <span style={{ color: "#d07070" }}>{language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>}
+            <span>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
+            <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
           </div>
 
           {/* The custom door already chose the cast AND the slots, so Setup shows
@@ -1602,7 +1677,7 @@ export default function App() {
             <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
           )}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             {/* Back goes one step, not all the way out: on the custom door the
                 previous step is the builder, and dropping the player at the cover
                 would discard a cast they may have spent real time assembling. */}
@@ -1825,9 +1900,17 @@ export default function App() {
               are generated per round and this list is the same every round, so making them
               exclusive would hide a round's own options behind a fixture. Disabled rather
               than hidden while the world loads, so the row does not change shape. */}
+          {/* IT WEARS THE SEND BUTTON'S COLOURS, and that is the point rather than
+              a preference: these are the two round 34px buttons on the same row,
+              they both submit a choice, and they were the only pair in the app
+              saying "tappable" two different ways - a bordered neutral circle here
+              against the accent fill three elements over. One state, one colour:
+              the accent gradient when it will act, the disabled fill when it will
+              not. The opacity .45 went with it, because the disabled fill IS the
+              signal now and dimming it as well made the row look faulty. */}
           <button onClick={() => setOverlay({ type: "map" })} disabled={loading || !world}
             aria-label={t.map.title} title={t.map.title}
-            style={{ width: 34, height: 34, borderRadius: "50%", border: `1px solid ${th.borderDim}`, background: th.inputBg, color: th.textPrimary, fontSize: 15, cursor: loading || !world ? "not-allowed" : "pointer", opacity: loading || !world ? .45 : 1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>📍</button>
+            style={{ width: 34, height: 34, borderRadius: "50%", border: th.border, background: !loading && world ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 15, cursor: !loading && world ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>📍</button>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
             placeholder={language === "zh" ? "输入你的选择..." : language === "ko" ? "선택 사항 입력..." : "Type your choice..."}

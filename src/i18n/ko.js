@@ -58,6 +58,7 @@ const ko = {
     required: "필수",
     optional: "선택",
     fields: {
+      emoji: "아바타 글자",
       name: "이름",
       birthday: "생년월일",
       birthYear: "출생 연도",
@@ -73,6 +74,7 @@ const ko = {
       hidden_conflict: "숨긴 갈등",
     },
     hints: {
+      emoji: "사진이 없을 때 상단 바와 상태 상자에 나타나는 그녀의 얼굴입니다.",
       birthday: "연도가 존댓말의 방향을 결정합니다. 필수입니다.",
       habit: "구체적이고 반복 가능한 신체 동작 — 감정이 아니라 연출할 수 있는 것.",
       private_personality: "아무도 보지 않을 때의 그녀.",

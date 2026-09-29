@@ -893,12 +893,43 @@ async function layerG(mod, MODEL_CONFIGS) {
   const loadSaveBody = app.slice(app.indexOf("const loadSave"), app.indexOf("const sendMessage"));
   check("loadSave reads no model / sub-model field from a save",
     !/save\.(selectedModel|model|qwenSubModel|aliyun)/.test(loadSaveBody));
-  // Loading a save must drop the previous game's pre-round snapshot, or ↺ Retry
-  // and the ✎ edit controls restore that game's stats and memory into this one.
-  // It is also what gates the edit controls off until a round is played here.
-  check("loadSave clears preRoundSnapshotRef (else Retry corrupts the loaded save)",
-    /preRoundSnapshotRef\.current = null/.test(loadSaveBody));
-  check("loadSave clears the previous game's pending social", /resetPendingSocial\(\)/.test(loadSaveBody));
+  // ── the run boundary ──────────────────────────────────────────────────────
+  // There are TWO ways into a run and everything the previous one left behind
+  // has to go on both. They had drifted three ways - New Game re-applied the
+  // abandoned run's social and its notification dots, Load left `topMember`
+  // pointing at the other run's member, and neither closed an open modal - so
+  // it is one function now and these guards are written against the
+  // requirement (nothing of the old run survives) rather than against the line
+  // that used to do it.
+  const newGameBody = app.slice(app.indexOf("const startNewGame"), app.indexOf("const loadSave"));
+  const beginRunBody = app.slice(app.indexOf("const beginRun = ("), app.indexOf("const startNewGame"));
+  check("the run boundary drops the previous run's pending social",
+    /resetPendingSocial\(\)/.test(beginRunBody));
+  check("...and its pre-round snapshot, so ↺ Retry cannot restore the other run",
+    /preRoundSnapshotRef\.current = null/.test(beginRunBody));
+  check("...and its notification strip, which is also where the top-bar dots come from",
+    /setActiveNotifications\(\[\]\)/.test(beginRunBody),
+    "hasNotifDot reads this same array");
+  check("...and its top member, or the bar shows her scored against an id this run has no affection for",
+    /setTopMember\(topMember\)/.test(beginRunBody));
+  check("...and any achievement or special-event modal left open",
+    /setAchievement\(null\)/.test(beginRunBody) && /setSpecialEvent\(null\)/.test(beginRunBody));
+  // Count the call sites. A second boundary that cleared by hand is exactly how
+  // the two drifted in the first place, so the absence is half the check.
+  check("both ways into a run go through it, and neither clears anything by hand",
+    /beginRun\(\{/.test(loadSaveBody) && /beginRun\(\{/.test(newGameBody)
+      && !/resetPendingSocial\(\)/.test(loadSaveBody) && !/setActiveNotifications/.test(loadSaveBody)
+      && !/resetPendingSocial\(\)/.test(newGameBody) && !/setActiveNotifications/.test(newGameBody),
+    "New Game and Load must both hand beginRun what the run starts with");
+  // The bug itself: round 1 of a new game POPPED the buffer, which on a new game
+  // holds the abandoned game's last round - so the run opened with somebody
+  // else's Instagram post and notification dots already on the phone.
+  check("a new game does not display the abandoned run's social",
+    !/popPendingSocial\(\)/.test(newGameBody),
+    "round 1 has no previous round of its OWN; the buffer is the last game's");
+  check("...and the only reader of that buffer is a round that follows one",
+    (app.match(/popPendingSocial\(\)/g) || []).length === 1,
+    "sendMessage, and nothing else");
 
   // --- the save now records where its cast came from (v1.4.0 step 4) ---
   //
@@ -925,10 +956,31 @@ async function layerG(mod, MODEL_CONFIGS) {
   // a game assembled out of two different saves.
   check("loadSave finishes every fallible step before it touches state",
     loadSaveBody.indexOf("await resolveRoster") < loadSaveBody.indexOf("setForm("));
+  // Derived rather than anchored on one line: the first thing in the body that
+  // looks like a state setter, whichever it happens to be after a refactor.
+  const firstSetter = loadSaveBody.search(/\n\s*set[A-Z]/);
   check("a save whose cast cannot be resolved aborts rather than half-loading",
-    loadSaveBody.indexOf("showNotif(\"This save's cast could not be loaded\"")
-      < loadSaveBody.indexOf("preRoundSnapshotRef.current = null"),
+    firstSetter > 0
+      && loadSaveBody.indexOf("showNotif(\"This save's cast could not be loaded\"") < firstSetter
+      && /could not be loaded"[^\n]*\);[\s\S]{0,40}return;/.test(loadSaveBody),
     "the failure path must return before the first setter");
+
+  // ── Setup fits on one 844px screen ───────────────────────────────────────
+  // The page ran past the frame and the Start button sat below the fold behind
+  // half a row of identities, on the one screen whose whole job is to be
+  // completed. The header was four stacked lines; it is one row now.
+  const setupHead = app.slice(app.indexOf("<style>{th.setupCss}</style>"),
+    app.indexOf("{/* The custom door already chose"));
+  check("Setup's header is one row rather than a stack",
+    !/<h2 /.test(setupHead) && (setupHead.match(/<div style=/g) || []).length === 1,
+    `${(setupHead.match(/<div style=/g) || []).length} boxes above the first field`);
+  // Shortening a screen by deleting affordances is the easy wrong answer, so
+  // both halves are asserted: the switch still reaches the key page, and a
+  // MISSING key - the actionable state, unlike a configured one - still shouts.
+  check("...and the model switch survived the trim",
+    /setPhase\("keyInput"\)/.test(setupHead) && /MODEL_CONFIGS\[selectedModel\]/.test(setupHead));
+  check("...and a missing key is still called out in red",
+    /\{!apiKey && <span style=\{\{ color: "#d07070" \}\}>/.test(setupHead));
 
   check("startNewGame records the roster it is starting",
     /setRoster\(\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app),
@@ -1114,9 +1166,39 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("the stats box drops absent lines instead of rendering them empty",
     /\]\.filter\(Boolean\)\.join\("\\n"\)/.test(boxBody) && !/subLines \|\| ""/.test(boxBody),
     "an empty sub-member line splits the box in two and leaks its border into exports");
-  check("...and the export filter drops the box's closing border too",
-    /!p\.startsWith\("╚"\)/.test(app),
+  // Both borders count as BOX, not as prose. Since v1.4.1 the filter splits the
+  // box off instead of dropping it - the PDF prints it as the round header - so
+  // the thing that must not regress is which paragraphs are classified as the
+  // box, not whether they are discarded.
+  const roundsBody = app.slice(app.indexOf("const BOX_EDGES"), app.indexOf("const extractStoryText"));
+  check("...and the export filter knows the box's closing border too",
+    /BOX_EDGES = \["╔", "╚"\]/.test(roundsBody)
+      && /isStatsBoxPart = \(para\) => BOX_EDGES\.some/.test(roundsBody),
     "the filter is what breaks silently when the box format moves");
+
+  // ── the PDF prints the round header the player actually reads ────────────
+  // It printed a bar saying `Round 9` above prose whose own header box - the
+  // affections, the stats, the scene, the chapter - was filtered out on the way.
+  // The box already carries the round number, so the bar is a second and poorer
+  // answer to the same question and survives only where there is no box.
+  check("the PDF prints the stats box as the round header",
+    /`<pre class="card-stats">\$\{esc\(r\.statsBox\)\}<\/pre>`/.test(app)
+      && /\.card-stats\{/.test(app),
+    "what the player sees at the top of every round");
+  check("...and the plain bar survives only for a round that has no box at all",
+    /\$\{r\.statsBox[\s\S]{0,200}: `<div class="card-head">Round \$\{r\.n\}<\/div>`\}/.test(app),
+    "an edited-down story, or a turn written before the box existed");
+  // The scene name is the model's text and lands in the header, so it needs the
+  // same escaping the prose has always had - one escaper, both halves.
+  check("...and the header is escaped exactly like the prose",
+    /esc\(r\.statsBox\)/.test(app) && /esc\(r\.text\)/.test(app),
+    "a scene containing < must not become markup");
+  // Clipboard and TXT were NOT asked to change, and a shared filter is where
+  // that kind of change leaks. `text` must still exclude the box.
+  check("...while clipboard and TXT still export prose alone",
+    /text: paras[\s\S]{0,160}!isStatsBoxPart\(para\) && !isOptionLine\(para\)/.test(roundsBody)
+      && !/statsBox/.test(app.slice(app.indexOf("const extractStoryText"), app.indexOf("const exportClipboard"))),
+    "the box is a 30-column frame; it only lines up in a fixed-width font");
   // `chapter` is an internal token — start/develop/climax/resolve — and it was
   // printed raw beside four fields that all carry a localized label, so a Chinese
   // player read `🎭: [start]` every round.
@@ -3448,6 +3530,82 @@ async function layerI() {
   // literal "{transfer}" into the cached prefix with no error and no test, which
   // is the 편지을/를 class: plausible-looking text nobody reads. Scanned rather
   // than spot-checked, because it is exactly the kind of typo one file carries.
+  // ── what the organisation is CALLED, in every world ──────────────────────
+  // The noun and the suffix are two halves of one sentence the player reads on
+  // Setup and the model reads in section 4, and they had drifted apart in two
+  // of the four worlds: an office cast was told its COMPANY was `X Group`, and
+  // a chaebol cast that the leading FAMILY was `X Group`. Reported from hand
+  // play, 2026-09-29. The shape check below runs on all four because the one it
+  // replaces ran on kpop_idol, which is where neither defect could occur.
+  const badNoun = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      const n = w[lang].castLore.orgNoun;
+      // It is dropped into `${noun} name` and `已加载${noun}: `, so a trailing
+      // space or a sentence renders as one. Two words are legal - `family
+      // business` is one thing - a sentence is not.
+      if (n !== n.trim() || /[\u3002.:\uFF1A]/.test(n) || n.split(/\s+/).length > 2 || n.length > 16) {
+        badNoun.push(`${id}/${lang}: ${JSON.stringify(n)}`);
+      }
+    }
+  }
+  check("every world's org noun is short enough for the i18n templates to build on",
+    badNoun.length === 0, badNoun.join(", "));
+  // Two pinned regressions, deliberately. Nothing derivable catches a suffix
+  // that names the wrong KIND of thing - parseWorld takes any string, and the
+  // goldens cannot see it because all three fixtures are whole single groups,
+  // which take the subset template and never render {org} at all.
+  check("an office cast works at a company, not at a Group",
+    Object.values(allWorlds.office || {}).length === 3
+      && Object.values(allWorlds.office).every((w) => w.castLore.orgSuffix === "Ltd."),
+    Object.values(allWorlds.office || {}).map((w) => w.castLore.orgSuffix).join(" "));
+  check("...and a chaebol name is labelled as the family's business rather than as the family",
+    /\u4f01\u4e1a/.test(allWorlds.chaebol?.zh?.castLore?.orgHint || "")
+      && /business/.test(allWorlds.chaebol?.en?.castLore?.orgHint || "")
+      && /\uae30\uc5c5/.test(allWorlds.chaebol?.ko?.castLore?.orgHint || ""),
+    "`X Group` is right for a chaebol and wrong for a bare family noun");
+
+  // ── round 1 is a first meeting ───────────────────────────────────────────
+  // Every member starts at Stranger, and the step-7 identities described a
+  // relationship already under way - she had already covered for you, you were
+  // already the last two to leave - so round 1 opened on a cast who behaved
+  // like old colleagues and scored like strangers. Reported from hand play.
+  //
+  // ALL FOUR WORLDS, derived from the index rather than listed: kpop_idol
+  // implied it in its own prose (`自然相识`, `新任Staff`) and the other three did
+  // not, which is how the three new ones were authored without it. One wording
+  // in every world is what makes this scannable at all - a world added later
+  // fails this check until it says the same thing.
+  const FIRST_MEETING_MARK = { zh: "[\u521D\u89C1]", en: "[First meeting]", ko: "[\uCCAB \uB9CC\uB0A8]" };
+  const EX_IDENTITY = "\u4E3B\u7EBF\u6210\u5458\u524D\u5973\u53CB";
+  const missingFirstMeeting = [];
+  for (const id of Object.keys(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of allWorlds[id]?.[lang]?.identities || []) {
+        if (it.id === EX_IDENTITY) continue;
+        if (!String(it.background).includes(FIRST_MEETING_MARK[lang])) {
+          missingFirstMeeting.push(`${id}/${lang}:${it.id}`);
+        }
+      }
+    }
+  }
+  check("every identity in every world opens on a first meeting",
+    missingFirstMeeting.length === 0,
+    missingFirstMeeting.join(", "));
+  // ...and the ex-girlfriend does NOT, in any world. Her premise is a shared
+  // past, and a blanket append would have contradicted it in the same
+  // paragraph - which is the half a `does it contain the block` check on its
+  // own would happily pass.
+  const exToldItIsNew = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      const ex = w[lang].identities.find((i) => i.id === EX_IDENTITY);
+      if (ex && String(ex.background).includes(FIRST_MEETING_MARK[lang])) exToldItIsNew.push(`${id}/${lang}`);
+    }
+  }
+  check("...and the ex-girlfriend is never told she is meeting her for the first time",
+    exToldItIsNew.length === 0, exToldItIsNew.join(", "));
+
   const RENDERABLE = new Set(["name", "reason", "keepsake"]);
   const strayPlaceholders = [];
   for (const [id, w] of Object.entries(allWorlds)) {
@@ -3879,6 +4037,22 @@ async function layerI() {
     "the round path owns the record; the UI only reads it");
 
   // The picker rides the existing choice channel (7.1): no schema field, no tail entry.
+  // THE TWO ROUND BUTTONS ON THE INPUT ROW WEAR ONE SET OF COLOURS. They both
+  // submit a choice and they are the same size, and they said `tappable` two
+  // different ways - a bordered neutral circle against an accent fill three
+  // elements over. Asserted as a PAIR, because either one alone is a colour
+  // scheme nobody can be wrong about; what was wrong was that there were two.
+  const inputRow = appSrcPlaces.slice(appSrcPlaces.indexOf("{editingIdx === null && ("),
+    appSrcPlaces.indexOf("{/* Overlays */}"));
+  const roundButtons = inputRow.match(/width: 34, height: 34[^}]*\}/g) || [];
+  check("the place and send buttons are one pair, not two colour schemes",
+    roundButtons.length === 2
+      && roundButtons.every((b) => /th\.accentGrad/.test(b) && /th\.newGameDisabled/.test(b)),
+    `${roundButtons.length} round buttons on the input row`);
+  check("...and neither of them is dimmed on top of the disabled fill",
+    !roundButtons.some((b) => /opacity/.test(b)),
+    "the disabled fill IS the signal; dimming it as well made the row look faulty");
+
   check("the map submits an ordinary choice through sendMessage",
     /onPick=\{\(name\) => \{ setOverlay\(null\); sendMessage\(placeChoiceText\(name\)\); \}\}/.test(appSrcPlaces),
     "a second input path per round is what 7.1 exists to avoid");
@@ -5050,6 +5224,35 @@ async function layerI() {
     Boolean(junk.emoji && junk.color && junk.accent && junk.ig),
     JSON.stringify([junk.emoji, junk.color, junk.accent, junk.ig]));
 
+  // ── her glyph, which with no photo is the only face she has ──────────────
+  // Auto-assignment is the DEFAULT, not the rule: it was unchangeable, so a
+  // custom member was whichever palette index she landed on - a violin - in the
+  // top bar, the stats box and every tab strip for the life of the save.
+  check("a chosen glyph beats the palette",
+    store.withDefaults({ id: "c_1", emoji: "\u{1F430}" }, 0).emoji === "\u{1F430}",
+    "the palette is what she gets for not choosing, not what she is held to");
+  check("...and an unchosen one still falls back to it",
+    store.EMOJI_PALETTE.includes(store.withDefaults({ id: "c_1" }, 0).emoji));
+  // ONE GRAPHEME, not one code point. A flag is two code points, a skin tone is
+  // two and a ZWJ family is seven, so slicing by code point stores half an emoji
+  // and renders a stray modifier beside it.
+  const FAMILY = "\u{1F469}\u200D\u2764\uFE0F\u200D\u{1F469}";
+  check("a multi-code-point glyph survives whole",
+    store.normalizeEmoji(FAMILY) === FAMILY && store.normalizeEmoji("\u{1F1F0}\u{1F1F7}") === "\u{1F1F0}\u{1F1F7}",
+    JSON.stringify(store.normalizeEmoji(FAMILY)));
+  check("...two glyphs are not both stored",
+    [...store.normalizeEmoji("\u{1F430}\u{1F43B}")].length <= 2,
+    JSON.stringify(store.normalizeEmoji("\u{1F430}\u{1F43B}")));
+  // The LAST wins, and that is a UI rule: the box is never empty once she has a
+  // glyph, so typing into it means `use this instead`. Keeping the first would
+  // make the field ignore every key pressed after the one already in it.
+  check("...and it is the newest one that wins, so the field can be retyped",
+    store.normalizeEmoji("\u{1F430}\u{1F43B}") === "\u{1F43B}",
+    JSON.stringify(store.normalizeEmoji("\u{1F430}\u{1F43B}")));
+  check("...an empty field clears rather than storing whitespace",
+    store.normalizeEmoji("   ") === "" && store.normalizeEmoji(undefined) === "",
+    "a blank emoji falls back to the palette through withDefaults");
+
   // An id collision would merge two people's affections, KKT channel and
   // appearance history silently — step 4 found library ids are not unique even
   // across the library, so the prefix is doing real work.
@@ -5538,6 +5741,16 @@ async function layerI() {
   } catch (e) {
     editorCompiled = (e.errors || []).map((x) => x.text).join(" | ") || e.message;
   }
+  // The editor is where a glyph is chosen, and it must normalise on the way in:
+  // an emoji keyboard can hand it two, and a paste can hand it a sentence.
+  check("the editor writes the glyph through normalizeEmoji",
+    /set\("emoji", normalizeEmoji\(e\.target\.value\)\)/.test(editorSrc),
+    "the only unnormalised writer would be the one the player types into");
+  check("...and offers the shared palette rather than a second copy of it",
+    /EMOJI_PALETTE\.map\(/.test(editorSrc) && /EMOJI_PALETTE,/.test(editorSrc)
+      && !/\["\u{1F3BB}"/u.test(editorSrc),
+    "ten glyphs retyped in a component is the hand-maintained list this repo keeps losing");
+
   check("MemberEditor.jsx compiles and its imports resolve",
     editorCompiled === "ok", editorCompiled);
 
@@ -5721,6 +5934,31 @@ async function layerI() {
   // `out[member.id] =` in the source — which pinned where the code lived rather
   // than what it does, and went red the moment the logic was extracted to be
   // testable. What matters is that one member cannot occupy two slots.
+  // GIVING THE CAST FACES IS A CARD, NOT A PILL. Every overlay, the top bar and
+  // the chat wallpapers draw from the photo store, and its only entry point was
+  // a 34px chip in a two-button row whose other button WIPES THE CAST. A
+  // destructive control and the best thing on the screen should not be the same
+  // shape. Reported from hand play, 2026-09-29.
+  const imagesAt = builderSrc.indexOf("onClick={() => setShowImages(true)}");
+  const imagesBtn = builderSrc.slice(imagesAt, builderSrc.indexOf("</button>", imagesAt));
+  check("the cast-images entry is a full-width card, like the main-member slot",
+    /width: "100%"/.test(imagesBtn) && /minHeight: 62/.test(imagesBtn),
+    "the main-member slot is the size this screen uses for `the thing to tap`");
+  // The two used to be siblings in one flex row, which is what made the bigger-
+  // looking half the one that wipes the cast. The card closes before the row
+  // holding Clear opens - asserted on what is BETWEEN them, since either button
+  // read on its own looks fine.
+  const betweenBtns = builderSrc.slice(imagesAt, builderSrc.indexOf("{c.clearCast}"));
+  check("...and it no longer shares a row with the control that wipes the cast",
+    /<\/button>[\s\S]*<div style=\{\{ display: "flex"[\s\S]*<button/.test(betweenBtns),
+    "a mis-tap between adjacent targets was what made the previous builder unusable");
+  // A number the player can see beats a cap that only speaks when it refuses -
+  // which the save slots and the member palette each cost a bug to learn.
+  check("...and it says how many of THIS cast already have a face",
+    /const withPhoto = chosen\.filter\(\(pk\) => photos\[pk\.id\]\)\.length/.test(builderSrc)
+      && /castCount\?\.\(withPhoto, chosen\.length\)/.test(builderSrc),
+    "chosen members with a photo, not the size of a store shared across every cast");
+
   const IRENE = { id: "irene", __groupId: "red_velvet" };
   const twoSlots = store.assignSlot(
     store.assignSlot({}, IRENE, "sub"), IRENE, "npc");
