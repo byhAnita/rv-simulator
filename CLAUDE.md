@@ -2591,6 +2591,21 @@ palette's delete path prunes, **not reproduced**; and whole rounds that name nob
 她, which the player cannot follow **and** which makes `membersNamedIn` record no one as
 present, so `[Rounds Absent]` then reports a false absence. One prompt rule fixes both.
 
+#### The fourth phone pass — three commits confirmed, one UI bug fixed
+
+**`631071b` passed on the device**: the PDF flows continuously, a save slot names its world, a
+saved cast can be deleted. Nothing outstanding from that batch.
+
+**One bug came with the pass and is fixed:** Setup's year wheel displayed a year the form did not
+hold, so Start refused with *请完成所有选项* and nothing on screen was left to fill. See *A wheel
+always displays a value* — the entry the member editor already had, extended rather than
+duplicated. **4 mutations, 4 RED**, one of them GREEN first for reading its own comment. Smoke
+**1558 → 1561**; no golden moved, because nothing prompt-facing changed.
+
+**§22.1's interim prompt rule is now DECIDED: take it, this release.** Yuhan, 2026-09-29 —
+*"interim prompt rule now and totally clean it when we do section 22"*. It is the next commit,
+it moves the three non-idol goldens deliberately, and it is the last thing before §22.2.
+
 #### The exact next step — §22 is AGREED and not started
 
 **`docs/V140_PLAN.md` §22 is the authority and it is settled**, agreed with Yuhan on
@@ -2612,9 +2627,9 @@ on `entry.override`, which `resolveRoster` already honours — never a snapshot.
 
 1. Yuhan's hand test of `631071b` (the PDF flow, the save-slot world label, the saved-cast
    ×) — **owed from him, nothing to do until it arrives.**
-2. **Open decision:** the §22.1 interim prompt rule for the idol-prose leak — take it now
-   (cheap, moves the three non-idol goldens, works this release) or let §22.2's generated
-   tab 2 do it properly in v1.4.2. **Asked, not yet answered.**
+2. **DECIDED — take the §22.1 interim prompt rule now** (Yuhan, 2026-09-29), with §22.2's
+   generated tab 2 replacing it properly in v1.4.2. It moves the three non-idol goldens, so
+   it gets its own commit and the diff is read.
 3. Then §22.2, which is a multi-file change and therefore wants its own written plan and
    confirmation before code, per the global config.
 
@@ -3177,6 +3192,42 @@ player's would offer a 79-year-old idol, and neither looks wrong on screen.
 still empty makes the field look filled while Save stays disabled with nothing to point at, so a new
 member is **seeded** at the year the wheel opens on. The displayed value is the stored one from the
 first frame; scrolling is how she changes it, not how she supplies it.
+
+**Setup was not seeded, and the fourth phone pass found it — the same lie, one screen over.**
+Reported as *"sometimes the Start button is blocked and says 请完成所有选项"*: a fresh run reached
+Setup with `form.birthYear` still `""` while the wheel showed **2000**, so `canStart` refused and
+the button named a missing field with **nothing on screen left to fill**. Every required field was
+visibly answered and one of them was not answered at all.
+
+**It read as a custom-cast-door bug and it belongs to neither door.** `form` is App-level state and
+nothing clears it on the way back to the cover, so loading a save first — which fills `form` from
+the slot — left a real birth year in place for every later trip through Setup. The reporter's own
+A/B (fresh run blocked, same cast after a save load fine) is therefore the diagnosis: **the
+difference between the two paths is not the door, it is whether anything had already written the
+field.** The classic door was equally affected and nobody had happened to hit it.
+
+**And the wheel could not emit the year it opened on at all.** `onScroll` reports only a row that
+differs from `value`, and `value` was `form.birthYear || DEFAULT_YEAR` — so the one year no gesture
+could supply was 2000, and a player who wanted it had to scroll away and come back. Seeding fixes
+that as a side effect, because the displayed value becomes a value the form actually holds.
+
+**The display fallback is DELETED rather than kept beside the seed.** With the field seeded a
+`|| DEFAULT_YEAR` can only ever hide the seed failing, and it hid it for a release. An unseeded
+wheel now renders with **no row highlighted**, which is visible and reportable; a highlighted year
+the form does not hold is neither. Same rule as *a fallback that returns plausible data hides the
+failure that produced it.*
+
+**The guard is derived from the wheels that exist**, not written about Setup: every file in `src/`
+mounting a `<YearWheel>` must write `DEFAULT_YEAR` somewhere that is not the import and not the
+`value=` attribute, so a third wheel cannot ship unseeded — and mutating the **member editor**'s
+seed reddens it naming `platforms/MemberEditor.jsx`, which is what says it is not a sample. A
+second check requires the seeded year to be one `validPlayerBirthYear` accepts, since a
+`DEFAULT_YEAR` moved outside the player's range would reproduce the bug through the fix.
+
+**Its first version reported GREEN against the bug, by reading the comment that explains the
+seed.** That is the third guard in this repo to pass against its own documentation — the file-input
+scan and the release-notes probe were the others — so the scan strips comments before it looks.
+**When a guard greps for a name, ask whether the prose beside it contains that name.**
 
 ### …and it could only ever test one of the four providers — the third time, then the fourth
 

@@ -443,6 +443,24 @@ export default function App() {
     ...f, birthYear: v, age: validBirthYear(v) ? String(GAME_YEAR - parseInt(v)) : "",
   }));
 
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so Setup has to SEED the field rather than
+  // fall back to DEFAULT_YEAR for display alone. Reported from the third phone
+  // pass: reaching Setup on a fresh run showed 2000 in the wheel while
+  // `form.birthYear` was still "", so `canStart` refused and the Start button read
+  // "please complete all options" with nothing on screen left to fill. It looked
+  // like a custom-door bug only because loading a save first fills `form` from the
+  // slot, and `form` survives a return to the cover.
+  //
+  // The wheel also reports only a row that DIFFERS from the one it is showing, so
+  // the single year it could never emit was the year it opened on: a player who
+  // wanted 2000 had to scroll away and come back. Seeding removes that too.
+  //
+  // The member editor was given exactly this treatment in v1.4.0 step 8 and Setup
+  // was not. Same control, same lie, one screen over.
+  useEffect(() => {
+    if (phase === "setup" && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
+  }, [phase, form.birthYear]);
+
   // The correction, mid-run, for a save whose birth year was never stated —
   // migration derives it as GAME_YEAR - age and that is wrong for about half of
   // all legacy saves. Deliberately NOT setBirthYear: `correctBirthYear` leaves
@@ -1653,7 +1671,7 @@ export default function App() {
                 a year the address protocol must never see. The wheel cannot
                 produce a partial or out-of-range year at all. */}
             <div style={{ flex: 1, minWidth: 88 }}>
-              <YearWheel value={form.birthYear || DEFAULT_YEAR} onChange={setBirthYear}
+              <YearWheel value={form.birthYear} onChange={setBirthYear}
                 min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
                 ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
                 colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
