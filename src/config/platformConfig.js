@@ -51,8 +51,13 @@ export const PLATFORMS = {
     rules: () => [
       `- Instagram: Photo social. Style: aesthetic, short caption + emoji.`,
     ],
-    formatRules: () => [
-      `- socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.`,
+    // The SHAPE is Instagram's and the MAGNITUDE is the world's. A schema example is
+    // an instruction, so a hardcoded 800000 told a campus world that a student's post
+    // gets eight hundred thousand likes - a number the player then reads in the
+    // overlay. `socialReach` is the one thing about this platform that is not the same
+    // in a practice room and a lecture hall.
+    formatRules: ({ socialReach }) => [
+      `- socialContent.instagram: MUST be an object {"caption":"...","likes":${socialReach}} or null.`,
     ],
   },
 

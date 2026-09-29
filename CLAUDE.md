@@ -1371,6 +1371,166 @@ mean anything. See `docs/PROPOSALS.md`.
 
 **Not fixed, and not a regression: a Kakao the scene makes impossible** — she texts "good night" from inside the room, or while asleep. Affection is the only gate; nothing models presence or physical state, so the prompt lacks the information such a rule would need. See `docs/V140_PLAN.md` §18b, which schedules it with v1.4.1's place canon.
 
+### Three more worlds, and the seven things the prompt still thought were universal
+
+**v1.4.1 step 7 adds `campus`, `office` and `chaebol` as data** — nine world documents, three
+languages each, plus three golden fixtures. The step was scoped as *data only*: every reader it
+needs shipped in steps 1-6. It was not data only, and the reason is worth more than the content.
+
+**Reading the first rendered campus prompt end to end found seven statements in
+`buildSystemPrompt` that are true of an idol world and were asserted in every world.** None is in
+a world file, none throws, and none could ever have failed a test — all three goldens were
+`kpop_idol`, where every one of them is correct. The worst was the ROLE CONTRACT:
+
+> The members' working life — **practice, schedules, comebacks, the dorm, this company** — is
+> THEIRS… she has **no practice here to be late for**
+
+In a campus world that is not merely odd. It **states as fact that the cast have practice,
+comebacks and a company**, two sections after section 4 has said they are students — the
+`[BLACKPINK Background]` shape, a specific claim in an authoritative section contradicting a
+general rule elsewhere, which the model is entitled to build on.
+
+**Four of the seven became `world.castLife`; three became world-neutral wording.** The test is
+step 4's: does the text vary with the thing the file is about? *What these five people do all day*
+is the most world-specific fact there is, so it is data. *"a generic idol type"* is a noun doing
+no work a neutral one cannot do, so it is simply better English.
+
+| `world.castLife` | `kpop_idol` | `campus` |
+| --- | --- | --- |
+| `theirs` | practice, schedules, comebacks, the dorm, this company | classes, deadlines, club activities, the dorm |
+| `notHers` | no practice here to be late for and no place in their schedule | no class here to be late for and no place on their timetable |
+| `recentBeat` | the practice she just left | the class she just walked out of |
+| `sceneExample` | Practice room, 10PM | Lecture hall, 10PM |
+| `socialReach` | 800000 | 340 |
+
+**`socialReach` is there because a schema example is an instruction.** The Instagram format rule
+hardcoded `{"caption":"...","likes":800000}`, so a campus world told the model a student's post
+gets eight hundred thousand likes — a number the player then **reads in the overlay**. The shape
+is Instagram's and stays in `platformConfig.js`; the magnitude is the world's. It is the one thing
+about that platform that is not the same in a practice room and a lecture hall, and step 6 put it
+on the wrong side of the line it drew.
+
+The three that needed no field: *"a generic idol type"* → *"a generic type"*; *"NOT a member of
+the group"* → *"NOT one of them"*; *"her stage name alone"* → *"her name alone"* (a student has no
+stage name); *"in group scenes"* → *"in scenes with the whole cast present"*; *"the only company
+that exists"* → *"the only organisation"*. All three goldens moved by exactly those six lines,
+`update-golden.mjs` was run once, and the diff was read.
+
+**Left alone deliberately:** section 4 is still headed GROUP BACKGROUND and its composed preamble
+still says *"never borrow a real group's history, discography or agency"*. The heading carries a
+number five other sections point at by name, and the preamble's job is to stop the model
+completing the cast from the real groups these members come from — an **idol** leak in every
+world, campus included, so naming a discography there is load-bearing rather than stale.
+
+### A work title points one way, and until step 7 that way was one hardcoded id
+
+`buildSystemPrompt` decided which direction a work title points by comparing the identity id to a
+literal: `form.identity === "练习生"` meant *she uses it for them*, and everything else meant *they
+use it for her*. **Four of the eighteen identities step 7 authors point the title at the cast** —
+`junior_student` and `new_hire` say `선배님` upward, `report_to_cast` says `팀장님` upward,
+`secretary` says `실장님` — and every one of them would have rendered the sentence backwards.
+**That is the inverted age line again:** a statement the model follows correctly because the
+prompt states it wrongly, with nothing failing.
+
+Two fields, and the split is step 6's — the world says which way, the code says what that means:
+
+- **`workTitle.direction`** — `"to_cast"`, or **absent** for today's behaviour, so no existing
+  entry is edited into saying what it already meant.
+- **`workTitle.because`** — the identity-specific reason the to_cast sentence is built from,
+  English like the rest of section 6. `练习生` declares the clause that was already in the code, so
+  its rendering does not move by one byte.
+
+`parseWorld` throws when `direction` is anything but `to_cast`, when a to_cast entry has no
+`because`, and when a `because` appears **without** a direction — that third one is the field that
+would otherwise sit there with no reader, which is the shape this file tracks seven instances of.
+
+**`world.addressContext` is the register around the title**, two language-invariant strings
+(`toPlayer`, `toCast`). The sentences said *"on the job"* and *"at work"*, which is true of an
+agency and an office and false of a lecture hall: a student does not address her professor *on the
+job*. `kpop_idol` declares exactly the two literals it already rendered.
+
+**And the ko fixture found a defect zh and en cannot express.** `workTitle.form` is a
+transliteration in zh and en (`前辈nim`, `sunbae-nim`) and is **already Hangul** in ko — so the
+gloss printed `"선배님" (선배님)`, a parenthetical translating a word into itself. The gloss is now
+dropped when it would repeat the form. No golden had ever pinned it, because the one ko fixture
+uses the identity with no work title. **This is the rotate-the-fixture-language rule paying for
+itself on its first run.**
+
+### The platforms a non-idol world declares, and step 6 rendering for real
+
+`campus`, `office` and `chaebol` declare **Instagram and KakaoTalk only** (Yuhan's call,
+2026-09-29). Bubble is a member-to-fan subscription product and Weverse a fan community; both are
+idol infrastructure with no meaning in a lecture hall.
+
+**This is the first time step 6's trimming renders against real content** — until now every world
+on disk declared all three social platforms, so the trimming was provably a no-op and was
+exercised only against a synthetic world in smoke. All five renderings shorten together: section
+2's schema (`{"instagram":null}`), section 7's rules, the RULES format block, section 1's slash
+list (`DO NOT output Korean in instagram/KKT content`), and the top bar. A guard on the rendered
+campus prompt now asserts that no undeclared platform reaches it **and** that every declared one
+does — either half alone is vacuous.
+
+### A whole group takes the SUBSET template, so "part of" was false
+
+`useGroupLore: false` sends **every** cast down the composed path, and a whole single group then
+takes the `subset` template. `kpop_idol`'s subset says *"This story follows **part of** {label}"*,
+which is true there because it only ever fires on a genuine subset. In the three new worlds it
+fires for a complete roster too, so the same sentence would have been false for most players.
+Their templates say *"The cast of this story is {members}"* instead — true either way. Found by
+reading the first rendered campus prompt, not by any check.
+
+### The golden fixtures now render the way the app does
+
+`test/fixtures/prompts.mjs` built its prompts straight from `loadGroupConfig`, **bypassing
+`resolveRoster`** — which is where section 4 is composed. That was byte-identical for a whole
+single group in `kpop_idol` (`isWholeSingleGroup` keeps the group's own lore verbatim) and would
+have been **wrong** the moment a fixture used a world declaring `useGroupLore: false`: the fixture
+would have pinned Red Velvet's real idol history in a lecture hall, which the running app never
+produces. It also keyed its world cache by **language alone**, so two fixtures in one language but
+different worlds shared the first one's world.
+
+Both are fixed, and routing every fixture through `resolveRoster` left the three existing goldens
+byte-identical — which is what says the change was a correction rather than a rewrite.
+
+| Fixture | Pins the branch |
+| --- | --- |
+| `campus-ko` | a work title pointed **at the cast**, which no golden had ever covered |
+| `office-en` | a title pointed at the player in a world that is not an agency |
+| `chaebol-zh` | the ex-girlfriend backstory in a **second** world, so a re-roll is visible again |
+
+**Six of the twelve (world, language) pairs stay unpinned.** That is an accepted gap, not an
+oversight: a fixture stops a defect recurring, and reading is what finds it.
+
+### Two fields in every world file have no reader
+
+**`world.tone`** is required by `parseWorld`, returned on the parsed world, and read by **nothing**
+in `src/`. **`country.name`** is the same — only `country.register` is ever read. Step 7 authored
+three more copies of each because the validator demands them.
+
+That is the **sixth and seventh** instance of the shape this file tracks by name, after
+`npcAppearances`, bubble `photoDesc`, cast photos, `STAR_LEVELS` and the group library's
+`social_platforms`. Each is one line to delete and one line to render; `docs/V140_PLAN.md` §18
+carries the decision.
+
+### Three checks were deleted from this step's own guards, before the mutation run
+
+Written, then removed for the reason step 6 recorded and this step repeated:
+
+- **"declares seven identities"** pins today's data, not a property, and no single edit breaks it
+  without tripping the loader first.
+- **"a to_cast identity always says why"** and **"a to_player one never does"** duplicate what
+  `parseWorld` throws on, so the only mutation that could break them breaks the load first.
+
+What replaced them is the **rendered** direction, asserted on a real campus prompt, which fails
+independently. **A check that duplicates a validator cannot fail**, and neither can one whose
+mutation crashes: three of the first nineteen mutations here threw instead of failing — a 404 from
+a renamed world, a `parseWorld` throw from a blanked place name — and the harness prints a stack
+trace where a verdict belongs.
+
+**One mutation was left on disk by an interrupted run**, and the world files were regenerated from
+their source rather than hand-repaired. A mutation harness killed mid-entry does not restore; if a
+run is interrupted, verify the tree before trusting the next result.
+
 ### A bubble photo was a UI feature that could not fire and could not have rendered
 
 `BubbleOverlay` draws a photo frame when a post says `hasPhoto`, and the only thing inside that frame

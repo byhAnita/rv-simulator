@@ -13,5 +13,50 @@
       "en": "Practice rooms, music-show stages, and a relationship that has to stay hidden.",
       "ko": "연습실과 음악방송 무대, 그리고 숨겨야 하는 관계."
     }
+  },
+  {
+    "id": "campus",
+    "name": {
+      "zh": "校园",
+      "en": "Campus",
+      "ko": "캠퍼스"
+    },
+    "emoji": "🎓",
+    "color": "#7aa6d6",
+    "blurb": {
+      "zh": "课程表、社团活动室和一段全系都会说起的关系。",
+      "en": "Timetables, a club room, and a relationship the whole department would talk about.",
+      "ko": "시간표와 동아리방, 그리고 학과 전체가 이야기할 관계."
+    }
+  },
+  {
+    "id": "office",
+    "name": {
+      "zh": "职场",
+      "en": "Office",
+      "ko": "오피스"
+    },
+    "emoji": "🏢",
+    "color": "#6f8fa8",
+    "blurb": {
+      "zh": "工位、会议室，和一段一旦写进表格就不再属于两个人的关系。",
+      "en": "Desks, meeting rooms, and a relationship that stops being private the moment it is written down.",
+      "ko": "책상과 회의실, 그리고 문서에 적히는 순간 둘만의 것이 아니게 되는 관계."
+    }
+  },
+  {
+    "id": "chaebol",
+    "name": {
+      "zh": "财阀家族",
+      "en": "Chaebol Houses",
+      "ko": "재벌가"
+    },
+    "emoji": "👑",
+    "color": "#c9a227",
+    "blurb": {
+      "zh": "本家的客厅、董事会和宴会厅，以及一段两个家族都不会同意的关系。",
+      "en": "Drawing rooms, boardrooms and banquet halls, and a relationship neither family would agree to.",
+      "ko": "본가의 응접실과 이사회, 연회장, 그리고 양쪽 집안 모두 반대할 관계."
+    }
   }
 ]

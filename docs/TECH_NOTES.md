@@ -789,6 +789,59 @@ The guard sits on every route by which the value could leak instead: `buildHisto
 
 ---
 
+### The world owns what the cast does all day — v1.4.1
+
+**What it is.** Four strings on every world document (`castLife`) plus two more
+(`addressContext`) that supply the nouns a handful of prompt sentences used to hardcode: what the
+members' daily life consists of, what the player therefore does **not** have, what a member's
+social post reacts to, what a `scene` looks like, and the register a work title is spoken in.
+
+**What it replaced.** English literals inside `buildSystemPrompt`. The ROLE CONTRACT enumerated
+*"practice, schedules, comebacks, the dorm, this company"*; section 7 named *"the practice she just
+left"*; the schema's `scene` rule exemplified *"Practice room, 10PM"*; the work-title sentence said
+*"on the job"*.
+
+**How that fell short.** It did not, for one world. With four worlds it is a prompt that tells a
+campus game the cast have comebacks, two sections after section 4 has said they are students — a
+**specific claim in an authoritative section contradicting a general rule elsewhere**, which is the
+one pattern this project has watched the model resolve the wrong way three times. It fails no test
+by construction: every golden is `kpop_idol`, where every sentence is true.
+
+**Why not leave it in code with a per-world branch.** A `switch (world.id)` in `buildSystemPrompt`
+is the same four strings with the world's name spelled twice and a fifth world requiring a code
+change — which is what step 3 deleted `IDENTITIES` for.
+
+**Why not put the whole sentence in the world file.** Because then the *rule* is data: four worlds
+would each carry "…is THEIRS. She does not inherit it…", and the next reword touches four files
+and reaches three of them. The split is the one step 6 arrived at from the other direction — **the
+world says WHICH, the code says WHAT** — applied to prose: the world owns the **noun phrase** that
+varies, the code owns the **sentence** that does not.
+
+**The discriminator, stated so it can be applied rather than remembered:** *does this text vary
+with the thing the data file is about, or with the thing the code is doing?* "Instagram is photo
+social, aesthetic, short caption" does not vary with the world, so it is code (step 6). "Practice,
+schedules, comebacks" varies with nothing else, so it is data. `socialReach` is the sharp case:
+Instagram's **shape** is the platform's and its **magnitude** is the world's, so one catalog entry
+reads a world-supplied value. Step 6 put the whole rule on the code side and shipped
+`"likes":800000` into a world where a student's post gets three hundred.
+
+**What it bought.** Three worlds whose prompts assert nothing false about their own cast, with
+`kpop_idol` byte-identical on every line these fields feed — the four `castLife` strings and the
+two `addressContext` strings are exactly what it already rendered, so the golden diff for this
+change is **zero lines**. The five sentences that were genuinely world-neutral were generalised
+instead, and those moved all three goldens by six lines each, read once.
+
+**What it costs.** Six more required fields per world document, which is six more things a fifth
+world must get right before it loads, and six more strings that a reader of one world file cannot
+see the other three copies of. The mitigation is that they are language-invariant and smoke
+compares them across zh/en/ko for **every world in the index**, derived from the index rather than
+named — so the cost is paid once per world, not once per language.
+
+**The trap it leaves.** `castLife.sceneExample` is English in all three languages, like the rule
+that contains it, while the `scene` field itself must be written in the player's language. That is
+inherited from the sentence it sits in rather than introduced here, and it is the one place in the
+new fields where the example and the instruction disagree about language.
+
 ## To backfill
 
 Not yet written; add when next touched.

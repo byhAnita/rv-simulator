@@ -131,7 +131,7 @@ export async function loadWorld(worldId = DEFAULT_WORLD_ID, language = "zh") {
 // reader — the `NPC_APPEARANCE_CHANCE` shape this project tracks four times.
 const REQUIRED = ["world", "country", "setting", "tone", "statNotes", "platforms",
   "castLore", "useGroupLore", "identities", "modes", "phases", "places",
-  "scenario", "npcArchetypes"];
+  "scenario", "npcArchetypes", "addressContext", "castLife"];
 
 export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", registers = null) {
   const where = `${worldId}/${language}`;
@@ -139,7 +139,7 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     if (config?.[key] === undefined) throw new Error(`world ${where}: missing "${key}"`);
   }
   const { world, country, setting, tone, statNotes, platforms, castLore, useGroupLore,
-    identities, modes, phases, places, scenario, npcArchetypes } = config;
+    identities, modes, phases, places, scenario, npcArchetypes, addressContext, castLife } = config;
 
   for (const [key, value] of [["identities", identities],
     ["phases", phases], ["places", places]]) {
@@ -223,6 +223,58 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     }
   }
 
+  // What these five people actually DO all day, which is the most world-specific
+  // fact there is and was four English literals in buildSystemPrompt until step 7.
+  // The ROLE CONTRACT enumerated `practice, schedules, comebacks, the dorm, this
+  // company` in every world - so a campus prompt asserted, two sections after
+  // section 4 called them students, that the cast have comebacks and a company.
+  // That is the [BLACKPINK Background] shape: a specific claim in an authoritative
+  // section contradicting a general rule elsewhere, and the model may build on it.
+  //
+  // English, like sections 6 and 7 themselves, so these sit in the
+  // language-invariant half. `kpop_idol` declares exactly what it already rendered.
+  for (const k of ["theirs", "notHers", "recentBeat", "sceneExample", "socialReach"]) {
+    if (typeof castLife?.[k] !== "string" || !castLife[k]) {
+      throw new Error(`world ${where}: "castLife.${k}" must be a non-empty string`);
+    }
+  }
+  // The work title's REGISTER, and which way it points.
+  //
+  // `addressContext` supplies the two words section 6 wraps the title in. They were
+  // the literals "on the job" and "at work", which is true of an agency and of an
+  // office and false of a lecture hall: a student does not address her professor on
+  // the job. Two strings, English like the rest of section 6, and `kpop_idol`
+  // declares exactly what it already rendered.
+  for (const k of ["toPlayer", "toCast"]) {
+    if (typeof addressContext?.[k] !== "string" || !addressContext[k]) {
+      throw new Error(`world ${where}: "addressContext.${k}" must be a non-empty string`);
+    }
+  }
+  // A work title points AT the player or AT the cast, and until step 7 that was one
+  // hardcoded identity id in mainAgent.js. Four of step 7's identities point it at
+  // the cast, and every one of them would have rendered the sentence backwards -- the
+  // inverted age line again, followed correctly because it was stated wrongly.
+  //
+  // Absent means to_player, so no existing entry is edited into saying what it
+  // already meant. `because` is the reason clause the to_cast sentence needs and is
+  // required with it; it is REFUSED without it, because a field the renderer cannot
+  // reach is the shape this repo has already found seven times.
+  for (const ident of identities) {
+    const wt = ident?.workTitle;
+    if (!wt) continue;
+    if (typeof wt.form !== "string" || !wt.form || typeof wt.kr !== "string" || !wt.kr) {
+      throw new Error(`world ${where}: identity "${ident.id}" has a workTitle without a form and a kr`);
+    }
+    if (wt.direction !== undefined && wt.direction !== "to_cast") {
+      throw new Error(`world ${where}: identity "${ident.id}" has workTitle.direction "${wt.direction}"; the only value is "to_cast" (absent means the title points at the player)`);
+    }
+    if (wt.direction === "to_cast" && (typeof wt.because !== "string" || !wt.because)) {
+      throw new Error(`world ${where}: identity "${ident.id}" points its title at the cast and must say why in workTitle.because`);
+    }
+    if (wt.direction === undefined && wt.because !== undefined) {
+      throw new Error(`world ${where}: identity "${ident.id}" has workTitle.because with no direction, which nothing renders`);
+    }
+  }
   // The register is resolved HERE rather than carried in the world file, so
   // `world.addressForms` still exists for buildSystemPrompt while exactly one
   // copy of the table exists on disk.
@@ -264,6 +316,8 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     scenario,
     addressForms,
     npcArchetypes,
+    addressContext,
+    castLife,
   };
 }
 

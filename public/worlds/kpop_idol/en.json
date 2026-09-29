@@ -51,7 +51,9 @@
       "background": "[Identity: Trainee] You are a trainee junior of {name}, and naturally met through training at the company practice room. Typical events: Asking {name} for vocal and dance tips; {name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside {name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy.",
       "workTitle": {
         "form": "sunbae-nim",
-        "kr": "선배님"
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is an undebuted trainee and every member is a debuted senior"
       }
     },
     {
@@ -228,5 +230,16 @@
     "assistant",
     "executive",
     "fan"
-  ]
+  ],
+  "addressContext": {
+    "toPlayer": "on the job",
+    "toCast": "at work"
+  },
+  "castLife": {
+    "theirs": "practice, schedules, comebacks, the dorm, this company",
+    "notHers": "no practice here to be late for and no place in their schedule",
+    "recentBeat": "the practice she just left",
+    "sceneExample": "Practice room, 10PM",
+    "socialReach": "800000"
+  }
 }

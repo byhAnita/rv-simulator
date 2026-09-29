@@ -51,7 +51,9 @@
       "background": "[身份背景] 你是{name}的练习生后辈, 与{name}在公司练习室自然相识。 典型事件：向{name}请教舞台发声和舞蹈技巧； 在公司走廊偶遇时{name}顺手帮你整理了一下发型； 深夜练习室和{name}两人练到最后，互相袒露心声； 被选入公司综艺后辈特辑与{name}共同出镜等  优势：接触自然，有共同训练记忆。劣势：公司内规严格，前后辈身份差异。",
       "workTitle": {
         "form": "前辈nim",
-        "kr": "선배님"
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is an undebuted trainee and every member is a debuted senior"
       }
     },
     {
@@ -228,5 +230,16 @@
     "assistant",
     "executive",
     "fan"
-  ]
+  ],
+  "addressContext": {
+    "toPlayer": "on the job",
+    "toCast": "at work"
+  },
+  "castLife": {
+    "theirs": "practice, schedules, comebacks, the dorm, this company",
+    "notHers": "no practice here to be late for and no place in their schedule",
+    "recentBeat": "the practice she just left",
+    "sceneExample": "Practice room, 10PM",
+    "socialReach": "800000"
+  }
 }

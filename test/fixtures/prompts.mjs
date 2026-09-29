@@ -75,6 +75,58 @@ export const FIXTURES = [
       mainMember: "joy", subMembers: [],
     },
   },
+  //
+  // v1.4.1 step 7 - one fixture per new world, rotating the language, so every
+  // world and every language is covered once. Six of the twelve (world, language)
+  // pairs stay unpinned and that is an accepted gap, stated in test/README.md:
+  // a fixture stops a defect recurring, reading is what finds it.
+  //
+  // Each also pins a branch the kpop fixtures cannot reach:
+  //  - campus-ko:  a work title pointed AT THE CAST (junior_student). No golden
+  //    has ever covered that branch - it was one hardcoded id until step 7.
+  //  - office-en:  a title pointed at the player in a world that is not an
+  //    agency, so `addressContext` renders something other than "on the job".
+  //  - chaebol-zh: the ex-girlfriend backstory in a SECOND world, which is what
+  //    makes the seeded reason/keepsake pair visible if it ever re-rolls again.
+  {
+    id: "campus-ko",
+    group: "red_velvet",
+    world: "campus",
+    lang: "ko",
+    mainId: "seulgi",
+    subIds: ["yeri"],
+    model: "qwen",
+    form: {
+      name: "Nari", age: "24", identity: "junior_student", pace: "浪漫情感向",
+      mainMember: "seulgi", subMembers: ["yeri"],
+    },
+  },
+  {
+    id: "office-en",
+    group: "twice",
+    world: "office",
+    lang: "en",
+    mainId: "jihyo",
+    subIds: ["mina", "sana"],
+    model: "gemini",
+    form: {
+      name: "Robin", age: "34", identity: "manager_of_cast", pace: "高压舆论向",
+      mainMember: "jihyo", subMembers: ["mina", "sana"],
+    },
+  },
+  {
+    id: "chaebol-zh",
+    group: "aespa",
+    world: "chaebol",
+    lang: "zh",
+    mainId: "karina",
+    subIds: ["winter"],
+    model: "deepseek",
+    form: {
+      name: "安添", age: "27", identity: "主线成员前女友", pace: "慢热现实向",
+      mainMember: "karina", subMembers: ["winter"],
+    },
+  },
 ];
 
 export const goldenPath = (id) => join(FIXTURE_DIR, `${id}.txt`);
@@ -105,6 +157,7 @@ export async function loadPromptModules(outDir) {
         'export * from "./src/agent/mainAgent.js";',
         'export * from "./src/rag/groupLoader.js";',
         'export * from "./src/rag/worldLoader.js";',
+        'export * from "./src/rag/rosterResolver.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -120,6 +173,9 @@ export async function renderFixtures(outDir) {
   const configs = new Map();
   const worlds = new Map();
   const out = [];
+  // Keyed by WORLD and language, not by language alone. Two fixtures in the
+  // same language but different worlds would otherwise share the first one's
+  // world, and the second would silently render against the wrong setting.
   for (const f of FIXTURES) {
     const key = `${f.group}/${f.lang}`;
     if (!configs.has(key)) {
@@ -128,14 +184,27 @@ export async function renderFixtures(outDir) {
     // Loaded through loadWorld for the same reason the cast is loaded through
     // loadGroupConfig: reading the JSON directly would test the file, not the
     // path the app actually takes.
-    if (!worlds.has(f.lang)) {
-      worlds.set(f.lang, await withDiskFetch(() => mod.loadWorld(f.world || "kpop_idol", f.lang)));
+    const worldId = f.world || "kpop_idol";
+    const wkey = `${worldId}/${f.lang}`;
+    if (!worlds.has(wkey)) {
+      worlds.set(wkey, await withDiskFetch(() => mod.loadWorld(worldId, f.lang)));
     }
     const cfg = configs.get(key);
+    const world = worlds.get(wkey);
+    // Through resolveRoster, because that is what the app does and section 4 is
+    // composed there. Rendering straight from the group config was byte-identical
+    // for a whole single group in kpop_idol - isWholeSingleGroup keeps that
+    // group's own lore verbatim - and would have been WRONG the moment a fixture
+    // used a world declaring useGroupLore:false, which sends every cast down the
+    // composed path. The fixture would have pinned a Red Velvet idol history
+    // that the running app never produces in a lecture hall.
+    const roster = mod.buildClassicRoster(
+      f.group, f.mainId, f.subIds, cfg.members.map((m) => m.id), worldId);
+    const cast = await withDiskFetch(() => mod.resolveRoster(roster, f.lang, world));
     out.push({
       id: f.id,
       text: mod.buildSystemPrompt(
-        f.form, cfg.members, f.mainId, f.subIds, cfg, "", f.model, f.lang, worlds.get(f.lang)),
+        f.form, cast.members, f.mainId, f.subIds, cast.groupConfig, "", f.model, f.lang, world),
     });
   }
   return out;

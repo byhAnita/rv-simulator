@@ -1,0 +1,236 @@
+{
+  "world": {
+    "id": "chaebol",
+    "name": "财阀家族",
+    "emoji": "👑",
+    "color": "#c9a227"
+  },
+  "country": {
+    "id": "korea",
+    "name": "韩国",
+    "register": "korea"
+  },
+  "setting": "故事发生在当代首尔的财阀世界。本家的客厅、董事会、私人画廊、酒店宴会厅，以及司机永远在门外等着的那辆车，构成她们的日常。这里没有人会被开除，也没有人需要打卡——约束来自姓氏：联姻、持股、下个季度两家公司要一起做还是对着做。恋爱不被禁止，但她们的婚事从来不只属于她们自己，而任何被拍到的东西，第二天都会出现在经济版的一行字里。",
+  "tone": "slow-burn, family obligation, reputational stakes",
+  "statNotes": {
+    "selfId": "Rises when she chooses something her family would not have chosen for her, in front of someone who will report it. Falls when she performs the daughter the name requires.",
+    "secrecy": "Falls when the relationship becomes legible to anyone outside the circle - a driver, a house staff member, a photographer outside a hotel, a line in a business column. Rises when a plausible reason is on the record first.",
+    "mood": "Driven by the family's calendar, what the companies are doing to each other this quarter, and how the last exchange with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "instagram"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "useRole": false,
+    "orgSuffix": "Group",
+    "orgNoun": "家族",
+    "orgHint": "这些成员是同一个圈子里、不同家族的继承人。为首的家族：{org}",
+    "composed": [
+      "[{name} Background]",
+      "{name} is the circle these {n} women move in: each of them an heir of a different chaebol house.",
+      "{org} is the largest of those houses and the one the others orbit. {name} exists only in this story. These {n} have known each other since childhood - the same schools, the same weddings, the same board dinners - and their families do business with and against each other constantly. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else is unnamed - a driver, a house staff member, an executive, a reporter - and no other name may be used, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "The cast of this story is {members}.",
+      "In this world they are heirs of chaebol houses who have known each other since childhood. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": false,
+  "identities": [
+    {
+      "id": "rival_heiress",
+      "name": "对家继承人",
+      "background": "[身份背景] 你是另一个财阀家族的女儿，你家和{name}家在同一个行业里正面竞争。 典型事件：同一场宴会上你们被安排在相邻的位置，全场都在看你们说什么； 两家在同一个项目上竞标，你在会议室对面看着她； 记者问你对她家的评价，你说了一句滴水不漏的话； 散场后她在停车场等你，问的不是生意。 优势：身份对等——你是这个圈子里少数不需要仰视她的人。劣势：你们之间的每一次接触都先被解释成商业动作，包括真心的那些。"
+    },
+    {
+      "id": "heiress_fallen",
+      "name": "落魄名门之女",
+      "background": "[身份背景] 你的家族曾经也在这个圈子里，几年前失去了一切。现在你还留在这些人中间，但位置已经不一样了。 典型事件：宴会上有人记得你的姓氏，语气里带着同情； 你穿着两季以前的衣服，她什么都没说，只是站得离你近了一点； 有人当着你的面谈起你家当年的事，她换了话题； 你需要一份工作，而能给的人就坐在对面。 优势：你比谁都懂这个圈子的规则，因为你曾经在里面。劣势：所有人都记得你现在的位置，包括你自己——她给你的任何东西，看起来都像施舍。"
+    },
+    {
+      "id": "lawyer",
+      "name": "家族律师",
+      "background": "[身份背景] 你是{name}家族的法律顾问，处理继承、股权、以及那些不能进法庭的事。 典型事件：一份文件需要她签字，而你知道她签完意味着什么； 深夜被叫去本家，为了一件第二天不能见报的事； 她问你一个假设性的法律问题，你听出那不是假设； 家族要你准备一份婚前协议，当事人是她。 优势：你知道这个家族所有的秘密，而且你有义务替他们保守。劣势：你替家族工作，不替她——当两者冲突，你的职业身份站在哪一边是写在合同里的。",
+      "workTitle": {
+        "form": "律师nim",
+        "kr": "변호사님"
+      }
+    },
+    {
+      "id": "secretary",
+      "name": "室长",
+      "background": "[身份背景] 你是{name}那一家的执行秘书——她的日程、她的行程、她见谁不见谁，都经过你。 典型事件：你比她本人更早知道她下周要见的相亲对象是谁； 深夜的车上只有你们两个，你在后视镜里看见她卸下表情； 家里要求你汇报她的行踪，而你交上去的版本少了一段； 她说“今晚这一段你不用记”，你记住了。 优势：你离她最近，近到知道她所有不说出口的事。劣势：你的工资是她家里发的，所以你的忠诚从一开始就被买走了一半。",
+      "workTitle": {
+        "form": "室长nim",
+        "kr": "실장님",
+        "direction": "to_cast",
+        "because": "works for the main member's house and every member of the circle outranks her inside it"
+      }
+    },
+    {
+      "id": "bodyguard",
+      "name": "随行保镖",
+      "background": "[身份背景] 你负责{name}的安全。你站在她身后两步的位置，一整天，几乎每一天。 典型事件：宴会上有人靠得太近，你向前半步，她按住了你的手臂； 记者堵在门口，你替她开路，她在你身后没有出声； 她甩掉行程一个人跑出去，找到她的人是你，而你没有上报； 凌晨送她回家，她在车里问你累不累——这是第一次有人问。 优势：物理距离最近，你几乎参与她的每一个小时。劣势：你在这里没有任何社会位置——你对她用敬语，而没有人对你用；你被允许保护她，不被允许认识她。"
+    },
+    {
+      "id": "journalist",
+      "name": "记者",
+      "background": "[身份背景] 你是记者，正在调查这个家族。你接近她是为了一篇稿子，至少一开始是。 典型事件：你以别的身份混进一场宴会，她一眼认出你不属于这里； 你拿到了一份足以毁掉她家的材料，也足以毁掉她； 她知道你是谁之后没有叫保安，而是坐下来问你想知道什么； 截稿日一天天近了，你开始删自己写下的句子。 优势：你不在这个圈子里，也不欠他们任何东西，所以你敢问别人不敢问的话。劣势：你们关系的起点是一场欺骗——无论后来变成什么，那一页都还在。"
+    },
+    {
+      "id": "主线成员前女友",
+      "name": "主线成员前女友",
+      "background": "[特殊身份背景-主线成员前女友]\n- 你和{name}曾是恋人，几年前因{reason}分手\n- 你至今保留着{keepsake}\n- 现在两家的生意又把你们放进了同一个房间：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离\n- 圈子里的人可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行",
+      "variants": {
+        "reason": [
+          "那桩没谈成的合并",
+          "家里安排的婚约",
+          "当年那场风波",
+          "你家的败落"
+        ],
+        "keepsake": [
+          "她送的那枚袖扣",
+          "宴会名牌上她改过的那行字",
+          "她写在请柬背面的字",
+          "你们一起翘掉的那场晚宴的车票"
+        ]
+      }
+    }
+  ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: what is said in front of staff, what is said in the car, what is never said at the table. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Press attention and family obligation higher, secrecy changes doubled. Being seen together carries weight: a photographer outside a hotel, a line in a business column, an engagement someone else has already agreed to.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Dinners and obligations, practised politeness, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, conversations in cars, accidental touches, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Press interest, an arrangement made on her behalf, what the families owe each other, duty against feelings."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "places": [
+    {
+      "id": "main_house",
+      "name": "本家客厅",
+      "emoji": "🏛️",
+      "desc": "太大、太安静，佣人随时会无声地经过。",
+      "draws": []
+    },
+    {
+      "id": "boardroom",
+      "name": "董事会会议室",
+      "emoji": "🗂️",
+      "desc": "长桌两端，名字写在牌子上，说话要按顺序。",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "private_gallery",
+      "name": "私人画廊",
+      "emoji": "🖼️",
+      "desc": "没有对外开放，所以也没有别人。",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "members_club",
+      "name": "会员制俱乐部",
+      "emoji": "🥃",
+      "desc": "进门要报姓氏，里面的人彼此都认识。",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "greenhouse",
+      "name": "温室",
+      "emoji": "🌿",
+      "desc": "玻璃墙，恒温，母亲养的兰花比人更被照顾。",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "banquet_hall",
+      "name": "酒店宴会厅",
+      "emoji": "🥂",
+      "desc": "水晶灯下全是熟面孔，和门外等着的镜头。",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "back_seat",
+      "name": "车后座",
+      "emoji": "🚘",
+      "desc": "隔板升起来之前，司机什么都听得见。",
+      "draws": []
+    },
+    {
+      "id": "penthouse",
+      "name": "顶层公寓",
+      "emoji": "🌆",
+      "desc": "整面落地窗，城市在下面，没有人能看进来。",
+      "draws": []
+    },
+    {
+      "id": "family_office",
+      "name": "家族办公室",
+      "emoji": "🖋️",
+      "desc": "管钱、管股份、也管婚事的那间屋子。",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "late_night_diner",
+      "name": "深夜的小食堂",
+      "emoji": "🍜",
+      "desc": "塑料凳、汤锅的热气，这里不会有人认得你们任何一个。",
+      "draws": []
+    }
+  ],
+  "scenario": "宴会散场之后。宾客陆续被车接走，宴会厅只剩下服务生在收拾，你们两个人因为各自的理由留到了最后。这是第一次，在没有任何人需要你们表演的时候说话。",
+  "npcArchetypes": [
+    "house staff member",
+    "driver",
+    "executive",
+    "reporter"
+  ],
+  "addressContext": {
+    "toPlayer": "in their circle",
+    "toCast": "in their circle"
+  },
+  "castLife": {
+    "theirs": "board dinners, the family calendar, the companies their names are on, the houses they grew up in",
+    "notHers": "no seat at their family's table and no name on any of it",
+    "recentBeat": "the dinner she just left",
+    "sceneExample": "Drawing room, 11PM",
+    "socialReach": "24000"
+  }
+}

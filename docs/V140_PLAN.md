@@ -1687,8 +1687,215 @@ all three languages, and smoke should assert that no world's display name equals
 | **4** | ✅ Section **11** (not 8 — see §6) + world-owned section 4: canon places with *prefer this list; invent only when the story genuinely needs somewhere new*, **plus §7.4(a)'s one sentence on who is likely to be at a place**, `scenario` in the cached prefix, `statNotes` into section 10, `castLore.composed`/`subset` rendered by `renderCastLore` in place of four string literals, `useGroupLore` honoured, `resolveRoster` taking a required `world`, `loadSave` fetching the **save's own** world, and `castLore.useRole` filtering the idol `role` out of a non-idol world's prompt | ✅ **Done.** Section 4 and section 5 did **not** move: the only golden diff is section 10's three notes, all of section 11, and the `scene` rule's pointer at it. `update-golden.mjs` run once and the diff read. Smoke **1304 → 1356**, **36 mutations RED**. The token delta is **still unmeasured** — see below |
 | **5** | ✅ Discovered places + map picker: `memory.places` client-side (`recordPlace` / `placeKey` / `PLACES_MAX`), `discoveredPlaceIn` reading the model's own `scene` line, 📍 beside the custom-input row opening `MapOverlay.jsx` (§14.4), selection submitting the world-language `t.map.go` template as the round's choice (§7.1 — moving costs a round, by design). **§7.4's engine is NOT here:** the affinity matrix stays in v1.4.2, and step 4's sentence is what makes a place affect who shows up | ✅ **Done.** The goldens did not move and `update-golden.mjs` was **not run at all** — nothing in step 5 is prompt-facing, which is §6.1's point. A sentinel place is asserted to reach **none** of the three messages; the row's own mutation was not expressible, so the guard sits on every route by which the value could leak (see above). Smoke **1356 → 1383**, **23 mutations RED, 0 GREEN** |
 | **6** | ✅ Platform-aware schema and overlays: `world.platforms` names ids and `src/config/platformConfig.js` says what each one is; `filterSocialByPlatforms` drops what the world did not declare; the group's `socialPlatforms`/`privateChat` are **deleted** from the loader, the template and all 60 group files | ✅ **Done.** The goldens did not move and `update-golden.mjs` was **not run at all** — every world declares all three social platforms today, so the trimming is provably a no-op until step 7. The row's stated gate (`parseLLMOutput` / `validateAndFixOutput` tolerate an absent or a stray platform) is a property both already had, so the guard sits on the filter and **counts its two readers** instead. Trimming is exercised against a synthetic instagram-only world. Smoke **1383 → 1423**, **34 mutations RED, 0 GREEN, 0 NOT APPLIED** |
-| **7** | Content: campus, office, chaebol — each with the ex-girlfriend identity (see below) and six structural ones. **zh authored, en/ko translated** — the repo's existing order, and the reason step 7 of v1.4.0 found seven defects zh could not express. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | One new fixture per world (see below) **and all three rendered prompts read by hand per world**. That reading is what found nineteen defects in step 7; a fixture only stops them coming back |
+| **7** | ✅ Content: campus, office, chaebol — each with the ex-girlfriend identity and six structural ones. **zh authored, en/ko translated**. **§21.3's negative obligation applies here:** no world's `scenario` or `phases` may promise an outcome the ending table cannot produce | ✅ **Done, and it was not data-only.** Reading the first rendered campus prompt found **seven statements in `buildSystemPrompt` that are true of an idol world and were asserted in every world** — the ROLE CONTRACT gave a campus cast *comebacks and a company* two sections after section 4 called them students. Four became `world.castLife`, three became world-neutral wording, and `kpop_idol` is byte-identical on every line the new fields feed. The **address direction was one hardcoded identity id**, so all four to_cast identities would have rendered backwards — now `workTitle.direction` + `because`. The ko fixture caught `"선배님" (선배님)`, a gloss translating a word into itself. The goldens moved **once**, by six lines each, diff read. Smoke **1425 → 1502**, **30 mutations RED, 0 GREEN, 0 NOT APPLIED**; three checks were deleted before the run for duplicating `parseWorld` or pinning a count |
 | **8** | **Release** | `npm run bump`, a `RELEASE_NOTES` entry (smoke ties `RELEASE_NOTES[0].version` to `package.json`), a live `playthrough.mjs` pass per §1, then the normal flow |
+
+#### Step 7's design, written before any content — ten decisions, and two dead fields found on the way in
+
+**Step 7 is data only.** Every reader it needs shipped in steps 1-6: the picker reads
+`loadWorldIndex`, the identity grid reads `world.identities`, section 4 reads `castLore`, sections
+10 and 11 read `statNotes` and `places`, the prompt's platform list reads `world.platforms`. So the
+work is authoring three world documents in three languages, plus the guards that keep nine files
+from drifting apart. **No `src/` change is planned**, and one arriving is a sign the shape was wrong.
+
+**1. The three worlds, and what each one has that the others do not.** `campus` is an age register
+with no contract behind it -- nobody can be fired, so the stakes are social. `office` is the one
+where the relationship is a *policy* problem, and secrecy has an owner (HR) rather than an audience.
+`chaebol` is the one where the families are parties to it: exposure costs a merger, not a job.
+`kpop_idol` keeps what it has -- a contract *and* an audience -- which is why it stays the default.
+
+**2. Platforms: Instagram and KakaoTalk only, in all three. Yuhan's decision B, 2026-09-29.** Bubble
+is a member-to-fan subscription product and Weverse a fan community; both are idol infrastructure
+and neither has a meaning in a lecture hall. **This is the first time step 6's trimming renders for
+real** -- until now it was exercised only against a synthetic world in smoke, because every world on
+disk declared all three social platforms. Two consequences to check rather than assume: the top bar
+drops to three buttons, and section 2's schema, section 7's rules, the RULES format block and
+section 1's slash list all shorten together or one of them is the copy step 6 missed.
+
+**3. The three cast findings of 2026-09-28 are applied, not re-opened.** The campus cast are
+**students** and the cut is `student_of_cast`, not `peer_student`; the office cut is **`ceo`**, not
+`contractor`; the chaebol cast are **one circle, several houses** (option b), so `secretary` is aide
+to *the main member's* house rather than to a singular unnamed heiress. `tutor` is cut anyway, which
+retires the other half of that contradiction without rewording it.
+
+**4. Six structural identities plus the ex, per world -- matching `kpop_idol`'s seven exactly.**
+`H` is the app's, not the world's, and appears in no world file.
+
+| World | Authored ids |
+| --- | --- |
+| `campus` | `prof_of_cast`, `peer_student`, `senior_student`, `junior_student`, `ta`, `exchange_student`, `主线成员前女友` |
+| `office` | `peer_colleague`, `manager_of_cast`, `report_to_cast`, `new_hire`, `contractor`, `hr`, `主线成员前女友` |
+| `chaebol` | `rival_heiress`, `heiress_fallen`, `lawyer`, `secretary`, `bodyguard`, `journalist`, `主线成员前女友` |
+
+**5. The ex keeps one id across all four worlds and gets four reasons and four keepsakes per world.**
+`renderIdentityBackground` substitutes exactly `{reason}` and `{keepsake}`, off two separate bit
+ranges of `backstorySeed`; a world writing a third key renders the literal `{key}` into the prompt
+with no error. The keepsakes are world-specific for the same reason the reasons are -- *the CD you
+both listened to* is an idol-era object, and a chaebol ex keeps something her family would notice.
+
+**6. Org naming, which is the one place the composed template can read as nonsense.**
+`orgNameFor(castName, orgSuffix)` builds the organisation from the single name the player types, so
+each world has to make one name do two jobs the way `X` / `X Entertainment` already does.
+
+| World | `orgSuffix` | `orgNoun` (Setup's label) | What section 4 then says |
+| --- | --- | --- | --- |
+| `campus` | `University` | school | a circle of N students at *X University* |
+| `office` | `Group` | company | one team inside *X Group* |
+| `chaebol` | `Group` | house | N heirs of different houses, of which *X Group* is the largest |
+
+`orgSuffix` is prompt-facing English and identical across the three languages; `orgNoun` and
+`orgHint` are what the **player** reads on Setup and are authored per language. That split is
+already asserted and now has to hold for four worlds instead of one.
+
+**7. `useGroupLore: false` and `castLore.useRole: false` in all three**, which is what stops a real
+group's idol history and a member's `Main Vocal` reaching a lecture hall. Note the consequence the
+step-4 note already records: with `useGroupLore: false` a **whole single group** takes the `subset`
+template, so each new world authors one -- and none of them may carry a `Fandom:` line, because a
+fanbase is the thing these worlds do not have.
+
+**8. The language-invariant guard stops being about `kpop_idol` and starts being derived.** Today
+smoke compares the English rule half of the three `kpop_idol` files and asserts the localized half
+differs. That check is exactly what nine new files need and it names one world. **It loops over
+every id in `worlds/index.json` instead** -- the `["groups", "worlds"]` rule from Layer C and the
+`SERVED_TREES` scan from the harness revival: the thing that keeps going wrong is a list a human has
+to remember to extend. The same applies to the place, phase, org-noun and name-collision checks
+beside it, and to the world-name-against-identity-name assertion, which is now four worlds' names
+against four worlds' identity lists rather than one against one.
+
+**9. Fixtures: `campus-ko`, `office-en`, `chaebol-zh`**, per the rotation already proposed, and the
+six unpinned pairs are named in `test/README.md` rather than left looking like coverage. **The gate
+is two-sided:** the three existing fixtures must not move by one byte -- nothing in step 7 touches
+`kpop_idol` or any code that renders it -- and the three new ones are *read by hand in all three
+languages per world*, which is the step that found nineteen defects last time and which no fixture
+can do.
+
+**10. The negative obligation from section 21.3 is checked at authoring time, not after.** No
+world's `scenario` or `phases` may promise an outcome the five achievements cannot produce. In
+practice that rules out one sentence each world is tempted to write: a public wedding, a family
+blessing, a reinstated contract. `phases` ends at *possible proposal or separation*, which all five
+endings can reach, and the three new worlds end there too.
+
+#### …and step 7 is not data-only after all: the address title points one way, in code, for one id
+
+**Found reading `buildSystemPrompt` against the identity tables, before authoring anything.**
+Decision 1 above says no `src/` change is planned and that one arriving is a sign the shape was
+wrong. One arrived, and the shape was wrong in a way the tables had already written down: every
+identity table in section 15 carries a **Title direction** column, and the code has no field for it.
+
+[mainAgent.js:265-268](../src/agent/mainAgent.js#L265-L268) decides which way the work title points
+by comparing the identity id to a literal:
+
+```js
+form.identity === "练习生"
+  ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them…`
+  : `she addresses ${playerName} as ${workTitle} on the job…`
+```
+
+So **to_player is the default and to_cast is one hardcoded Chinese string**. Four of the eighteen
+identities step 7 authors point the title at the cast — `junior_student` and `new_hire` use
+`선배님` upward, `secretary` uses `회장님`, `bodyguard` uses her employer's title — and every one
+of them would have rendered the sentence backwards. **That is the inverted age line again**: a
+statement the model follows correctly because the prompt states it wrongly, with nothing failing.
+
+**Two fields, and the split is step 6's: the world says which way, the code says what that means.**
+
+- **`workTitle.direction`** — `"to_cast"`, or absent for today's behaviour. Absent rather than
+  `"to_player"` so no existing entry is edited into saying what it already means.
+- **`workTitle.because`** — the identity-specific clause the to_cast sentence needs a reason from,
+  English like the rest of section 6 and therefore language-invariant. `练习生` declares
+  *"is an undebuted trainee and every member is a debuted senior"*, which is the clause already in
+  the code, so its rendering does not move by one byte.
+
+`parseWorld` throws when `direction` is anything but `"to_cast"`, when a to_cast entry carries no
+`because`, and when a `because` appears without a `direction` — the third of those is the field
+that would otherwise sit there with no reader, which is the shape this file is currently tracking
+seven instances of.
+
+**And the register around the title is the world's too — `world.addressContext`.** The two sentences
+say *"on the job"* and *"at work"*, which is true of an agency and of an office and false of a
+lecture hall and a family house. A student does not address her professor *on the job*. It is two
+language-invariant strings per world (`toPlayer`, `toCast`), `kpop_idol` declares exactly the two
+literals it renders today, and the campus, office and chaebol worlds say *on campus*, *at work* and
+*in the house*. That is the seventh-defect class from v1.4.0 step 7 caught before it is authored
+rather than after: a statement that is true of the world the sentence was written in and false of
+every other one.
+
+**The gate is unchanged and is now load-bearing:** `twice-nine-en.txt` pins the to_player sentence
+verbatim, so that line must come out byte-identical, and the two existing smoke guards on the
+direction — *"relaxes toward the PLAYER's name"* against *"relaxes toward the MEMBER's name"* —
+were written from the requirement rather than from the literal, so they survive the refactor
+unchanged. **No golden pins the to_cast branch at all**, which is why the mutation round matters
+more here than the fixtures do.
+
+#### The hand read found seven more, and they are all in the prompt rather than in the data
+
+**This is what the gate is for, and it fired on the first world rendered.** Reading `campus` end to
+end in zh and en, before authoring `office` or `chaebol`, turned up **seven statements in
+`buildSystemPrompt` that are true of an idol world and asserted in every world.** None of them is
+in a world file, none throws, and none would ever have failed a test: the three goldens are all
+`kpop_idol`, where every one of these sentences is correct.
+
+The worst is the ROLE CONTRACT, which is the section CLAUDE.md already records the model reading as
+exhaustive:
+
+> The members' working life — **practice, schedules, comebacks, the dorm, this company** — is
+> THEIRS… she has **no practice here to be late for** and no place in their schedule
+
+In a campus world that does not merely read oddly: it **states as fact that the cast have practice,
+comebacks and a company**, two sections after section 4 has said they are students. That is the
+`[BLACKPINK Background]` shape exactly — a specific claim, in an authoritative section, contradicting
+a more general rule elsewhere — and the model is entitled to build on it.
+
+**The split follows step 4's discriminator, not step 6's.** The question is whether the text varies
+with the thing the file is about, and *what these five people do all day* is the single most
+world-specific fact there is. So four strings become `world.castLife`, English like the rest of
+sections 6 and 7, and `kpop_idol` declares **exactly the literals it renders today**:
+
+| Key | `kpop_idol` | `campus` |
+| --- | --- | --- |
+| `theirs` | practice, schedules, comebacks, the dorm, this company | classes, deadlines, club activities, the dorm |
+| `notHers` | no practice here to be late for and no place in their schedule | no class here to be late for and no place on their timetable |
+| `recentBeat` | the practice she just left | the class she just walked out of |
+| `sceneExample` | Practice room, 10PM | Lecture hall, 10PM |
+
+**The other three needed no field, because the right fix was to stop being specific at all.** Each
+was a noun doing no work that a world-neutral one cannot do, and generalising them is a better rule
+rather than a compromise:
+
+- *"Never flatten members into a generic **idol** type"* -> *"a generic type"*.
+- *"She is NOT a member of **the group**"* -> *"She is NOT one of them"*.
+- *"In narration a member is her **stage name** alone"* -> *"her name alone"*. A student has no stage
+  name. The same phrase in the to_cast work-title sentence goes with it.
+- *"All members must be present in **group scenes**"* -> *"in scenes with the whole cast present"*.
+- *"The only **company** that exists in this story"* -> *"the only **organisation**"*, which is true
+  of an agency, a university and a family firm alike.
+
+**All three goldens move, deliberately, and the diff is the review artifact.** `update-golden.mjs`
+runs once and the diff is read line by line: it must be exactly these five wordings and nothing else,
+because the four `castLife` strings reproduce `kpop_idol`'s current text byte for byte and must show
+as no change at all.
+
+**Left alone, and stated rather than quietly skipped:** section 4's heading is still *GROUP
+BACKGROUND* and its composed preamble still says *"this cast is its own group"* and *"never borrow a
+real group's history, discography or agency"*. The heading carries a section number five other
+sections point at by name, and the preamble's whole job is to stop the model completing the cast from
+the real groups these members come from — which is an idol leak in every world, campus included, so
+naming a discography and an agency there is load-bearing rather than stale. `group` as the word for
+a cast is the one piece of idol vocabulary this release keeps, and it is in *Known Inconsistencies*.
+
+#### Two fields with no reader, found while authoring against `parseWorld`
+
+Not step 7's to fix, and recorded here rather than left for the next reader to rediscover:
+
+- **`world.tone`** is required by `parseWorld`, returned on the parsed world, and read by **nothing**
+  in `src/`. Three more copies of a dead string is what step 7 adds by authoring it.
+- **`country.name`** is the same. Only `country.register` is read. Section 15's rationale for the
+  field said it supplies *"a name for the setting, which the `setting` paragraph needs anyway"* --
+  and `setting` is its own authored field, so the name it justified never acquired a consumer.
+
+That is the **sixth and seventh** instance of the shape this project tracks by name. Both are one
+line to delete and one line to render; neither is decided here, and section 18 carries them beside
+`STAR_LEVELS` and `STORAGE_KEYS.FORM`.
 
 #### Step 6's design, written before any code — nine decisions, and the row's gate is one the code already passes
 
@@ -2269,6 +2476,25 @@ Still open, and none of it blocks starting step 1:
    a rewritten migration invariant are one change whose diff has to be readable on its own.
 
 ---
+
+9. **`world.tone` and `country.name` have no reader — delete them or render them.** Found while
+   authoring step 7 against `parseWorld`. Both are **required** by the validator, both are returned
+   on the parsed world, and neither is read anywhere in `src/`: `tone` by nothing at all, `country`
+   only for its `register`. Section 15's rationale for the country field said it supplies *"a name
+   for the setting, which the `setting` paragraph needs anyway"* — and `setting` is its own authored
+   field, so the name it justified never acquired a consumer.
+
+   They are the **sixth and seventh** instance of the shape this plan and `CLAUDE.md` track by name,
+   after `npcAppearances`, bubble `photoDesc`, cast photos, `STAR_LEVELS` and the group library's
+   `social_platforms`. Step 7 authored three more copies of each because the validator demands them,
+   which is the cost of leaving it undecided.
+
+   **Recommendation: render `tone`, delete `country.name`.** `tone` is the one line that would tell
+   the model what kind of story this is — *slow-burn, campus seasons, social exposure* — and section
+   11 or section 3 is where it would go; it costs about eight tokens and moves all six goldens.
+   `country.name` has no candidate reader at all, and `country` keeps `register`, which is the half
+   that does the work. Either way it is one line each, and both are Yuhan's call because rendering
+   `tone` changes what every existing save sends.
 
 ## 18b. A Kakao that the scene makes impossible
 

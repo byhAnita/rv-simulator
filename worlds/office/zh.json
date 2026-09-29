@@ -1,0 +1,242 @@
+{
+  "world": {
+    "id": "office",
+    "name": "职场",
+    "emoji": "🏢",
+    "color": "#6f8fa8"
+  },
+  "country": {
+    "id": "korea",
+    "name": "韩国",
+    "register": "korea"
+  },
+  "setting": "故事发生在当代首尔的一家公司。工位、会议室、茶水间、电梯里那短短的十五秒，以及下班后没人真的想去的会食，构成她们的日常。这里的约束是写下来的：人事规定、汇报线、年末考核。恋爱不被禁止，但它一旦被写进任何一张表格，就不再只是两个人的事——而公司里没有一件事是不被写下来的。",
+  "tone": "slow-burn, office hierarchy, policy risk",
+  "statNotes": {
+    "selfId": "Rises when she says what she actually thinks in a room where the safe answer was available - a review, a client meeting, a decision that is already half made. Falls when she says the safe thing instead.",
+    "secrecy": "Falls when the relationship becomes legible to anyone in the building - a colleague on the same floor, a shared calendar, a card swipe at an odd hour, a form that asks. Rises when an ordinary work reason holds.",
+    "mood": "Driven by workload, deadlines and where the quarter is, and by how the last exchange with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "instagram"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "useRole": false,
+    "orgSuffix": "Group",
+    "orgNoun": "公司",
+    "orgHint": "这些成员是同一家公司、同一个组的同事。公司：{org}",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a team of {n} at {org}.",
+      "{name} exists only in this story. These {n} sit on the same floor and have worked together long enough to read each other's silences. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else in the building is unnamed - a colleague, a manager, a client, a guard - and no other name may be used, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "The cast of this story is {members}.",
+      "In this world they are colleagues on one team at one company. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": false,
+  "identities": [
+    {
+      "id": "peer_colleague",
+      "name": "同事",
+      "background": "[身份背景] 你和{name}是同一个组、同一个级别的同事，工位隔着一块挡板。 典型事件：同一个项目通宵改方案，凌晨在便利店买第三罐咖啡； 她替你挡下了本该你背的那个锅； 会食散场你们顺路，走了很长一段夜路； 年末考核出来，你们的名次挨在一起。 优势：平级、同组，待在一起不需要任何理由。劣势：也正因为如此，整个组都在同一个视野里，任何变化都由同一批人看见。"
+    },
+    {
+      "id": "manager_of_cast",
+      "name": "组长",
+      "background": "[身份背景] 你是这个组的组长，{name}是你的组员。 典型事件：你把最难的那个客户留给自己，而不是分给她； 一对一面谈的二十分钟里，你们有十分钟没在谈工作； 她的方案被上面打回来，你在会上说那是你的决定； 年末评价你必须给全组排序，而你知道自己犹豫了多久。 优势：你决定她做什么、跟谁做、做多久——这是这栋楼里最接近照顾的东西。劣势：你也决定她的考核，所以她对你说的任何一句话，都可能不是她真想说的那句。",
+      "workTitle": {
+        "form": "组长nim",
+        "kr": "팀장님"
+      }
+    },
+    {
+      "id": "report_to_cast",
+      "name": "组员",
+      "background": "[身份背景] {name}是你的组长，你直接向她汇报。 典型事件：你交上去的东西被她改得面目全非，附一句“下次你自己就能做到”； 她把你从一个要不到结果的会议里捞出来； 你加班到很晚，她的工位灯也还亮着； 考核面谈，她给你的分数比你预想的高，你没敢问为什么。 优势：你们每天有必须说话的理由，而且是最私下的那种。劣势：你无法分辨她的照顾里有多少是职务，也无法让她分辨你的努力里有多少是别的。",
+      "workTitle": {
+        "form": "组长nim",
+        "kr": "팀장님",
+        "direction": "to_cast",
+        "because": "reports to them and every member sits above her on the org chart"
+      }
+    },
+    {
+      "id": "new_hire",
+      "name": "新人",
+      "background": "[身份背景] 你是这个组最新来的人，这里所有人都是你的前辈。 典型事件：第一周你把会议室订错了时间，是她去道的歉； 她把自己的模板文件夹整个共享给了你； 会食上有人一直给你倒酒，她把杯子拿开了； 三个月试用期结束那天，她只说了一句“留下来吧”。 优势：向前辈请教是最自然的接近方式，没有人会觉得奇怪。劣势：你还没有任何位置——她照顾你是本分，你多想一点就是你的问题。",
+      "workTitle": {
+        "form": "前辈nim",
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is the newest hire and every member joined before her"
+      }
+    },
+    {
+      "id": "contractor",
+      "name": "外部合作方",
+      "background": "[身份背景] 你不是这家公司的人。你是供应商、顾问或者外包方的对接人，有门禁卡，但没有工号。 典型事件：你在她们的会议上没有座位，只能站在投影旁边； 项目结束的庆功宴，有人问你“你是哪边的”； 她在电梯里叫住你，问的不是工作； 合同到期前一周，你们都没有提下一份。 优势：你不在任何一条汇报线上，公司的规定管不到你们两个。劣势：也正因为如此，你随时会消失——合同结束就是结束，没有人需要给你一个交代。"
+    },
+    {
+      "id": "hr",
+      "name": "人事",
+      "background": "[身份背景] 你在人事部。入职、考核、投诉、离职——所有关于这些人的文件，最后都经过你的手。 典型事件：她的入职档案是你办的，你记得上面每一行； 有人来投诉她的组，你必须把两边的话都听完； 公司出台新的内部关系申报规定，起草的人是你； 她来问一件“替朋友问的”事，你们都知道不是。 优势：你比任何人都清楚这栋楼里谁和谁之间有什么，规则是你写的。劣势：规则是你写的——所以你比任何人都清楚，如果被发现，第一个要被处理的是你。"
+    },
+    {
+      "id": "主线成员前女友",
+      "name": "主线成员前女友",
+      "background": "[特殊身份背景-主线成员前女友]\n- 你和{name}曾是恋人，几年前因{reason}分手\n- 你至今保留着{keepsake}\n- 现在一次组织调整把你们放进了同一个组：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离\n- 其他同事可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行",
+      "variants": {
+        "reason": [
+          "她接了外派的职位",
+          "那次升职",
+          "两个人都太累了",
+          "她的婚约"
+        ],
+        "keepsake": [
+          "她留下的那支笔",
+          "工牌背面你们的合照",
+          "她贴在你显示器上的便利贴",
+          "你们一起加班那晚的收据"
+        ]
+      }
+    }
+  ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: the same desk, the same lift, the same walk to the station. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Workplace scrutiny and policy exposure higher, secrecy changes doubled. Being seen together carries weight: a shared calendar, a colleague on the same floor, and a written policy that has a name for this.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Handovers and corridors, professional politeness, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, work that runs late, accidental touches, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Talk on the floor, a policy that has a name for this, a reorganisation, career against feelings."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "places": [
+    {
+      "id": "open_floor",
+      "name": "开放办公区",
+      "emoji": "💻",
+      "desc": "隔板只到肩膀，谁走过谁的工位都看得见。",
+      "draws": []
+    },
+    {
+      "id": "meeting_room",
+      "name": "会议室",
+      "emoji": "🗓️",
+      "desc": "玻璃墙，百叶窗拉下来反而更引人注意。",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "pantry",
+      "name": "茶水间",
+      "emoji": "☕",
+      "desc": "全公司消息流转最快的六平米。",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "elevator",
+      "name": "电梯",
+      "emoji": "🛗",
+      "desc": "十五秒，门开之前什么都可以说，门开之后什么都不能。",
+      "draws": []
+    },
+    {
+      "id": "rooftop",
+      "name": "天台",
+      "emoji": "🌃",
+      "desc": "唯一没有摄像头的地方，也是最冷的地方。",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "hoesik",
+      "name": "会食的餐厅",
+      "emoji": "🍶",
+      "desc": "烤盘的烟、被劝的酒，和一桌人看着你们两个。",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "stairwell",
+      "name": "安全通道",
+      "emoji": "🪜",
+      "desc": "没有人走楼梯，所以在这里说的话没人听见。",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "archive_room",
+      "name": "资料室",
+      "emoji": "🗄️",
+      "desc": "灯要手动开，门是从里面反锁的那种。",
+      "draws": [
+        "studious"
+      ]
+    },
+    {
+      "id": "taxi",
+      "name": "深夜的出租车",
+      "emoji": "🚕",
+      "desc": "后座、路灯一格一格扫过，司机在听广播。",
+      "draws": []
+    },
+    {
+      "id": "convenience_store",
+      "name": "楼下便利店",
+      "emoji": "🏪",
+      "desc": "深夜两点，热柜的雾气，店员没有抬头。",
+      "draws": []
+    }
+  ],
+  "scenario": "加班到只剩两个人的晚上。整层办公区只有你们这一排的灯还亮着，中央空调早就停了。你们本来只是在等同一份文件，结果谁都没有先走。",
+  "npcArchetypes": [
+    "team lead",
+    "client",
+    "intern",
+    "building security guard"
+  ],
+  "addressContext": {
+    "toPlayer": "at work",
+    "toCast": "at work"
+  },
+  "castLife": {
+    "theirs": "deadlines, client meetings, the quarterly numbers, this company",
+    "notHers": "no meeting here to be late for and no line on their org chart",
+    "recentBeat": "the meeting she just walked out of",
+    "sceneExample": "Meeting room, 9PM",
+    "socialReach": "820"
+  }
+}

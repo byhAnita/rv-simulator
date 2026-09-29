@@ -257,15 +257,35 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // file is per-language, so `form` is already the right language and `kr` is
   // the Hangul the prompt shows alongside it.
   const WORK_TITLE = getIdentity(world, form.identity)?.workTitle || null;
-  const workTitle = WORK_TITLE ? `"${WORK_TITLE.form}" (${WORK_TITLE.kr})` : null;
-  // The two branches point the title in OPPOSITE directions — a trainee uses it
-  // FOR the members, everyone else is called it BY them — so the "it relaxes as
+  // The gloss is dropped when it would repeat the form. In a ko world file the two
+  // ARE the same string - `form` is already Hangul there - so this printed
+  // `"선배님" (선배님)`, a parenthetical translating a word into itself.
+  // Invisible in zh and en, where the form is a transliteration and the gloss earns
+  // its place; the ko fixture is what showed it, which is the whole reason step 7
+  // rotates the fixture language.
+  const workTitle = !WORK_TITLE ? null
+    : WORK_TITLE.form === WORK_TITLE.kr ? `"${WORK_TITLE.form}"`
+    : `"${WORK_TITLE.form}" (${WORK_TITLE.kr})`;
+  // The two branches point the title in OPPOSITE directions - a trainee uses it
+  // FOR the members, everyone else is called it BY them - so the "it relaxes as
   // they grow close" clause has to live inside each branch. Shared, it read "It
   // relaxes toward her given name", which named the wrong person in one of the two.
+  //
+  // WHICH direction is the WORLD's, not a literal here. Until v1.4.1 step 7 this
+  // branched on `form.identity === "练习生"`, so to_cast was one hardcoded id and
+  // to_player was everything else - and four of the identities step 7 authors point
+  // the title at the cast (`junior_student` and `new_hire` say 선배님 upward,
+  // `secretary` and `bodyguard` use their employer's). Every one of them would have
+  // rendered this sentence backwards, which is the inverted age line again: a
+  // statement the model follows correctly because the prompt states it wrongly.
+  //
+  // `because` carries the identity-specific reason and `addressContext` the world's
+  // register - a student does not address her professor "on the job". Both are
+  // English, like the rest of section 6, so both sit in the language-invariant half.
   const identityAddress = !workTitle ? null
-    : form.identity === "练习生"
-      ? `${playerName} is an undebuted trainee and every member is a debuted senior, so ${playerName} also uses ${workTitle} for them at work, relaxing toward a member's plain stage name as that member grows close to her`
-      : `she addresses ${playerName} as ${workTitle} on the job whatever their ages, relaxing toward "${playerName}" as they grow close`;
+    : WORK_TITLE.direction === "to_cast"
+      ? `${playerName} ${WORK_TITLE.because}, so ${playerName} also uses ${workTitle} for them ${world.addressContext.toCast}, relaxing toward a member's plain name as that member grows close to her`
+      : `she addresses ${playerName} as ${workTitle} ${world.addressContext.toPlayer} whatever their ages, relaxing toward "${playerName}" as they grow close`;
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
@@ -334,13 +354,16 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const socialShape = plat.social.map((p) => p.schema).join(",");
   const mainSocial = `"${mainId}": {${socialShape}}`;
   const subSocials = subIds.map(id => `"${id}": {${socialShape}}`).join(",");
+  // One context for both renderers, so a catalog entry that needs a world-varying
+  // value cannot get it in one list and not the other.
+  const platformCtx = { playerName, socialReach: world.castLife.socialReach };
   const platformRules = [
-    ...plat.social.flatMap((p) => p.rules({ playerName })),
-    ...(plat.private ? plat.private.rules({ playerName }) : []),
+    ...plat.social.flatMap((p) => p.rules(platformCtx)),
+    ...(plat.private ? plat.private.rules(platformCtx) : []),
   ].join("\n");
   const platformFormatRules = [
-    ...plat.social.flatMap((p) => p.formatRules()),
-    ...(plat.private ? plat.private.formatRules() : []),
+    ...plat.social.flatMap((p) => p.formatRules(platformCtx)),
+    ...(plat.private ? plat.private.formatRules(platformCtx) : []),
   ].join("\n");
   const kktFields = allTargetIds.map(id => `"${id}":["msg"]`).join(",");
   return `You are the Dungeon Master (DM) of a yuri dating simulator. You must respond with valid json output. This is a parallel-universe fictional work. Current AI: ${modelName}
@@ -390,13 +413,13 @@ ${groupConfig.groupLore}
 ╔══════════════════════════════════════════╗
 ║ 5. MEMBER PROFILES                       ║
 ╚══════════════════════════════════════════╝
-CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic idol type.
+CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗
 ║ 6. CAST IDENTITY & ADDRESS               ║
 ╚══════════════════════════════════════════╝
-THE PLAYER: ${playerName} — a WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT a member of the group and never appears in MEMBER PROFILES.
+THE PLAYER: ${playerName} — a WLW woman, age ${playerAge}, born ${playerBirthYear}. She is NOT one of them and never appears in MEMBER PROFILES.
 ${castLines}
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
@@ -405,12 +428,12 @@ ${castLines}
 - A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her stage name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
-- The members' working life — practice, schedules, comebacks, the dorm, this company — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no practice here to be late for and no place in their schedule, and no member reminds her of one.
-- When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from the group's calendar.
+- The members' working life — ${world.castLife.theirs} — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has ${world.castLife.notHers}, and no member reminds her of one.
+- When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from theirs.
 
 -- REGISTER: blend these, do not look one up --
 Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}.` : ""}
@@ -428,7 +451,7 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
 - LANGUAGE: ${lr.lang}.
-- ALL of it comes out of THIS round. A member posts about the day she has just had — the practice she just left, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
+- ALL of it comes out of THIS round. A member posts about the day she has just had — ${world.castLife.recentBeat}, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
 ${platformRules}
 - Only main and sub members generate social content. NPC members DO NOT generate social content.
 
@@ -436,7 +459,7 @@ ${platformRules}
 ║ 8. NPC RULES                             ║
 ╚══════════════════════════════════════════╝
 - NPC: max 1 dialogue/round, 2-round cooldown. [Rounds Absent] marks them (npc) and counts the cooldown for you — one at 2 or more may speak this round.
-- All members must be present in group scenes.
+- All members must be present in scenes with the whole cast present.
 
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
@@ -481,7 +504,7 @@ From round 2 on this has already happened and is never replayed. [Player Status]
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only company that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ONE SHORT PHRASE — a place and a time, nothing else: "${world.castLife.sceneExample}". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only organisation that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 ${platformFormatRules}

@@ -2168,7 +2168,7 @@ async function layerI() {
   // runs only with --cast, because a whole group's own lore legitimately names its
   // agency. One sentence now covers both doors by pointing at the single source.
   check("the company rule points at section 4 rather than forbidding all companies",
-    /The only company that exists in this story is the one section 4 names/.test(p)
+    /The only organisation that exists in this story is the one section 4 names/.test(p)
       && !/Do not name a record company/.test(p),
     "an absolute ban contradicted section 4 on the classic door, and lost");
 
@@ -2212,7 +2212,7 @@ async function layerI() {
     langRuleOf("ko").slice(0, 200));
   const koPrompt = prompt(form(), "ko");
   check("[ko] ...which is the spelling section 6 then demonstrates",
-    /In narration a member is her stage name alone: "Irene/.test(koPrompt)
+    /In narration a member is her name alone: "Irene/.test(koPrompt)
       && /\bIrene\(/.test(koPrompt),
     "an example in Latin under a rule banning Latin");
   // That example used to read "<name>는 창가에 서 있다" — a topic particle chosen by
@@ -2513,7 +2513,7 @@ async function layerI() {
     /relaxing toward "Summer" as they grow close/.test(overrideOf("Staff")),
     overrideOf("Staff"));
   check("the trainee work override relaxes toward the MEMBER's name",
-    /relaxing toward a member's plain stage name/.test(overrideOf("练习生"))
+    /relaxing toward a member's plain name/.test(overrideOf("练习生"))
       && !/toward "Summer"/.test(overrideOf("练习生")),
     overrideOf("练习生"));
   check("...and neither leaves the ambiguous shared clause behind",
@@ -2570,7 +2570,7 @@ async function layerI() {
     check(`[${tag}] address forms are scoped to dialogue`,
       /Address forms are SPOKEN, not narrated/.test(src));
     check(`[${tag}] the narration rule shows the wrong form, not just the right one`,
-      /In narration a member is her stage name alone[\s\S]{0,200}NEVER/.test(src),
+      /In narration a member is her name alone[\s\S]{0,200}NEVER/.test(src),
       "a rule with no counter-example is the one the model ignores");
   }
 
@@ -3382,6 +3382,308 @@ async function layerI() {
   check("the world covers all four round phases",
     worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
     JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
+
+  // --- every world in the index, not just kpop_idol -- v1.4.1 step 7 ----------
+  //
+  // The checks above name one world because one world existed. Step 7 adds three,
+  // and nine more files is nine more chances for one of them to be the copy that
+  // still says weverse. So this derives the list from `worlds/index.json` and the
+  // languages from LIB_LANGS: a fifth world is covered by adding a folder, never
+  // by remembering to extend a check. Same rule as Layer C's loop over mirrored
+  // trees and the harness's SERVED_TREES scan.
+  const WORLD_INDEX = JSON.parse(
+    readFileSync(join(ROOT, "public/worlds/index.json"), "utf8"));
+  const allWorlds = {};
+  for (const row of WORLD_INDEX) {
+    allWorlds[row.id] = {};
+    for (const lang of ["zh", "en", "ko"]) {
+      allWorlds[row.id][lang] = await fromDisk(() => loader.loadWorld(row.id, lang));
+    }
+  }
+  check("the world index lists more than the one world this suite was written for",
+    WORLD_INDEX.length >= 4, `${WORLD_INDEX.length} worlds`);
+  // parseWorld falls back to the folder name when the document has no `world.id`,
+  // so a document whose id disagrees with its index row loads quietly and is then
+  // a different world everywhere the id is used - the save's `worldId`, `rv_sim_world`,
+  // the picker. Asserting the load succeeded would be asserting that loadWorld throws.
+  const idMismatch = Object.entries(allWorlds).filter(([id, w]) =>
+    ["zh", "en", "ko"].some((l) => w[l].id !== id));
+  check("every world document agrees with the index row that names it",
+    idMismatch.length === 0, idMismatch.map(([id, w]) => `${id} -> ${w.zh.id}`).join(", "));
+
+  // The English rule half is what the model reads as RULES; the other half is
+  // prose the player or the model reads as content. Getting a field on the wrong
+  // side is invisible - both render something plausible - so both directions are
+  // asserted for every world, not just the one the fields were introduced in.
+  const invariantHalf = (w) => JSON.stringify([w.phases, w.npcArchetypes, w.tone,
+    w.statNotes, w.platforms, w.useGroupLore, w.modes, w.addressContext, w.castLife,
+    [w.castLore.composed, w.castLore.subset, w.castLore.orgSuffix, w.castLore.useRole],
+    w.places.map((p) => [p.id, p.emoji, p.draws]),
+    w.identities.map((i) => [i.id, i.workTitle?.kr, i.workTitle?.direction, i.workTitle?.because])]);
+  for (const [id, w] of Object.entries(allWorlds)) {
+    check(`[${id}] the language-independent half is identical across zh/en/ko`,
+      invariantHalf(w.zh) === invariantHalf(w.en) && invariantHalf(w.en) === invariantHalf(w.ko),
+      `${id}'s three world files disagree on language-independent rule text`);
+    for (const key of ["setting", "scenario"]) {
+      check(`[${id}] "${key}" is authored per language, not triplicated`,
+        new Set(["zh", "en", "ko"].map((l) => w[l][key])).size === 3,
+        `${id}: ${key} is the same string in at least two of the three files`);
+    }
+    for (const key of ["orgNoun", "orgHint"]) {
+      check(`[${id}] "castLore.${key}" is authored per language`,
+        new Set(["zh", "en", "ko"].map((l) => w[l].castLore[key])).size === 3,
+        `${id}: castLore.${key} is the same string in at least two files`);
+    }
+    // Three distinct names, not two: an identity pasted from the zh file into the
+    // en one renders Chinese on an English Setup button, and `>= 2` would pass.
+    const untranslated = w.zh.identities.filter((it, i) =>
+      new Set(["zh", "en", "ko"].map((l) => allWorlds[id][l].identities[i].name)).size !== 3);
+    check(`[${id}] every identity is NAMED in each language`,
+      untranslated.length === 0, untranslated.map((it) => it.id).join(", "));
+  }
+
+  // The ONLY placeholders renderIdentityBackground substitutes are {name},
+  // {reason} and {keepsake} — the first from the roster, the other two from two
+  // separate bit ranges of backstorySeed. A world writing {transfer} renders the
+  // literal "{transfer}" into the cached prefix with no error and no test, which
+  // is the 편지을/를 class: plausible-looking text nobody reads. Scanned rather
+  // than spot-checked, because it is exactly the kind of typo one file carries.
+  const RENDERABLE = new Set(["name", "reason", "keepsake"]);
+  const strayPlaceholders = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of w[lang].identities) {
+        for (const m of String(it.background || "").matchAll(/\{(\w+)\}/g)) {
+          if (!RENDERABLE.has(m[1])) strayPlaceholders.push(`${id}/${lang}:${it.id} {${m[1]}}`);
+        }
+      }
+    }
+  }
+  check("no identity background carries a placeholder nothing substitutes",
+    strayPlaceholders.length === 0, strayPlaceholders.join(", "));
+
+  // ...and the two variant keys must actually be there wherever they are used,
+  // or the same line renders the literal from the other direction.
+  const missingVariants = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of w[lang].identities) {
+        const bg = String(it.background || "");
+        for (const key of ["reason", "keepsake"]) {
+          if (!bg.includes(`{${key}}`)) continue;
+          const list = it.variants?.[key];
+          if (!Array.isArray(list) || list.length === 0) missingVariants.push(`${id}/${lang}:${it.id}.${key}`);
+        }
+      }
+    }
+  }
+  check("an identity using {reason} or {keepsake} declares the list it draws from",
+    missingVariants.length === 0, missingVariants.join(", "));
+
+  // Rendering it is the check the two above cannot make: a placeholder that
+  // survives substitution reaches the model as a brace.
+  const unrendered = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en", "ko"]) {
+      for (const it of w[lang].identities) {
+        for (const seed of [0, 1, 65536, 123456789]) {
+          const out = loader.renderIdentityBackground(w[lang], it.id, "Irene", seed);
+          if (/[{}]/.test(out)) unrendered.push(`${id}/${lang}:${it.id}@${seed}`);
+        }
+      }
+    }
+  }
+  check("every identity background renders with no brace left in it",
+    unrendered.length === 0, unrendered.slice(0, 6).join(", "));
+
+  // The ex-girlfriend route ships in EVERY world, keeping one id across all four
+  // so that switching worlds on Setup keeps the player's route instead of
+  // silently clearing it (step 3 clears an identity the new world does not
+  // declare). A world that spelled it `ex_of_main` would pass every other check
+  // here and drop the identity on a world change, with a correct-looking cause.
+  const EX_ID = "主线成员前女友";
+  for (const [id, w] of Object.entries(allWorlds)) {
+    check(`[${id}] declares the ex-girlfriend identity under the shared id`,
+      w.zh.identities.some((i) => i.id === EX_ID),
+      w.zh.identities.map((i) => i.id).join(", "));
+    // No "declares seven identities" check: the number is today's data rather than
+    // a property, and no single edit breaks it without tripping the loader first,
+    // so it could only ever have reported GREEN. The ex-girlfriend id and the
+    // uniqueness of the set are the parts that can actually go wrong.
+    check(`[${id}] identity ids are unique`,
+      new Set(w.zh.identities.map((i) => i.id)).size === w.zh.identities.length,
+      w.zh.identities.map((i) => i.id).join(", "));
+    // "H" is the APP's escape hatch, resolved upstream in formForRound. A world
+    // declaring it would put a second, world-owned meaning on the one id that
+    // branch tests for.
+    check(`[${id}] does not declare the app's custom-identity id`,
+      !w.zh.identities.some((i) => i.id === "H"), "H belongs to App.jsx, not to a world");
+    check(`[${id}] declares at least one social platform`,
+      Array.isArray(w.zh.platforms.social) && w.zh.platforms.social.length > 0,
+      "an empty social list renders an empty schema object nothing can fill");
+    check(`[${id}] places are ten, uniquely identified, named and described in every language`,
+      w.zh.places.length === 10
+        && new Set(w.zh.places.map((p) => p.id)).size === 10
+        && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name && p.desc)),
+      `${w.zh.places.length} places`);
+    check(`[${id}] covers all four round phases and the last one is open-ended`,
+      w.zh.phases.length === 4 && w.zh.phases[3].to === null,
+      JSON.stringify(w.zh.phases.map((p) => `${p.from}-${p.to}`)));
+  }
+
+  // A world's display name and an identity's must differ ACROSS worlds, not only
+  // inside one: `chaebol` the world against 财阀会长 the kpop identity is the
+  // collision this was written for, and it is invisible from inside either file.
+  for (const lang of ["zh", "en", "ko"]) {
+    const wnames = WORLD_INDEX.map((w) => w.name?.[lang]).filter(Boolean);
+    const collide = [];
+    for (const [id, w] of Object.entries(allWorlds)) {
+      for (const it of w[lang].identities) {
+        if (wnames.includes(it.name)) collide.push(`${id}:${it.name}`);
+      }
+    }
+    check(`[${lang}] no world's display name is also an identity's, in any world`,
+      wnames.length === WORLD_INDEX.length && collide.length === 0, collide.join(", "));
+  }
+
+  // A work title points AT the player or AT the cast, and which way was a
+  // hardcoded identity id in mainAgent.js until step 7 - so to_cast was one
+  // Chinese literal and everything else pointed at the player. Four of step 7's
+  // identities point the title at the cast, and every one of them would have
+  // rendered the sentence backwards: the inverted age line again.
+  const toCast = [], toPlayer = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const it of w.zh.identities) {
+      if (!it.workTitle) continue;
+      (it.workTitle.direction === "to_cast" ? toCast : toPlayer).push(`${id}:${it.id}`);
+    }
+  }
+  check("both directions are actually used by the worlds on disk",
+    toCast.length > 0 && toPlayer.length > 0, `to_cast: ${toCast.join(", ")} | to_player: ${toPlayer.join(", ")}`);
+  // No check that a to_cast entry carries `because`, or that a to_player one does
+  // not: parseWorld throws on both, so the only mutation that could break such a
+  // check breaks the load first and the suite never reaches it. A check that
+  // duplicates a validator cannot fail. What CAN fail independently is the
+  // rendering, which is asserted on the campus prompt below.
+
+  // Korean particle pairs are resolved at render time and are meaningless in a
+  // language that has none. A pair in a zh or en world file is a paste from the
+  // ko one and would reach the model as a literal slash.
+  const strayPairs = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    for (const lang of ["zh", "en"]) {
+      for (const it of w[lang].identities) {
+        if (/\u0000/.test(it.background || "")) continue;
+        for (const pair of ["은/는", "이/가", "을/를", "과/와", "으로/로"]) {
+          if (String(it.background || "").includes(pair)) strayPairs.push(`${id}/${lang}:${it.id}`);
+        }
+      }
+    }
+  }
+  check("no zh or en world file carries a Korean particle pair",
+    strayPairs.length === 0, strayPairs.join(", "));
+  // ...and the ko files must actually use them, or the resolver has nothing to do
+  // and the author wrote one fixed form for a variable word - the bug that put
+  // "미숙함로" and a literal "편지을/를" in every Korean prompt.
+  // Asserted on the two places the particle genuinely CANNOT be authored: the
+  // breakup reason and the keepsake are each one of four Korean nouns, so the
+  // particle after them changes with the roll. `some identity uses a pair` was the
+  // first version of this check and it could not fail - a world has several
+  // backgrounds, and removing one pair leaves the others standing.
+  const EX_KO = [["{reason}", "으로/로"], ["{keepsake}", "을/를"]];
+  const koMissingPair = [];
+  for (const [id, w] of Object.entries(allWorlds)) {
+    const ex = w.ko.identities.find((i) => i.id === EX_ID);
+    for (const [token, pair] of EX_KO) {
+      if (!String(ex?.background || "").includes(token + pair)) koMissingPair.push(`${id}:${token}`);
+    }
+  }
+  check("every world's ko ex-girlfriend background pairs its particles",
+    koMissingPair.length === 0, koMissingPair.join(", "));
+
+  // The payoff. A non-idol world's prompt must not assert idol facts about the
+  // cast, and until step 7 five sentences did: the ROLE CONTRACT enumerated
+  // `practice, schedules, comebacks, the dorm, this company`, section 7 named
+  // `the practice she just left`, and the scene rule exemplified `Practice room`.
+  // Section 4 says these people are students two sections earlier, so the model
+  // was handed the contradiction directly - the [BLACKPINK Background] shape.
+  //
+  // Asserted on the RENDERED prompt of a real non-idol world, not on the world
+  // file: the file being right is what the checks above cover, and this is the
+  // consumer. The member profiles are the idol LIBRARY's own prose and are the
+  // player's choice of cast, so only the sections the world owns are scanned.
+  const campusWorld = allWorlds.campus?.en;
+  if (campusWorld) {
+    const campusRoster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+      members.map((m) => m.id), "campus");
+    const campusCast = await fromDisk(() => loader.resolveRoster(campusRoster, "en", campusWorld));
+    const campusPrompt = buildSystemPrompt(form({ identity: "peer_student" }), campusCast.members,
+      "irene", ["seulgi"], campusCast.groupConfig, "", "qwen", "en", campusWorld);
+    const roleContract = campusPrompt.slice(campusPrompt.indexOf("ROLE CONTRACT"),
+      campusPrompt.indexOf("REGISTER:"));
+    // A dorm is a campus place too - the words that are idol-only are `comeback`
+    // and `practice`, and those are what must not survive into a lecture hall.
+    check("[campus] the ROLE CONTRACT does not give the cast comebacks and practice",
+      !/comeback|practice/i.test(roleContract), roleContract.slice(0, 200));
+    check("[campus] ...and states what their life in THIS world actually is",
+      roleContract.includes(campusWorld.castLife.theirs)
+        && roleContract.includes(campusWorld.castLife.notHers),
+      "the world's own castLife never reached the rendered contract");
+    check("[campus] the scene rule's example is this world's, not a practice room",
+      campusPrompt.includes(`"${campusWorld.castLife.sceneExample}"`)
+        && !campusPrompt.includes('"Practice room, 10PM"'),
+      campusWorld.castLife.sceneExample);
+    check("[campus] the social rule names a beat from this world",
+      campusPrompt.includes(campusWorld.castLife.recentBeat),
+      campusWorld.castLife.recentBeat);
+    check("[campus] the Instagram like count is scaled to this cast's reach",
+      campusPrompt.includes(`"likes":${campusWorld.castLife.socialReach}`)
+        && !/"likes":800000/.test(campusPrompt),
+      "a schema example is an instruction, and 800000 is an idol's number");
+    // Step 6's trimming, rendering for the first time against real content
+    // rather than a synthetic world: a world that declares neither must carry
+    // neither, in all five places the catalog feeds.
+    check("[campus] no undeclared platform reaches the prompt",
+      !/bubble|Bubble|weverse|Weverse/.test(campusPrompt),
+      "campus declares instagram and kakaotalk only");
+    check("[campus] ...and the ones it does declare all reach it",
+      /Instagram: Photo social/.test(campusPrompt) && /KKT \(KakaoTalk\)/.test(campusPrompt)
+        && /"instagram":null/.test(campusPrompt),
+      "a declared platform missing from the schema is a post nobody can write");
+    // Direction, rendered. `prof_of_cast` points the title at the player and
+    // `junior_student` points it at the cast, and before step 7 the second one
+    // could only have come out backwards.
+    const overrideFor = (identity) => {
+      const pr = buildSystemPrompt(form({ identity }), campusCast.members, "irene", ["seulgi"],
+        campusCast.groupConfig, "", "qwen", "en", campusWorld);
+      return pr.split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+    };
+    // In a ko world file `form` is already Hangul, so the gloss would translate a
+    // word into itself: `"선배님" (선배님)`. Invisible in zh and en, which is
+    // why the ko fixture is the one that showed it.
+    const koCampus = allWorlds.campus.ko;
+    const koOverride = buildSystemPrompt(
+      form({ identity: "junior_student", name: "Nari" }), campusCast.members, "irene", ["seulgi"],
+      campusCast.groupConfig, "", "qwen", "ko", koCampus)
+      .split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+    check("[campus/ko] a work title whose gloss would repeat it is printed once",
+      koOverride.includes('"선배님"')
+        && !koOverride.includes('"선배님" (선배님)'),
+      koOverride);
+    check("[campus] a title pointed at the player relaxes toward HER name",
+      /she addresses Summer as .*relaxing toward "Summer"/.test(overrideFor("prof_of_cast")),
+      overrideFor("prof_of_cast"));
+    check("[campus] a title pointed at the cast relaxes toward the MEMBER name",
+      /Summer also uses .* for them/.test(overrideFor("junior_student"))
+        && /relaxing toward a member.s plain name/.test(overrideFor("junior_student")),
+      overrideFor("junior_student"));
+    check("[campus] ...and both are set on campus rather than on the job",
+      /on campus/.test(overrideFor("prof_of_cast"))
+        && /on campus/.test(overrideFor("junior_student"))
+        && !/on the job|at work/.test(overrideFor("prof_of_cast") + overrideFor("junior_student")),
+      overrideFor("prof_of_cast"));
+  }
+
 
   // --- section 11: the canon places and the opening, v1.4.1 step 4 ----------
   //

@@ -51,7 +51,9 @@
       "background": "[신분: 연습생] 당신은 {name}의 연습생 후배로, 회사 연습실에서 자연스럽게 알게 되었습니다. 주요 이벤트: {name}에게 보컬과 댄스 팁을 구함; 복도에서 우연히 마주친 {name}이/가 손수 머리를 정리해 줌; 늦은 밤 연습실에 둘만 남아 서로의 진심을 털어놓음; 회사 예능 후배 특집에 선발되어 {name}과/와 함께 출연. 장점: 자연스러운 접촉, 함께한 훈련의 추억. 단점: 엄격한 회사 규정, 선후배 신분 차이.",
       "workTitle": {
         "form": "선배님",
-        "kr": "선배님"
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is an undebuted trainee and every member is a debuted senior"
       }
     },
     {
@@ -228,5 +230,16 @@
     "assistant",
     "executive",
     "fan"
-  ]
+  ],
+  "addressContext": {
+    "toPlayer": "on the job",
+    "toCast": "at work"
+  },
+  "castLife": {
+    "theirs": "practice, schedules, comebacks, the dorm, this company",
+    "notHers": "no practice here to be late for and no place in their schedule",
+    "recentBeat": "the practice she just left",
+    "sceneExample": "Practice room, 10PM",
+    "socialReach": "800000"
+  }
 }

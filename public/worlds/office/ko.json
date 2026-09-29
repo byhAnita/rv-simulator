@@ -1,0 +1,242 @@
+{
+  "world": {
+    "id": "office",
+    "name": "오피스",
+    "emoji": "🏢",
+    "color": "#6f8fa8"
+  },
+  "country": {
+    "id": "korea",
+    "name": "한국",
+    "register": "korea"
+  },
+  "setting": "이야기는 현대 서울의 한 회사를 배경으로 한다. 자리, 회의실, 탕비실, 엘리베이터 안의 그 십오 초, 그리고 아무도 진심으로 가고 싶어 하지 않는 회식이 하루를 이룬다. 여기서 제약은 문서로 적혀 있다. 인사 규정, 보고 라인, 연말 평가. 연애는 금지되어 있지 않지만, 어떤 서류에든 적히는 순간 두 사람만의 일이 아니게 된다 — 그리고 회사에서 적히지 않고 지나가는 일은 오래가지 않는다.",
+  "tone": "slow-burn, office hierarchy, policy risk",
+  "statNotes": {
+    "selfId": "Rises when she says what she actually thinks in a room where the safe answer was available - a review, a client meeting, a decision that is already half made. Falls when she says the safe thing instead.",
+    "secrecy": "Falls when the relationship becomes legible to anyone in the building - a colleague on the same floor, a shared calendar, a card swipe at an odd hour, a form that asks. Rises when an ordinary work reason holds.",
+    "mood": "Driven by workload, deadlines and where the quarter is, and by how the last exchange with the target member ended."
+  },
+  "platforms": {
+    "social": [
+      "instagram"
+    ],
+    "private": "kakaotalk"
+  },
+  "castLore": {
+    "useRole": false,
+    "orgSuffix": "Group",
+    "orgNoun": "회사",
+    "orgHint": "이 멤버들은 같은 회사, 같은 팀의 동료입니다. 회사: {org}",
+    "composed": [
+      "[{name} Background]",
+      "{name} is a team of {n} at {org}.",
+      "{name} exists only in this story. These {n} sit on the same floor and have worked together long enough to read each other's silences. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else in the building is unnamed - a colleague, a manager, a client, a guard - and no other name may be used, not even in passing or over a phone."
+    ],
+    "subset": [
+      "[{label} Background]",
+      "The cast of this story is {members}.",
+      "In this world they are colleagues on one team at one company. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
+    ]
+  },
+  "useGroupLore": false,
+  "identities": [
+    {
+      "id": "peer_colleague",
+      "name": "동료",
+      "background": "[신분: 동료] 당신과 {name}은/는 같은 팀, 같은 직급의 동료이고, 두 자리 사이에는 파티션 하나뿐입니다. 주요 이벤트: 같은 프로젝트로 밤을 새우며 새벽에 편의점에서 세 번째 커피를 삼; 당신이 뒤집어쓸 뻔한 일을 그녀가 대신 받아냄; 회식이 끝나고 귀가 방향이 겹쳐 한참을 같이 걸음; 연말 평가 순위가 나왔는데 두 사람의 이름이 나란히 있음. 장점: 같은 직급, 같은 팀이라 함께 있는 데 아무 이유도 필요 없음. 단점: 바로 그 때문에 팀 전체가 하나의 시야 안에 있고, 어떤 변화든 같은 사람들에게 보임."
+    },
+    {
+      "id": "manager_of_cast",
+      "name": "팀장",
+      "background": "[신분: 팀장] 당신은 이 팀의 팀장이고 {name}은/는 당신의 팀원입니다. 주요 이벤트: 가장 어려운 고객사를 그녀에게 맡기지 않고 당신이 가져감; 이십 분짜리 일대일 면담 중 십 분이 업무 이야기가 아님; 그녀의 기획안이 위에서 반려되자 회의에서 그건 자신의 결정이었다고 말함; 연말에 팀 전체를 줄 세워야 하는데, 자신이 얼마나 망설였는지 알고 있음. 장점: 그녀가 무엇을, 누구와, 얼마나 오래 하는지 당신이 정함 — 이 건물에서 돌봄에 가장 가까운 것. 단점: 그녀의 평가도 당신이 정하므로, 그녀가 하는 어떤 말도 정말 하고 싶었던 말이 아닐 수 있음.",
+      "workTitle": {
+        "form": "팀장님",
+        "kr": "팀장님"
+      }
+    },
+    {
+      "id": "report_to_cast",
+      "name": "팀원",
+      "background": "[신분: 팀원] {name}은/는 당신의 팀장이고, 당신은 그녀에게 직접 보고합니다. 주요 이벤트: 올린 문서가 알아볼 수 없게 고쳐져 돌아오는데 다음엔 혼자서도 할 수 있을 거라는 한 줄이 붙어 있음; 결론이 나올 리 없는 회의에서 당신을 빼냄; 늦게까지 남아 있는데 그녀 자리의 조명도 아직 켜져 있음; 평가 면담에서 예상보다 높은 점수를 주는데 이유를 묻지 못함. 장점: 매일 말을 섞어야 할 이유가 있고, 그것도 가장 사적인 종류의 이유임. 단점: 그녀의 배려에 직무가 얼마나 섞여 있는지 알 수 없고, 당신의 노력에 다른 것이 얼마나 섞여 있는지 그녀도 알 수 없음.",
+      "workTitle": {
+        "form": "팀장님",
+        "kr": "팀장님",
+        "direction": "to_cast",
+        "because": "reports to them and every member sits above her on the org chart"
+      }
+    },
+    {
+      "id": "new_hire",
+      "name": "신입",
+      "background": "[신분: 신입] 당신은 이 팀에 가장 늦게 들어온 사람이고, 여기 모두가 당신의 선배입니다. 주요 이벤트: 첫 주에 회의실을 잘못된 시간으로 예약했는데 사과하러 간 사람은 그녀였음; 자기 템플릿 폴더를 통째로 공유해 줌; 회식에서 누가 계속 잔을 채우자 그 잔을 치워 줌; 수습이 끝나는 날 남으라는 말만 함. 장점: 선배에게 묻는 것이 가장 자연스러운 접근이고, 아무도 이상하게 보지 않음. 단점: 아직 아무 위치도 없음 — 그녀가 챙기는 건 직무이고, 거기서 더 읽는 건 당신의 문제임.",
+      "workTitle": {
+        "form": "선배님",
+        "kr": "선배님",
+        "direction": "to_cast",
+        "because": "is the newest hire and every member joined before her"
+      }
+    },
+    {
+      "id": "contractor",
+      "name": "외부 협력사",
+      "background": "[신분: 외부 협력사] 당신은 이 회사 사람이 아닙니다. 협력사나 컨설팅, 외주 쪽 담당자이고, 출입증은 있지만 사번은 없습니다. 주요 이벤트: 그들의 회의에 당신 자리는 없어서 프로젝터 옆에 서 있음; 프로젝트 종료 회식에서 누가 어느 쪽 사람이냐고 물음; 엘리베이터에서 그녀가 불러 세우는데 묻는 건 업무가 아님; 계약 종료 일주일 전인데 둘 다 다음 계약 이야기를 꺼내지 않음. 장점: 어떤 보고 라인에도 속하지 않아 회사 규정이 두 사람에게 닿지 않음. 단점: 바로 그 때문에 언제든 사라질 수 있음 — 계약이 끝나면 끝이고, 아무도 설명해 줄 의무가 없음."
+    },
+    {
+      "id": "hr",
+      "name": "인사",
+      "background": "[신분: 인사] 당신은 인사팀입니다. 입사, 평가, 제보, 퇴사 — 이 사람들에 관한 모든 문서가 결국 당신 손을 거칩니다. 주요 이벤트: 그녀의 입사 서류를 당신이 처리했고 거기 적힌 줄을 다 기억함; 그녀의 팀에 대한 제보가 들어와 양쪽 이야기를 다 들어야 함; 사내 관계 신고에 관한 새 규정이 나오는데 초안을 쓴 사람이 당신임; 그녀가 친구 대신 물어보는 거라며 찾아오는데 둘 다 아니라는 걸 앎. 장점: 이 건물에서 누구와 누구 사이에 무엇이 있는지 누구보다 잘 알고, 규칙을 쓴 사람이 당신임. 단점: 규칙을 쓴 사람이라서, 발각되면 가장 먼저 처리되는 쪽이 당신이라는 것도 누구보다 잘 앎."
+    },
+    {
+      "id": "主线成员前女友",
+      "name": "메인 멤버의 전 여자친구",
+      "background": "[특별 신분: 메인 멤버의 전 여자친구]\n- 당신과 {name}은/는 연인이었으며, 몇 년 전 {reason}으로/로 인해 헤어졌습니다\n- 당신은 아직도 {keepsake}을/를 간직하고 있습니다\n- 지금 조직 개편이 두 사람을 같은 팀에 넣었습니다: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠\n- 다른 동료들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다",
+      "variants": {
+        "reason": [
+          "그녀가 해외 발령을 받아들인 일",
+          "그 승진",
+          "둘 다 너무 지쳐 있었다는 것",
+          "그녀의 약혼"
+        ],
+        "keepsake": [
+          "그녀가 두고 간 그 펜",
+          "사원증 뒤에 끼워 둔 둘의 사진",
+          "그녀가 모니터에 붙여 둔 포스트잇",
+          "같이 야근하던 날의 영수증"
+        ]
+      }
+    }
+  ],
+  "modes": {
+    "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: the same desk, the same lift, the same walk to the station. No rushing into relationship.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "pressure": "[Story Mode: Pressure] Workplace scrutiny and policy exposure higher, secrecy changes doubled. Being seen together carries weight: a shared calendar, a colleague on the same floor, and a written policy that has a name for this.",
+    "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
+  },
+  "phases": [
+    {
+      "from": 1,
+      "to": 6,
+      "line": "- Phase 1 (Rounds 1-6): First encounters. Handovers and corridors, professional politeness, subtle curiosity. No romantic moves."
+    },
+    {
+      "from": 7,
+      "to": 14,
+      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, work that runs late, accidental touches, first hints of jealousy."
+    },
+    {
+      "from": 15,
+      "to": 24,
+      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Talk on the floor, a policy that has a name for this, a reorganisation, career against feelings."
+    },
+    {
+      "from": 25,
+      "to": null,
+      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
+    }
+  ],
+  "places": [
+    {
+      "id": "open_floor",
+      "name": "오픈 오피스",
+      "emoji": "💻",
+      "desc": "파티션이 어깨 높이까지라, 누가 누구 자리를 지나가는지 다 보인다.",
+      "draws": []
+    },
+    {
+      "id": "meeting_room",
+      "name": "회의실",
+      "emoji": "🗓️",
+      "desc": "유리벽이고, 블라인드를 내리면 오히려 더 눈에 띈다.",
+      "draws": [
+        "organiser"
+      ]
+    },
+    {
+      "id": "pantry",
+      "name": "탕비실",
+      "emoji": "☕",
+      "desc": "회사의 모든 소식이 가장 빠르게 도는 여섯 평.",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "elevator",
+      "name": "엘리베이터",
+      "emoji": "🛗",
+      "desc": "십오 초. 문이 열리기 전에는 뭐든 말할 수 있고, 열린 뒤에는 아무것도 못 한다.",
+      "draws": []
+    },
+    {
+      "id": "rooftop",
+      "name": "옥상",
+      "emoji": "🌃",
+      "desc": "카메라가 없는 유일한 곳이자, 건물에서 가장 추운 곳.",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "hoesik",
+      "name": "회식 자리",
+      "emoji": "🍶",
+      "desc": "불판의 연기, 다시 채워지는 잔, 그리고 두 사람을 보고 있는 한 테이블.",
+      "draws": [
+        "social"
+      ]
+    },
+    {
+      "id": "stairwell",
+      "name": "비상계단",
+      "emoji": "🪜",
+      "desc": "아무도 계단으로 다니지 않아서, 여기서 한 말은 누구에게도 들리지 않는다.",
+      "draws": [
+        "quiet"
+      ]
+    },
+    {
+      "id": "archive_room",
+      "name": "자료실",
+      "emoji": "🗄️",
+      "desc": "불은 손으로 켜야 하고, 문은 안에서 잠기는 종류다.",
+      "draws": [
+        "studious"
+      ]
+    },
+    {
+      "id": "taxi",
+      "name": "심야 택시",
+      "emoji": "🚕",
+      "desc": "뒷좌석, 하나씩 지나가는 가로등, 라디오를 듣는 기사.",
+      "draws": []
+    },
+    {
+      "id": "convenience_store",
+      "name": "건물 아래 편의점",
+      "emoji": "🏪",
+      "desc": "새벽 두 시, 온장고의 김, 점원은 고개를 들지 않는다.",
+      "draws": []
+    }
+  ],
+  "scenario": "둘만 남을 때까지 이어진 야근. 층 전체에서 이 줄의 조명만 켜져 있고 공조는 진작에 멈췄다. 같은 문서를 기다리고 있었을 뿐인데, 누구도 먼저 일어나지 않았다.",
+  "npcArchetypes": [
+    "team lead",
+    "client",
+    "intern",
+    "building security guard"
+  ],
+  "addressContext": {
+    "toPlayer": "at work",
+    "toCast": "at work"
+  },
+  "castLife": {
+    "theirs": "deadlines, client meetings, the quarterly numbers, this company",
+    "notHers": "no meeting here to be late for and no line on their org chart",
+    "recentBeat": "the meeting she just walked out of",
+    "sceneExample": "Meeting room, 9PM",
+    "socialReach": "820"
+  }
+}

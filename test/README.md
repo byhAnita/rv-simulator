@@ -150,11 +150,29 @@ every content mutation tripped **Layer C's mirror assertion**, because only
 
 ### Layer J and the golden prompts
 
-Three complete system prompts are committed under `test/fixtures/` and compared
+Six complete system prompts are committed under `test/fixtures/` and compared
 byte-for-byte. They cover what no assertion names — the JSON schema block, the
 phase rules, section ordering, blank lines — because a prompt regression throws
 no error and fails no test. It just writes differently, weeks later, with
 nothing to bisect.
+
+**Three of the six are one world.** v1.4.1 step 7 added `campus-ko`, `office-en`
+and `chaebol-zh`, rotating the language so every world and every language is
+covered once. **That leaves six of the twelve (world, language) pairs unpinned,**
+and it is an accepted gap rather than a technicality: v1.4.0 step 7 found seven
+defects that were invisible to `zh` because `zh` is the language the content is
+authored in and every other is a translation that can disagree with the code
+consuming it. A fixture stops a defect recurring; **reading the rendered prompt
+by hand is what finds it**, and that is the gate for a new world, not the
+snapshot. The step-7 read paid immediately: the `campus-ko` fixture exposed
+`"선배님" (선배님)`, a gloss translating a word into itself, which
+neither zh nor en can express.
+
+Each new fixture also pins a branch the `kpop_idol` three cannot reach: a work
+title pointed **at the cast** (`campus-ko`), a title pointed at the player in a
+world that is not an agency (`office-en`), and the ex-girlfriend backstory in a
+**second** world (`chaebol-zh`), so a re-roll of its seeded reason and keepsake
+is visible again.
 
 When you change `buildSystemPrompt` **on purpose**:
 
