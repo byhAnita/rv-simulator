@@ -2591,6 +2591,36 @@ palette's delete path prunes, **not reproduced**; and whole rounds that name nob
 她, which the player cannot follow **and** which makes `membersNamedIn` record no one as
 present, so `[Rounds Absent]` then reports a false absence. One prompt rule fixes both.
 
+#### The exact next step — §22 is AGREED and not started
+
+**`docs/V140_PLAN.md` §22 is the authority and it is settled**, agreed with Yuhan on
+2026-09-29 in the form recorded there: player info before the cast picker, one profile
+editor for custom and prebuilt members reached by tapping a chosen member's bubble, two
+tabs, and **only tab 1 persisted**. Tab 1 is `photo · name* · birth year* · private
+personality*` then `wallpaper · MBTI · habit · emoji`, then the one-line description and
+the generate/retry pair. The test for which tab a field is in: *would this sentence still
+be true if she were cast in a different world?*
+
+The three agreed departures from the first draft, each load-bearing: **`name_kr` stays**
+(twelve-plus readers, `membersNamedIn` among them); **`role` is replaced, not deleted**, by
+a generated world-scoped position, or a non-idol world has nothing saying what she does;
+**`animal_plastic` leaves the EDITOR and stays in the data**, since it renders in the
+profile block and removing it would move every golden. An edit to a library member lands
+on `entry.override`, which `resolveRoster` already honours — never a snapshot.
+
+**Nothing of §22 is implemented.** The order of work, and the one decision still open:
+
+1. Yuhan's hand test of `631071b` (the PDF flow, the save-slot world label, the saved-cast
+   ×) — **owed from him, nothing to do until it arrives.**
+2. **Open decision:** the §22.1 interim prompt rule for the idol-prose leak — take it now
+   (cheap, moves the three non-idol goldens, works this release) or let §22.2's generated
+   tab 2 do it properly in v1.4.2. **Asked, not yet answered.**
+3. Then §22.2, which is a multi-file change and therefore wants its own written plan and
+   confirmation before code, per the global config.
+
+**Every line of the release sequence is still a red line and none of it has been done.**
+`main` is untouched at `7b3ceea`, tagged `v1.4.0`, and is still what players run.
+
 **The exact next command** is the phone pass, on the Cloudflare branch alias (deterministic,
 unlike Vercel's), which needs no deploy because `dev` is pushed:
 

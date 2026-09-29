@@ -2904,9 +2904,10 @@ tapping a chosen member's bubble; it has two tabs, and **only tab 1 is persisted
 2 Cast picker      main* / subs / NPCs, chips with x, + per slot -> [Save cast] [Start]
 3 Cast library     tab 1 CUSTOM (first), then one tab per group
 4 Profile          tab 1 who she is   photo · name* · birth year* · private personality*
-                                      wallpaper · habit · emoji
+                                      wallpaper · MBTI · habit · emoji
                                       one-line description + [generate her detail] [retry]
-                   tab 2 more texture public · queer · speech style · MBTI · hidden conflict
+                   tab 2 in this world public · queer · speech style · hidden conflict
+                                      name_kr · position in this world  (generated)
 5 Main screen
 ```
 
@@ -2917,12 +2918,28 @@ tapping a chosen member's bubble; it has two tabs, and **only tab 1 is persisted
 and asking for the world first makes the generator's input correct by construction rather than
 by a guard. See CLAUDE.md, *A copy taken BEFORE the fact is decided*.
 
+**MBTI is tab 1, beside the wallpaper** (Yuhan, 2026-09-29): it says what she is like and not
+where she works, so it fails the tab-2 test below. The second row reads **wallpaper · MBTI ·
+habit · emoji**. `queer_texture` and `speech_style` are the two judgement calls left on the
+line — both are mostly about the person, and both carry idol specifics in a handful of library
+entries (6 of 57 for `queer_texture`), so they sit in tab 2 where a regenerate can correct
+them rather than in tab 1 where a stale line would be persisted.
+
 **Why the tab split is the right storage rule.** Tab 1 is true of the person; tab 2 is true of
 the person *in a world*. Persisting only tab 1 means a member authored in the campus world can
 be cast in the chaebol world without carrying a lecture hall into it, and changing the world
 mid-setup discards the generated detail rather than silently contradicting the new one. It is
 the same asymmetry `beginRun` uses: **forgetting to persist a world-scoped field is harmless;
 persisting one leaks a world.**
+
+**The test for which tab a field belongs in:** *would this sentence still be true if she were
+cast in a different world?* Her MBTI, her habit, her birth year and her private personality
+survive the move; her position, her public image and anything naming a stage or a family firm
+do not. **Tab 1 is persisted and tab 2 is derived**, so the test is also the storage rule, and
+a field nobody can place is a field that wants splitting in two.
+
+**Agreed with Yuhan on 2026-09-29**, in the form recorded here rather than as first drafted —
+see §22.3 for the three differences and why each one is load-bearing.
 
 ### 22.3 Three places this should differ from the draft
 
