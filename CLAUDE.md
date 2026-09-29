@@ -2231,6 +2231,70 @@ Only Pages serves committed artifacts, which is why `npm run deploy` exists at a
 
 **Root `worlds/` is the second such tree, added in v1.4.0.** The Layer C check loops over `["groups", "worlds"]` rather than naming one, because every mirrored tree added is another chance to forget — `rosters/` will be one more string in that array, not a third copy of the check. Copy `public/<tree>/` over root `<tree>/` by hand in the same commit; the suite tells you when you forget, and CI tells you on push.
 
+### Pages serves the root THROUGH Jekyll, and Jekyll hides every `_*` path
+
+**`.nojekyll` at the repo root is load-bearing, and its absence broke v1.4.1 on Pages
+alone.** Reported from a phone on 2026-09-30, hours after the release: the cover and the
+cast picker worked, and Setup then showed a full-screen `Loading...` for ever. Both
+build-from-source mirrors were fine, which is the shape of the finding — **when one mirror
+fails and two do not, the fault is in what makes that mirror different**, and what makes
+Pages different is that it serves the committed tree rather than a build of it.
+
+GitHub Pages runs Jekyll over that tree by default, and **Jekyll excludes every path whose
+name begins with `_` or `.` from what it publishes.** Measured against the live site, 47
+mirrored files, 6 not served, all six underscore-prefixed:
+
+| path | served on Pages | read at runtime |
+| --- | --- | --- |
+| `worlds/_registers/{zh,en,ko}.json` | **404** | **yes — every world, every language** |
+| `groups/_template/{zh,en,ko}.json` | 404 | no |
+
+**The register is the file every world resolves its address forms through**, and
+`parseWorld` **throws** on a register nobody ships rather than falling back — deliberately,
+because a prompt with no address protocol reads as the model declining to use honorifics.
+So `loadWorld` rejected, the rejection landed in `.catch(console.error)`, `world` stayed
+`null`, and Setup's `if (!world)` gate rendered `Loading...` with no way out. Three correct
+decisions composed into a silent hang.
+
+**`groups/_template/` had been unserved on Pages since the repo began** and cost exactly
+nothing, because no code reads it. That is why three releases of mirror checks never
+surfaced the rule: the constraint was always violated and only became *reachable* in v1.4.1
+step 1, which moved the address tables into `public/worlds/_registers/` — the first
+underscore-prefixed path anything fetches.
+
+**The fix renames nothing.** An empty `.nojekyll` turns Jekyll off and Pages serves the tree
+verbatim, so no world file's `country.register` pointer moves and no tree is re-mirrored.
+**It also changes no source**: the build after the fix reproduced `index-CiihP5yH.js`, the
+hash already deployed, which is what says every player's cached bundle was correct all along
+and only a data fetch was failing.
+
+Two guards, and the split is the usual one — the first is derived, the second catches the
+state the first cannot see:
+
+- **`every mirrored data file is reachable on a Jekyll-served root`** walks the mirrored
+  trees, collects every path with a `_` or `.` segment, and requires `.nojekyll` when that
+  list is non-empty. **Derived, so a later `rosters/_shared/` is covered the day it lands**,
+  and silent for a tree that needs no marker. Mutation-verified to name *both* trees and to
+  fail on a brand-new underscore directory, because a guard pinned to the two directories
+  that exist today is a sample.
+- **`.nojekyll is committed, not merely present on disk`**. Pages serves what is committed,
+  and `.gitignore` here carries deliberately broad secret patterns (`.env.*`, `*.local`), so
+  a root dotfile is precisely the thing that can sit on disk, satisfy the check above, and be
+  absent from the tree players get. **This guard failed on its very first run** — the file
+  was created and not staged — which is the cheapest possible demonstration that it works.
+
+**The general rule this earns: the checks asserted the two trees MATCH and never that the
+host can SERVE them.** Every mirror check in this file compares `public/` against root, which
+is a statement about the repo. A static host may transform, filter or rewrite what it is
+handed, and that transformation is invisible to every offline check there is. The only thing
+that sees it is a request to the live URL — which is why the diagnosis here was 47 `curl`s and
+not a code read. **After a release, fetch a file from each mirror, not just the bundle.**
+
+**And `?debug=1` already works on Pages** — `byhanita.github.io/rv-simulator/?debug=1` opens
+the on-device console, which would have shown the 404 and the `parseWorld` throw immediately.
+It is read before React mounts and is host-independent. Nothing needed adding; it needed
+remembering.
+
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
 ### Never derive a path from the hostname
@@ -2272,9 +2336,19 @@ Then:
 
 ---
 
-## Project Status (2026-09-28)
+## Project Status (2026-09-30)
 
-**v1.4.0 is the current release, deployed 2026-09-28.** `main` and `origin/main` are at
+**v1.4.1 is the current release, deployed 2026-09-29**, tagged `v1.4.1` on deploy commit
+`0e27d8b`. All three mirrors serve `index-CiihP5yH.js`, byte-identical to the local build once
+line endings are normalised (the working tree is CRLF, the served file LF).
+
+**It shipped broken on GitHub Pages only, and was fixed the next day by committing an empty
+`.nojekyll`.** Jekyll was hiding `worlds/_registers/` from the one mirror that serves the
+committed tree, so Setup hung on `Loading...` there while both build-from-source mirrors were
+fine. No source changed — the rebuild reproduced the deployed bundle hash exactly. See *Pages
+serves the root THROUGH Jekyll*.
+
+**v1.4.0 was the release before it, deployed 2026-09-28.** `main` and `origin/main` are at
 `7b3ceea`, the deploy commit, tagged `v1.4.0`; `dev` is level with it plus one `index.html`
 commit. All three mirrors serve `index-BEbGT01U.js`, and the served bundle was checked
 **byte-identical to the local build** rather than only matching by hash.
@@ -2505,9 +2579,63 @@ fail — the harness now reports CRASHED. The other was a real guard weakness: t
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
 
-### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29
+### Pick up here — v1.4.1 is released; the Pages mirror is fixed, 2026-09-30
 
-**This block is the authority on what is open. The v1.4.0 one below it is history.**
+**This block is the authority on what is open. Every block below it is history — read the
+dates, not the tense.**
+
+**v1.4.1 is live.** `main` = `origin/main` = `0e27d8b`, tagged `v1.4.1`; `dev` is that commit
+plus the dev-mode `index.html`. Verified: all three mirrors serve `index-CiihP5yH.js`, the
+served bytes match the local build after normalising line endings, and the suite was green on
+the merged tree.
+
+**The Pages-only `Loading...` hang is fixed on `dev` and NOT yet deployed.** One commit:
+an empty `.nojekyll` plus two derived guards. Smoke **1562 → 1564**, **3 mutations, 3 RED, 0
+GREEN**, `npm run build` clean and reproducing `index-CiihP5yH.js` — no source changed, so the
+bundle is unchanged. **No version bump**, deliberately: the code players run is already
+correct, nothing distinguishes two builds, and `deploy.sh` blesses re-deploying at the same
+version with a warning rather than a stop. v1.4.2 stays available for §21/§22.2.
+
+**The exact next commands, every one of them a red line and none of them done:**
+
+```bash
+git push origin dev
+git checkout main && git pull
+git merge dev --no-ff -m "fix: serve _registers on GitHub Pages (.nojekyll)"
+npm run deploy          # warns that v1.4.1 is already a tag; that is correct here
+git checkout -- index.html
+git checkout dev && git merge main && git push origin dev
+node scripts/dev-index.mjs
+```
+
+**No new tag** — `v1.4.1` already points at `0e27d8b` and the source is unchanged.
+
+**Then verify on the device**, which is the only thing that can:
+`byhanita.github.io/rv-simulator/worlds/_registers/zh.json` must return JSON rather than a 404,
+and the custom-cast door must reach Setup. `?debug=1` on that host opens the on-device console.
+
+**Offered and not taken:** make a failed world fetch *visible*. `loadWorld(...).catch(
+console.error)` in `App.jsx` means any data 404 renders as a permanent spinner with nothing a
+player can report — the swallow that `loadGroupIndex`'s Red Velvet fallback already cost this
+repo a release. It touches `App.jsx` + three i18n files, so it is a multi-file change wanting
+its own written plan, and it is worth nothing for *this* bug now that the 404 is gone.
+
+**Still next in the feature queue:** §22.1's interim prompt rule (DECIDED, moves the three
+non-idol goldens, own commit), then the written plan for §22.2.
+
+**Housekeeping, both Yuhan's because deletion is a red line:** the merged-and-redundant
+`hotfix/year-wheel-start-blocked` branch on the remote, and the worktree plus `node_modules`
+junction under `scratchpad/main-hotfix`.
+
+**One correction owed to this file:** the hotfix rule under *Hotfix* still says a hotfix *"adds
+a line to the current README "What's New" section rather than opening a new one"*. Smoke
+asserts a section for `package.json`'s version exists, so that sentence describes a guaranteed
+red suite and a blocked deploy. It was corrected on the abandoned hotfix branch and therefore
+never shipped.
+
+### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29 (historical)
+
+**Historical — written while v1.4.1 was unreleased. The block above supersedes it.**
 
 **All eight steps of v1.4.1 are written; step 8's release has not happened.** `main..dev` holds
 the whole release — steps 1–7, the bump, and the harness fix step 8 turned up — and it is **pushed
