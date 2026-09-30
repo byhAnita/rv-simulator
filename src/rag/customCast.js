@@ -16,7 +16,7 @@
 import { STORAGE_KEYS, loadFromStorage, saveToStorage } from "../utils";
 // The slot order, from the one module that defines it. Re-declaring it here would
 // be a second source of truth for something the prompt's member order depends on.
-import { SLOTS } from "./rosterResolver";
+import { SLOTS, WORLD_FIELDS, WORLD_DETAIL_KEY } from "./rosterResolver";
 
 // docs/V140_PLAN.md §10 budgets 20 members at ~2 KB. The cap is a quota
 // guard, not a design opinion about how many characters a player may want.
@@ -50,7 +50,32 @@ export const PROFILE_FIELDS = [
   "emoji", "color", "accent", "tags",
   // derived at creation, read by the Instagram overlay
   "ig",
+  // Her world-scoped restaging (§22.2's tab 2), as ONE stamped object rather
+  // than five fields plus a stamp beside them: applyWorldDetail lays it over her
+  // only for the world it names, so nothing the player wrote is overwritten and a
+  // stale detail is not expressible. The only non-string value on this list.
+  WORLD_DETAIL_KEY,
 ];
+
+/**
+ * Strip a restaging to the documented shape: the stamp plus WORLD_FIELDS.
+ *
+ * It is DROPPED ENTIRELY unless it carries both a world and a `world_position`. A
+ * detail with no stamp would apply in every world, which is the leak the stamp
+ * exists to stop; one with no position is the state isUsableDetail rejects, and
+ * storing it would make a member count as restaged while rendering nothing in the
+ * slot `useRole` empties.
+ */
+export function sanitizeWorldDetail(detail) {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const world = String(detail.world ?? "").trim();
+  const out = { world };
+  for (const f of WORLD_FIELDS) {
+    const v = String(detail[f] ?? "").trim();
+    if (v) out[f] = v;
+  }
+  return world && out.world_position ? out : null;
+}
 
 // Auto-assigned so the player never has to pick one. The palette is small and
 // cycled by index rather than hashed: a hash collides invisibly and two members
@@ -84,6 +109,11 @@ export function sanitizeProfile(profile = {}) {
   for (const f of PROFILE_FIELDS) {
     const v = profile[f];
     if (v === undefined || v === null) continue;
+    if (f === WORLD_DETAIL_KEY) {
+      const d = sanitizeWorldDetail(v);
+      if (d) out[f] = d;
+      continue;
+    }
     if (Array.isArray(v)) { if (v.length) out[f] = v.slice(); continue; }
     const s = String(v).trim();
     if (s) out[f] = s;
@@ -115,7 +145,15 @@ export function sanitizeProfile(profile = {}) {
  */
 export function overrideFrom(base = {}, edited = {}) {
   const out = {};
-  const flat = (v) => (Array.isArray(v) ? v.join(String.fromCharCode(0)) : String(v ?? "").trim());
+  // A restaging compares as its SANITIZED shape, in WORLD_FIELDS order, so the
+  // comparison is stable and an unedited one diffs to nothing. String(obj) would
+  // flatten every detail to the same "[object Object]" and record no change at
+  // all - a generation that never reached the roster.
+  const flat = (v) => {
+    if (Array.isArray(v)) return v.join(String.fromCharCode(0));
+    if (v && typeof v === "object") return JSON.stringify(sanitizeWorldDetail(v) || {});
+    return String(v ?? "").trim();
+  };
   for (const f of PROFILE_FIELDS) {
     // The id is authoritative and is not a field anyone may edit: every
     // per-member map in the save is keyed by it.
@@ -285,6 +323,38 @@ export function editorTargetFor(id, pick, opts = {}) {
   return {
     id, src: "library", groupId: pick.groupId ?? null,
     profile: { ...libraryBase, ...(pick.override || {}) },
+  };
+}
+
+/**
+ * Write a swept cast's restagings into a roster, stamped with the world.
+ *
+ * THE ROSTER IS WHERE IT HAS TO LAND, because the roster is what the save carries
+ * and buildSystemPrompt must stay a pure function of the save (§4.2). Generated
+ * text fixed at setup and stored satisfies that exactly as the ex-girlfriend
+ * backstory's seed does; text regenerated at round time would be that defect with
+ * a network call in it.
+ *
+ * Each source keeps its own rule, unchanged: a CUSTOM member is snapshotted, so her
+ * detail goes in `entry.profile`; a LIBRARY member is by reference, so hers goes in
+ * `entry.override` beside whatever the editor already put there (§4.2, §22.3).
+ *
+ * A member with no detail is left BYTE-IDENTICAL - not stamped with an empty one -
+ * because a failed generation must leave her in the state §22.1's narrowed rule
+ * still covers, and an empty stamp would say she had been restaged.
+ */
+export function withCastDetail(roster, detailById = {}, worldId = "") {
+  const entries = roster?.entries || [];
+  if (!worldId || !Object.keys(detailById).length) return roster;
+  return {
+    ...roster,
+    entries: entries.map((e) => {
+      const detail = sanitizeWorldDetail({ ...(detailById[e.memberId] || {}), world: worldId });
+      if (!detail) return e;
+      return e.src === "custom"
+        ? { ...e, profile: { ...(e.profile || {}), [WORLD_DETAIL_KEY]: detail } }
+        : { ...e, override: { ...(e.override || {}), [WORLD_DETAIL_KEY]: detail } };
+    }),
   };
 }
 

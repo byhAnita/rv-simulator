@@ -1870,6 +1870,106 @@ cannot fail is decoration.
 
 ---
 
+### A restaging is an OVERLAY stamped with the world it was written for
+
+**The profile editor has two tabs since §22.2's commit 4b: *who she is* and *in this
+world*.** Tab 1 is true of the person - photo, name, birth year, private personality, MBTI,
+habit, emoji. Tab 2 is true of the person *in a world* - her position here, public image,
+queer texture, speech style, hidden conflict - and it is what the restaging generates. The
+test for which tab a field is in is §22.2's own: *would this sentence still be true if she
+were cast in a different world?*
+
+**The generated detail is ONE field, `world_detail`, and it is an overlay rather than a
+rewrite.** It carries the world id it was generated for plus the five fields above;
+`applyWorldDetail` in `rosterResolver.js` lays it over the member when that id is this
+world's, and deletes it on the way out so the nested object reaches no renderer.
+
+§22.2's storage rule was *only tab 1 is persisted*, and it is **corrected**: an unpersisted
+tab-2 field cannot survive `upsertMember`, so the text the player reviewed would be thrown
+away and the Start sweep would regenerate it - which makes the retry button in §22.2's own
+sketch meaningless. The stamp delivers what that rule was protecting, and delivers it
+better:
+
+- **A stale detail is not applied and is not deleted, so staleness is unexpressible** rather
+  than merely unwritten. Changing the world mid-setup needs no cleanup pass, and there is no
+  state in which a lecture hall reaches a family compound.
+- **Nothing the player wrote is ever overwritten.** The field-per-field shape the proposal
+  described could not promise that: writing `public_image` in place destroys her own line,
+  and a CUSTOM member has no library record to restore it from - so *drop a stale detail*
+  was not expressible for exactly the member whose prose is most hers. Cast her in a second
+  world and she falls back to her own lines instead of to a hole.
+
+**The sweep runs only when `castLore.useRole` is FALSE.** In `kpop_idol` the library's prose
+is already about this world, so restaging it would replace correct text with generated text
+and spend five to nine calls per new game doing it. §22.1's measurement - 57 of 57 members -
+is taken over the worlds where `useRole` is false; the idol world is the one the library was
+authored for.
+
+**ROUND 1 MUST SEND THE SWEPT CAST, and that is the expensive half of the wiring.** The
+sweep stamps the roster, but `startNewGame` hands `executeRound` the `members` it already
+has - so stamping the roster alone would send un-restaged prose in round 1 and the restaged
+version from round 2, once the in-game effect re-resolves the saved roster. **That is a
+static-prompt drift of the whole ~5,500-token prefix**, which is the ex-girlfriend
+`Math.random()` defect's shape with a network call in it. The same `applyWorldDetail` is
+applied to the members round 1 is built from, which is what makes the two rounds
+byte-identical.
+
+**The position box is ONE box and the world picks which field it writes** -
+`useRole ? role : world_position`, mirroring `memberLine`. §22.3.2 says `role` stops being a
+field a player edits, and taking the box away outright would leave a custom member in an
+idol world with no way to say what she does: **the filtered-slot-left-empty defect commit 4
+exists to close, one door over.**
+
+**An edit in tab 2 goes where the text she is looking at came from.** With no overlay for
+this world the boxes show her own lines and an edit lands on them - a library member's edit
+is still a diff on `override`, commit 3 unchanged; once a generation exists the boxes show
+it and an edit lands on the overlay. One rule and no world branch. *Use her own lines again*
+is what makes a generation the player dislikes reversible: a control with no way back gets
+routed around exactly as a prohibition with no substitute does.
+
+**Tab 2 auto-generates ONCE when it is opened with nothing for this world**, and only when
+the world needs restaging, she has a name, and a key is configured. The alternative is a tab
+that opens empty beside a retry button with nothing to retry - and it is not extra spend,
+because the Start sweep skips whoever the editor already restaged.
+
+**No golden moved, for the third commit running.** No fixture carries an overlay, so
+`applyWorldDetail` is the identity function over all six - which is why the overlay path is
+exercised against a synthetic stamped roster instead, the technique step 6 used for the
+platform trimming.
+
+**What it does that no previous commit could: 26 mutations, 26 RED - and the probe is where
+the payoff is visible.** A chaebol prompt built from a fully restaged cast contains **none**
+of 忙内 / 队长 / 出道 and **drops the interim rule entirely**; restage one of two members and
+the rule stays, naming the other one and no one else. §22.1's defect is closed rather than
+ruled around, and that is the first time it has been observable.
+
+**Two of this commit's own guards could not fail, and both tested a case where a broken
+implementation happens to give the right answer.** The diff's object branch was checked by
+ADDING a restaging to a member who had none - which compares `""` against
+`"[object Object]"`, so the key is recorded even with the branch deleted. The case that loses
+text is a RETRY: two details both flatten to the same string, so the second generation reads
+as no change and is discarded. Its twin asserted that two EQUAL details yield no key, which
+holds in any implementation; what `sanitizeWorldDetail` is actually for there is **key
+order**, because the editor builds `{ world, ...detail }` and a stored one comes back in
+`WORLD_FIELDS` order. **Ask what a guard would look like if the behaviour were wrong in the
+way that costs something**, not in the way that is easiest to write.
+
+**A crash where a verdict belongs, for the second commit running.** A mutation that
+snapshotted a library member's restaging failed its guard and then threw out of the NEXT
+one, which dereferenced a field the mutation had made undefined - and a stack trace is
+indistinguishable from a guard that cannot fail. Every dereference in the follow-up is `?.`
+now. The recurrence is the lesson: **a check that reads the result of the thing the previous
+check just proved broken needs optional chaining, always.**
+
+**And `git checkout <file>` ate part of this commit, for the second commit running.** A
+manual mutation probe was cleaned up with `git checkout src/rag/customCast.js`, which
+reverted the whole of 4b's work in that file - the change was unstaged, so the index had
+nothing of it. Smoke found it one command later (`store.withCastDetail is not a function`)
+and the patch script re-applied it. **While a commit is unstaged, a probe is restored from a
+copy of the file and never from git.**
+
+---
+
 ### One profile editor, and an edit to a prebuilt member is a DIFF
 
 **Tapping a chosen member's face opens her profile, whichever door she came through**
@@ -3100,28 +3200,25 @@ Five commits, each shippable, and the first four are the release:
      `parseJsonish` factored out of `parseCard`. **No golden moved** - §22.5 predicted all
      six and was wrong, because no fixture holds a translated member. smoke **1603 → 1618**,
      14 mutations 14 RED. See *The filtered slot is FILLED*.
-   - ⬜ **4b, the two tabs and the wiring.** BLOCKED on one decision, below.
+   - ✅ **4b, the two tabs and the wiring.** `world_detail`, one stamped overlay field;
+     `applyWorldDetail` in `resolveRoster` and at the Start boundary; the editor's two
+     tabs with the restaging block on tab 2; the whole-cast sweep on both doors. **All
+     six goldens byte-identical**, for the third commit running. smoke **1618 → 1642**,
+     26 mutations 26 RED. See *A restaging is an OVERLAY stamped with the world it was
+     written for*.
 
-**4b's open decision, and it is Yuhan's because it touches what a save carries.** §22.2's
-storage rule is *only tab 1 is persisted*, and it collides with §22.2's own screen: if a
-generated tab-2 field is not persisted, it cannot survive the trip through `upsertMember`,
-so the text the player reviewed and corrected is thrown away and the Start sweep regenerates
-it. The same collision hits `name_kr`, which sits in tab 2 on screen and is
-world-INDEPENDENT by §22.2's own test (*would this sentence still be true in another
-world?*).
+**4b's storage decision was Yuhan's and it is TAKEN (2026-09-30): persist the restaging,
+stamped with the world it was generated for.** §22.2's *only tab 1 is persisted* is corrected
+in the plan rather than worked around: an unpersisted tab-2 field cannot survive
+`upsertMember`, so the text the player reviewed would be discarded and the sweep would
+regenerate it, which makes the `[retry]` button in §22.2's own sketch meaningless.
 
-**My proposal: persist the generated detail and STAMP it with the world it was generated
-for.** `resolveRoster` then drops a stamped detail whose world does not match, which makes
-staleness unexpressible downstream instead of relying on nothing having written it - and it
-delivers what §22.5's guard 3 actually asks for (*a world change during setup discards
-generated tab 2*) without deleting a custom member's hand-authored prose, which has no
-stamp and is therefore never touched. The cost is two new profile fields
-(`world_position`, `world_detail_for`) reaching the save.
-
-**Not taken without a decision**, because a new persisted field is the save shape, and
-§22.5's rule as written says the opposite. The alternative is to keep tab 2 unpersisted and
-accept that the player cannot correct generated text before Start - which makes the retry
-button in §22.2's own sketch meaningless.
+**What shipped is ONE field and not the two the proposal named**, and the difference is a
+defect avoided. `world_position` + `world_detail_for` writes the generated text over tab 1's
+fields; that destroys what the player wrote, and a CUSTOM member has no library record to
+restore it from - so *drop a stale detail* was not expressible for exactly the member whose
+prose is most hers. `world_detail` is an overlay instead: applied for a matching stamp,
+ignored otherwise, and nothing is overwritten either way.
 
 **Also decided while writing 4a, and stated so it can be overruled:** generation runs
 **lazily when tab 2 is opened empty, PLUS an unconditional Start-boundary sweep** for
@@ -3131,11 +3228,12 @@ button has nothing to retry. The pair reaches the whole cast (which is why A was
 and keeps the text reviewable, without charging a player for browsing casts.
 5. ⬜ The unified door - **not in scope**, and nothing above depends on it.
 
-**NOT verified: NONE of `81ccbeb`, `fcfb93d`, `832878d` or `62df3ed` has been seen on a
-device, and no live round has been played against any of them.** Two of the four are UI on
-the screens four phone passes in a row have found something on, and `62df3ed` adds a network
-call to a path that had none. Every claim below is offline: smoke, mutation and golden.
-The branch alias needs no deploy once `dev` is pushed:
+**NOT verified: NONE of the five §22.2 commits has been seen on a device, and no live round
+has been played against any of them.** Three of the five are UI on the screens four phone
+passes in a row have found something on, and 4b puts a network call on a path that had none
+AND spends one call per cast member at every Start in a non-idol world. Every claim here is
+offline: smoke, mutation, golden and one rendered-prompt probe. The branch alias needs no
+deploy once `dev` is pushed:
 
 ```
 dev.idol-dating-sim.pages.dev
@@ -3151,16 +3249,30 @@ dev.idol-dating-sim.pages.dev
   Save on her writes no second copy into the authored palette, and that the sub/NPC chip's
   two targets are both hittable at 390px. It was ONE button whose whole area unassigned,
   and a chip that now needs its `x` is the kind of change a thumb finds and a guard does not.
-- `62df3ed` - nothing to see yet: `world_position` has no writer until 4b, so the only
+- `62df3ed` - nothing to see yet: `world_position` had no writer until 4b, so the only
   observable change is that nothing changed. **That is the thing to confirm** - a
   non-idol run must read exactly as it did before, because the prompt is byte-identical.
+- 4b is the one to spend the most time on, and there are four things a guard cannot see:
+  **the wait** at Start in a non-idol world, which is one concurrent call per cast member
+  and has no progress bar beyond one toast; **the auto-generation** firing when tab 2 is
+  opened, including whether it reads as the app spending her credits unasked; **whether the
+  generated Chinese is any good**, which is the whole point and no assertion reaches it; and
+  **the two tabs at 390px**, since tab 1 gained three boxes and tab 2 gained a block.
 
-**A live round in a non-idol world is owed and is NOT a formality**, because `62df3ed` is the
-first commit whose whole subject is what a non-idol prompt says about a member:
+**A live round in a non-idol world is owed and is NOT a formality.** It is the only way to
+see a restaging the model actually wrote, and §22.1's failure profile is *universal and
+intermittent*, so one clean run establishes nothing about the world and everything about
+whether the pipeline runs at all:
 
 ```bash
 node test/playthrough.mjs --world chaebol --identity rival_heiress --lang zh --rounds 4
 ```
+
+**What the offline probe DID establish, because it is measurement and not reasoning:** a
+chaebol prompt built from a fully restaged cast carries **none** of 忙内 / 队长 / 出道 and
+**drops the interim rule entirely**; with one of two members restaged the rule stays and
+names the other. The prose in that probe was a sentinel string, not a model's - so this says
+the pipeline closes §22.1, and says nothing at all about the writing.
 
 #### Still next in the feature queue
 

@@ -1022,16 +1022,47 @@ async function layerG(mod, MODEL_CONFIGS) {
     /\{!apiKey && <span style=\{\{ color: "#d07070" \}\}>/.test(setupHead));
 
   check("startNewGame records the roster it is starting",
-    /setRoster\(\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app),
+    /\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app)
+      && /setRoster\(\w+\);/.test(app),
     "the builder's roster, named, or one composed from the form");
   // Two doors, and the builder's roster wins. Rebuilding it from the form would
   // throw away the NPC slots the player assigned and flatten a cross-group cast
   // into whichever single group happened to be selected. The order in that
   // expression IS the behaviour, so it is pinned rather than merely mentioned.
   check("a roster built by the builder is preferred over one composed from the form",
-    app.indexOf("setRoster((pendingRoster &&") > 0
-      && !/setRoster\(buildClassicRoster\([^)]*\) \|\| pendingRoster/.test(app),
+    app.indexOf("(pendingRoster && { ...pendingRoster") > 0
+      && !/buildClassicRoster\([^)]*\) \|\| pendingRoster/.test(app),
     "pendingRoster must come first");
+
+  // --- §22.5 commit 4b: the Start-boundary restaging sweep -------------------
+  //
+  // §22.1's defect is the DEFAULT path - 57 of 57 library members describe
+  // themselves through idol work - so the sweep runs for the whole cast on both
+  // doors rather than for whoever opened an editor. Written on the call, not on a
+  // flag: the `--provider` lesson is that a guard on the argument list passes while
+  // the value stays hardcoded one line below it.
+  check("the Start boundary restages the whole cast into the world it is starting in",
+    /generateCastDetail\(\{[\s\S]{0,120}members, world,/.test(app),
+    "a fix that reaches only players who open an editor does not reach the defect");
+  // In the world the library was authored for, the prose is already about this
+  // world: restaging it would replace correct text with generated text and spend a
+  // call per member doing it.
+  check("...and only in a world the library was not written for",
+    /if \(world && !world\.castLore\?\.useRole\) \{[\s\S]{0,400}generateCastDetail\(/.test(app),
+    "kpop_idol needs no restaging and must not pay for one");
+  // THE EXPENSIVE HALF. The roster is what the save carries and what every later
+  // round re-resolves, so stamping only the roster would send un-restaged prose in
+  // round 1 and the restaged version from round 2 - a drift of the whole
+  // ~5,500-token cached prefix, which is the ex-girlfriend Math.random() defect
+  // with a network call in it.
+  check("...and round 1 is built from the restaged cast, not the cast before it",
+    /members: roundMembers,/.test(app)
+      && /roundMembers = members\.map\(m => applyWorldDetail\(/.test(app),
+    "round 1 and round 2 must build the same static prompt");
+  check("...and the roster the save records is the stamped one",
+    /roundRoster = withCastDetail\(builtRoster, detailById, world\.id\)/.test(app)
+      && /setRoster\(roundRoster\);/.test(app),
+    "generated text must reach the save or buildSystemPrompt stops being a function of it");
   // The name is applied at START, not held in pendingRoster: the effect that
   // resolves that roster depends on it, so folding it in would re-resolve the
   // whole cast on every keystroke.
@@ -5363,6 +5394,61 @@ async function layerI() {
     withRole.members.every((m) => typeof m.role === "string" && m.role.length > 0),
     "the cast picker and the member editor read it; only the PROMPT is filtered");
 
+  // §22.2 commit 4b: A RESTAGING IS AN OVERLAY STAMPED WITH ITS WORLD.
+  //
+  // Read off the RESOLVED MEMBER rather than off the builder or the stored roster:
+  // the whole promise is about what the prompt is handed, and a stored object can
+  // be perfectly shaped and never applied. The stale case uses a stamp naming a
+  // world this cast is not being resolved in, which is the state a player produces
+  // by changing the world after generating.
+  const RESTAGED = "SENTINEL-RESTAGED-IMAGE";
+  const stampedCast = (worldStamp) => ({ ...roleCast, entries: roleCast.entries.map((e) => ({
+    ...e,
+    override: { world_detail: { world: worldStamp, world_position: POS, public_image: RESTAGED } },
+  })) });
+  const freshRes = await fromDisk(() =>
+    loader.resolveRoster(stampedCast(worlds.zh.id), "zh", worlds.zh));
+  const staleRes = await fromDisk(() =>
+    loader.resolveRoster(stampedCast("some-other-world"), "zh", worlds.zh));
+  const libImages = withRole.members.map((m) => m.public_image);
+  check("a restaging is applied in the world it was generated for",
+    freshRes.members.every((m) => m.public_image === RESTAGED && m.world_position === POS),
+    JSON.stringify(freshRes.members.map((m) => m.public_image)));
+  // The proposal was a field per line plus a stamp beside them, and this is the
+  // check it could not have passed: writing public_image in place destroys her own
+  // sentence, and a CUSTOM member has no library record to restore it from.
+  check("...and a stamp naming another world leaves her own lines exactly as they were",
+    staleRes.members.every((m, i) => m.public_image === libImages[i] && !m.world_position),
+    JSON.stringify(staleRes.members.map((m) => m.public_image)));
+  // The overlay itself is not a prompt field. Section 5 and memberLine read named
+  // fields, so it would render nothing either way - deleting it says so on purpose.
+  check("...and the stamped object itself reaches no member the prompt is built from",
+    freshRes.members.every((m) => !("world_detail" in m))
+      && !freshRes.groupConfig.groupLore.includes("world_detail"),
+    JSON.stringify(Object.keys(freshRes.members[0])));
+  // The same rule isUsableDetail states and withCastDetail stores by. A detail with
+  // prose and no position would count as restaged while rendering nothing at all in
+  // the slot useRole empties - worse than the idol prose the interim rule covers.
+  const noPos = await fromDisk(() => loader.resolveRoster({ ...roleCast, entries: roleCast.entries.map((e) => ({
+    ...e, override: { world_detail: { world: worlds.zh.id, public_image: RESTAGED } } })) }, "zh", worlds.zh));
+  check("...and a restaging with no world position is not applied at all",
+    noPos.members.every((m, i) => m.public_image === libImages[i]),
+    "world_position is the one marker, on every path that writes one");
+  // Per-field lossy by design: parseWorldDetail keeps whatever arrived, so a blank
+  // overriding a sentence is the one direction that loses text.
+  const blankOne = await fromDisk(() => loader.resolveRoster({ ...roleCast, entries: roleCast.entries.map((e) => ({
+    ...e, override: { world_detail: { world: worlds.zh.id, world_position: POS, public_image: "   " } } })) }, "zh", worlds.zh));
+  check("...and a field the restaging left blank keeps her own line",
+    blankOne.members.every((m, i) => m.public_image === libImages[i] && m.world_position === POS),
+    JSON.stringify(blankOne.members.map((m) => m.public_image)));
+  // The position the overlay carries has to reach memberLine, or the slot useRole
+  // empties is filled in the data and empty in the prompt.
+  const overlaidLore = await fromDisk(() =>
+    loader.resolveRoster(stampedCast(worlds.zh.id), "zh", noRoleWorld || worlds.zh));
+  check("...and an applied restaging fills the slot in the prompt, not only on the member",
+    overlaidLore.groupConfig.groupLore.includes(POS),
+    "a stamped position nothing renders is a field with no reader");
+
   // The world is REQUIRED, the same rule buildSystemPrompt follows. A default would
   // be a second copy of every string in public/worlds/, and a missing-wiring bug
   // would render a lecture hall as a K-pop agency instead of failing.
@@ -6401,11 +6487,62 @@ async function layerI() {
 
   // EVERY field the generator can fill must be editable, or the model writes
   // something the player has no way to correct.
-  const stepFields = [...editorSrc.matchAll(/^\s*\["([^\]]+)\],?$/gm)]
-    .flatMap((m) => m[1].split(",").map((s) => s.trim().replace(/^"|"$/g, "")));
+  const stepArrays = [...editorSrc.matchAll(/^\s*\["([^\]]+)\],?$/gm)]
+    .map((m) => m[1].split(",").map((s) => s.trim().replace(/^"|"$/g, "")));
+  const stepFields = stepArrays.flat();
   const uneditable = cg.CARD_FIELDS.filter((f) => !stepFields.includes(f));
   check("every field the card generator fills is editable in the editor",
     uneditable.length === 0, `not editable: ${uneditable.join(", ")}`);
+  // TWO generations now, and the same invariant covers both: the restaging writes
+  // five fields and the player must be able to correct every one of them. Derived
+  // from WORLD_FIELDS, so a sixth field added to the restaging fails this until it
+  // has a box.
+  const unrestageable = loader.WORLD_FIELDS.filter((f) => !stepFields.includes(f));
+  check("...and so is every field the restaging fills",
+    unrestageable.length === 0, `not editable: ${unrestageable.join(", ")}`);
+  // ONE BOX whose FIELD the world picks, mirroring memberLine's own expression.
+  // Taking it away instead - which is what §22.3.2 reads as - would leave a custom
+  // member in an idol world with no way to say what she does.
+  check("the position box writes whichever field the prompt will read",
+    /positionField = world\?\.castLore\?\.useRole \? "role" : "world_position"/.test(editorSrc)
+      && /renderField\(positionField\)/.test(editorSrc),
+    "role and world_position are alternatives in the editor exactly as in memberLine");
+  // An edit goes where the text she is looking at came from. Asserted on the boxes,
+  // because a renderField still reading `profile[f]` would silently write a base
+  // field while displaying an overlaid one - the edit would vanish on save.
+  check("a tab-2 box reads and writes the copy it is showing",
+    /value=\{valueOf\(f\)\}/.test(editorSrc) && /onChange=\{\(e\) => setField\(f, e\.target\.value\)\}/.test(editorSrc)
+      && !/value=\{profile\[f\] \|\| ""\}/.test(editorSrc),
+    "a box that displays the overlay and writes the base loses the edit on save");
+  // world_position has no home in the base profile - a base copy would apply in
+  // every world - so typing one creates the overlay, stamped for this world.
+  check("...and typing a position creates the stamped overlay rather than a loose field",
+    /WORLD_FIELDS\.includes\(f\) && \(detailActive \|\| f === "world_position"\)/.test(editorSrc)
+      && /keep = had && had\.world === worldId \? had : \{ world: worldId \}/.test(editorSrc),
+    "a position stored outside the stamp leaks one world into every other");
+  // Restaging a restaging compounds: the second pass describes a chaebol heiress as
+  // if she had been one, and her own lines are gone from the input.
+  check("a regeneration restages from her own lines, not from the previous restaging",
+    /member: baseProfile\(\)/.test(editorSrc)
+      && /delete o\[WORLD_DETAIL_KEY\]; return o; \}/.test(editorSrc),
+    "the input has to be her own text or each retry drifts further from her");
+  // A control that provably does nothing is worse than no control - the same
+  // argument that hides tab 1's generate box for a library member.
+  check("the restaging block is hidden in the world the library was written for",
+    /restageable = Boolean\(world && !world\?\.castLore\?\.useRole\)/.test(editorSrc)
+      && /\{restageable && \(/.test(editorSrc),
+    "kpop_idol has nothing to restage");
+  // Once per editor, from a ref. Without it every render of the tab fires a call,
+  // which is the player's money and her rate limit.
+  check("...and the tab generates once when it opens empty, not on every render",
+    /if \(step !== 1 \|\| autoRan\.current\) return;/.test(editorSrc)
+      && /autoRan\.current = true;\s*\r?\n\s*runDetail\(\);/.test(editorSrc),
+    "a tab that opens empty beside a retry button has nothing to retry");
+  // The overlay never overwrote anything, so dropping it IS the revert. Clearing
+  // the boxes instead would delete her own text to undo a generation.
+  check("...and reverting drops the overlay rather than clearing her own fields",
+    /const dropDetail = \(\) => setProfile\(\(p\) => \{[\s\S]{0,120}delete o\[WORLD_DETAIL_KEY\]/.test(editorSrc),
+    "a generation with no way back gets routed around");
 
   // A `const Field = ...` declared in the render body is a new component TYPE on
   // every render, so React remounts the input on each keystroke and the field
@@ -6523,8 +6660,11 @@ async function layerI() {
   for (const lang of ["zh", "en", "ko"]) {
     const { default: pack } = await import(`../src/i18n/${lang}.js`);
     castKeys[lang] = pack.cast;
-    check(`t.cast exists in ${lang} with the editor's step labels`,
-      Array.isArray(pack.cast?.steps) && pack.cast.steps.length === 3,
+    // DERIVED from the tabs the editor actually renders, not pinned to a count:
+    // the three-step editor became two tabs in §22.2's commit 4b, and a hardcoded 3
+    // is a guard that fails the change instead of the defect.
+    check(`t.cast exists in ${lang} with one label per editor tab`,
+      Array.isArray(pack.cast?.steps) && pack.cast.steps.length === stepArrays.length,
       JSON.stringify(pack.cast?.steps));
   }
   const keyShape = (o) => JSON.stringify(Object.keys(o).sort());
@@ -6795,6 +6935,63 @@ async function layerI() {
       && Boolean(editedIrene.private_personality) && Boolean(editedIrene.birthday)
       && Boolean(editedIrene.name_kr),
     JSON.stringify({ pub: editedIrene.public_image, kr: editedIrene.name_kr }));
+
+  // --- §22.5 commit 4b: where a swept restaging is STORED ---------------------
+  //
+  // Each source keeps its own rule, unchanged: a custom member is snapshotted so
+  // her detail goes in `profile`; a library member is by reference so hers goes in
+  // `override`, beside whatever the editor already put there.
+  const SWEEP_ROSTER = store.rosterFromPicks({
+    irene: { slot: "main", src: "library", groupId: "red_velvet", override: { mbti: "EDITED" } },
+    c_9: { slot: "sub", src: "custom", profile: { id: "c_9", name: "Nine" } },
+    yeri: { slot: "npc", src: "library", groupId: "red_velvet" },
+  });
+  const swept = store.withCastDetail(SWEEP_ROSTER, {
+    irene: { world_position: "in-house counsel", public_image: "A" },
+    c_9: { world_position: "the driver" },
+  }, "chaebol");
+  const sweptOf = (id) => swept.entries.find((e) => e.memberId === id);
+  check("a swept restaging lands where that member's own rule puts her",
+    sweptOf("irene").override?.world_detail?.world_position === "in-house counsel"
+      && sweptOf("irene").override?.mbti === "EDITED"
+      && sweptOf("c_9").profile?.world_detail?.world_position === "the driver"
+      && sweptOf("c_9").override === undefined,
+    JSON.stringify(swept.entries));
+  check("...and every stored restaging carries the world it was generated for",
+    [sweptOf("irene")?.override?.world_detail, sweptOf("c_9")?.profile?.world_detail]
+      .every((d) => d?.world === "chaebol"),
+    "an unstamped detail applies in every world, which is the leak the stamp stops");
+  // A failed generation must leave her in the state §22.1's narrowed rule covers,
+  // and an empty stamp would say she had been restaged.
+  check("...and a member the generation failed for is left byte-identical",
+    sweptOf("yeri") === SWEEP_ROSTER.entries.find((e) => e.memberId === "yeri"),
+    JSON.stringify(sweptOf("yeri")));
+  // The palette's own boundary. A detail with no stamp would apply everywhere; one
+  // with no position is the state applyWorldDetail declines to apply.
+  check("the palette stores a stamped restaging and refuses an unstamped one",
+    store.sanitizeProfile({ name: "N", world_detail: { world: "campus", world_position: "a junior" } })
+      .world_detail?.world_position === "a junior"
+      && !("world_detail" in store.sanitizeProfile({ name: "N", world_detail: { world_position: "a junior" } }))
+      && !("world_detail" in store.sanitizeProfile({ name: "N", world_detail: { world: "campus" } })),
+    JSON.stringify(store.sanitizeProfile({ name: "N", world_detail: { world: "campus" } })));
+  // THE GATE, for the object the diff now has to see. String(obj) flattens every
+  // detail to the same "[object Object]", so a generation would diff to nothing and
+  // never reach the roster - and an unedited one must still diff to nothing, or the
+  // entry stops being what a cast nobody touched produces.
+  const DET = { world: "chaebol", world_position: "in-house counsel" };
+  const DET2 = { world: "chaebol", world_position: "the family driver" };
+  check("a restaging is recorded by the diff rather than flattened out of it",
+    store.overrideFrom({ ...LIB_BASE, world_detail: DET }, { ...LIB_BASE, world_detail: DET2 })
+      .world_detail?.world_position === DET2.world_position,
+    "two details that compare equal make a retry the player paid for vanish");
+  // The editor builds `{ world, ...detail }` and a stored one comes back in
+  // WORLD_FIELDS order, so the SAME content arrives with its keys in two orders.
+  // Comparing the raw objects reads that as an edit, and then a cast nobody touched
+  // carries an override - which is the no-golden-moves gate, one commit on.
+  check("...and one that has not changed still yields no override key, whatever its key order",
+    Object.keys(store.overrideFrom({ ...LIB_BASE, world_detail: DET },
+      { ...LIB_BASE, world_detail: { world_position: DET.world_position, world: DET.world } })).length === 0,
+    "key order is not an edit");
 
   // ONE editor, TWO save paths, and the branch reads a FORWARDED value rather than
   // inferring which state opened it. Inference is how one of two call sites comes

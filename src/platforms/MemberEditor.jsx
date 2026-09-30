@@ -2,16 +2,22 @@
 //
 // Author one custom cast member. docs/V140_PLAN.md §14.3.
 //
-// THREE STEPS, NOT ONE SCROLL. The card has sixteen fields plus a photo plus the
-// generate box, and at 390px that is unreadable as a single page — you lose
-// track of what is still required somewhere around field nine. So: who she is /
-// how she reads / details, with a dot indicator.
+// TWO TABS SINCE §22.2's COMMIT 4b, AND THE SPLIT IS THE STORAGE RULE: tab 1 is
+// true of the PERSON, tab 2 is true of the person IN A WORLD. §22.2's test for
+// which tab a field is in is *would this sentence still be true if she were cast
+// in a different world?* - her MBTI, her habit and her birth year survive the
+// move; her position here and the three ★ texture fields do not.
 //
-// SAVE IS LIVE THE MOMENT THE THREE REQUIRED FIELDS ARE FILLED, from whatever
-// step you are on. Walking to the end to commit is the thing that makes a wizard
-// feel worse than a form, and step 3 is entirely optional fields — nobody should
-// have to visit it. Generate on step 1 fills steps 2 and 3, so the fast path is:
-// type a line, generate, glance, save.
+// It was three steps (who she is / how she reads / details) and the reason for
+// splitting at all is unchanged: sixteen fields plus a photo plus the generate box
+// is unreadable as one page at 390px. What changed is WHERE the seam goes, and it
+// now goes where the data's own boundary is rather than where the reading got
+// long.
+//
+// SAVE IS LIVE THE MOMENT THE THREE REQUIRED FIELDS ARE FILLED, from either tab.
+// Walking to the end to commit is the thing that makes a wizard feel worse than a
+// form, and tab 2 is entirely optional - and generated. Generate on tab 1 fills
+// both, so the fast path is: type a line, generate, glance, save.
 //
 // The component owns no storage. It hands a finished profile to `onSave` and the
 // caller decides what to do with it, which is what lets the palette enforce its
@@ -23,25 +29,37 @@ import {
   birthYearOf, birthdayFromYear, validBirthYear, BIRTH_YEAR_MIN, BIRTH_YEAR_MAX,
   EMOJI_PALETTE, normalizeEmoji,
 } from "../rag/customCast";
-import { generateCard, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS } from "../agent/cardGenerator";
+import {
+  generateCard, generateWorldDetail, MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS,
+} from "../agent/cardGenerator";
+// The restaging's own vocabulary, from the module that lays it back over a member.
+import { WORLD_FIELDS, WORLD_DETAIL_KEY } from "../rag/rosterResolver";
 import { castTokens, scaleFont } from "./castTheme";
 import YearWheel, { DEFAULT_YEAR } from "./YearWheel";
 import ImageCropper from "./ImageCropper";
 import MemberFace from "./memberFace";
 
-// Which fields live on which step. Required fields are split across steps 1 and
-// 2 deliberately: birthday belongs with the name, and private_personality
-// belongs with the prose it sits among. The Save button does not care which step
-// they were filled on.
+// Which fields live on which tab. All three required fields are on tab 1 now,
+// which is what makes tab 2 skippable in fact and not only in principle: a
+// complete card never needs the second tab opened.
 //
-// Every field cardGenerator can fill appears here, which is the invariant that
-// matters: the player must be able to correct anything the model wrote. Step 1
-// renders its two specially — birthday is collected as a YEAR — so it is
-// declared here for completeness and the step-1 markup is explicit.
+// EVERY FIELD A GENERATION CAN FILL APPEARS HERE, which is the invariant that
+// matters - the player must be able to correct anything the model wrote, and there
+// are two generations now (the card on tab 1, the restaging on tab 2). Some boxes
+// are rendered explicitly rather than by the loop - birthday is collected as a
+// YEAR, the emoji has a palette beside it, and the position box's FIELD depends on
+// the world - so they are declared here for completeness and their markup is its
+// own.
+//
+// `role` is not listed and is not gone: in an idol world it IS the position box,
+// because memberLine reads `useRole ? role : world_position` and the box writes
+// whichever of the two the prompt will read. Deleting the box outright, which
+// §22.3.2 reads as, would leave a custom member in an idol world with no way to
+// say what she does - the filtered-slot-left-empty defect commit 4 exists to
+// close, one door over.
 export const STEP_FIELDS = [
-  ["name", "birthday"],
-  ["private_personality", "public_image", "queer_texture", "speech_style", "habit"],
-  ["name_kr", "mbti", "role", "hidden_conflict"],
+  ["name", "birthday", "private_personality", "mbti", "habit", "emoji"],
+  ["name_kr", "world_position", "public_image", "queer_texture", "speech_style", "hidden_conflict"],
 ];
 
 // `animal_plastic` is NOT here, and it is not deleted either (§22.3.3): it renders
@@ -89,6 +107,48 @@ export default function MemberEditor({
   const canSave = missing.length === 0;
 
   const set = (field, value) => setProfile((p) => ({ ...p, [field]: value }));
+
+  // ── which copy tab 2 is showing, and therefore which copy an edit lands on ──
+  //
+  // A restaging is an OVERLAY stamped with the world it was written for
+  // (rosterResolver.js#applyWorldDetail), so tab 2 may be looking at her own lines
+  // or at a generated set laid over them. ONE RULE, no world branch: an edit goes
+  // where the text she is looking at came from.
+  //
+  // `world_position` is the exception and it is not a special case so much as the
+  // same rule: it has no home in the base profile at all - it is not on
+  // PROFILE_FIELDS, because a base copy would apply in every world and leak one -
+  // so typing a position CREATES the overlay, stamped for this world. A stamp for
+  // another world is replaced rather than added to, or her campus lines would
+  // arrive in a chaebol compound under a chaebol stamp.
+  const detail = profile[WORLD_DETAIL_KEY] || null;
+  const worldId = world?.id || "";
+  const detailActive = Boolean(worldId && detail && detail.world === worldId);
+  // The world the library was authored for needs no restaging: there the prose is
+  // already about this world, so the block is hidden rather than offered - a
+  // control that provably does nothing is worse than no control, which is the same
+  // argument that hides tab 1's generate box for a library member.
+  const restageable = Boolean(world && !world?.castLore?.useRole);
+  const positionField = world?.castLore?.useRole ? "role" : "world_position";
+  const writesOverlay = (f) =>
+    WORLD_FIELDS.includes(f) && (detailActive || f === "world_position");
+  const valueOf = (f) => (writesOverlay(f)
+    // An overlaid field the generation did not fill leaves her own line showing,
+    // which is exactly what applyWorldDetail renders - the box and the prompt agree.
+    ? String(detail?.[f] ?? profile[f] ?? "")
+    : String(profile[f] ?? ""));
+  const setField = (f, v) => {
+    if (!writesOverlay(f)) { set(f, v); return; }
+    setProfile((p) => {
+      const had = p[WORLD_DETAIL_KEY];
+      const keep = had && had.world === worldId ? had : { world: worldId };
+      return { ...p, [WORLD_DETAIL_KEY]: { ...keep, [f]: v } };
+    });
+  };
+  // Her own lines, with no restaging over them. A REGENERATION RESTAGES FROM THESE
+  // rather than from the previous restaging: restaging a restaging compounds, and
+  // the second pass would be describing a chaebol heiress as if she had been one.
+  const baseProfile = () => { const o = { ...profile }; delete o[WORLD_DETAIL_KEY]; return o; };
 
   // The form asks for a YEAR and stores a date: a player does not know an
   // original character's exact birthday, and the address protocol only ever reads
@@ -159,6 +219,52 @@ export default function MemberEditor({
       setGenerating(false);
     }
   };
+
+  // ── her restaging (tab 2) ──────────────────────────────────────────
+  const [detailing, setDetailing] = useState(false);
+
+  const runDetail = async () => {
+    if (!String(profile.name || "").trim()) { notify?.(c.detailNeedName, "error"); return; }
+    setDetailing(true);
+    try {
+      const res = await generateWorldDetail({
+        member: baseProfile(), world, language, apiKey, modelId, aliyun,
+      });
+      if (!res.ok) {
+        // An accelerator, never a gate - cardGenerator's own law. The tab stays
+        // exactly as it was, her own lines are still what the prompt sends, and
+        // §22.1's narrowed rule is what covers her until a retry works.
+        notify?.(t?.errors?.[res.reason] || c.detailFailed, "error");
+        return;
+      }
+      setProfile((p) => ({ ...p, [WORLD_DETAIL_KEY]: { world: worldId, ...res.detail } }));
+    } finally {
+      setDetailing(false);
+    }
+  };
+
+  // USE HER OWN LINES AGAIN. A generation with no way back gets routed around
+  // exactly as a prohibition with no substitute does - and because the overlay
+  // never overwrote anything, dropping it is all it takes to get her text back.
+  const dropDetail = () => setProfile((p) => {
+    const o = { ...p }; delete o[WORLD_DETAIL_KEY]; return o;
+  });
+
+  // ONE AUTOMATIC RUN, when the tab is opened with nothing for this world. The
+  // alternative is a tab that opens empty beside a retry button with nothing to
+  // retry, which is what §22.2's own sketch would have shipped; and it is not extra
+  // spend, because the Start-boundary sweep skips whoever the editor restaged.
+  // Gated on a key and a name because both are inputs the call cannot do without.
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (step !== 1 || autoRan.current) return;
+    if (!restageable || detailActive || detailing) return;
+    if (!String(profile.name || "").trim() || !String(apiKey || "").trim()) return;
+    autoRan.current = true;
+    runDetail();
+    // Fires on reaching the tab, and the ref is what makes it once per editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // ── her images ────────────────────────────────────────────────────────────
   // ONE HIDDEN INPUT, OPENED THROUGH A REF. It was a <label> wrapping an
@@ -262,10 +368,10 @@ export default function MemberEditor({
           </span>
         </label>
         {MULTILINE.has(f) ? (
-          <textarea value={profile[f] || ""} onChange={(e) => set(f, e.target.value)}
+          <textarea value={valueOf(f)} onChange={(e) => setField(f, e.target.value)}
             rows={2} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
         ) : (
-          <input value={profile[f] || ""} onChange={(e) => set(f, e.target.value)}
+          <input value={valueOf(f)} onChange={(e) => setField(f, e.target.value)}
             style={inputStyle} />
         )}
         {hint && (
@@ -355,6 +461,11 @@ export default function MemberEditor({
                 </div>
               </div>
 
+              {/* WHO SHE IS WHEN NOBODY IS WATCHING, and two traits that travel with
+                  her: MBTI and a habit are true of the person, so §22.2's test puts
+                  them here rather than in the tab a world can rewrite. */}
+              {["private_personality", "mbti", "habit"].map(renderField)}
+
               {/* HER GLYPH, and it is not decoration: with no photo it is what the
                   top bar, the stats box, the Setup chips and every social tab strip
                   draw for her - and a photo is optional, so for most custom members
@@ -414,14 +525,52 @@ export default function MemberEditor({
             </>
           )}
 
-          {step === 1 && STEP_FIELDS[1].map(renderField)}
-
-          {step === 2 && (
+          {step === 1 && (
             <>
-              <div style={{ fontSize: fs(10), color: textFaint, marginBottom: 10, lineHeight: 1.5 }}>
+              {/* THE RESTAGING. It is the whole subject of this tab, so it sits above
+                  the boxes it fills rather than under them - and it is hidden in the
+                  world the library was authored for, where there is nothing to
+                  restage. The status line names the world, because a generated
+                  paragraph is only reviewable if the player can see which setting it
+                  was written for. */}
+              {restageable && (
+                <div style={{ padding: 11, borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 13 }}>
+                  <div style={{ fontSize: fs(11), color: accent, fontWeight: 600, marginBottom: 5 }}>
+                    {c.detailTitle?.(world?.name || "")}
+                  </div>
+                  <div style={{ fontSize: fs(9.5), color: textDim, lineHeight: 1.5, marginBottom: 7 }}>
+                    {detailActive ? c.detailFor?.(world?.name || "") : c.detailNone}
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={runDetail} disabled={detailing}
+                      style={{ flex: 1, padding: 9, borderRadius: 8, border: "none", cursor: detailing ? "default" : "pointer", background: detailing ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(11.5), fontWeight: 600 }}>
+                      {detailing ? c.detailGenerating : (detailActive ? c.detailRetry : c.detailGenerate)}
+                    </button>
+                    {detailActive && (
+                      <button onClick={dropDetail}
+                        style={{ padding: "9px 11px", borderRadius: 8, cursor: "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(11) }}>
+                        {c.detailRevert}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: fs(9), color: textFaint, marginTop: 5, lineHeight: 1.4 }}>{c.detailHint}</div>
+                </div>
+              )}
+
+              {/* `name_kr` is drawn on this tab and writes the BASE, which is not a
+                  contradiction: the tabs are how the player reads the form, and the
+                  storage rule is per field. A Korean name is her name in a lecture
+                  hall as much as on a stage (§22.3.1), so it is not restaged and not
+                  stamped. */}
+              {renderField("name_kr")}
+              {/* ONE BOX, and the WORLD picks which field it writes - the same
+                  expression memberLine renders. */}
+              {renderField(positionField)}
+              {["public_image", "queer_texture", "speech_style", "hidden_conflict"].map(renderField)}
+
+              <div style={{ fontSize: fs(9.5), color: textFaint, marginTop: 4, lineHeight: 1.5 }}>
                 {c.optional} — {c.fictionNote}
               </div>
-              {STEP_FIELDS[2].map(renderField)}
             </>
           )}
         </div>
@@ -434,14 +583,14 @@ export default function MemberEditor({
               ← {c.back}
             </button>
           )}
-          {step < 2 && (
+          {step < 1 && (
             <button onClick={() => setStep((s) => s + 1)}
               style={{ flex: 1, padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
               {c.next} →
             </button>
           )}
-          {/* Live from any step. A wizard that makes you walk to the end to commit
-              is worse than the form it replaced, and step 3 is optional fields. */}
+          {/* Live from either tab. A wizard that makes you walk to the end to commit
+              is worse than the form it replaced, and tab 2 is optional and generated. */}
           <button onClick={submit} disabled={!canSave}
             style={{ flex: 1, padding: "9px 13px", borderRadius: 9, border: "none", cursor: canSave ? "pointer" : "not-allowed", background: canSave ? accentGrad : (isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.08)"), color: canSave ? "#fff" : textFaint, fontSize: fs(11.5), fontWeight: 700 }}>
             {c.save}

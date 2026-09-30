@@ -16,6 +16,10 @@
 
 import { callLLM } from "../tools/llmTool";
 import { LLMError } from "../tools/llmErrors";
+// What a restaging is allowed to write, from the module that APPLIES it. Asking
+// for a field the overlay does not lay down would spend tokens on text nothing
+// renders, and a second hand-kept copy of the list is how that happens.
+import { WORLD_FIELDS } from "../rag/rosterResolver";
 
 // The fields the call is allowed to fill. `name` and `birthday` are here
 // because without them the player still has to supply two required fields by
@@ -215,15 +219,8 @@ export async function generateCard({
 // different world?* - and the three ★ texture fields fail it: the library's are
 // authored for a performing-idol setting and reach all four worlds, 57 of 57
 // members, 80 field instances (§22.1). `world_position` is the fourth, and it is
-// what fills the slot `castLore.useRole` empties.
-//
-// `name_kr` is NOT here. It is a tab-2 field on screen and world-INDEPENDENT in
-// fact - a Korean name is her name in a lecture hall as much as on a stage - so
-// generating it per world would be re-rolling a fixed fact, and the prebuilt cast
-// already carries it. §22.3.1 has the twelve-plus readers it would break.
-export const WORLD_FIELDS = [
-  "world_position", "public_image", "queer_texture", "speech_style", "hidden_conflict",
-];
+// what fills the slot `castLore.useRole` empties. The list itself is WORLD_FIELDS,
+// imported from the module that lays it back over a member.
 
 /**
  * The prompt that restages one member in one world.

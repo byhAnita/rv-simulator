@@ -4,7 +4,12 @@ import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
 import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
-import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor } from "./rag/rosterResolver";
+import {
+  resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor,
+  applyWorldDetail, WORLD_DETAIL_KEY,
+} from "./rag/rosterResolver";
+import { withCastDetail } from "./rag/customCast";
+import { generateCastDetail } from "./agent/cardGenerator";
 import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
@@ -843,8 +848,8 @@ export default function App() {
     // Built rather than resolved, because `members` is already the answer
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
-    setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
-      || buildClassicRoster(selectedGroup, mainId, subIds, members.map(m => m.id)));
+    const builtRoster = (pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
+      || buildClassicRoster(selectedGroup, mainId, subIds, members.map(m => m.id));
     setMessages([]); setCurrentOptions([]);
     // A new game states its birth year at Setup, so nothing here is an estimate.
     setBirthYearEstimated(false);
@@ -852,6 +857,40 @@ export default function App() {
     statsRef.current = null;
     memoryRef.current = createEmptyMemory();
     setPhase("game"); setLoading(true);
+
+    // ── the restaging sweep (docs/V140_PLAN.md §22.5 commit 4b) ───────────────
+    //
+    // WHOLE CAST, BOTH DOORS, at this boundary and nowhere later. §22.1's defect is
+    // the default path — 57 of 57 library members describe themselves through idol
+    // work — so a fix that only reaches players who open an editor does not reach
+    // the defect. Concurrent, so nine members cost roughly one call's wait; failures
+    // are simply absent, which is the state §22.1's narrowed prompt rule covers.
+    //
+    // ONLY WHEN `useRole` IS FALSE. In the world the library was authored for the
+    // prose is already about this world, so restaging it would replace correct text
+    // with generated text and spend five to nine calls doing it.
+    //
+    // IT IS APPLIED TO THE MEMBERS ROUND 1 IS BUILT FROM, not only to the roster.
+    // The roster is what the save carries and what every later round re-resolves; if
+    // only that were stamped, round 1 would send her un-restaged prose and round 2
+    // the restaged version — a static-prompt drift of the whole ~5,500-token prefix,
+    // which is the ex-girlfriend `Math.random()` defect with a network call in it.
+    // Both paths go through `applyWorldDetail`, so the two rounds are byte-identical.
+    let roundRoster = builtRoster;
+    let roundMembers = members;
+    if (world && !world.castLore?.useRole) {
+      showNotif(t.cast.restaging(members.length));
+      const { detailById } = await generateCastDetail({
+        members, world, language, apiKey, modelId: selectedModel, aliyun: aliyunOptions(),
+      });
+      roundRoster = withCastDetail(builtRoster, detailById, world.id);
+      roundMembers = members.map(m => applyWorldDetail(detailById[m.id]
+        ? { ...m, [WORLD_DETAIL_KEY]: { world: world.id, ...detailById[m.id] } }
+        : m, world.id));
+      setMembers(roundMembers);
+    }
+    setRoster(roundRoster);
+
     const initialStats = createInitialStats(mainId, subIds);
     statsRef.current = initialStats;
     setStats({ ...initialStats });
@@ -869,7 +908,10 @@ export default function App() {
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: formForRound(),
-        members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
+        // `roundMembers`, not `members`: see the sweep above. The state setter has
+        // not flushed yet, and the round after this one resolves the same stamped
+        // roster, so this is the copy that makes the two prompts agree.
+        members: roundMembers, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
         aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       statsRef.current = result.newStats;

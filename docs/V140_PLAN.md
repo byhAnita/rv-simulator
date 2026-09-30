@@ -2949,11 +2949,22 @@ entries (6 of 57 for `queer_texture`), so they sit in tab 2 where a regenerate c
 them rather than in tab 1 where a stale line would be persisted.
 
 **Why the tab split is the right storage rule.** Tab 1 is true of the person; tab 2 is true of
-the person *in a world*. Persisting only tab 1 means a member authored in the campus world can
-be cast in the chaebol world without carrying a lecture hall into it, and changing the world
-mid-setup discards the generated detail rather than silently contradicting the new one. It is
-the same asymmetry `beginRun` uses: **forgetting to persist a world-scoped field is harmless;
-persisting one leaks a world.**
+the person *in a world*. A member authored in the campus world can be cast in the chaebol
+world without carrying a lecture hall into it, and changing the world mid-setup discards the
+generated detail rather than silently contradicting the new one. It is the same asymmetry
+`beginRun` uses: **a world-scoped field that fails to reach this world is harmless; one that
+reaches another world leaks a world.**
+
+**CORRECTED BY COMMIT 4b, 2026-09-30: tab 2 IS persisted, and it is persisted as a STAMPED
+OVERLAY rather than written over tab 1's fields.** *Only tab 1 is persisted* collides with
+this document's own screen - an unpersisted tab-2 field cannot survive `upsertMember`, so the
+text the player reviewed is discarded and the Start sweep regenerates it, which makes the
+`[retry]` button above meaningless. What that rule was protecting is delivered instead by
+the stamp: the generated detail lives in ONE field, `world_detail`, carrying the world id it
+was generated for, and `resolveRoster` applies it only when that id is this world's. A stale
+detail is not applied and is not deleted, so **staleness is unexpressible rather than merely
+unwritten** - and nothing the player wrote is ever overwritten, which the field-per-field
+shape could not promise. See *What commit 4b settled*.
 
 **The test for which tab a field belongs in:** *would this sentence still be true if she were
 cast in a different world?* Her MBTI, her habit, her birth year and her private personality
@@ -3268,6 +3279,53 @@ cast at the Start boundary*, which means tab 2 is empty for the whole of setup. 
 taken is **lazy on opening an empty tab 2, plus an unconditional Start sweep** - the sweep
 is what makes it reach the whole cast, the lazy call is what makes the text reviewable, and
 skipping anyone who already has detail is what stops the sweep overwriting a correction.
+
+#### What commit 4b settled, and the two places the proposal was wrong
+
+**ONE new persisted field, not two, and the difference is a defect avoided.** The proposal
+named `world_position` and `world_detail_for` - the generated text written over tab 1's
+fields, with a stamp beside it. That shape cannot keep its own promise. Writing
+`public_image` in place destroys what the player wrote, and for a CUSTOM member there is no
+library record to restore it from, so *drop a stale detail* is not expressible for exactly the
+member whose prose is most hers. What shipped is `world_detail`: an object holding the world
+id and the five generated fields, applied as an OVERLAY. Applied or not applied - nothing is
+overwritten, and a member cast in a second world falls back to her own lines rather than to a
+hole.
+
+**`applyWorldDetail` deletes the overlay on the way out**, so the nested object reaches no
+renderer. It is one function, used by `resolveRoster` and by `startNewGame`'s sweep, because
+two copies of *what this member IS in this world* is the `extractStoryText` failure with a
+prompt behind it.
+
+**The sweep runs only when `useRole` is FALSE.** In `kpop_idol` the library's prose is already
+about this world, so restaging it would replace correct text with generated text and spend
+five to nine calls per new game doing it. §22.1's measurement is taken over `useRole === false`;
+the idol world is the one the library was authored for.
+
+**The position box is ONE box and the WORLD picks which field it writes** -
+`useRole ? role : world_position`, mirroring `memberLine`. §22.3.2 says `role` stops being a
+field a player edits, and taking the box away outright would leave a custom member in an idol
+world with no way to say what she does: **the filtered-slot-left-empty defect this commit
+exists to close, one door over.**
+
+**Round 1 must send the swept cast, and this is the expensive half.** The sweep stamps the
+roster, but `startNewGame` hands `executeRound` the `members` it already has - so applying the
+sweep to the roster alone would send un-restaged prose in round 1 and the restaged version
+from round 2, once the in-game effect re-resolves the saved roster. That is a static-prompt
+drift of the whole ~5,500-token prefix: the ex-girlfriend `Math.random()` defect's shape with
+a network call in it. The same `applyWorldDetail` is applied to the members round 1 is built
+from, which is what makes the two rounds byte-identical.
+
+**An edit in tab 2 goes where the text she is looking at came from.** With no overlay for this
+world the boxes show her own lines and an edit lands on them (a library member's edit is still
+a diff on `override`, commit 3's behaviour unchanged); once a generation exists the boxes show
+it and an edit lands on the overlay. One rule, no world branch, and *revert to her own lines*
+is what makes a generation the player dislikes reversible - a prohibition with no substitute
+gets routed around, and so does a control with no way back.
+
+**No golden moved, for the third commit running.** No fixture carries an overlay, so
+`applyWorldDetail` is the identity function over all six - which is also why the overlay path
+is exercised against a synthetic stamped roster instead.
 
 #### What this plan does NOT claim
 
