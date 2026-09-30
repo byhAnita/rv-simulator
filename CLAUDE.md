@@ -2896,14 +2896,34 @@ the **unified door is out of scope** - it stays §22.5's commit 5 and nothing el
 
 Five commits, each shippable, and the first four are the release:
 
-1. docs - §22.5 plus this block.
-2. **Player info before the cast, on both doors.** No prompt change and no golden moves; this is
-   the commit that fixes the stale world by construction.
-3. **One profile editor for custom AND prebuilt members**, a library edit landing on
-   `entry.override`. No golden moves if nothing is edited, which is the gate.
-4. **The two tabs, the generated detail, and `world_position`.** Prompt-facing: it moves all six
-   goldens and narrows the §22.1 rule.
-5. The unified door - not in scope.
+1. ✅ **docs** - §22.5 plus this block. `81ccbeb`.
+2. ✅ **Player info before the cast, on both doors.** `fcfb93d`. No prompt change; all six
+   goldens byte-identical, which was the gate. smoke **1581 → 1584**, 9 mutations 9 RED. See
+   *The player is asked before the cast, because the generator reads the world*.
+3. ⬜ **One profile editor for custom AND prebuilt members**, reached by tapping a chosen
+   member's bubble, a library edit landing on `entry.override` rather than a snapshot.
+   `animal_plastic` leaves the editor and stays in the data; `name_kr` stays and moves to tab 2.
+   No golden moves if nothing is edited, which is the gate.
+4. ⬜ **The two tabs, the generated detail, and `world_position`.** Prompt-facing: `memberLine`
+   becomes `useRole ? m.role : m.world_position`, the generation runs for the whole cast at the
+   Start boundary, and the §22.1 rule narrows to the members whose texture was not translated.
+   It moves all six goldens, so `update-golden.mjs` runs once and the diff is read.
+5. ⬜ The unified door - **not in scope**, and nothing above depends on it.
+
+**NOT verified: neither `81ccbeb` nor `fcfb93d` has been seen on a device.** Commit 2 is a page
+split on the one screen whose whole job is to be completed, which is the class four phone passes
+in a row have found something in. Both halves should now be *shorter* than the page they came
+from - player info carries four controls and the cast page carries the cast - but that is
+reasoning, not a measurement. The branch alias needs no deploy:
+
+```
+dev.idol-dating-sim.pages.dev
+```
+
+**Worth looking at specifically:** that Continue is not refused with nothing left to fill (the
+year-wheel seed now fires on the new page - the guard ties the two together, but the guard is
+source-level), that Back from the builder lands on player info with the four answers intact, and
+that switching worlds on the new page does not strand the page on `Loading...`.
 
 #### Still next in the feature queue
 
