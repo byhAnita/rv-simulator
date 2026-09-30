@@ -1115,6 +1115,82 @@ async function layerG(mod, MODEL_CONFIGS) {
       && (app.match(/renderIdentityGrid\(\)/g) || []).length === 2,
     "one definition and one call site per door - the classic door's merged page "
       + "and the custom door's player info");
+  // --- §22.11: the open list is a LAYER, and the page has ONE height ---------
+  //
+  // It used to render in the page flow, so the fold had two layouts: opening it
+  // pushed the identity grid and the buttons down by ~250px and shutting it
+  // pulled them back. A page with two heights can be laid out for neither, which
+  // is what made the folded state look wrong - everything packed against the top
+  // with the bottom third empty, because that is where the open state needed it.
+  const foldDef = app.slice(app.indexOf("const renderWorldFold = () =>"),
+    app.indexOf("const renderIdentityGrid = () =>"));
+  const listDef = app.slice(app.indexOf("const renderWorldList = () =>"),
+    app.indexOf("const renderIdentityGrid = () =>"));
+  const fieldsDef = app.slice(app.indexOf("const renderPlayerFields = () =>"),
+    app.indexOf('if (phase === "cover")'));
+  check("the open world list is a layer over the page, not a row in it",
+    /position: "absolute"/.test(listDef) && /zIndex: \d+/.test(listDef)
+      && /renderWorldList\(\)/.test(foldDef) && !/renderWorldList\(\)/.test(fieldsDef),
+    "in the flow it is a second layout, and the page is laid out for neither");
+  // ...which is the property, stated the way it is observed: what the fold does
+  // must not reach anything below it. Measured at 390px, folded and open: 651/651
+  // and 734/734 on the classic page, 527/527 on the custom one.
+  check("...and nothing below the fold moves when it opens",
+    !/renderWorldList\(\)/.test(fieldsDef)
+      && /\{renderWorldList\(\)\}[\s\S]{0,40}<\/div>/.test(foldDef),
+    "the list belongs to the control it hangs off, not to the page");
+  // A layer that covers the identity grid eats the first tap meant for a chip
+  // under it, so there has to be a way out that is not the toggle.
+  check("...and a tap anywhere else closes it",
+    /position: "fixed", inset: 0[^<]*?\}\} \/>/.test(listDef)
+      && /onClick=\{\(\) => setWorldOpen\(false\)\}/.test(listDef),
+    "with no backdrop the only way out is the toggle the list is covering");
+  // ...and it opens UPWARD when there is no room below. On the classic door the
+  // control sits two thirds down a page that already fills a small phone, so
+  // downward it opens under the card's edge. useLayoutEffect and not useEffect:
+  // a flip applied after paint is a list drawn once in the wrong place.
+  check("...and it opens upward when there is no room below",
+    /useLayoutEffect\(\(\) => \{\r?\n\s*if \(!worldOpen\)/.test(app)
+      && /setWorldUp\(below < list\.offsetHeight/.test(app)
+      && /\[worldUp \? "bottom" : "top"\]/.test(listDef),
+    "a layer that opens off the bottom of the card is a layer nobody can read");
+  // Session state, and it does not survive the page. The list covers the fields,
+  // so one left open by a Back covers the page it is reopened on.
+  check("...and the fold shuts on the way out of a page",
+    /useEffect\(\(\) => \{ setWorldOpen\(false\); \}, \[phase\]\)/.test(app),
+    "an open list that outlives its page opens over the next one");
+
+  // --- §22.11.3: the fields sit in the middle of a page with one height ------
+  //
+  // Both pages packed everything against the top and left the bottom third
+  // empty. The card is a column with ONE in-flow child carrying `margin: auto 0`,
+  // which centres it while it is shorter than the card and resolves to 0 the
+  // moment it is not - measured: gaps [65,65] when it fits and [0,-41] when it
+  // does not, so the top of a long page is still reachable.
+  //
+  // `justify-content: center` is the thing this must NOT be: it splits an
+  // overflow between both ends and only one of them can be scrolled to, which is
+  // the defect §22.6.1 measured one layer up.
+  const allCards = [...app.matchAll(/<div className="rv-card" style=\{\{([^}]*maxHeight: 844[^}]*)\}\}>/g)]
+    .filter((m) => /overflowY: "auto"/.test(m[1]));
+  // The two that ASK - derived by the stylesheet they carry rather than named, so
+  // a third page built out of these controls is covered the day it lands.
+  const scrollCards = allCards
+    .filter((m) => app.slice(m.index, m.index + 400).includes("th.setupCss")).map((m) => m[1]);
+  const uncentred = scrollCards.filter((st) => !/flexDirection: "column"/.test(st));
+  const splitOverflow = allCards.filter((m) => /justifyContent: "center"/.test(m[1]));
+  check("the setup pages centre their fields in a page of one height",
+    scrollCards.length === 2 && uncentred.length === 0
+      && (app.match(/margin: "auto 0"/g) || []).length === 2,
+    `${scrollCards.length} scrolling cards, ${uncentred.length} not a column`);
+  check("...and the top of one too long to fit is still reachable",
+    splitOverflow.length === 0,
+    "justify-content centres an overflow into two halves and hides one of them");
+  // One header, both doors, one definition - they are the same step of one flow.
+  check("...and both doors' first page is headed the same way",
+    (app.match(/const renderPageTitle = \(\) =>/g) || []).length === 1
+      && (app.match(/renderPageTitle\(\)/g) || []).length === 2,
+    "a page that opens straight into a form reads as a fragment of one");
   // Same correction the group index gets: a remembered id the index no longer
   // carries must not be left pointing at a world that cannot be fetched.
   check("...and a remembered world the index no longer lists falls back",

@@ -1,7 +1,7 @@
 import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial } from "./agent/mainAgent";
 import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
 import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
 import {
@@ -418,6 +418,34 @@ export default function App() {
   // opens shut every time, because the collapsed row already names the world and
   // a remembered-open list is a list nobody asked to see.
   const [worldOpen, setWorldOpen] = useState(false);
+  // ...and it shuts on the way out. The list is a LAYER over the fields now, so
+  // one left open by a Back would cover the page it is reopened on.
+  useEffect(() => { setWorldOpen(false); }, [phase]);
+  // ...AND IT OPENS UPWARD WHEN THERE IS NO ROOM BELOW. The list hangs off its
+  // control, and on the classic door that control sits two thirds of the way
+  // down a page that already fills a small phone - so downward it opens partly
+  // under the card edge, on the one screen whose whole job is to be read.
+  //
+  // Scrolling it into view was the first attempt and it is the wrong mechanism:
+  // an absolutely positioned layer is not part of the scroller own overflow, so
+  // the card has room to scroll only when its CONTENT happens to be long enough,
+  // and measured, it was not - 0 of 41px on the page that needed it. Which way it
+  // opens is decided by which side has the room, which needs nothing from anyone.
+  //
+  // useLayoutEffect, not useEffect: the flip must land before the browser paints,
+  // or the list is drawn once in the wrong place and jumps.
+  const worldListRef = useRef(null);
+  const worldFoldRef = useRef(null);
+  const [worldUp, setWorldUp] = useState(false);
+  useLayoutEffect(() => {
+    if (!worldOpen) { setWorldUp(false); return; }
+    const list = worldListRef.current, anchor = worldFoldRef.current;
+    const box = anchor && anchor.closest(".rv-card");
+    if (!list || !box) return;
+    const a = anchor.getBoundingClientRect(), c = box.getBoundingClientRect();
+    const below = c.bottom - a.bottom - 4, above = a.top - c.top - 4;
+    setWorldUp(below < list.offsetHeight && above > below);
+  }, [worldOpen]);
   // The on-device console. Enabled by ?debug=1 and then persisted, so a PWA
   // launched from the home screen - which has no address bar to retype a query
   // string into - keeps it across reloads. Read once: it must not flip
@@ -1308,6 +1336,15 @@ export default function App() {
   // warning about: they drift, and the guard ends up written against the copy
   // that is still correct. The guard here counts the call sites.
   const worldNameOf = (w) => w?.name?.[language] || w?.name?.zh || w?.id;
+  // ONE HEADER, ON BOTH DOORS FIRST PAGE. Added on Yuhan ask, 2026-09-30:
+  // both screens opened straight into a form with the model strip as their only
+  // top line, which reads as a fragment of a page rather than the start of one.
+  // It is one definition because the two pages are one step of one flow.
+  const renderPageTitle = () => (
+    <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, color: th.textHeading, letterSpacing: 1, paddingBottom: 6, marginBottom: 6, borderBottom: `1px solid ${th.groupBtnBorder}` }}>
+      {language === "zh" ? "开始新游戏" : language === "ko" ? "새 게임" : "New Game"}
+    </div>
+  );
   // COLLAPSED IT IS ONE ROW. A 2x2 grid plus the selected world's blurb is ~70px
   // on a page that has just absorbed two member grids, and three of the four are
   // worlds this player has never opened.
@@ -1316,34 +1353,50 @@ export default function App() {
     return (
       <>
         <div className="s-l">{t.setup.world}</div>
-        <button onClick={() => setWorldOpen((o) => !o)} aria-expanded={worldOpen}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "7px 10px", borderRadius: 10, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-          <span>{cur?.emoji} {worldNameOf(cur)}</span>
-          <span style={{ fontSize: 9, opacity: 0.7 }}>{worldOpen ? "\u25B2" : "\u25BC"}</span>
-        </button>
+        {/* THE OPEN LIST HANGS OFF THIS ROW AND IS NOT IN THE PAGE (22.11.1).
+            It used to render in the flow, so opening the fold pushed the identity
+            grid and the buttons down by ~250px and shutting it pulled them back:
+            the page had TWO heights, and a page with two heights can be laid out
+            for neither. On its own layer it has one, which is the whole reason the
+            fields below can be centred at all. */}
+        <div ref={worldFoldRef} style={{ position: "relative" }}>
+          <button onClick={() => setWorldOpen((o) => !o)} aria-expanded={worldOpen}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "7px 10px", borderRadius: 10, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            <span>{cur?.emoji} {worldNameOf(cur)}</span>
+            <span style={{ fontSize: 9, opacity: 0.7 }}>{worldOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {renderWorldList()}
+        </div>
       </>
     );
   };
-  // The open list is rendered SEPARATELY because it belongs full width, below the
-  // two columns rather than inside the narrow one the toggle sits in: a four-row
-  // list in ~180px wraps every name.
+  // The dropdown is sized to the CONTROL it hangs off, not to the page - the
+  // column the fold sits in, so the row it replaces and the list that replaces it
+  // are the same width and nothing under it moves.
   //
-  // EVERY WORLD'S BLURB RENDERS HERE, which §22.2 refused when the blurbs were
+  // EVERY WORLD'S BLURB STILL RENDERS, which 22.2 refused when the blurbs were
   // always on screen ("a wall of text under a control"). Inside a fold the player
-  // has just opened they are the thing she opened it for, and the alternative - a
-  // blurb under the collapsed row - is the height the fold exists to save.
+  // has just opened they are the thing she opened it for - and on a layer of its
+  // own that wall costs the page no height whatever.
   const renderWorldList = () => worldOpen && (
-    <div style={{ display: "grid", gap: 4, marginTop: 4, marginBottom: 6 }}>
-      {worldList.map((w) => (
-        <div key={w.id} onClick={() => { setSelectedWorld(w.id); setWorldOpen(false); }}
-          style={{ padding: "6px 9px", borderRadius: 10, border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-          <div>{w.emoji} {worldNameOf(w)}</div>
-          <div style={{ fontSize: 9, color: th.textFaint, marginTop: 1, lineHeight: 1.4 }}>
-            {w.blurb?.[language] || w.blurb?.zh || ""}
+    <>
+      {/* A TAP ANYWHERE ELSE CLOSES IT. The list covers the identity grid while
+          it is open, so without this the first tap on a covered chip lands on the
+          list instead - a layer that eats the tap meant for what it is hiding. */}
+      <div className="rv-fixed" onClick={() => setWorldOpen(false)}
+        style={{ position: "fixed", inset: 0, zIndex: 60, background: "transparent" }} />
+      <div ref={worldListRef} style={{ position: "absolute", [worldUp ? "bottom" : "top"]: "calc(100% + 4px)", left: 0, right: 0, zIndex: 61, display: "grid", gap: 4, padding: 4, borderRadius: 12, border: `1px solid ${th.notifBarBorder}`, background: th.cardBg, boxShadow: "0 12px 30px rgba(0,0,0,.35)" }}>
+        {worldList.map((w) => (
+          <div key={w.id} onClick={() => { setSelectedWorld(w.id); setWorldOpen(false); }}
+            style={{ padding: "6px 9px", borderRadius: 10, border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+            <div>{w.emoji} {worldNameOf(w)}</div>
+            <div style={{ fontSize: 9, color: th.textFaint, marginTop: 1, lineHeight: 1.4 }}>
+              {w.blurb?.[language] || w.blurb?.zh || ""}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
   // The world's own identities, plus the custom escape hatch. Not a list in this
   // file: `world.identities` is where they are declared, and the copy that used to
@@ -1352,15 +1405,16 @@ export default function App() {
   const renderIdentityGrid = () => (
     <>
       <div className="s-l">{t.setup.identity}</div>
-      {/* THREE COLUMNS, not two (22.10.5). Nine cells at two columns is five
-          rows and 139px on a page that has to hold two member grids as well. The
-          labels are world data and the longest of them wraps to two lines here,
-          which costs one row its height and still leaves the grid shorter. */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 4 }}>
+      {/* TWO COLUMNS - Yuhan call, 2026-09-30, reversing 22.10.5. Three of them
+          fit the page by costing the labels: they are world data, the longest of
+          them wraps to two lines at a third of 370px, and a wrapped label is
+          harder to read than a longer page is to scroll. What pays for the rows
+          this gives back is the world list no longer being in the page at all. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 4 }}>
         {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
           { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
           <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
-            style={{ padding: "6px 9px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+            style={{ padding: "5px 9px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
             {it.label}
           </div>
         ))}
@@ -1404,7 +1458,6 @@ export default function App() {
             colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
         </div>
       </div>
-      {renderWorldList()}
     </>
   );
 
@@ -1743,9 +1796,23 @@ export default function App() {
     );
     return (
       <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px", overflowY: "auto", display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
+          {/* ONE HEIGHT, AND THE FIELDS SIT IN THE MIDDLE OF IT (22.11.3). Both
+              pages packed everything against the top and left the bottom third
+              empty. The card is a column and this is its ONE in-flow child, so
+              `margin: auto 0` centres it while it is shorter than the card and
+              resolves to 0 the moment it is not - which is what keeps the top of a
+              long page reachable. `justify-content: center` does not: it splits an
+              overflow between both ends and only one of them can be scrolled to,
+              which is the defect 22.6.1 measured one layer up.
+
+              It is ONE child and not the card centring its children directly
+              because a flex container does not collapse its items margins, and
+              every label on these pages is spaced by one. */}
+          <div style={{ margin: "auto 0", width: "100%" }}>
+          {renderPageTitle()}
           {/* ONE LINE, and only what is actionable. A MISSING key is the thing
               worth shouting about; a present one needs no words. Same rule the
               Setup header was cut down to in the first phone pass. */}
@@ -1800,6 +1867,7 @@ export default function App() {
                 : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
             </button>
           </div>
+          </div>
         </div>
       </div>
     );
@@ -1839,9 +1907,23 @@ export default function App() {
     );
     return (
       <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px", overflowY: "auto", display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
+          {/* ONE HEIGHT, AND THE FIELDS SIT IN THE MIDDLE OF IT (22.11.3). Both
+              pages packed everything against the top and left the bottom third
+              empty. The card is a column and this is its ONE in-flow child, so
+              `margin: auto 0` centres it while it is shorter than the card and
+              resolves to 0 the moment it is not - which is what keeps the top of a
+              long page reachable. `justify-content: center` does not: it splits an
+              overflow between both ends and only one of them can be scrolled to,
+              which is the defect 22.6.1 measured one layer up.
+
+              It is ONE child and not the card centring its children directly
+              because a flex container does not collapse its items margins, and
+              every label on these pages is spaced by one. */}
+          <div style={{ margin: "auto 0", width: "100%" }}>
+          {renderPageTitle()}
           {/* ONE LINE, NOT FOUR - the page ran past 844px and the Start button sat
               below the fold behind half a row of identities, on the one screen
               whose whole job is to be completed. What went:
@@ -1943,6 +2025,7 @@ export default function App() {
               style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
               {canStart ? t.cast.startWith(mainMember?.name || "...") : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
             </button>
+          </div>
           </div>
         </div>
       </div>

@@ -49,6 +49,58 @@ something; an entry claiming otherwise is incomplete.
 
 ## Entries
 
+### Measuring a layout in a browser, and the two ways the measurement lies — v1.4.2
+
+**What it is.** Three layout batches in a row were settled by rendering the real component in
+headless Chrome and reading the numbers off it, rather than by reasoning about them: the profile
+editor (§22.7, §22.8) and the merged classic setup page (§22.10, §22.11). The harness bundles the
+actual `App.jsx` or `MemberEditor.jsx` with esbuild, serves the group and world JSON from disk
+through a `fetch` stub, drives the page to the screen under test by clicking the app's own
+buttons, and prints the content height plus a per-block breakdown against a per-device budget
+(`screen − safe-area insets − the card's padding`, capped at 844).
+
+**What it replaced.** Estimating. §22.7 exists because a tab was *thought* to fit and did not, and
+the sweep that chose the image column's width in §22.8 found a height curve that is **not
+monotonic** — a 2:3 tile gets taller with a wider column while a wrapping palette gets taller with
+a narrower one, so 18% renders taller than 20% and 26% taller than 30%. No amount of reasoning
+reaches that.
+
+**The two ways it lied, both found in §22.11 and both worth more than the numbers they corrected.**
+
+1. **It rendered without `src/index.css`.** The stub page gave the browser `html,body{margin:0}`
+   and a `.rv-page{height:100%}` rule, on the reasonable-sounding basis that the app styles
+   everything inline. It does not: `:root` in `index.css` carries `font: 18px/145%`, and a
+   line-height inherited by every line of text on the screen is about **8% of every measured
+   page**. So every number in §22.7, §22.8 and §22.10 is optimistic — the classic door's *"585px
+   against a 676px budget"* is really 583 against 676, and the editor's figures carry the same bias
+   and have not been re-taken.
+
+   **The general rule: a harness that renders a component without the styles the app serves it with
+   is measuring a different component.** A clean render proves the module graph resolves; it says
+   nothing about a cascade that was never applied. Load the real stylesheet, or measure nothing.
+
+2. **`scrollHeight` is floored by the scroller's own height.** It returns the larger of the content
+   and the box, so on a card that is `height: 100%` it reports the card whenever the content is
+   shorter — and after §22.11 the content is *always* shorter, because it is centred. The reading
+   is taken by letting the card size to its content (`height: auto; max-height: none`) after the
+   geometry has been captured from the real layout, and subtracting the padding.
+
+**What it bought.** A layout claim that is a measurement rather than an estimate, per device and
+per language — including the honest bad news, which is the half an estimate never produces: after
+§22.11 a 9- or 10-member classic cast **scrolls by 26-30px on an iPhone 13 mini**, where the same
+page fits an iPhone 15 by 1-5px. It also measures properties, not only sizes: that opening the
+world fold changes the page height by **zero** (651/651, 734/734, 527/527), that the centred block
+sits at `[65,65]` when it fits and `[0,-41]` when it does not — the second being the proof that the
+top of a long page is still reachable — and that the flipped-open list lands inside the card at
+every window size.
+
+**What it costs.** Chrome. The harness lives in the gitignored `test/.out/ui/` and is **not in the
+smoke suite**, deliberately: `deploy.sh` gates on smoke, and a release must not be blocked by a
+browser dependency — the same reason the `YearWheel` browser harness stays out. What goes into
+smoke is the *invariant* the harness established, written structurally: both panes share a grid
+cell, the card is a column with one `margin: auto 0` child and no `justify-content: center`. A
+pinned pixel count would be re-measured on every font change and wrong on some phone anyway.
+
 ### 3-tier prompt + stepped-window collapse — v1.3.0
 
 **What it is.** The prompt sent each round is split into three messages in a fixed order: a

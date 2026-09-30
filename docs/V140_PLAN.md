@@ -3882,6 +3882,127 @@ wrong conclusion about what it was for.
 And the **ending** — HE / SE / BE / OE — is chosen by stats and affection. That is exactly what the
 five `achievements.js` conditions already do. The missing wire is between the two.
 
+### 22.11 The eighth phone pass - one layout, whether the world list is open or not
+
+**Yuhan's report, 2026-10-01**, hand-testing `2ee3f5b` with four screenshots - the custom door's
+player-info page folded and open, and the classic door's merged page folded and open.
+
+> *"what I mean for the foldable list menu of world setting is a downside list menu on top of the
+> page [...] When unfolded, the four options are presented on the top layer of the page, hide other
+> items temporarily. Caz unfolded is a temporary state to see the options, after click one, it's
+> folded. Don't need to make all four options take the page. Make unfolded 4 options the same width
+> of the half width menu [...] After that, change identity options back to 2 columns in 1 row. The
+> aim [...] is we need a fixed placement for this page whether folded or not, then to make all
+> fields like in the center height of the page [...] Currently, all fields packed on the upper side
+> because of the world setting options take the space when unfolded, but this makes the page looks
+> ugly when folded. All stuff on the upper. [...] add headers for player page etc to be beautiful."*
+
+#### 22.11.1 The fold had two layouts, and the page was laid out for the wrong one
+
+§22.10 shipped the open list **in the page flow**, full width, under the two columns. So the page
+had two heights, ~250px apart, and everything below the fold moved when it opened. A page with two
+heights can be laid out for neither - and what it was laid out for, implicitly, was the taller one.
+That is the whole of the complaint: the folded state, which is the state the page is in almost all
+of the time, had its content pushed against the top with the bottom third empty, reserving room for
+a list nobody had opened.
+
+**The list is a layer now**, absolutely positioned under the control it hangs off and as wide as
+that control's column - so the row it replaces and the list that replaces it are the same width,
+and nothing under it moves. Measured at 390px, folded against open: **651/651** and **734/734** on
+the classic page, **527/527** on the custom one, with the block's own position unchanged to the
+pixel.
+
+Three things the layer needs that the row did not:
+
+- **A way out that is not the toggle.** The list covers the identity grid while it is open, so
+  without a backdrop the first tap on a covered chip lands on the list - a layer that eats the tap
+  meant for what it is hiding. A transparent full-screen backdrop closes it, and takes `.rv-fixed`
+  like every other full-screen fixed layer in this app.
+- **A decision about which way it opens.** On the classic door the control sits two thirds of the
+  way down a page that already fills a small phone, so downward it opens under the card's edge.
+  Measured: 38px of the list below the card on a 9-member cast at 812pt, 121px on a 10-member one
+  in English.
+- **`useLayoutEffect`, not `useEffect`,** for that decision - a flip applied after paint is a list
+  drawn once in the wrong place and then moved.
+
+**Scrolling it into view was the first attempt and it is the wrong mechanism.** An absolutely
+positioned layer is not part of its scroller's own overflow, so the card has room to scroll only
+when its *content* happens to be long enough - and measured, on the page that needed it, it had
+**0 of the 41px** required. Which way the list opens is decided by which side has the room, which
+needs nothing from anyone. After the flip, every measured combination lands inside the card: the
+worst clearance is 25px and the rest are 43 to 289.
+
+#### 22.11.2 The identity grid goes back to two columns
+
+§22.10.5 made it three to buy 43px, and the labels paid: they are world data, the longest of them
+wraps to two lines at a third of 370px, and a wrapped label is harder to read than a longer page is
+to scroll. Reversed on Yuhan's call. The cell padding drops a pixel and the gap drops one, which
+gives back 14 of the 47 that costs.
+
+#### 22.11.3 The fields sit in the middle of a page that has one height
+
+The card is a flex column with **one in-flow child** carrying `margin: auto 0`. That centres it
+while it is shorter than the card and resolves to **0** the moment it is not - measured, gaps of
+`[65,65]` when it fits and `[0,-41]` when it does not, so the top of a page too long to fit is
+still reachable.
+
+**`justify-content: center` is what this must not be**, and that is not a style preference: it
+splits an overflow between *both* ends and only one of them can be scrolled to, which is exactly
+the defect §22.6.1 measured one layer up when the phone card overflowed a centring flex.
+
+**It is ONE child and not the card centring its children directly**, because a flex container does
+not collapse its items' margins and every label on these pages is spaced by one. Wrapping keeps the
+inside of the block laying out exactly as it did.
+
+The card's bottom padding drops from 40px to 12px with it - 40 was scroll comfort under a page that
+started at the top, and under a centred one it is an asymmetry that pushes the block up.
+
+#### 22.11.4 A header, on both doors
+
+Both pages opened straight into a form with the model strip as their only top line, which reads as
+a fragment of a page rather than the start of one. One centred title over a hairline, one
+definition, two call sites - they are the same step of the same flow.
+
+#### 22.11.5 The measurements, and the harness that had been wrong for three batches
+
+**The harness was rendering the page without the app's own stylesheet.** `src/index.css` sets
+`:root { font: 18px/145% ... }`, and a line-height inherited by every line of text on the screen is
+not a detail - it is about 8% of every measured page. The stub the harness used instead left the
+browser default of roughly 1.2. So **every layout number in §22.7, §22.8 and §22.10 was optimistic**,
+and the two tables below are the honest ones, taken on the same basis before and after.
+
+`content` is now measured by letting the card size to its content, because `scrollHeight` is floored
+by the scroller's own height - which made a centred block unmeasurable, since a centred block is
+always shorter than what it is centred in.
+
+| classic door, zh | before (`2ee3f5b`) | after |
+| --- | --- | --- |
+| Red Velvet (5) | 583px | **651px** |
+| TWICE (9) | 667px | **734px** |
+| X (10) | 667px | **734px** |
+| custom door | 460px | **527px** |
+
+The batch costs **+68px**: about 47 for the two-column identity grid and 36 for the header, less
+the 12 the card's padding gives back. Against the budget on each device:
+
+| | 13 mini (704px) | 15 (735px) | 15 Pro Max (812px) |
+| --- | --- | --- | --- |
+| 5-member cast | fits, 46-55 spare | fits, 77-86 | fits, 154-163 |
+| 9/10-member cast | **scrolls, 26-30 over** | fits, 1-5 spare | fits, 78-82 |
+| X in English | scrolls, 110 over | scrolls, 79 over | **scrolls, 2px over** |
+| custom door | fits, 177-181 | fits, 208-212 | fits, 285-289 |
+
+**So the largest casts now scroll on the smallest phone, and that is the price of what was asked
+for.** It is stated rather than hidden, and the lever is named: three columns of identities gives
+back 47px and the header gives back 36, either of which puts a 9-member cast back on one screen at
+812pt. Yuhan's own device is the right-hand column.
+
+What scrolling costs is also smaller than it was: the block is top-aligned the moment it overflows,
+so nothing is unreachable - and the world list, which is what used to make the page long, no longer
+contributes to it at all.
+
+---
+
 ### 21.1 Three things are wrong today, and they are one bug
 
 **1. The ending and the epilogue are separate systems that share no state.**

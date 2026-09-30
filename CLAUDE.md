@@ -2142,6 +2142,96 @@ its verdict line.**
 
 ---
 
+### A fold with two layouts is a page laid out for neither
+
+**Yuhan's report, 2026-10-01**, on the world fold §22.10 had just shipped: *"what I mean for the
+foldable list menu of world setting is a downside list menu on top of the page [...] we need a fixed
+placement for this page whether folded or not, then to make all fields like in the center height of
+the page [...] Currently, all fields packed on the upper side because of the world setting options
+take the space when unfolded, but this makes the page looks ugly when folded."*
+
+**The open list rendered in the page flow**, full width, under the two columns. So the page had two
+heights about 250px apart, and everything below the fold moved when it opened. **A page with two
+heights can be laid out for neither** - and what it was implicitly laid out for was the taller one,
+which is the whole complaint: the folded state, the state the page is in almost all of the time, had
+its content packed against the top with the bottom third empty, reserving room for a list nobody had
+opened.
+
+**The list is a LAYER now**, absolutely positioned under the control it hangs off and as wide as
+that control's column, so the row it replaces and the list that replaces it are the same width and
+nothing under it moves. Measured at 390px, folded against open: **651/651** and **734/734** on the
+classic page, **527/527** on the custom one, with the block's own position unchanged to the pixel.
+
+**Which is what makes centring possible at all** - it is not two changes that happen to ship
+together. A block can only sit in the middle of a page whose height does not depend on what the
+player has just tapped.
+
+Three things the layer needs that the row did not:
+
+- **A way out that is not the toggle.** It covers the identity grid while it is open, so without a
+  backdrop the first tap on a covered chip lands on the list - a layer that eats the tap meant for
+  what it is hiding. The backdrop is a transparent full-screen `fixed` box and takes `.rv-fixed`
+  like every other one in this app.
+- **A decision about which way it opens.** On the classic door the control sits two thirds of the
+  way down a page that already fills a small phone: measured, 38px of the list fell below the card
+  on a 9-member cast at 812pt and 121px on a 10-member one in English. It opens **upward** when the
+  room below is less than its height and there is more above.
+- **`useLayoutEffect`, not `useEffect`.** A flip applied after paint is a list drawn once in the
+  wrong place and then moved.
+
+**Scrolling it into view was the first attempt, and it is the wrong mechanism.** An absolutely
+positioned layer is not part of its scroller's own overflow, so the card has room to scroll only
+when its *content* happens to be long enough - and on the page that needed it, it had **0 of the
+41px** required. Which way the list opens is decided by which side has the room, and needs nothing
+from anyone. After the flip every measured combination lands inside the card, worst clearance 25px.
+
+**The fields sit in the middle of that one height, and the mechanism is the one that does not hide
+the top.** The card is a flex column with ONE in-flow child carrying `margin: auto 0`: auto margins
+centre the child while it is shorter than the card and resolve to **0** the moment it is not -
+measured, gaps `[65,65]` when it fits and `[0,-41]` when it does not. **`justify-content: center`
+is what this must never be**: it splits an overflow between *both* ends and only one of them can be
+scrolled to, which is precisely the defect §22.6.1 measured one layer up. It is one child rather
+than the card centring its children directly because **a flex container does not collapse its
+items' margins**, and every label on these pages is spaced by one.
+
+**The identity grid goes back to two columns**, reversing §22.10.5 on Yuhan's call. Three bought
+43px and the labels paid for it: they are world data, the longest wraps to two lines at a third of
+370px, and a wrapped label is harder to read than a longer page is to scroll.
+
+**And both doors' first page is headed.** They opened straight into a form with the model strip as
+their only top line, which reads as a fragment of a page rather than the start of one. One
+definition, two call sites, because they are the same step of one flow.
+
+#### The harness had been measuring a different app for three batches
+
+**`src/index.css` sets `:root { font: 18px/145% ... }`, and the measurement harness did not load
+it.** A line-height inherited by every line of text on the screen is not a detail - it is about 8%
+of every page. So **every layout number in §22.7, §22.8 and §22.10 was optimistic**, including the
+"585px against a 676px budget" this file records for the classic door. Re-measured on the honest
+basis, that page was **583px against 676** before this batch and is **651 against 704** after it.
+
+The second harness bug is the one this batch would have hit anyway: **`scrollHeight` is floored by
+the scroller's own height**, so it measures the *card* whenever the content is shorter - and a
+centred block is always shorter than what it is centred in. It is read by letting the card size to
+its content instead.
+
+**The general rule: a harness that renders the component without the styles the app serves it with
+is measuring a different component.** A green render proves the module graph resolves; it says
+nothing about a cascade that was never applied.
+
+**What the batch costs, measured, and it is stated because it is a real loss.** +68px on both
+pages - about 47 for the two-column grid and 36 for the header, less 12 the card's padding gives
+back. A 5-member cast fits every device (46-55px spare on an iPhone 13 mini); a **9- or 10-member
+cast now scrolls by 26-30px on a 13 mini** where it had 9-13px spare, and fits everything larger.
+The 10-member English roster scrolls on all three. The levers, if that matters more than the
+design: three columns gives back 47px, the header 36.
+
+**13 mutations, 13 RED**, including the list put back in the flow, the backdrop removed and the
+backdrop left in place doing nothing, the flip dropped and the flip moved after paint, the cards
+stripped of their column, and `justify-content: center` put back. All six goldens byte-identical.
+
+---
+
 ### The classic door is one page again, and §22.2's rule narrows to the door it is about
 
 **Yuhan's design, 2026-09-30**, the counterpart to keeping both doors: *"as for classic group
@@ -4047,6 +4137,61 @@ touches `buildSystemPrompt`, the roster shape or the world.
 **Still owed from the previous batch and not addressed here:** the measured Start-wait regression
 (one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
 **Yuhan's to weigh**, and this batch put the resolve on the same path, so the two compound.
+
+#### The eighth phone pass — one commit, and a harness correction that reaches back three batches
+
+**Yuhan's report, 2026-10-01, hand-testing `2ee3f5b`** with four screenshots. The verdict on the
+merged classic door was *"you almost built what I want"*; what came back was one design correction
+with three parts, and they are one change rather than three:
+
+1. **The world list floats.** It rendered in the page flow, so the page had two heights ~250px
+   apart and was implicitly laid out for the open one — which is why the folded state, the state it
+   is in almost always, packed everything against the top. It is a layer now: absolutely
+   positioned, as wide as the control's column, with a backdrop that closes it and an upward flip
+   when there is no room below. **Measured: 651/651 and 734/734 folded against open.**
+2. **The identity grid is two columns again**, reversing §22.10.5.
+3. **The fields are centred**, by one `margin: auto 0` child of a flex-column card — which
+   top-aligns itself the moment the page is too long, so nothing becomes unreachable. Both pages
+   gained a header.
+
+**Verified:** smoke **1709 → 1717**; **13 mutations, 13 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, tree
+restored byte-identical; **all six goldens byte-identical** (`update-golden.mjs` reported six
+unchanged and wrote nothing); build clean at **441.05 kB / gzip 154.44**.
+
+**THE MEASUREMENTS IN §22.7, §22.8 AND §22.10 WERE OPTIMISTIC, and that is this batch's most
+important finding.** The harness rendered the page without `src/index.css`, whose `:root` carries
+`font: 18px/145%` — a line-height inherited by every line on the screen, worth about 8% of every
+page. Re-measured on the honest basis, the classic door was **583px against a 676px budget** before
+this batch, not the 585-against-676 recorded, and the editor numbers in §22.7 and §22.8 have the
+same bias and have **not** been re-taken. See *A fold with two layouts is a page laid out for
+neither*.
+
+**NOT VERIFIED.**
+
+- **Nothing here has been on a device.** The upward flip in particular is a measurement taken in
+  headless Chrome at three window sizes; whether the list lands where a thumb expects it is the
+  phone.
+- **No live round has been played against this commit**, which touches neither the prompt, the
+  roster nor the world.
+- **The largest casts now scroll on the smallest phone**, by 26-30px on an iPhone 13 mini where
+  they had 9-13px spare. They fit an iPhone 15 by 1-5px and a Pro Max by 78-82. The 10-member `x`
+  roster in English scrolls on all three (2px over on a Pro Max). This is the measured price of the
+  two-column grid (+47px) and the header (+36px); either one reversed puts a 9-member cast back on
+  one screen at 812pt, and that is **Yuhan's call**, not a defect to fix quietly.
+
+**What to look at:**
+
+- Open the world list on **both** doors. It must cover the fields rather than push them, close on a
+  tap anywhere outside, and open **upward** on the classic door if there is no room below — the
+  four blurbs are the reason to open it, so they have to be readable without scrolling.
+- **Fold and unfold it twice.** Nothing below it may move, and the page must not change height.
+- The fields should sit in the middle of the card on both doors rather than against the top. On a
+  9-member classic cast the page will scroll — check the **top** is still reachable when it does.
+- The identity grid at two columns: whether the longest labels now read cleanly.
+- The `开始新游戏` header on both pages, in all three languages.
+
+**Still owed from four batches back:** the measured Start-wait regression (one whole-cast call 5.2s
+against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.
 
 #### The seventh phone pass — one commit, and it answers two reports from the same sitting
 
