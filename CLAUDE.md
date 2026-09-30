@@ -3668,6 +3668,54 @@ chaebol prompt built from a fully restaged cast carries **none** of 忙内 / 队
 names the other. The prose in that probe was a sentinel string, not a model's - so this says
 the pipeline closes §22.1, and says nothing at all about the writing.
 
+#### The fifth phone pass — three commits, and none of them has been on a device
+
+**Yuhan's report, 2026-09-30, hand-testing `fcfb93d`..`f8b4a95`.** Plan in
+`docs/V140_PLAN.md` §22.6; three commits, each shippable on its own.
+
+1. ✅ **`98c38c7` — the top of a page was unreachable.** `100vh` is not the visible viewport on
+   iOS, so every page container was taller than the screen, the document scrolled, and a nested
+   panel then ate the gesture that would have scrolled it back. Every viewport unit in `src/` is
+   gone; the document cannot scroll; the translucent status bar is `default`. smoke **1675 →
+   1681**, 9 mutations 9 RED.
+2. ✅ **`7a5df12` — the cast picker starts the game.** The agency name moved to player info, Start
+   is at the bottom of the picker (half width, Save cast on its left), and the page between them
+   is deleted. The resolve moved from an effect into `startNewGame` and runs before any setter.
+   Custom tab is first in the library. smoke **1681 → 1687**, 12 mutations 12 RED.
+3. ✅ **`caa4a0b` — the profile editor is a résumé.** Two blocks, image at half width beside three
+   fields each; one control runs both generations, with Regenerate as its other half; the
+   auto-run on opening tab 2 is gone. smoke **1687 → 1690**, 10 mutations 10 RED.
+
+**All six goldens byte-identical across all three**, which was each commit's gate: none of this
+touches `buildSystemPrompt`, the roster shape or the world.
+
+**NOT VERIFIED, and this is the honest part.**
+
+- **Neither viewport mechanism is reproducible on this machine.** Both are iOS layout behaviours.
+  What is measured is that the units are gone and the rules are present; whether the page now
+  starts where it should is **the phone**, and that is the measurement.
+- **No live round has been played against any of the three.** The flow commit puts a network call
+  (`resolveRoster`, then the restaging sweep) on a path that used to have a page in front of it,
+  and the custom door's Start is the one that changed most.
+- **The editor was RENDERED, not used.** Three member/world combinations across both tabs, server
+  side, all clean — which catches an undefined identifier and says nothing about a thumb.
+
+**What to look at, in commit order:**
+
+- `98c38c7` — the top of the player-info page, on the phone *and* from the Home Screen if that is
+  how it gets opened. Then scroll each page to the bottom and back: the header must come back.
+- `7a5df12` — the custom door end to end. The agency name and its hint under the world picker;
+  Start at the bottom of the picker naming the main member; **the wait after Start**, which now
+  carries the resolve *and* the restaging sweep with only a toast in front of it; and that the
+  classic door still reaches Setup and starts from there.
+- `caa4a0b` — the two résumé rows at 390px, whether the wallpaper tile's 2:3 sits well beside
+  three fields, the emoji palette wrapping in a half-width column, and **whether Generate followed
+  by Regenerate actually produces different Chinese** — which is the half no assertion reaches.
+
+**Still owed from the previous batch and not addressed here:** the measured Start-wait regression
+(one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
+**Yuhan's to weigh**, and this batch put the resolve on the same path, so the two compound.
+
 #### Still next in the feature queue
 
 2. §22.4's two undiagnosed items, which one prompt rule may close together: the saved cast whose
