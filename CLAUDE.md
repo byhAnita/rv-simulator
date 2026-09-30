@@ -3846,6 +3846,55 @@ touches `buildSystemPrompt`, the roster shape or the world.
 (one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
 **Yuhan's to weigh**, and this batch put the resolve on the same path, so the two compound.
 
+#### The sixth phone pass — two commits, and the first one is a second attempt
+
+**Yuhan's report, 2026-09-30, hand-testing `0d1aa11`** with three screenshots. Plan in
+`docs/V140_PLAN.md` §22.7. His verdict on the flow and the résumé was *"Good. That's exactly my
+design"*; what follows is what was still wrong.
+
+1. ✅ **`6dae9a4` — the header was under the clock.** The previous batch's `100vh` fix was a real
+   fix for a real mechanism and **not this one**. Two others: iOS does not inset a Home-Screen
+   launch for the status bar and nothing paid `env(safe-area-inset-top)`, and the phone card was
+   sized **content-box**, so `maxHeight: 844` capped the content box and the card's own 52px of
+   padding sat on top of it. **Measured in headless Chrome at a 932px screen: 896px of card,
+   centred, top at 18px — 44px behind a 62px status bar.** smoke **1694**, 7 mutations 7 RED.
+2. ✅ **`4cce7fd` — both editor tabs fit on one screen.** Tab 1 **702 → 603px**, tab 2
+   **602 → 512px**, panel chrome **138 → 122px**, all measured in a browser rather than estimated.
+   Tab 2 is named for the world, which is what deleted the status block; the way back survives as
+   one line. smoke **1697**, 10 mutations 10 RED.
+
+**All six goldens byte-identical across both**, which was each commit's gate.
+
+**NOT VERIFIED.**
+
+- **Neither iOS mechanism is reproducible on this machine**, and that has not changed. What is
+  measured is the geometry — in a real browser — and that the rules are present. Whether the page
+  now starts where it should is **the phone**.
+- **No live round has been played against either commit.** Neither touches the prompt, the roster
+  or the world, but the flow commit before them did.
+- **The editor was rendered, not used.** Three member/world combinations across both tabs, in
+  Chrome, all clean and all fitting — which says nothing about a thumb.
+- **At `fontScale: 1.25` tab 1 still scrolls**, 692px against a 624px budget. Deliberate: a player
+  who asks for 25% larger type is asking for more vertical space.
+
+**What to look at, in commit order:**
+
+- `6dae9a4` — the top of the player-info page, from the Home Screen *and* in Safari. The model row
+  and `切换模型` must be fully clear of the clock. Then the overlays, which all moved: the editor,
+  the picker, the image sheet, the cropper, Help, Save, the map and the four socials — none of them
+  should sit under the notch or under the home indicator, and the bottom sheets should still be
+  flush to the bottom rather than floating above it.
+- `4cce7fd` — the editor's two tabs at the default text size, **without scrolling**: tab 1 should
+  end at the hint line under Generate/Regenerate, and tab 2 at the fiction note. Then whether the
+  wallpaper tile at 32% is still big enough to judge a crop by, whether the 22px emoji swatches are
+  tappable, and whether `在校园世界` reads right as a tab — it is `在${world}世界` in zh,
+  `In ${world}` in en and `${world}에서` in ko.
+
+**Still owed from two batches back and not addressed here:** the measured Start-wait regression
+(one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
+**Yuhan's to weigh**.
+
+
 #### Still next in the feature queue
 
 2. §22.4's two undiagnosed items, which one prompt rule may close together: the saved cast whose
