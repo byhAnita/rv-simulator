@@ -617,7 +617,7 @@ export default function HelpOverlay({ language = "en", theme = "dark", onClose }
 
   return (
     <HT.Provider value={c}>
-      <div
+      <div className="rv-fixed"
         style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: c.overlay, backdropFilter: "blur(8px)" }}
         onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       >

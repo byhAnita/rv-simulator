@@ -7883,6 +7883,8 @@ async function layerI() {
   // would be a sample - the org-suffix lesson, three screens over.
   const vhSized = [];
   const cardsNotPages = [];
+  const unpaidFixed = [];
+  const clobberedPad = [];
   (function scanViewportUnits(dir) {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, e.name);
@@ -7905,16 +7907,34 @@ async function layerI() {
       // ...and every phone-sized card takes its height from the class, which is
       // the only place the `100%` / `100dvh` pair can be written at all.
       for (const m of code.matchAll(/<\w+([^>]*?)maxHeight:\s*844/g)) {
-        if (!/className="rv-page"/.test(m[1])) cardsNotPages.push(rel);
+        if (!/className="rv-card"/.test(m[1])) cardsNotPages.push(rel);
+      }
+      // ...and every FULL-SCREEN FIXED LAYER pays the safe-area insets. This is
+      // the mechanism 22.6.1 missed and 22.7.1 measured: in a Home-Screen launch
+      // iOS does not inset the web content for the status bar, so a `fixed;
+      // inset: 0` box IS the whole screen, notch included. Derived over src/
+      // because a guard naming the two screens that were reported is a sample.
+      for (const m of code.matchAll(/<\w+([^<]*?position: "fixed", inset: 0[^<]*?)\}\}/g)) {
+        if (!/className="rv-fixed"/.test(m[1])) unpaidFixed.push(rel);
+        // An inline `padding` shorthand overrides the class's padding ENTIRELY,
+        // so a root with its own breathing room has to COMPOSE the two. This is
+        // the half that fails silently: the class is present and does nothing.
+        if (/padding:(?!\s*safeInset\()/.test(m[1])) clobberedPad.push(rel);
       }
     }
   })(join(ROOT, "src"));
   check("no screen is sized in viewport units",
     vhSized.length === 0,
     `${[...new Set(vhSized)].join(", ")} still size a box against a viewport unit`);
-  check("...and every phone-sized card takes its height from .rv-page",
+  check("...and every phone-sized card takes its height from .rv-card",
     cardsNotPages.length === 0,
     `${[...new Set(cardsNotPages)].join(", ")} sizes the 844px card without the class`);
+  check("...and every full-screen fixed layer pays the safe-area insets",
+    unpaidFixed.length === 0,
+    `${[...new Set(unpaidFixed)].join(", ")} covers the notch without .rv-fixed`);
+  check("...and none of them clobbers that padding with an inline one",
+    clobberedPad.length === 0,
+    `${[...new Set(clobberedPad)].join(", ")} overrides .rv-fixed's padding - compose it with safeInset()`);
 
   // The class itself, and the fallback PAIR - `100%` tracks the visible viewport
   // where `100vh` does not, and `100dvh` is the modern spelling that wins where
@@ -7935,6 +7955,24 @@ async function layerI() {
     /@media screen\s*\{[\s\S]*?\bbody\s*\{[^}]*overflow:\s*hidden[\s\S]*?\}\s*\}/.test(appCss)
     && /overscroll-behavior:\s*contain/.test(rvPage),
     "the body still scrolls, or a panel still chains its overscroll outward");
+  // THE INSETS THEMSELVES, and the box-sizing without which they are added to
+  // the height instead of taken out of it. Measured in Chrome at a 932px screen:
+  // content-box makes `max-height: 844px` cap the CONTENT box, so the card's own
+  // 52px of padding sits on top and the card is 896px tall - centred, its top is
+  // at 18px, which is 44px behind a 62px status bar.
+  const safeRule = (appCss.match(/\.rv-page,\s*\.rv-fixed\s*\{([^}]*)\}/) || [, ""])[1];
+  check("a full-screen layer reserves the notch, and out of its own height",
+    /env\(safe-area-inset-top/.test(safeRule) && /env\(safe-area-inset-bottom/.test(safeRule)
+      && /box-sizing:\s*border-box/.test(safeRule),
+    "the page still draws under the status bar, or pays for it by growing");
+  // The card is the OTHER half: it sizes from the padded parent, not from the
+  // viewport, so it can never exceed the box it is centred in - and a centring
+  // flex splits an overflow between both ends, of which only one is reachable.
+  const rvCard = (appCss.match(/\.rv-card\s*\{([^}]*)\}/) || [, ""])[1];
+  check("...and the phone card sizes from that padded box, not from the viewport",
+    /height:\s*100%/.test(rvCard) && !/dvh|vh/.test(rvCard)
+      && /box-sizing:\s*border-box/.test(rvCard),
+    "the card takes the UNPADDED height again, so its top goes back under the clock");
   // A percentage height resolves against a DEFINITE parent. Without this the
   // class is inert and every check above passes.
   check("...and #root has a definite height for it to resolve against",

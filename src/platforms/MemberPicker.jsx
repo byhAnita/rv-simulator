@@ -79,7 +79,7 @@ export default function MemberPicker({
   };
 
   return (
-    <div
+    <div className="rv-fixed"
       style={{ position: "fixed", inset: 0, zIndex: 115, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >

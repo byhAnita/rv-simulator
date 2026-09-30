@@ -44,7 +44,7 @@ import {
   PHOTO_LIMITS, WALL_LIMITS, WALL_MAX_COUNT,
 } from "../utils/imageStore";
 import CastImageSheet from "./CastImageSheet";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, safeInset } from "./castTheme";
 import { photoFill } from "./memberFace";
 import MemberEditor from "./MemberEditor";
 import MemberPicker from "./MemberPicker";
@@ -398,7 +398,7 @@ export default function RosterBuilder({
 
   return (
     <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: k.pageBg }}>
-      <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: k.pageBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: k.textMain, display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
+      <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: k.pageBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: k.textMain, display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
 
         <div style={{ padding: "12px 13px 10px", borderBottom: `1px solid ${k.border}`, flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={onBack} aria-label={c.back}
@@ -633,7 +633,7 @@ export default function RosterBuilder({
           that has to be said out loud. Defaulted to the main member's name so the
           fast path is one tap. */}
       {castLabel !== null && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 125, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, padding: 24 }}>
+        <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 125, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, padding: safeInset(24) }}>
           <div style={{ width: "100%", maxWidth: 310, background: k.panelBg, border: `1px solid ${k.border}`, borderRadius: 14, padding: 16 }}>
             <div style={{ fontSize: fs(12), color: k.textMain, marginBottom: 4 }}>{c.nameCast}</div>
             <div style={{ fontSize: fs(11), color: k.textFaint, lineHeight: 1.45, marginBottom: 9 }}>{c.nameCastHint}</div>
@@ -658,7 +658,7 @@ export default function RosterBuilder({
           Edit on a small card, so it asks first. It names her, because "are you
           sure" next to a grid of twelve faces is not a question you can answer. */}
       {confirmDelete && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, padding: 24 }}>
+        <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, padding: safeInset(24) }}>
           <div style={{ width: "100%", maxWidth: 300, background: k.panelBg, border: `1px solid ${k.border}`, borderRadius: 14, padding: 16 }}>
             <div style={{ fontSize: fs(12), color: k.textMain, lineHeight: 1.6, marginBottom: 14 }}>
               {confirmDelete.kind === "roster"

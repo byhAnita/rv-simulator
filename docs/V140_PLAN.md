@@ -3465,6 +3465,98 @@ A **library** member has no description box - her card is already written - so f
 is the restaging alone, the one generation that IS about her. Same argument that hides the card
 generator for her today.
 
+### 22.7 The sixth phone pass - the header is still under the clock, and both tabs still scroll
+
+**Yuhan's report, 2026-09-30, hand-testing `0d1aa11` on a phone**, with three screenshots. §22.6
+landed the flow and the résumé; this is what is left, and the first item is the same bug reported
+a second time.
+
+#### 22.7.1 The header is under the status bar, and `100vh` was only half of it
+
+> *"the upper part of current player set up page is blocked, as shown in picture. Makes the header
+> visible"*
+
+§22.6.1 removed every viewport unit and stopped the document scrolling, and that was a real fix for
+a real mechanism. **It was not this mechanism.** The screenshot settles it: the red band across the
+top is `theme-color` painted by iOS behind the status bar, and the model/`切换模型` row is cut
+horizontally *through the middle of its text*, with the rest of the page - down to the Back and
+Continue buttons - fully in view and slack space below them. A page that is merely scrolled has no
+slack at the bottom. The page is not scrolled; **its top is underneath the clock.**
+
+**In a Home-Screen launch iOS does not inset the web content for the status bar.** The web view is
+the whole screen, `apple-mobile-web-app-status-bar-style` no longer changes that on current iOS, and
+the only thing that reserves the space is `env(safe-area-inset-top)` - which this repo pays nowhere.
+§22.6.1 correctly identified `black-translucent` as *a* mechanism and set it to `default`; what it
+missed is that `default` no longer buys the inset either.
+
+The arithmetic matches the screenshot to the pixel. On a 932pt screen the card is `maxHeight: 844`
+centred in a 932pt page, so its top edge is at `(932 - 844) / 2 = 44pt`, the status bar is ~62pt,
+and the first ~18pt of card content is behind it - the card's 12px padding plus most of a 14pt
+header row. **Centring is what turns an unpaid inset into an unreachable top**, because the overflow
+is split equally between the two ends and only one of them can be scrolled to.
+
+So:
+
+- **`.rv-page` pays the insets**, on all four sides, with `box-sizing: border-box` - the class every
+  full-screen page container already carries. It is `0px` on every device that has no notch, so
+  nothing else moves.
+- **The phone-sized card sizes from its parent, not from the viewport.** It carried `.rv-page` too,
+  so it was `100dvh` tall - the *unpadded* height - inside a container whose content box is now
+  smaller. A new `.rv-card` is `height: 100%` of the padded box, which is the space it is actually
+  centred in, so it can never exceed it whatever the insets turn out to be.
+- **The editor and picker overlays are `position: fixed; inset: 0`**, which on iOS is the whole
+  screen including the insets, so they pay them the same way. Their panels then take `maxHeight:
+  100%` of that padded box rather than a percentage of the screen - which is both correct and
+  ~100px more room, and 22.7.2 needs it.
+
+**The measurement is still the phone**, as it was last time: neither behaviour is reproducible on
+this machine. What is measured here is that the insets are paid and that no card can exceed its
+container.
+
+#### 22.7.2 Tab 1 does not fit on one screen, and now there is a number for it
+
+> *"use tighter placement for profile editor to make each tab in 1 page, no scroll required. Now
+> [...] we have space between two photos, while the describe in one line and auto generation button
+> exceed 1 page a little bit"*
+
+**Measured rather than estimated**, which is new: the editor is bundled with esbuild and rendered in
+headless Chrome at the real panel width, and the scroll body's content height is read off the layout.
+Tab 1 is **702px** against a budget of 590-698px depending on the phone. The gap between the two
+photos the report names is visible in the breakdown: the wallpaper tile is 44% of 332px wide at 2:3,
+so it is **213px tall** against three fields beside it that need 168, and the row is sized by the
+picture rather than by the form.
+
+- **The wallpaper column narrows to 32%**; the photo stays at 44%. The two tiles are different
+  shapes and the wallpaper is the one whose aspect ratio makes it tall - and its ratio is not
+  negotiable, because the tile is a preview of the crop the player chose (*the frame is the shape
+  the image will be seen in*). **Narrowing is the only way to shorten a tile whose ratio is fixed.**
+- **The emoji palette goes from three rows to two**, at 22px per swatch. It sits in a half-width
+  column, which is the one place a 26px grid wraps badly.
+- Row gaps, the description label, the generate pair and the panel's own header, footer and padding
+  each give up a few pixels. The panel chrome is a **budget** item, not a content one: every pixel
+  taken off the header or footer is a pixel the body gets.
+
+#### 22.7.3 Tab 2 is one block too tall, and the block is a label
+
+> *"only exceed the 1 page height a little bit, can present fully if the header 她在《校园》里的设定 /
+> 还没有为这个世界写过 removed. You can remove the header or rename the tab 2 name to '在校园世界'
+> [...] use a $world variable in tab 2 name, then remove desc header"*
+
+Tab 2 measures **602px** and the status block is **69px** of it. Yuhan's own answer is the right one
+and it is not a trade: **the block's job is to say which world the text was written for, and a tab
+named `在校园世界` says it in the one place the player is already looking.** The label is built from
+`world.name`, so it is the same string section 6 of the prompt prints.
+
+**What does NOT go with it is the way back.** `detailRevert` - *use her own lines again* - is the
+control that makes a generation the player dislikes reversible, and a generation with no way to a
+different answer gets routed around exactly as a prohibition with no substitute does. It survives as
+a single right-aligned line, rendered **only when there is a restaging to revert**, which is also
+when the player needs it. The empty state needs no words at all now that the tab is named.
+
+`detailTitle`, `detailFor` and `detailNone` are deleted from all three languages. A string for a
+control that no longer exists is the `pickMainHint` failure, and this file has now recorded it three
+times.
+
 ---
 ## 21. Endings and the epilogue — v1.4.2
 

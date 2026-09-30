@@ -85,7 +85,7 @@ export default function CastImageSheet({
   );
 
   return (
-    <div
+    <div className="rv-fixed"
       style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >

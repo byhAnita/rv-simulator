@@ -11,7 +11,7 @@ export default function InstagramOverlay({ memberId, members, socialFeeds, allTa
   const handle = m?.ig || m?.name?.toLowerCase();
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.5)" : "rgba(0,0,0,.8)", backdropFilter: "blur(4px)" }}>
+    <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.5)" : "rgba(0,0,0,.8)", backdropFilter: "blur(4px)" }}>
       <div style={{ width: "100%", maxWidth: 360, height: "80%", maxHeight: 600, background: isLight ? "#faf7f0" : "#fff", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
         <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${isLight ? "rgba(100,65,20,.15)" : "#efefef"}`, flexShrink: 0 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", color: isLight ? "#3a2510" : "#262626", fontSize: 18, cursor: "pointer", padding: "0 4px" }}>‹</button>

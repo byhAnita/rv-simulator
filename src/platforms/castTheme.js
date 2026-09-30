@@ -52,3 +52,19 @@ export const CAST_MIN_FONT = 11;
 // all of them or none of them.
 export const scaleFont = (px, fontScale = 1) =>
   Math.round(Math.max(px, CAST_MIN_FONT) * fontScale);
+
+// THE FOUR SAFE-AREA INSETS, PLUS A MARGIN OF YOUR OWN.
+//
+// `.rv-fixed` pays the insets for every full-screen overlay, but an inline
+// `padding` shorthand overrides a class's padding ENTIRELY - so the handful of
+// roots that want their own breathing room have to COMPOSE the two rather than
+// layer them, or the class is silently defeated on exactly those screens.
+//
+// `env(..., 0px)` rather than a bare `env()`: a browser that knows the function
+// but not the variable resolves it to the fallback, and one that knows neither
+// drops the whole declaration - which would take the author's own margin with
+// it. The fallback is what makes this a no-op on a device with no notch.
+export const safeInset = (px = 0) =>
+  ["top", "right", "bottom", "left"]
+    .map((side) => `calc(env(safe-area-inset-${side}, 0px) + ${px}px)`)
+    .join(" ");

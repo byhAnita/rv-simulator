@@ -2142,6 +2142,70 @@ its verdict line.**
 
 ---
 
+### The header was under the clock, and `100vh` was only half of it
+
+**Reported from a phone for the SECOND time, 2026-09-30:** *"the upper part of current player set
+up page is blocked."* The previous batch fixed a real mechanism - `100vh` is not the visible
+viewport - and it was not this one.
+
+**The screenshot is what settles it.** The red band across the top is `theme-color`, painted by iOS
+behind the status bar; the model row is cut horizontally *through the middle of its text*; and the
+rest of the page, down to the Back and Continue buttons, is fully in view with slack space below
+them. **A page that is merely scrolled has no slack at the bottom.** The page is not scrolled. Its
+top is underneath the clock.
+
+Two mechanisms, and this repo had both. Neither is `100vh`.
+
+**1. In a Home-Screen launch iOS does not inset the web content for the status bar.** The web view
+is the whole screen, `apple-mobile-web-app-status-bar-style` no longer changes that on current iOS -
+so setting it to `default` last batch bought nothing - and the only thing that reserves the space is
+`env(safe-area-inset-top)`, which this repo paid **nowhere**.
+
+**2. The phone card was sized `content-box`, so `maxHeight: 844` was not the card's height.**
+`height` and `max-height` cap the CONTENT box unless `box-sizing` says otherwise, and the card
+carries `padding: 12px 10px 40px`. **Measured in headless Chrome at a 932px screen: the card is
+896px tall, centred with its top at 18px - 44px of it behind a 62px status bar.** With `border-box`
+alone it is 844px at 18px from the top, so each fix alone leaves some of the header hidden; both
+together clear it.
+
+**Centring is what turns an unpaid inset into an unreachable top.** A flex `align-items: center`
+splits an overflow equally between the two ends, and only one of them can be scrolled to. That is
+also why *how much* was hidden read as arbitrary: it is half the difference between two heights
+neither of which was on screen.
+
+- **`.rv-page, .rv-fixed`** pay the insets on all four sides with `box-sizing: border-box`. They are
+  `0px` on a device with no notch, so nothing else moves. `env(..., 0px)` carries its fallback
+  because a browser that knows neither the function nor the variable drops the whole declaration.
+- **`.rv-card` is new, and the phone card sizes from its PARENT.** It carried `.rv-page`, which made
+  it `100dvh` tall - the *unpadded* height - inside a container whose content box is now smaller. It
+  is `height: 100%` of the padded box, so it can never exceed the space it is centred in whatever
+  the insets turn out to be.
+- **Every `position: fixed; inset: 0` layer takes `.rv-fixed`**, all sixteen of them, because on iOS
+  that rectangle IS the whole screen, notch included. The editor's panel then takes `maxHeight:
+  100%` of the padded box rather than 88% of the screen - correct, and ~100px more room.
+- **An inline `padding` shorthand overrides a class's padding entirely**, so the three roots that
+  set their own breathing room COMPOSE the two through `safeInset(px)` rather than layering them.
+  This is the half that fails silently: the class is present and does nothing.
+
+**The guards are derived over `src/` with comments stripped**, as the `100vh` ones are: every
+full-screen fixed layer carries the class, none of them clobbers its padding, every `maxHeight: 844`
+card carries `.rv-card`, and the two classes carry the insets, the box-sizing and no viewport unit.
+**One of them failed on its first run and found a real miss** - `ImageCropper` was the one overlay
+the class never reached - and the clobber guard failed on a **backtracking bug of its own**:
+`padding:\s*(?!safeInset\()` lets `\s*` match zero characters and then asserts against
+`" safeInset("`, which is not `"safeInset("`, so every composed padding was reported as a clobbered
+one. The lookahead has to span the gap: `padding:(?!\s*safeInset\()`.
+
+**7 mutations, 7 RED**, including both halves of each class separately - the insets and the
+box-sizing, the height and the box-sizing - because either alone leaves part of the header hidden
+and a single check asserting "the rule is present" would pass against either.
+
+**Still not reproducible on this machine, and that is unchanged.** What is measured here is the
+geometry, in a real browser, and that the rules are present. Whether the page now starts where it
+should is the phone.
+
+---
+
 ### The profile editor is a résumé, and one control runs both generations
 
 **Yuhan's design, 2026-09-30:** *"use multiple column design to make profile edit page tight. The

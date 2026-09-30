@@ -1295,7 +1295,7 @@ export default function App() {
 
     return (
       <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBg }}>
-        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
           <NotificationBar />
           <div style={{ fontSize: 44, marginBottom: 14 }}>💗</div>
           <h1 style={{ fontSize: "clamp(24px,6vw,44px)", fontWeight: 700, background: titleGrad, backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmerCover 4s linear infinite", marginBottom: 4 }}>Idol Dating</h1>
@@ -1403,7 +1403,7 @@ export default function App() {
     return (
       <>
       <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflowY: "auto" }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflowY: "auto" }}>
           <NotificationBar />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 2 }}>
             <div style={{ flex: 1 }} />
@@ -1603,7 +1603,7 @@ export default function App() {
     );
     return (
       <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
           {/* ONE LINE, and only what is actionable. A MISSING key is the thing
@@ -1771,7 +1771,7 @@ export default function App() {
     );
     return (
       <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
           {/* ONE LINE, NOT FOUR - the page ran past 844px and the Start button sat
@@ -1865,7 +1865,7 @@ export default function App() {
 
   return (
     <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg }}>
-      <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
+      <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
         <NotificationBar />
         <style>{`@media print{body *{visibility:hidden}#rv-story-panel,#rv-story-panel *{visibility:visible}#rv-story-panel{position:fixed;top:0;left:0;right:0;bottom:0;height:auto!important;overflow:visible!important;padding:24px!important;background:#fff!important}}`}</style>
         <style>{`${th.scrollCss}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes slideUp{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}.stat-item{cursor:help;transition:all .15s;position:relative}.stat-item:hover{transform:scale(1.05)}.stat-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:${th.panelBg};border:1px solid ${th.borderAccent};border-radius:6px;padding:3px 8px;fontSize:9px;color:${th.textHeading};white-space:nowrap;pointer-events:none;z-index:999}.notification-dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite}`}</style>
@@ -2324,7 +2324,7 @@ export default function App() {
 
         {/* Achievement Modal */}
         {achievement && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
+          <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: th.achieveBg, border: `1px solid ${th.borderAccent}`, borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{achievement.icon}</div>
               <div style={{ color: th.textHeading, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{achievement.title}</div>
@@ -2338,7 +2338,7 @@ export default function App() {
 
         {/* Special Event Modal */}
         {specialEvent && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
+          <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: th.achieveBg, border: `1px solid ${th.borderAccent}`, borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{specialEvent.icon || "💍"}</div>
               <div style={{ color: th.textHeading, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{specialEvent.title}</div>
