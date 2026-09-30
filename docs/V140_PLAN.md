@@ -2257,8 +2257,13 @@ rotation looking like full coverage.
 
 #### The unified game entry — future work, and this release is shaped for it
 
-Yuhan's flow: **one door.** The roster builder is the entry, the player picks main / subs / NPCs as
-she does now, and the following page asks name, birth year and **world**.
+Yuhan's flow: **one door.** The roster builder is the entry and the player picks main / subs / NPCs
+as she does now.
+
+⚠️ **The ORDER in this paragraph is superseded by §22.5.** It said the page *following* the cast
+picker asks name, birth year and **world** — and asking the world last is the §22.1 defect:
+`generateCard` runs on the cast screens and would read a world the player has not chosen. Player
+info comes **first** on both doors. See §22.5, which is the implementation plan for §22.2.
 
 **It needs no save migration, and the migration he was worried about already shipped.**
 [saveMigrator.js:192](../src/rag/saveMigrator.js#L192) writes
@@ -3010,6 +3015,176 @@ one as present, and `[Rounds Absent]` then tells the next round she has been awa
 fact in the tail, which is the defect this file spends a whole section on. One rule fixes both:
 every member present in a round is named at least once, in narration, by her name alone. It is
 a prompt change in every language, so it moves all six goldens and wants its own commit.
+
+### 22.5 Implementation plan — DRAFT, awaiting Yuhan's confirmation (2026-09-30)
+
+**§22.2's design is agreed (§22.2, §22.3). This section is the implementation plan for it**, written
+before any code because the change is multi-file. It carries the commit breakdown, the four decisions
+I had to make to write it, the two that are Yuhan's, and the guards — and one place where reading the
+code changed what §22.1 promised.
+
+#### It supersedes the earlier unified-entry sketch on ORDER, and that is the whole fix
+
+§15's *The unified game entry* says the roster builder is the entry and *the following page* asks
+name, birth year and world. **§22.2 reverses that**, and the reason is not taste: `generateCard`
+reads `world` from `App` state, which on the cast screens is the world **remembered from the last
+session**. Asking for the world first is what makes the generator's input correct *by construction*
+rather than by a guard — the same remedy the save's `worldId` needed. Two sections of this plan
+therefore disagreed about the page order; the later one wins and the earlier sketch is corrected in
+place, because *a plan is not append-only* either.
+
+#### What the world already carries, so no world file is re-authored
+
+§4.5 names a `world.setting` field for the card prompt and v1.4.1 never shipped it;
+`buildCardPrompt` falls back to `world.name`. **It is not needed.** The world already holds
+everything a world-scoped generation wants: `castLife.theirs` (*what these people do all day*),
+`castLore.orgNoun`, `scenario`, and `places`. Generating from those costs **zero** world-file edits,
+against twelve documents for a new prose field — and it reuses the fields the ROLE CONTRACT and
+section 11 already render, so the generated detail cannot contradict the rest of the prompt.
+
+#### `role` is replaced by ONE expression, not by a second field beside it
+
+§22.3.2 says `role` becomes a generated world-scoped position. The render site is
+[rosterResolver.js:111](../src/rag/rosterResolver.js#L111):
+
+```js
+const facts = [useRole ? m.role : null, m.mbti, m.animal_plastic].filter(Boolean).join(", ");
+```
+
+So the change is `useRole ? m.role : m.world_position` — the two are **alternatives in one
+expression**, never both. `kpop_idol` is byte-identical because `useRole` is true there and
+`world_position` is never read; a non-idol world renders the generated position where the idol
+position used to be, which is exactly the hole §22.3.2 names. A separate field rendered on its own
+line would be two answers to *what does she do*, which is the failure this plan keeps recording.
+
+`world_position` is **not** on `PROFILE_FIELDS`, because tab 2 is not persisted to the palette — see
+the storage rule below.
+
+#### Where tab 2 lives, and why "not persisted" does not mean "not in the save"
+
+§22.2's rule is *only tab 1 is persisted*. That is about the **palette**
+(`rv_sim_cast_custom_v14`), not about the run:
+
+| | tab 1 | tab 2 |
+| --- | --- | --- |
+| the palette | stored (`sanitizeProfile` / `PROFILE_FIELDS`) | **dropped** |
+| the setup session | edited | generated, keyed to the chosen world |
+| the roster, and therefore the save | in `profile` (custom) / `override` (library) | **in the same place** |
+
+**Tab 2 must reach the save or `buildSystemPrompt` stops being a pure function of it.** Generated
+text fixed at setup and written into the roster satisfies that rule exactly as the ex-girlfriend
+backstory's seed does; text regenerated at round time would be the `Math.random()` defect with a
+network call in it. So tab 2 is generated **before** `startNewGame`, never lazily, and a world change
+during setup **discards** it rather than carrying a lecture hall into a family compound.
+
+#### An edit to a library member is a diff, never a snapshot
+
+`resolveRoster` already honours `entry.override`
+([rosterResolver.js:266](../src/rag/rosterResolver.js#L266)), so both the tab-1 edits and the
+generated tab 2 for a **library** member land there. That keeps §4.2's by-reference rule — a fixed
+profile reaches games in progress — for every field the player did not touch. Custom members stay
+snapshotted inline, unchanged.
+
+#### One decision this plan cannot make, because it changes what every player waits for
+
+**The §22.1 interim rule can only be DELETED if every member's prose is translated, and the editor's
+generate button is opt-in.** §22.2's flow puts `[generate her detail]` inside the profile editor,
+reached by tapping a chosen member's bubble. A player who never opens that editor — the default path
+— still sends the library's idol prose for all of her cast, so deleting the rule in that commit would
+remove the only thing standing between a chaebol heiress and 忙内.
+
+Two shapes, and they differ in what the player pays:
+
+| | What it costs | What happens to §22.1's rule |
+| --- | --- | --- |
+| **A — automatic for the whole cast** at the cast-picker → Start boundary, one call per member, concurrent, per-member fallback | one wait before every new game (~1 call's latency, ~5-10 calls' tokens); a failure must not block Start | **deleted**, except as the per-member fallback below |
+| **B — opt-in**, exactly as §22.2 draws it | nothing | **stays**, scoped to the members whose prose is still the library's |
+
+**Under either, the rule must become CONDITIONAL rather than simply deleted**, and that is a
+correction to §22.1's stated obligation. `generateCard`'s own law is *an accelerator, never a gate* —
+every failure returns a blank profile — so a run can always contain a member whose texture was not
+translated, and for exactly those members the prose is still idol prose. **A rule scoped to the
+members it is true of is not two answers to one question**; a rule deleted while the data it
+describes is still being sent is a silent regression. So the §22.1 block stays in `mainAgent.js` and
+gains a condition: it renders when `useRole` is false **and** at least one member in this run carries
+un-translated texture, and it names those members rather than the whole cast.
+
+**Recommendation: A.** §22.1's measurement is *57 of 57 members*, so the defect is the default path,
+and a fix that only reaches players who tap into an editor does not reach the defect. One call per
+member run concurrently bounds the wait to roughly one call, and per-member fallback keeps a dead
+provider from blocking character creation.
+
+**Rejected: a vocabulary scan** that translates only the fields containing idol words. It is the
+hand-maintained word list this repo keeps losing — the measurement in §22.1 used one *once*, offline,
+which is a different thing from shipping one as a runtime branch.
+
+#### The second decision that is Yuhan's: does this delete the classic door?
+
+§22.2's flow diagram shows **one** cast picker, which is §15's unified entry. The reorder below
+serves **both** doors and does not require the merge, so the merge stays a separate commit and a
+separate decision. §15 already names its two costs: the *"add the other 3 as background"* chip, and
+⚠️ re-pointing the Layer G guard on `loadSave`'s `phaseRef.current = "game"` ordering, which would
+otherwise keep passing while testing nothing.
+
+Note what the reorder does to the argument: once player info comes first on both paths, the classic
+door's remaining job is *pick a whole group in one tap*, which is one chip in the picker. **Keeping
+both after the reorder costs more than merging.** Still Yuhan's call, and nothing below depends on
+it.
+
+#### Commits, in order, each one shippable
+
+**1. docs** — this section, plus `CLAUDE.md`. Docs before code, as always.
+
+**2. Player info moves before the cast, on both doors.** A new `playerInfo` phase carrying name,
+birth year, world and identity; the classic Setup page keeps only main/sub picking; the custom door
+reaches the builder from it. **No prompt change and no golden moves** — this commit is the reorder
+alone, and it is what fixes the stale-world defect by construction. It is also the commit that makes
+`form` not survive a trip to the cover, which is the year-wheel seeding bug's cousin: `form` is
+App-level state and nothing clears it.
+
+**3. One profile editor for custom AND prebuilt members**, reached by tapping a chosen member's
+bubble in the cast picker; a library edit lands on `entry.override`. `animal_plastic` leaves the
+editor and stays in the data (§22.3.3). `name_kr` stays and moves to tab 2, optional, prefilled for
+prebuilt cast (§22.3.1). **No golden moves if nothing is edited**, which is the gate.
+
+**4. The two tabs, the generated world-scoped detail, and `world_position`.** The prompt-facing
+commit: `memberLine`'s one expression, the §22.1 rule made conditional, and the generation call.
+**It moves all six goldens** — three non-idol ones lose the caveat or keep a narrowed one, and the
+`world_position` render is new — so `update-golden.mjs` runs once and the diff is read.
+
+**5. The unified door** — separate, optional, and only if Yuhan wants it.
+
+#### Guards, written from the requirement, each mutation-verified
+
+1. **The cast screens cannot be reached before the world is confirmed.** Derived from the phase
+   transitions in `App.jsx` rather than asserted about one door, so a third entry point cannot
+   reintroduce it. The behavioural half: the world handed to `generateCard`'s call site is the one
+   the player-info phase confirmed.
+2. **Tab 1 is persisted and tab 2 is not** — one declared split, asserted on `sanitizeProfile` /
+   `upsertMember` dropping every tab-2 key. Mutation: move one key across the split.
+3. **A world change during setup discards generated tab 2.** The failure it prevents is a lecture
+   hall in a family compound, and it is the `beginRun` asymmetry: forgetting to clear leaks the other
+   world.
+4. **An edit to a library member lands on `entry.override` and never as a snapshot** — behavioural,
+   through `resolveRoster`, because a snapshot passes any structural check.
+5. **Exactly one of `role` / `world_position` renders, per world** — derived over `allWorlds` against
+   `useRole`, both directions, the shape §22.1's own guards use. A guard pinned to campus is a sample.
+6. **The §22.1 rule renders exactly when a member in this run still carries un-translated texture**,
+   and names those members — both directions.
+7. **Every field the generator can fill is editable somewhere in the editor.** The existing
+   `STEP_FIELDS` invariant, extended to the tabs: the player must be able to correct anything the
+   model wrote.
+8. **Generated text reaches the save, and the prompt is byte-identical across two builds of it** —
+   Layer J's purity rule, which is what a network call in the setup path must not break.
+
+#### What this plan does NOT claim
+
+It does not claim §22.1's defect is *measured* as fixed. Translated prose is still model output about
+a world, and the failure profile stays *universal and intermittent*, so a clean live run in a
+non-idol world establishes nothing. What the commit can honestly claim is that the idol vocabulary is
+no longer **sent** for a translated member — which is a property of the prompt and therefore
+assertable — and that the interim rule still covers the members for whom it is.
+
 
 ---
 ## 21. Endings and the epilogue — v1.4.2

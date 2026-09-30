@@ -1873,9 +1873,21 @@ appended to the `CRITICAL` line rather than placed on a line of its own, so no n
 either. The three non-idol goldens moved by exactly this block and the diff was read.
 
 **It is INTERIM and the comment in `mainAgent.js` says so.** It tells the model how to read
-data that is wrong for the world; §22.2 fixes the data. Delete it in the same commit that lands
-the generated per-world texture, or the prompt will carry two answers to one question - which
-is the *a prompt is not append-only* failure this file records five instances of.
+data that is wrong for the world; §22.2 fixes the data.
+
+**It becomes CONDITIONAL rather than deleted, and that is a correction to what this section
+used to promise.** It said *delete it in the same commit that lands the generated per-world
+texture*. Reading the code to plan §22.2 found why that is wrong: `generateCard`'s own law is
+*an accelerator, never a gate*, so every failure returns a blank profile and a run can always
+contain a member whose texture was NOT translated. For exactly those members the prose is still
+idol prose, so deleting the rule while that data is still being sent is a silent regression.
+
+**A rule scoped to the members it is true of is not two answers to one question.** That is the
+distinction the *a prompt is not append-only* failure turns on: the five instances this file
+records are two rules making contradictory claims about the SAME subject. A condition that
+names which members it applies to has one subject and one answer. So §22.2 narrows this rule
+to the un-translated members instead of removing it, and `docs/V140_PLAN.md` §22.5 carries the
+reasoning.
 
 ### Where she is decides who is there
 
@@ -2794,9 +2806,11 @@ line so not even a newline moves - and **the three idol goldens did not move whi
 non-idol ones moved by exactly one line each**, carrying their own world's `castLife.theirs`. The
 diff was read.
 
-**It is INTERIM and the comment in `mainAgent.js` names the commit that must delete it.** It tells
-the model how to read data that is wrong for the world; §22.2 makes the data right, and keeping
-both would put two answers to one question in the prompt.
+**It is INTERIM, and §22.2 NARROWS it rather than deleting it.** It tells the model how to read
+data that is wrong for the world; §22.2 makes the data right - but only for the members whose
+texture a generation actually translated, because that call is an accelerator and never a gate.
+The rule therefore gains a condition naming those members. See the correction under *`useRole`
+filters the FIELD and the prose says it anyway*, and `docs/V140_PLAN.md` §22.5.
 
 **What it does NOT do:** the library is unchanged, so all 80 field instances are still sent, and
 **no claim is made about how often the rule works** - that needs live play in a non-idol world,
@@ -2810,10 +2824,27 @@ caveat after the profiles. Build clean at **423.34 kB / gzip 148.88**, `index-Cd
 **This one DOES bump at release time** - unlike the `.nojekyll` fix, it changes a bundled file, so
 the hash moved. The bump is the last commit on `dev` before the release merge, not now.
 
+#### §22.2 is CONFIRMED and in progress, 2026-09-30
+
+**The plan is `docs/V140_PLAN.md` §22.5** and Yuhan confirmed it on 2026-09-30, with two
+decisions taken as recommended there: the world-scoped texture is generated **automatically for
+the whole cast** at the Start boundary rather than opt-in per member (§22.1's measurement is 57
+of 57 members, so a fix reaching only players who open an editor does not reach the defect), and
+the **unified door is out of scope** - it stays §22.5's commit 5 and nothing else depends on it.
+
+Five commits, each shippable, and the first four are the release:
+
+1. docs - §22.5 plus this block.
+2. **Player info before the cast, on both doors.** No prompt change and no golden moves; this is
+   the commit that fixes the stale world by construction.
+3. **One profile editor for custom AND prebuilt members**, a library edit landing on
+   `entry.override`. No golden moves if nothing is edited, which is the gate.
+4. **The two tabs, the generated detail, and `world_position`.** Prompt-facing: it moves all six
+   goldens and narrows the §22.1 rule.
+5. The unified door - not in scope.
+
 #### Still next in the feature queue
 
-1. **`docs/V140_PLAN.md` §22.2**, the setup-flow restructure — multi-file, so it wants its own
-   written plan and Yuhan's confirmation before any code.
 2. §22.4's two undiagnosed items, which one prompt rule may close together: the saved cast whose
    deleted custom member returns as name + emoji (**not reproduced**), and the round that names
    nobody, only 她 — which also makes `membersNamedIn` record no one present, so `[Rounds Absent]`
