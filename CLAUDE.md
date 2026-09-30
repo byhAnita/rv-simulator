@@ -2142,6 +2142,80 @@ its verdict line.**
 
 ---
 
+### The profile editor is a résumé, and one control runs both generations
+
+**Yuhan's design, 2026-09-30:** *"use multiple column design to make profile edit page tight. The
+photo on the left with a larger square, several fields on the right line by line — makes the
+profile look like a funny résumé's style."* And the reading rule that goes with it: **a comma in
+that design means one line, half each; only a line break starts a new row.**
+
+Tab 1 was nine stacked full-width boxes — one and a half screens of scrolling to answer three
+required fields. It is two blocks now, each an image at half width on the left and its three
+fields on the right, one per line:
+
+```
++-----------+  Name*                  +-----------+  Habit
+|           |  Birth year*            | wallpaper |  MBTI
+|  photo    |  Private personality*   |           |  Animal emoji
++-----------+                         +-----------+
+```
+
+`alignItems: flex-start`, not `stretch`: a stretched square stops being a square, and the right
+column is the taller of the two because the birth year is a **wheel** rather than a box.
+
+**Her photo is the tile's own background, never a child for something else to clip.** Three fixes
+were spent learning that, and `photoFill` is the one definition of it — the editor is its fourth
+consumer, and the derived scan counts them. The tiles are real `<button>`s, not styled `<label>`s,
+because the iOS file-input failure is what made the only uploader for an authored member
+untappable on the one device this app is built for.
+
+**ONE control now runs BOTH generations, and it is on the tab that asks.** His label —
+*生成她在世界观下的设定详细设定* — describes her card *and* her restaging, which were two buttons on
+two tabs: the fast path crossed a tab boundary, and tab 2 auto-ran a call the player had not asked
+for. The pair is Generate and Regenerate, one line, half each, and **it is not one button twice**:
+
+- **Generate** fills what is blank and never overwrites a word the player typed, which is what
+  makes it safe to press again.
+- **Regenerate** drops the current restaging first, which is the only way to get a different
+  answer once one exists. *A generation with no way to a different answer gets routed around
+  exactly as a prohibition with no substitute does.*
+
+**The merged card is threaded through a LOCAL, not read back off state.** `setProfile` has not
+flushed when the restaging call is built, and that call takes her name and her own lines as its
+**source** — a brand-new member has neither until that moment. The same local, minus the overlay,
+is what the restaging reads, because restaging a restaging compounds.
+
+**The auto-run on opening tab 2 is gone with the move**, and that is a deletion rather than a
+regression: it existed because the tab could otherwise be reached empty beside a retry button with
+nothing to retry. With the generation on the tab the player asks from, an unasked-for call is no
+longer the only way to fill the other one. Tab 2 keeps the status line — a generated paragraph is
+only reviewable if the player can see which world it was written for — and the way back.
+
+**Tab 2 keeps FIVE boxes and not the four the design lists.** `world_position` is the fifth, and
+it is not optional: it is the box that fills the slot `castLore.useRole` empties, so removing it
+would leave a custom member in a non-idol world with nothing saying what she does — the
+filtered-slot-left-empty defect commit 4 exists to close. `name_kr` also stays where it was;
+Yuhan's design names it on neither tab, and it has twelve-plus readers including `membersNamedIn`,
+so it is left alone rather than moved on a guess.
+
+**`STEP_FIELDS` is now TIED to what tab 1 renders, not kept in step with it by hand.** The
+"every generated field is editable" invariant reads that declaration, so a resume block that
+stopped rendering a field would leave that check passing against a field with no box — the
+invariant inverted. A second check compares the rendered list against the declared one. The old
+scrape also had to go: it matched *any* line that was an array of quoted strings, and the two
+resume blocks pass their fields exactly that way, so it read four tabs where the editor has two.
+
+**A green build says the module graph resolves, not that any of it runs**, so the reworked
+component was **rendered for real** — three member/world combinations (new custom, library,
+custom in the idol world) across **both tabs**, via an esbuild `onLoad` hook that flips the
+initial step, since the tab is internal state and a server render otherwise only ever reaches the
+first one. All six rendered clean.
+
+**10 mutations, 10 RED**, including both halves of the generate pair separately and the
+`flex: 0 0 44%` that is the layout itself. All six goldens byte-identical.
+
+---
+
 ### The cast picker starts the game, and the page after it is gone
 
 **Yuhan's design, 2026-09-30, and the correction is to §22.5's reading of it rather than to the

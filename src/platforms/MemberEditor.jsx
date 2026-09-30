@@ -37,7 +37,7 @@ import { WORLD_FIELDS, WORLD_DETAIL_KEY } from "../rag/rosterResolver";
 import { castTokens, scaleFont } from "./castTheme";
 import YearWheel, { DEFAULT_YEAR } from "./YearWheel";
 import ImageCropper from "./ImageCropper";
-import MemberFace from "./memberFace";
+import { photoFill } from "./memberFace";
 
 // Which fields live on which tab. All three required fields are on tab 1 now,
 // which is what makes tab 2 skippable in fact and not only in principle: a
@@ -99,7 +99,6 @@ export default function MemberEditor({
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState(() => ({ ...(member?.profile || {}) }));
   const [description, setDescription] = useState("");
-  const [generating, setGenerating] = useState(false);
 
   const c = t?.cast || {};
   const fieldLabel = (f) => c.fields?.[f] || f;
@@ -185,87 +184,87 @@ export default function MemberEditor({
   // Complete but implausible is worth flagging; still being typed is not.
   const birthYearValid = yearDraft.length < 4 || validBirthYear(yearDraft);
 
-  const runGenerate = async () => {
-    if (description.trim().length < MIN_DESCRIPTION_CHARS) {
-      notify?.(c.generateEmpty, "error");
+  // ONE CONTROL, BOTH GENERATIONS (docs/V140_PLAN.md 22.6.3). The card from the
+  // sentence on tab 1, and - in a world the library was not written for - her
+  // restaging. They used to be two buttons on two tabs, which meant the fast path
+  // crossed a tab boundary and tab 2 auto-ran a call the player had not asked for.
+  //
+  // `force` is the difference between the two buttons and not a second code path:
+  // GENERATE fills what is blank and never overwrites a word the player typed,
+  // which is what makes it safe to press twice; REGENERATE drops the current
+  // restaging first, which is the only way to get a different answer once one
+  // exists. A generation with no way to a different answer gets routed around
+  // exactly as a prohibition with no substitute does.
+  const [generating, setGenerating] = useState(false);
+  const busy = generating;
+
+  const runGenerate = async (force = false) => {
+    const wantCard = !fromLibrary && description.trim().length >= MIN_DESCRIPTION_CHARS;
+    const wantDetail = restageable && (force || !detailActive);
+    if (!wantCard && !wantDetail) {
+      // Nothing to do, and WHICH nothing depends on why: a member with no sentence
+      // needs one, and a member whose restaging already exists needs Regenerate.
+      notify?.(restageable ? c.detailNeedName : c.generateEmpty, "error");
       return;
     }
     setGenerating(true);
     try {
-      const res = await generateCard({
-        description, world, language, apiKey, modelId, aliyun,
-      });
-      if (!res.ok) {
-        // An accelerator, never a gate: the form stays exactly as it was and the
-        // player carries on by hand. The localized line for the underlying kind
-        // is the game's own, so a dead provider reads the same here as in a round.
-        notify?.(t?.errors?.[res.reason] || c.generateFailed, "error");
-        return;
+      // THE MERGED CARD IS THREADED THROUGH A LOCAL, not read back off state:
+      // `setProfile` has not flushed when the restaging call is built, and that
+      // call needs her name and her own lines as its SOURCE. A brand-new member
+      // has none until this moment.
+      let next = profile;
+      if (wantCard) {
+        const res = await generateCard({
+          description, world, language, apiKey, modelId, aliyun,
+        });
+        if (!res.ok) {
+          // An accelerator, never a gate: the form stays exactly as it was and the
+          // player carries on by hand. The localized line for the underlying kind is
+          // the game's own, so a dead provider reads the same here as in a round.
+          notify?.(t?.errors?.[res.reason] || c.generateFailed, "error");
+        } else {
+          // Merge UNDER what the player already typed - a generated value must never
+          // overwrite something they wrote themselves.
+          next = { ...res.profile, ...profile };
+          for (const [k, v] of Object.entries(profile)) {
+            if (!String(v ?? "").trim()) next[k] = res.profile[k] ?? v;
+          }
+          setProfile(next);
+          // The wheel renders its own draft, so a generated birthday has to be pushed
+          // into it or the profile holds a year the player cannot see or correct.
+          setYearDraft(birthYearOf(next.birthday));
+        }
       }
-      // Merge UNDER what the player already typed — a generated value must never
-      // overwrite something they wrote themselves, which is the whole reason
-      // Generate stays available after the first run.
-      setProfile((p) => {
-        const next = { ...res.profile, ...p };
-        for (const [k, v] of Object.entries(p)) if (!String(v ?? "").trim()) next[k] = res.profile[k] ?? v;
-        // The year input renders its own draft, so a generated birthday has to be
-        // pushed into it too — otherwise the profile holds a year the player
-        // cannot see and cannot correct.
-        setYearDraft(birthYearOf(next.birthday));
-        return next;
-      });
-      setStep(1);
+      if (wantDetail) {
+        // Her OWN lines, with no restaging over them. Restaging a restaging compounds:
+        // the second pass would describe a chaebol heiress as if she had been one.
+        const base = { ...next }; delete base[WORLD_DETAIL_KEY];
+        if (!String(base.name || "").trim()) { notify?.(c.detailNeedName, "error"); return; }
+        const res = await generateWorldDetail({
+          member: base, world, language, apiKey, modelId, aliyun,
+        });
+        if (!res.ok) {
+          // The tab stays exactly as it was, her own lines are still what the prompt
+          // sends, and 22.1's narrowed rule is what covers her until a retry works.
+          notify?.(t?.errors?.[res.reason] || c.detailFailed, "error");
+          return;
+        }
+        setProfile((prev) => ({ ...prev, [WORLD_DETAIL_KEY]: { world: worldId, ...res.detail } }));
+        // There is something new to read on the other tab, which is what that tab
+        // is now for.
+        setStep(1);
+      }
     } finally {
       setGenerating(false);
     }
   };
 
-  // ── her restaging (tab 2) ──────────────────────────────────────────
-  const [detailing, setDetailing] = useState(false);
-
-  const runDetail = async () => {
-    if (!String(profile.name || "").trim()) { notify?.(c.detailNeedName, "error"); return; }
-    setDetailing(true);
-    try {
-      const res = await generateWorldDetail({
-        member: baseProfile(), world, language, apiKey, modelId, aliyun,
-      });
-      if (!res.ok) {
-        // An accelerator, never a gate - cardGenerator's own law. The tab stays
-        // exactly as it was, her own lines are still what the prompt sends, and
-        // §22.1's narrowed rule is what covers her until a retry works.
-        notify?.(t?.errors?.[res.reason] || c.detailFailed, "error");
-        return;
-      }
-      setProfile((p) => ({ ...p, [WORLD_DETAIL_KEY]: { world: worldId, ...res.detail } }));
-    } finally {
-      setDetailing(false);
-    }
-  };
-
-  // USE HER OWN LINES AGAIN. A generation with no way back gets routed around
-  // exactly as a prohibition with no substitute does - and because the overlay
-  // never overwrote anything, dropping it is all it takes to get her text back.
+  // USE HER OWN LINES AGAIN. Because the overlay never overwrote anything,
+  // dropping it is all it takes to get her text back.
   const dropDetail = () => setProfile((p) => {
     const o = { ...p }; delete o[WORLD_DETAIL_KEY]; return o;
   });
-
-  // ONE AUTOMATIC RUN, when the tab is opened with nothing for this world. The
-  // alternative is a tab that opens empty beside a retry button with nothing to
-  // retry, which is what §22.2's own sketch would have shipped; and it is not extra
-  // spend, because the Start-boundary sweep skips whoever the editor restaged.
-  // Gated on a key and a name because both are inputs the call cannot do without.
-  const autoRan = useRef(false);
-  useEffect(() => {
-    if (step !== 1 || autoRan.current) return;
-    if (!restageable || detailActive || detailing) return;
-    if (!String(profile.name || "").trim() || !String(apiKey || "").trim()) return;
-    autoRan.current = true;
-    runDetail();
-    // Fires on reaching the tab, and the ref is what makes it once per editor.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
   // ── her images ────────────────────────────────────────────────────────────
   // ONE HIDDEN INPUT, OPENED THROUGH A REF. It was a <label> wrapping an
   // <input type="file" style={{display:"none"}}>, which is the standard trick and
@@ -335,22 +334,6 @@ export default function MemberEditor({
     color: textMain, fontSize: fs(12), fontFamily: "inherit", boxSizing: "border-box",
   };
 
-  // The image buttons, in the shape the image sheet uses — same job, same look,
-  // and a real <button> rather than a styled <label>, which is what the iOS
-  // failure above cost.
-  const imgBtn = (label, onClick, danger = false) => (
-    <button key={label} onClick={onClick}
-      style={{
-        padding: "6px 10px", minHeight: 32, borderRadius: 15, cursor: "pointer",
-        border: `1px solid ${danger ? "rgba(180,60,20,.28)" : inputBorder}`,
-        background: "transparent",
-        color: danger ? (isLight ? "#a03010" : "#f07070") : accent,
-        fontSize: fs(10.5), whiteSpace: "nowrap",
-      }}>
-      {label}
-    </button>
-  );
-
   // A FUNCTION RETURNING JSX, NOT A COMPONENT. Declaring `const Field = ...`
   // inside the render body creates a new component TYPE on every render, so
   // React unmounts and remounts the input on each keystroke and the field loses
@@ -376,6 +359,98 @@ export default function MemberEditor({
         )}
         {hint && (
           <div style={{ fontSize: fs(9), color: textFaint, marginTop: 3, lineHeight: 1.4 }}>{hint}</div>
+        )}
+      </div>
+    );
+  };
+
+  // ── A RESUME ROW: an image at half width on the left, its fields on the right ─
+  //
+  // Yuhan's design, 2026-09-30. `alignItems: flex-start` and not stretch, because a
+  // stretched square stops being a square - and the right column is the taller of
+  // the two, since the birth year is a WHEEL rather than a box.
+  const resumeRow = (image, fields) => (
+    <div style={{ display: "flex", gap: 9, marginBottom: 13, alignItems: "flex-start" }}>
+      <div style={{ flex: "0 0 44%", minWidth: 0 }}>{image}</div>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+        {fields.map(renderCompact)}
+      </div>
+    </div>
+  );
+
+  // HER PHOTO IS THIS TILE'S OWN BACKGROUND, never a child for something else to
+  // clip - three fixes were spent learning that, and `photoFill` is the one
+  // definition of it. A real <button>, not a styled <label>: the iOS file-input
+  // failure is what made the only uploader for an authored member untappable.
+  const photoTile = (kind, dataUrl, fallback, label) => (
+    <div>
+      <button onClick={() => ask(kind)} aria-label={label}
+        style={{ width: "100%", aspectRatio: kind === "wall" ? "2 / 3" : "1 / 1", padding: 0, borderRadius: 12, cursor: "pointer", border: `1px solid ${dataUrl ? accent : inputBorder}`, background: inputBg, ...photoFill(dataUrl), display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(30), lineHeight: 1, color: textFaint, boxSizing: "border-box" }}>
+        {dataUrl ? null : fallback}
+      </button>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 4, marginTop: 3 }}>
+        <span style={{ fontSize: fs(9), color: textFaint }}>{label}</span>
+        {dataUrl && (
+          <button onClick={() => (kind === "wall" ? onWallChange?.(null) : onPhotoChange?.(null))}
+            style={{ padding: 0, border: "none", background: "none", cursor: "pointer", color: isLight ? "#a03010" : "#f07070", fontSize: fs(9) }}>
+            {kind === "wall" ? c.wallRemove : c.photoRemove}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // The right-hand column's fields: label above, control below, no hint line - a
+  // half-width column has no room for one and the three required fields need none.
+  // Two of the six are not boxes at all, which is why this branches rather than
+  // calling renderField: the birth year is a wheel (a text box can hold "19", which
+  // is a year the address protocol must never see) and the emoji has its palette.
+  const renderCompact = (f) => {
+    const required = REQUIRED_FIELDS.includes(f) || f === "birthYear";
+    const label = (
+      <label style={{ display: "block", fontSize: fs(9.5), color: textDim, marginBottom: 2 }}>
+        {fieldLabel(f)}{required ? <span style={{ color: accent, marginLeft: 3 }}>*</span> : null}
+      </label>
+    );
+    if (f === "birthYear") return (
+      <div key={f}>
+        {label}
+        <YearWheel value={yearDraft || DEFAULT_YEAR} onChange={setBirthYear}
+          min={BIRTH_YEAR_MIN} max={BIRTH_YEAR_MAX}
+          fontScale={fontScale} ariaLabel={c.fields?.birthYear}
+          colors={{ text: textMain, textDim, accent, tint: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.14)", border: inputBorder, fieldBg: inputBg }} />
+        {!birthYearValid && (
+          <div style={{ fontSize: fs(9), color: isLight ? "#a03010" : "#f07070", marginTop: 2 }}>{c.badYear}</div>
+        )}
+      </div>
+    );
+    if (f === "emoji") return (
+      <div key={f}>
+        {label}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+          <input value={profile.emoji || ""}
+            onChange={(e) => set("emoji", normalizeEmoji(e.target.value))}
+            aria-label={fieldLabel("emoji")} inputMode="text" maxLength={24}
+            style={{ width: 40, flexShrink: 0, textAlign: "center", padding: "4px 0", borderRadius: 8, background: inputBg, border: `1px solid ${inputBorder}`, color: textMain, fontSize: fs(17), lineHeight: 1.2, outline: "none", fontFamily: "inherit" }} />
+          {EMOJI_PALETTE.map((g) => (
+            <button key={g} onClick={() => set("emoji", g)}
+              aria-label={g} aria-pressed={profile.emoji === g}
+              style={{ width: 26, height: 26, padding: 0, borderRadius: 7, cursor: "pointer", fontSize: fs(14), lineHeight: 1, background: profile.emoji === g ? k.tint : "transparent", border: `1px solid ${profile.emoji === g ? accent : border}` }}>
+              {g}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+    return (
+      <div key={f}>
+        {label}
+        {MULTILINE.has(f) ? (
+          <textarea value={valueOf(f)} onChange={(e) => setField(f, e.target.value)}
+            rows={2} style={{ ...inputStyle, minHeight: 0, padding: "7px 9px", resize: "vertical", lineHeight: 1.45 }} />
+        ) : (
+          <input value={valueOf(f)} onChange={(e) => setField(f, e.target.value)}
+            style={{ ...inputStyle, minHeight: 0, padding: "7px 9px" }} />
         )}
       </div>
     );
@@ -407,156 +482,108 @@ export default function MemberEditor({
 
           {step === 0 && (
             <>
-              {/* THE FAST PATH: one line in, a full card out - and it is hidden for a
-                  library member, because for her it provably does nothing. runGenerate
-                  merges UNDER what is already filled, deliberately, so a generated value
-                  can never overwrite the player's own words; a library member arrives
-                  with every field filled, so the button would spend a call and change
-                  nothing. A control that cannot act is worse than no control. §22.2's
-                  commit 4 gives her the generation that IS about her: world-scoped
-                  tab 2, which is a different call with a different input. */}
-              {!fromLibrary && (
-              <div style={{ padding: 11, borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 14 }}>
-                <div style={{ fontSize: fs(11), color: accent, marginBottom: 6, fontWeight: 600 }}>{c.describe}</div>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION_CHARS))}
-                  rows={2} placeholder={c.describePlaceholder}
-                  style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
-                <button onClick={runGenerate} disabled={generating}
-                  style={{ width: "100%", marginTop: 7, padding: 9, borderRadius: 8, border: "none", cursor: generating ? "default" : "pointer", background: generating ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(12), fontWeight: 600 }}>
-                  {generating ? c.generating : c.generate}
-                </button>
-                <div style={{ fontSize: fs(9), color: textFaint, marginTop: 5, lineHeight: 1.4 }}>{c.generateHint}</div>
-              </div>
-              )}
-
               {/* An edit to a prebuilt member is THIS RUN's, not the library's. Saying so
                   is not reassurance - it is the difference between a player expecting her
                   change to follow Irene into the next game and a player who knows it will
                   not. */}
               {fromLibrary && (
-                <div style={{ padding: "9px 11px", borderRadius: 9, marginBottom: 12, fontSize: fs(10), lineHeight: 1.5, color: textDim, background: inputBg, border: `1px solid ${inputBorder}` }}>
+                <div style={{ padding: "8px 10px", borderRadius: 9, marginBottom: 11, fontSize: fs(9.5), lineHeight: 1.45, color: textDim, background: inputBg, border: `1px solid ${inputBorder}` }}>
                   {c.editRunOnly}
                 </div>
               )}
 
-              {renderField("name")}
+              {/* A RESUME, NOT A FORM - Yuhan's design, 2026-09-30, and
+                  docs/V140_PLAN.md 22.6.3. Nine stacked full-width boxes is one and a
+                  half screens of scrolling to answer three required fields. Two blocks
+                  instead, each an image on the LEFT at half width and its fields on the
+                  RIGHT, one per line - a line break in that design starts a new row and
+                  a comma does not.
 
-              {/* A YEAR, not a date - see setBirthYear. */}
-              <div style={{ marginBottom: 10 }}>
-                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 3 }}>
-                  {fieldLabel("birthYear")}
-                  <span style={{ color: accent, marginLeft: 4 }}>* {c.required}</span>
-                </label>
-                {/* A wheel, not a text field — step 8. The typed version needed
-                    a separate draft and a partial-year guard because "19" is a
-                    state a keyboard can produce and the profile must reject; a
-                    wheel's every value is a year in range, so both go away. The
-                    draft state stays as the single writer of `birthday`. */}
-                <YearWheel value={yearDraft || DEFAULT_YEAR} onChange={setBirthYear}
-                  min={BIRTH_YEAR_MIN} max={BIRTH_YEAR_MAX}
-                  fontScale={fontScale} ariaLabel={c.fields?.birthYear}
-                  colors={{ text: textMain, textDim, accent, tint: isLight ? "rgba(139,105,20,.12)" : "rgba(232,135,176,.14)", border: inputBorder, fieldBg: inputBg }} />
-                <div style={{ fontSize: fs(9), color: birthYearValid ? textFaint : (isLight ? "#a03010" : "#f07070"), marginTop: 3, lineHeight: 1.4 }}>
-                  {birthYearValid ? c.hints?.birthday : c.badYear}
-                </div>
+                  `alignItems: flex-start`, not stretch: a stretched square stops being
+                  a square, and the right column is taller than the left because the
+                  birth year is a WHEEL rather than a box. */}
+              {resumeRow(
+                photoTile("photo", photo, profile.emoji || "📷", c.photo),
+                ["name", "birthYear", "private_personality"],
+              )}
+              {resumeRow(
+                photoTile("wall", wall, "🖼", c.wall),
+                ["habit", "mbti", "emoji"],
+              )}
+
+              {/* THE ONE THING ON THIS SCREEN THAT WANTS THE WIDTH. A sentence is not a
+                  field, and it is hidden for a library member because her card is
+                  already written - runGenerate merges UNDER what is filled, deliberately,
+                  so for her the box would describe somebody the generator cannot touch.
+                  What it CAN do for her is the restaging, and that is the button pair
+                  below, which she keeps. */}
+              {!fromLibrary && (
+                <>
+                  <div style={{ fontSize: fs(10.5), color: accent, marginBottom: 5, fontWeight: 600 }}>{c.describe}</div>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION_CHARS))}
+                    rows={2} placeholder={c.describePlaceholder}
+                    style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
+                </>
+              )}
+
+              {/* GENERATE AND REGENERATE, one line, half each - the design's comma.
+                  ONE control now does BOTH generations: the card from the sentence above
+                  and, in a world the library was not written for, her restaging. They
+                  were two buttons on two tabs, which meant the fast path crossed a tab
+                  boundary and tab 2 auto-ran a call the player had not asked for.
+
+                  The pair is not one button twice. GENERATE fills what is blank and
+                  never overwrites a word the player typed, which is what makes it safe
+                  to press again; REGENERATE drops the current restaging first, which is
+                  the only way to get a different answer once one exists. */}
+              <div style={{ display: "flex", gap: 7, marginTop: 8, marginBottom: 4 }}>
+                <button onClick={() => runGenerate(false)} disabled={busy}
+                  style={{ flex: 1, padding: 10, minHeight: 40, borderRadius: 9, border: "none", cursor: busy ? "default" : "pointer", background: busy ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(11.5), fontWeight: 600 }}>
+                  {busy ? c.generating : (restageable ? c.detailGenerate : c.generate)}
+                </button>
+                <button onClick={() => runGenerate(true)} disabled={busy}
+                  style={{ flex: 1, padding: 10, minHeight: 40, borderRadius: 9, cursor: busy ? "default" : "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(11.5) }}>
+                  {c.detailRetry}
+                </button>
+              </div>
+              <div style={{ fontSize: fs(9), color: textFaint, lineHeight: 1.4 }}>
+                {restageable ? c.detailHint : c.generateHint}
               </div>
 
-              {/* WHO SHE IS WHEN NOBODY IS WATCHING, and two traits that travel with
-                  her: MBTI and a habit are true of the person, so §22.2's test puts
-                  them here rather than in the tab a world can rewrite. */}
-              {["private_personality", "mbti", "habit"].map(renderField)}
-
-              {/* HER GLYPH, and it is not decoration: with no photo it is what the
-                  top bar, the stats box, the Setup chips and every social tab strip
-                  draw for her - and a photo is optional, so for most custom members
-                  it is the only face she has. It was auto-assigned by palette index
-                  and there was NOWHERE to change it, so she was a violin for the
-                  life of the save. Reported from hand play, 2026-09-29.
-
-                  The palette is offered rather than enforced: ten taps for the
-                  common case, and the box takes anything the emoji keyboard can
-                  produce. It is the same array withDefaults falls back to, imported
-                  rather than retyped. */}
-              <div style={{ marginBottom: 10 }}>
-                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 4 }}>
-                  {fieldLabel("emoji")}
-                </label>
-                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <input value={profile.emoji || ""}
-                    onChange={(e) => set("emoji", normalizeEmoji(e.target.value))}
-                    aria-label={fieldLabel("emoji")} inputMode="text" maxLength={24}
-                    style={{ width: 46, flexShrink: 0, textAlign: "center", padding: "5px 0", borderRadius: 9, background: inputBg, border: `1px solid ${inputBorder}`, color: textMain, fontSize: fs(20), lineHeight: 1.2, outline: "none", fontFamily: "inherit" }} />
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, flex: 1, minWidth: 0 }}>
-                    {EMOJI_PALETTE.map((g) => (
-                      <button key={g} onClick={() => set("emoji", g)}
-                        aria-label={g} aria-pressed={profile.emoji === g}
-                        style={{ width: 28, height: 28, padding: 0, borderRadius: 8, cursor: "pointer", fontSize: fs(15), lineHeight: 1, background: profile.emoji === g ? k.tint : "transparent", border: `1px solid ${profile.emoji === g ? accent : border}` }}>
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ fontSize: fs(9), color: textFaint, marginTop: 3, lineHeight: 1.4 }}>
-                  {c.hints?.emoji}
-                </div>
-              </div>
-
-              {/* her photo, and her wallpaper — both, because she is a member
-                  like any other. A custom member could be given a photo here and
-                  a wallpaper NOWHERE: the image sheet lists the chosen cast, and
-                  she is authored before she is chosen. */}
-              <div style={{ marginBottom: 4 }}>
-                <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 4 }}>{c.castImages}</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  {/* Her wallpaper behind her photo, the same preview the image
-                      sheet shows, so one glance says what she has. */}
-                  <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, flexShrink: 0, background: wall ? undefined : inputBg, backgroundImage: wall ? `url(${wall})` : undefined, backgroundSize: "cover", backgroundPosition: "center", border: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                    <MemberFace member={{ ...profile, emoji: profile.emoji || "📷" }} photo={photo} size={38} radius={9} />
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                    {imgBtn(photo ? c.photoReplace : `${c.photo} +`, () => ask("photo"))}
-                    {photo && imgBtn(c.photoRemove, () => onPhotoChange?.(null), true)}
-                    {imgBtn(wall ? c.wallReplace : `${c.wall} +`, () => ask("wall"))}
-                    {wall && imgBtn(c.wallRemove, () => onWallChange?.(null), true)}
-                  </div>
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" onChange={took} style={{ display: "none" }} />
-              </div>
+              <input ref={fileRef} type="file" accept="image/*" onChange={took} style={{ display: "none" }} />
             </>
           )}
 
           {step === 1 && (
             <>
-              {/* THE RESTAGING. It is the whole subject of this tab, so it sits above
-                  the boxes it fills rather than under them - and it is hidden in the
-                  world the library was authored for, where there is nothing to
-                  restage. The status line names the world, because a generated
-                  paragraph is only reviewable if the player can see which setting it
-                  was written for. */}
+              {/* THE GENERATE PAIR MOVED TO TAB 1, so this tab is what it is for:
+                  reading the result and correcting it. What stays is the status line -
+                  a generated paragraph is only reviewable if the player can see which
+                  setting it was written for - and the way BACK, because a control with
+                  no way back gets routed around exactly as a prohibition with no
+                  substitute does.
+
+                  The auto-run on opening this tab went with the move. It existed
+                  because the tab could otherwise be reached empty beside a retry button
+                  with nothing to retry; the generation is now on the tab the player
+                  asks from, so an unasked-for call is no longer the only way to fill
+                  this one. */}
               {restageable && (
-                <div style={{ padding: 11, borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 13 }}>
-                  <div style={{ fontSize: fs(11), color: accent, fontWeight: 600, marginBottom: 5 }}>
+                <div style={{ padding: "9px 11px", borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 12 }}>
+                  <div style={{ fontSize: fs(10.5), color: accent, fontWeight: 600, marginBottom: 4 }}>
                     {c.detailTitle?.(world?.name || "")}
                   </div>
-                  <div style={{ fontSize: fs(9.5), color: textDim, lineHeight: 1.5, marginBottom: 7 }}>
+                  <div style={{ fontSize: fs(9.5), color: textDim, lineHeight: 1.5 }}>
                     {detailActive ? c.detailFor?.(world?.name || "") : c.detailNone}
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={runDetail} disabled={detailing}
-                      style={{ flex: 1, padding: 9, borderRadius: 8, border: "none", cursor: detailing ? "default" : "pointer", background: detailing ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(11.5), fontWeight: 600 }}>
-                      {detailing ? c.detailGenerating : (detailActive ? c.detailRetry : c.detailGenerate)}
+                  {detailActive && (
+                    <button onClick={dropDetail}
+                      style={{ marginTop: 7, padding: "7px 10px", borderRadius: 8, cursor: "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(10.5) }}>
+                      {c.detailRevert}
                     </button>
-                    {detailActive && (
-                      <button onClick={dropDetail}
-                        style={{ padding: "9px 11px", borderRadius: 8, cursor: "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(11) }}>
-                        {c.detailRevert}
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ fontSize: fs(9), color: textFaint, marginTop: 5, lineHeight: 1.4 }}>{c.detailHint}</div>
+                  )}
                 </div>
               )}
-
               {/* `name_kr` is drawn on this tab and writes the BASE, which is not a
                   contradiction: the tabs are how the player reads the form, and the
                   storage rule is per field. A Korean name is her name in a lecture

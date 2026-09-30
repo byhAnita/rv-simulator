@@ -6891,12 +6891,43 @@ async function layerI() {
 
   // EVERY field the generator can fill must be editable, or the model writes
   // something the player has no way to correct.
-  const stepArrays = [...editorSrc.matchAll(/^\s*\["([^\]]+)\],?$/gm)]
-    .map((m) => m[1].split(",").map((s) => s.trim().replace(/^"|"$/g, "")));
+  const parseArrays = (block) => [...block.matchAll(/\[([^\]]+)\]/g)]
+    .map((m) => m[1].split(",").map((x) => x.trim().replace(/^"|"$/g, "")));
+  const stepArrays = parseArrays((editorSrc.match(/STEP_FIELDS = \[([\s\S]*?)\n\];/) || [, ""])[1]);
   const stepFields = stepArrays.flat();
   const uneditable = cg.CARD_FIELDS.filter((f) => !stepFields.includes(f));
   check("every field the card generator fills is editable in the editor",
     uneditable.length === 0, `not editable: ${uneditable.join(", ")}`);
+  // Tab 1 renders its fields as the resume blocks' arguments, so the declaration
+  // above is documentation unless something ties the two together. The wheel
+  // collects a YEAR and stores a DATE, which is why that one name differs.
+  const tab1Block = editorSrc.slice(editorSrc.indexOf("{step === 0 && ("),
+    editorSrc.indexOf("{step === 1 && ("));
+  const rendered = parseArrays(tab1Block).flat()
+    .map((f) => (f === "birthYear" ? "birthday" : f));
+  // THE LAYOUT ITSELF (docs/V140_PLAN.md 22.6.3). Nine stacked full-width boxes
+  // was one and a half screens of scrolling to answer three required fields. The
+  // third clause is the one that matters: tab 1 must not fall back to the
+  // full-width renderer for any of its fields, because one box that does undoes
+  // the row it sits in.
+  check("tab 1 is two resume rows, an image beside its fields",
+    (tab1Block.match(/resumeRow\(/g) || []).length === 2
+      && /flex: "0 0 44%"/.test(editorSrc)
+      && !/renderField\(/.test(tab1Block),
+    "an image at half width on the left, its fields one per line on the right");
+  // ...and the generate pair is on THIS tab, not split across two. Tab 2 keeps the
+  // way back, because a generation with no way to a different answer gets routed
+  // around exactly as a prohibition with no substitute does.
+  const tab2Block = editorSrc.slice(editorSrc.indexOf("{step === 1 && ("),
+    editorSrc.indexOf("{/* footer:"));
+  check("...and tab 2 carries the way back, not a second generate button",
+    !/runGenerate\(/.test(tab2Block) && /dropDetail/.test(tab2Block)
+      && (tab1Block.match(/runGenerate\(/g) || []).length === 2,
+    "two generate buttons on two tabs is what made the fast path cross a tab");
+  check("...and tab 1 renders exactly the fields it declares",
+    rendered.length > 0 && JSON.stringify(rendered.slice().sort())
+      === JSON.stringify(stepArrays[0].slice().sort()),
+    `renders [${rendered}] and declares [${stepArrays[0]}]`);
   // TWO generations now, and the same invariant covers both: the restaging writes
   // five fields and the player must be able to correct every one of them. Derived
   // from WORLD_FIELDS, so a sixth field added to the restaging fails this until it
@@ -6927,7 +6958,8 @@ async function layerI() {
   // Restaging a restaging compounds: the second pass describes a chaebol heiress as
   // if she had been one, and her own lines are gone from the input.
   check("a regeneration restages from her own lines, not from the previous restaging",
-    /member: baseProfile\(\)/.test(editorSrc)
+    /const base = \{ \.\.\.next \}; delete base\[WORLD_DETAIL_KEY\];/.test(editorSrc)
+      && /member: base, world,/.test(editorSrc)
       && /delete o\[WORLD_DETAIL_KEY\]; return o; \}/.test(editorSrc),
     "the input has to be her own text or each retry drifts further from her");
   // A control that provably does nothing is worse than no control - the same
@@ -6938,10 +6970,11 @@ async function layerI() {
     "kpop_idol has nothing to restage");
   // Once per editor, from a ref. Without it every render of the tab fires a call,
   // which is the player's money and her rate limit.
-  check("...and the tab generates once when it opens empty, not on every render",
-    /if \(step !== 1 \|\| autoRan\.current\) return;/.test(editorSrc)
-      && /autoRan\.current = true;\s*\r?\n\s*runDetail\(\);/.test(editorSrc),
-    "a tab that opens empty beside a retry button has nothing to retry");
+  check("one control runs BOTH generations, and it is on the tab that asks",
+    /const runGenerate = async \(force = false\) =>/.test(editorSrc)
+      && /const wantDetail = restageable && \(force \|\| !detailActive\);/.test(editorSrc)
+      && (editorSrc.match(/runGenerate\(/g) || []).length === 2,
+    "the card and the restaging were two buttons on two tabs, so the fast path crossed one");
   // The overlay never overwrote anything, so dropping it IS the revert. Clearing
   // the boxes instead would delete her own text to undo a generation.
   check("...and reverting drops the overlay rather than clearing her own fields",
@@ -7044,7 +7077,7 @@ async function layerI() {
   // A generated value must never overwrite something the player typed, or
   // pressing Generate twice destroys their edits.
   check("generated fields merge under what the player already typed",
-    /\{ \.\.\.res\.profile, \.\.\.p \}/.test(editorSrc),
+    /\{ \.\.\.res\.profile, \.\.\.profile \}/.test(editorSrc),
     "player values must win the spread");
 
   // The editor owns no storage: it hands a profile to onSave so the palette can
@@ -8138,7 +8171,7 @@ async function layerI() {
   // the caller supplies the two — the editor owns no storage.
   const wallInEditor = [
     [/\bwall, onWallChange,/, "the editor does not take the wallpaper and a way to change it"],
-    [/ask\("wall"\)/, "nothing on the form asks for a wallpaper"],
+    [/photoTile\("wall",/, "nothing on the form asks for a wallpaper"],
     [/onWallChange\?\.\(dataUrl\)/, "the framed wallpaper is not handed back"],
   ].filter(([re]) => !re.test(editorCode)).map(([, why]) => why);
   check("an authored member can be given a wallpaper where she is authored",
