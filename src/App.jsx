@@ -458,7 +458,7 @@ export default function App() {
   // The member editor was given exactly this treatment in v1.4.0 step 8 and Setup
   // was not. Same control, same lie, one screen over.
   useEffect(() => {
-    if (phase === "setup" && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
+    if (phase === "playerInfo" && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
   }, [phase, form.birthYear]);
 
   // The correction, mid-run, for a save whose birth year was never stated —
@@ -1270,7 +1270,7 @@ export default function App() {
               // Leaving a builder roster in place would silently override the
               // group just picked, since startNewGame prefers it.
               setDoor("classic"); setPendingRoster(null);
-              if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput");
+              if (apiKey?.trim()) setPhase("playerInfo"); else setPhase("keyInput");
             }}
             style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: selectedGroup ? "pointer" : "default", background: selectedGroup ? th.accentGrad : th.newGameDisabled, color: selectedGroup ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
             {ct.newGame}
@@ -1280,7 +1280,10 @@ export default function App() {
               setDoor("custom");
               // The builder's Generate button spends the player's key, so the key
               // page comes first when there is none — §4.5 assumes it exists.
-              if (apiKey?.trim()) setPhase("roster"); else setPhase("keyInput");
+              // Player info first on this door too, since §22.2: that Generate call
+              // reads the WORLD, and before the reorder it read whichever world the
+              // last session left in localStorage.
+              if (apiKey?.trim()) setPhase("playerInfo"); else setPhase("keyInput");
             }}
             style={{ padding: "11px 30px", borderRadius: 40, border: `1px solid ${th.coverContinueBorder}`, background: "transparent", color: th.coverContinueColor, fontSize: 13, cursor: "pointer", marginBottom: 10 }}>
             {t.cast.customTitle}
@@ -1484,7 +1487,7 @@ export default function App() {
                 {language === "zh" ? "✅ Key 已保存！选择下一步" : language === "ko" ? "✅ Key 저장 완료! 다음을 선택하세요" : "✅ Key saved! What's next?"}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setKeyJustSaved(false); if (door === "custom") setPhase("roster"); else if (!selectedGroup) setPhase("cover"); else setPhase("setup"); }}
+                <button onClick={() => { setKeyJustSaved(false); if (door !== "custom" && !selectedGroup) setPhase("cover"); else setPhase("playerInfo"); }}
                   style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: th.accentGrad, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {language === "zh" ? "✨ 开始新游戏" : language === "ko" ? "✨ 새 게임" : "✨ New Game"}
                 </button>
@@ -1504,16 +1507,154 @@ export default function App() {
 
   // ── Setup Page ──
   // ── Roster Builder (the custom door) ──
+  // ── Player Info ──
+  //
+  // NAME, BIRTH YEAR, WORLD AND IDENTITY, AND IT COMES BEFORE THE CAST. That
+  // order is a bug fix rather than a preference, and it is docs/V140_PLAN.md
+  // §22.2: `generateCard` reads `world` from this component's state, and on the
+  // cast screens that was the world REMEMBERED FROM THE LAST SESSION - so the
+  // button offering to describe a member "in this world" described her in a world
+  // the player had not chosen. Asking first makes the generator's input correct by
+  // CONSTRUCTION instead of by a guard, which is the same remedy the save's
+  // `worldId` needed when it was stamped one screen before the world was picked.
+  //
+  // It is one page for BOTH doors, which is what stops the fix being door-shaped:
+  // the classic door used to ask these four on Setup and the custom door reached
+  // the builder without them. §22.5's commit 5 may delete the classic door; this
+  // page does not depend on that either way.
+  //
+  // The cast is deliberately NOT described here - no org line, no member chips.
+  // What this page knows is the player; the next one knows the cast.
+  if (phase === "playerInfo") {
+    // `world` is in the gate because an identity is a position inside one and the
+    // grid below is that world's own list. It is nulled for the width of a world
+    // fetch, so this is a real state and not only the first paint.
+    const canContinue = form.name && validBirthYear(form.birthYear) && form.identity && world;
+    if (!world) return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+    );
+    return (
+      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+          <NotificationBar />
+          <style>{th.setupCss}</style>
+          {/* ONE LINE, and only what is actionable. A MISSING key is the thing
+              worth shouting about; a present one needs no words. Same rule the
+              Setup header was cut down to in the first phone pass. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, padding: "2px 0 0", fontSize: 10, color: th.textMuted }}>
+            {!apiKey && <span style={{ color: "#d07070" }}>{language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>}
+            <span>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
+            <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
+          </div>
+
+
+          {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
+              second hand test. A caption inside the wheel's own column pushes
+              the wheel down by its own height, so the name field and the
+              selected year sat on two different lines and the pair read as two
+              rows of one control each. With the captions lifted out, the row
+              below holds exactly two boxes and `alignItems: center` puts the
+              38px field's centre on the 104px wheel's centre — which is the
+              selected year, since the band sits at the middle row by
+              construction (`pad = ROW_H`). */}
+          <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
+            <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
+            <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
+              {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
+            <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
+            {/* A wheel, not a field — step 8. The year is one of 63 ordered
+                values, which is a picker; a text box invites a keyboard that on
+                iOS covers the box it is filling, and it can hold "19", which is
+                a year the address protocol must never see. The wheel cannot
+                produce a partial or out-of-range year at all. */}
+            <div style={{ flex: 1, minWidth: 88 }}>
+              <YearWheel value={form.birthYear} onChange={setBirthYear}
+                min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
+                ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
+            </div>
+          </div>
+
+          {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
+              Settings as the four-way story mode, because a choice frozen at
+              character setup cannot be a choice about how the story is driven -
+              and the tail is where a live one costs nothing. Step 3 put the
+              WORLD picker in this slot, which is why both cover doors get worlds
+              without the entry merge: they both pass through this page.
+
+              One row per world from `index.json`, so step 7 ships three worlds
+              as data. Only the SELECTED world's blurb renders: four blurbs at
+              390px is a wall of text under a control, and the blurb's job is to
+              say what the choice she has made means. */}
+          <div className="s-l">{t.setup.world}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 3 }}>
+            {worldList.map(w => (
+              <div key={w.id} onClick={() => setSelectedWorld(w.id)}
+                style={{ padding: "7px 8px", borderRadius: 10, textAlign: "center", border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                {w.emoji} {w.name?.[language] || w.name?.zh || w.id}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+            {worldList.find(w => w.id === selectedWorld)?.blurb?.[language]
+              || worldList.find(w => w.id === selectedWorld)?.blurb?.zh || ""}
+          </p>
+
+          {/* The world's own identities, plus the custom escape hatch. Not a list
+              in this file: `world.identities` is where they are declared, and the
+              copy that used to live here read as an id-to-label mapping that was
+              an identity function. The label is the world's `name`, which is the
+              same string section 6 of the prompt prints — one copy, so the two
+              cannot disagree about what the player picked. */}
+          <div className="s-l">{t.setup.identity}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
+            {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
+              { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
+              <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
+                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+                {it.label}
+              </div>
+            ))}
+          </div>
+          {form.identity === CUSTOM_IDENTITY_ID && (
+            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <button onClick={() => { setPendingRoster(null); setPhase("cover"); }}
+              style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
+              ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
+            </button>
+            {/* The forward button names the NEXT step rather than saying "next",
+                because this page has no cast on it and the one thing a player
+                needs to know is that choosing one is what follows. */}
+            <button onClick={() => setPhase(door === "custom" ? "roster" : "setup")} disabled={!canContinue}
+              style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canContinue ? "pointer" : "not-allowed", background: canContinue ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
+              {canContinue
+                ? (language === "zh" ? "选择角色阵容 →" : language === "ko" ? "캐스트 선택 →" : "Select your cast →")
+                : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (phase === "roster") {
     return (
       <>
+        {/* Back is one step, and since §22.2 the step before the builder is player
+            info rather than the cover. The door is NOT reset: the player is still on
+            the custom door, she is amending what she told it. */}
         <RosterBuilder
           language={language} theme={theme} t={t} world={world}
           fontScale={fontScale}
           apiKey={apiKey} modelId={selectedModel}
           aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
           onStart={(r) => { setPendingRoster(r); setPhase("setup"); }}
-          onBack={() => { setPendingRoster(null); setDoor("classic"); setPhase("cover"); }}
+          onBack={() => { setPendingRoster(null); setPhase("playerInfo"); }}
           notify={showNotif}
         />
         <NotificationBar />
@@ -1643,91 +1784,14 @@ export default function App() {
           </>
           )}
 
-          {/* THE IDENTITY PICKER MOVED BELOW THE WORLD PICKER — v1.4.1 step 3.
-              An identity is a position inside a world, so the list means nothing
-              until the world is chosen: Setup now reads name / birth year / world
-              / identity. */}
-
-          {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
-              second hand test. A caption inside the wheel's own column pushes
-              the wheel down by its own height, so the name field and the
-              selected year sat on two different lines and the pair read as two
-              rows of one control each. With the captions lifted out, the row
-              below holds exactly two boxes and `alignItems: center` puts the
-              38px field's centre on the 104px wheel's centre — which is the
-              selected year, since the band sits at the middle row by
-              construction (`pad = ROW_H`). */}
-          <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
-            <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
-            <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
-              {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
-            <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            {/* A wheel, not a field — step 8. The year is one of 63 ordered
-                values, which is a picker; a text box invites a keyboard that on
-                iOS covers the box it is filling, and it can hold "19", which is
-                a year the address protocol must never see. The wheel cannot
-                produce a partial or out-of-range year at all. */}
-            <div style={{ flex: 1, minWidth: 88 }}>
-              <YearWheel value={form.birthYear} onChange={setBirthYear}
-                min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
-                ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
-            </div>
-          </div>
-
-          {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
-              Settings as the four-way story mode, because a choice frozen at
-              character setup cannot be a choice about how the story is driven -
-              and the tail is where a live one costs nothing. Step 3 put the
-              WORLD picker in this slot, which is why both cover doors get worlds
-              without the entry merge: they both pass through this page.
-
-              One row per world from `index.json`, so step 7 ships three worlds
-              as data. Only the SELECTED world's blurb renders: four blurbs at
-              390px is a wall of text under a control, and the blurb's job is to
-              say what the choice she has made means. */}
-          <div className="s-l">{t.setup.world}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 3 }}>
-            {worldList.map(w => (
-              <div key={w.id} onClick={() => setSelectedWorld(w.id)}
-                style={{ padding: "7px 8px", borderRadius: 10, textAlign: "center", border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {w.emoji} {w.name?.[language] || w.name?.zh || w.id}
-              </div>
-            ))}
-          </div>
-          <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-            {worldList.find(w => w.id === selectedWorld)?.blurb?.[language]
-              || worldList.find(w => w.id === selectedWorld)?.blurb?.zh || ""}
-          </p>
-
-          {/* The world's own identities, plus the custom escape hatch. Not a list
-              in this file: `world.identities` is where they are declared, and the
-              copy that used to live here read as an id-to-label mapping that was
-              an identity function. The label is the world's `name`, which is the
-              same string section 6 of the prompt prints — one copy, so the two
-              cannot disagree about what the player picked. */}
-          <div className="s-l">{t.setup.identity}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
-              { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
-              <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {it.label}
-              </div>
-            ))}
-          </div>
-          {form.identity === CUSTOM_IDENTITY_ID && (
-            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
-          )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             {/* Back goes one step, not all the way out: on the custom door the
                 previous step is the builder, and dropping the player at the cover
-                would discard a cast they may have spent real time assembling. */}
-            <button onClick={() => setPhase(pendingRoster ? "roster" : "cover")}
+                would discard a cast they may have spent real time assembling. On
+                the classic door it is now player info, which is the step this page
+                lost its four controls to. */}
+            <button onClick={() => setPhase(pendingRoster ? "roster" : "playerInfo")}
               style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>

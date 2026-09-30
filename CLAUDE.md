@@ -1703,14 +1703,18 @@ Cover Page
 Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
-Setup Page
-  -> Main member + Sub members + Name/Birth year + World + Identity
-     (the pace picker was here until v1.4.1 step 2; step 3 put the WORLD
-      picker in the slot it vacated, which is how BOTH cover doors get
-      worlds - they both pass through this page. Identity follows the world
-      because an identity is a position INSIDE one: the grid is that world's
-      own `identities` plus `H`, and a world change clears an id the new
-      world does not declare)
+Player Info Page          <- BOTH doors, and it comes BEFORE the cast (§22.2)
+  -> Name + Birth year + World + Identity
+     (Identity follows the world because an identity is a position INSIDE
+      one: the grid is that world's own `identities` plus `H`, and a world
+      change clears an id the new world does not declare. The pace picker
+      was on Setup until v1.4.1 step 2 and step 3 put the world picker in
+      the slot it vacated; §22.2 moved all four onto their own page)
+      |
+      +-- classic door --> Setup Page: Main member + Sub members
+      |                       |
+      +-- custom door ----> Roster Builder -> Setup Page: the chosen cast
+                                               + the organisation's name
       |
 Game Page (loop)
   -> Read story -> Choose A/B/C/D, Custom, or 📍 a place -> Next round
@@ -1719,6 +1723,64 @@ Game Page (loop)
 ```
 
 "New Game" is disabled (dimmed + toast) until a group is selected.
+
+### The player is asked before the cast, because the generator reads the world
+
+**The four player-info controls used to live on Setup, which is AFTER both doors'
+cast screens.** `generateCard` reads `world` from `App` state, and the custom door went
+cover -> builder directly - so the button offering to describe a member *in this world*
+described her in **the world the last session left in `rv_sim_world`**. A player who
+played campus on Monday and opened the builder on Tuesday to author a chaebol heiress
+got a campus card, and nothing on screen said so.
+
+**Same defect class as the save's `worldId`** - *A copy taken BEFORE the fact is decided* -
+and the same remedy: ask first, so the generator's input is correct **by construction**
+rather than by a guard. There is no new state and no new plumbing; the page order is the
+fix. `docs/V140_PLAN.md` §22.5 is the plan, and this is its commit 2.
+
+**It is one page for BOTH doors**, which is what stops the fix being door-shaped. The
+classic door asked these four on Setup and the custom door did not ask them at all until
+after the builder; now neither reaches a cast screen without them.
+
+**§15's unified-entry sketch had the order the other way round** - the cast picker first,
+*the following page* asking name, birth year and world - and that is precisely the defect.
+It is corrected in place in the plan and points at §22.5. **Two sections of one document
+disagreeing about an order is the `a prompt is not append-only` failure applied to a plan.**
+
+**No prompt change, and all six goldens are byte-identical** - `update-golden.mjs` reported
+six unchanged and was not asked to write anything. That is the commit's gate: a reorder that
+moved a golden would be a reorder that changed what the model is told.
+
+Four things the guards had to learn, and three of them are lessons this file already carries:
+
+- **The header check was reading the wrong screen.** It sliced from
+  `app.indexOf("<style>{th.setupCss}</style>")` - the FIRST match, which after the split is
+  the player-info page - so a guard named for Setup silently measured a different screen. It
+  is derived over **every** page that carries a setup header now.
+- **...and it counted a proxy rather than the symptom.** `<div style=` count is one on Setup
+  and two on player info for a reason about markup (the latter's first label is nested in a
+  caption row), not about stacking. What stacked was a header **row**: a wrapping flex line
+  of 10px muted text. It counts those.
+- **The phase slice ran to EOF for the last phase**, folding the whole game screen into it.
+  No control the guard names renders there today, which is exactly why it was worth fixing
+  before it mattered: *harmless today* is how a guard comes to pass against a real regression.
+- **A wheel is seeded for a PHASE, and the phase moved.** The v1.4.1 year-wheel bug was Setup
+  showing 2000 while `form.birthYear` was `""`; the existing derived scan proves some screen
+  writes `DEFAULT_YEAR`, which stays true when the seed fires for a page the wheel is no
+  longer on. The new guard ties the seeded phase to the phase that renders the wheel.
+
+**One guard was REPLACED rather than repointed.** *"...and the key page then continues into
+the builder, not Setup"* named a destination that no longer exists as a first stop. What
+replaced it is stronger and derived: **neither door reaches a cast screen before the world is
+chosen** - it slices the cover and key-page blocks and fails on any `setPhase("roster")` or
+`setPhase("setup")` in either, so a third entry point cannot reintroduce the defect. A guard
+pinned to one door is a sample, which is the org-suffix lesson.
+
+**9 mutations, 9 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, restored byte-identical. One reported
+GREEN on the first run and the **mutation** was at fault, not the guard: it anchored on
+`{t.setup.world}` to plant a duplicate world picker on the cast page, and that anchor had
+*moved to the player-info page*, so it planted the duplicate where the control already
+belongs. **A mutation written against the pre-change layout tests the pre-change layout.**
 
 ---
 

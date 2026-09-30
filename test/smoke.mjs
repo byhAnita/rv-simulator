@@ -968,15 +968,51 @@ async function layerG(mod, MODEL_CONFIGS) {
       && /could not be loaded"[^\n]*\);[\s\S]{0,40}return;/.test(loadSaveBody),
     "the failure path must return before the first setter");
 
-  // ── Setup fits on one 844px screen ───────────────────────────────────────
+  // ── the setup pages fit on one 844px screen ──────────────────────────────
   // The page ran past the frame and the Start button sat below the fold behind
   // half a row of identities, on the one screen whose whole job is to be
   // completed. The header was four stacked lines; it is one row now.
-  const setupHead = app.slice(app.indexOf("<style>{th.setupCss}</style>"),
-    app.indexOf("{/* The custom door already chose"));
-  check("Setup's header is one row rather than a stack",
-    !/<h2 /.test(setupHead) && (setupHead.match(/<div style=/g) || []).length === 1,
-    `${(setupHead.match(/<div style=/g) || []).length} boxes above the first field`);
+  //
+  // DERIVED OVER EVERY PAGE THAT CARRIES ONE, not pinned to Setup. §22.2 split
+  // this flow in two, and the old slice took `app.indexOf(setupCss)` - the FIRST
+  // match, which is now the player-info page - so one guard was silently reading
+  // a different screen than the one it was named after. A header that has to be
+  // one row on one page has to be one row on both.
+  // Bounded at the NEXT phase, or at the game screen for the last one: a slice
+  // running to EOF folds the game screen into the final phase, which would let a
+  // control rendered in game satisfy a check about a setup page. No control named
+  // below appears there today, which is exactly why this was worth fixing now -
+  // harmless-today is how a guard comes to pass against a real regression later.
+  const phaseBlock = (id) => {
+    const at = app.indexOf(`if (phase === "${id}") {`);
+    if (at < 0) return "";
+    const ends = [app.indexOf('if (phase === "', at + 10),
+      app.indexOf("// \u2500\u2500 Game Main Screen", at + 10)].filter((x) => x > 0);
+    return app.slice(at, ends.length ? Math.min(...ends) : app.length);
+  };
+  const SETUP_PAGES = ["playerInfo", "setup"];
+  const fatHeads = [];
+  for (const id of SETUP_PAGES) {
+    const block = phaseBlock(id);
+    const from = block.indexOf("<style>{th.setupCss}</style>");
+    if (from < 0) { fatHeads.push(`${id}: no setupCss, so this page is not the one`); continue; }
+    // To the first LABEL, which is what "above the first field" means on either
+    // page - Setup's first field is a cast picker and player info's is a name.
+    const to = block.indexOf('className="s-l"', from);
+    const head = block.slice(from, to < 0 ? block.length : to);
+    // COUNT THE SYMPTOM, not a proxy for it. The old check counted every
+    // `<div style=` in the slice, which is one on Setup and two on player info
+    // only because the latter's first label is nested in a caption row - a
+    // difference about markup, not about whether the header stacks. What stacked
+    // was a header ROW: a wrapping flex line of 10px muted text. There is one.
+    const rows = (head.match(/flexWrap: \"wrap\"[^>]*fontSize: 10/g) || []).length;
+    if (/<h2 /.test(head) || rows !== 1) fatHeads.push(`${id}: ${rows} header rows, h2=${/<h2 /.test(head)}`);
+  }
+  check("every setup page's header is one row rather than a stack",
+    fatHeads.length === 0, fatHeads.join(" | "));
+  const setupHead = phaseBlock("setup").slice(
+    phaseBlock("setup").indexOf("<style>{th.setupCss}</style>"),
+    phaseBlock("setup").indexOf("{/* The custom door already chose"));
   // Shortening a screen by deleting affordances is the easy wrong answer, so
   // both halves are asserted: the switch still reaches the key page, and a
   // MISSING key - the actionable state, unlike a configured one - still shouts.
@@ -1072,10 +1108,36 @@ async function layerG(mod, MODEL_CONFIGS) {
   // The builder's Generate button spends the player's key, so the key page has
   // to come first when there is none — §4.5 assumes the key already exists.
   check("the custom door routes through the key page when there is no key",
-    /setDoor\("custom"\);[\s\S]{0,300}if \(apiKey\?\.trim\(\)\) setPhase\("roster"\); else setPhase\("keyInput"\);/.test(app),
+    /setDoor\("custom"\);[\s\S]{0,600}if \(apiKey\?\.trim\(\)\) setPhase\("playerInfo"\); else setPhase\("keyInput"\);/.test(app),
     "cardGenerator runs on the key the player already entered");
-  check("...and the key page then continues into the builder, not Setup",
-    /door === "custom"\) setPhase\("roster"\)/.test(app));
+
+  // ── THE CAST SCREENS COME AFTER THE WORLD IS CHOSEN - §22.2 ──────────────
+  // `generateCard` reads `world` from App state, and the builder used to be
+  // entered straight from the cover - so it described a member "in this world"
+  // using the world LEFT IN localStorage BY THE LAST SESSION. Asking first is
+  // what makes the generator's input correct by construction.
+  //
+  // Written as what must NOT happen, at the two entry points that could do it,
+  // because that is the defect: a screen before the world is chosen jumping
+  // straight to a screen that can generate. Derived over both doors, so neither
+  // can regress alone - the org-suffix lesson.
+  const earlyJumps = [];
+  for (const id of ["cover", "keyInput"]) {
+    const block = phaseBlock(id);
+    if (!block) { earlyJumps.push(`${id}: block not found, so this proves nothing`); continue; }
+    for (const dest of ["roster", "setup"]) {
+      if (block.includes(`setPhase("${dest}")`)) earlyJumps.push(`${id} -> ${dest}`);
+    }
+    if (!block.includes('setPhase("playerInfo")')) earlyJumps.push(`${id} reaches no player-info page`);
+  }
+  check("neither door reaches a cast screen before the world is chosen",
+    earlyJumps.length === 0, earlyJumps.join(" | "));
+  // ...and the page that asks for it will not move on without one, or the world
+  // is merely ASKED rather than settled - `world` is null for the width of a
+  // fetch, so a gate without it lets a Continue through mid-switch.
+  check("...and the player-info page will not continue until the world has loaded",
+    /const canContinue = [^\n]*\bworld\b/.test(phaseBlock("playerInfo")),
+    "an identity is a position inside a world, so the grid means nothing without one");
   // The door is session state. A remembered "custom" would drop a returning
   // player into a builder they never asked for.
   check("the door is not persisted",
@@ -1128,9 +1190,35 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("Setup hides the member pickers when the builder already chose the cast",
     /\{pendingRoster \? \(/.test(app) && /t\.cast\.changeCast/.test(app),
     "asking twice is what makes that page long");
-  check("...and Back from Setup returns to the builder, not the cover",
-    /setPhase\(pendingRoster \? "roster" : "cover"\)/.test(app),
-    "dropping the player at the cover discards a cast they spent time on");
+  check("...and Back from Setup returns to the builder, or to player info",
+    /setPhase\(pendingRoster \? "roster" : "playerInfo"\)/.test(app),
+    "back is ONE step: the cover discards a cast, and player info is the step this page lost its controls to");
+
+  // ── the four player-info controls live on ONE page, and it is not Setup ──
+  // Both directions, because a copy left behind is the failure: two pages asking
+  // for the birth year means two wheels, and a wheel is only seeded on the page
+  // that was remembered - which is the v1.4.1 year-wheel bug with a second way in.
+  const PLAYER_CONTROLS = [
+    ["the name field", /placeholder=\{language === "zh" \? "名字"/],
+    ["the birth-year wheel", /<YearWheel value=\{form\.birthYear\}/],
+    ["the world picker", /worldList\.map\(w =>/],
+    ["the identity grid", /world\.identities\.map\(i =>/],
+  ];
+  const misplaced = [];
+  for (const [what, re] of PLAYER_CONTROLS) {
+    if (!re.test(phaseBlock("playerInfo"))) misplaced.push(`${what} is not on the player-info page`);
+    if (re.test(phaseBlock("setup"))) misplaced.push(`${what} is STILL on the cast page`);
+  }
+  check("name, birth year, world and identity are asked once, before the cast",
+    misplaced.length === 0, misplaced.join(" | "));
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so the seed has to fire on the page that
+  // MOUNTS the wheel. The existing scan proves some screen writes DEFAULT_YEAR;
+  // this proves the phase it writes it for is the phase the wheel is on, which is
+  // the half that moved in §22.2 and the half the original bug was.
+  const seedPhase = (app.match(/if \(phase === "(\w+)" && !form\.birthYear\)/) || [])[1];
+  check("the birth year is seeded for the phase that renders the wheel",
+    Boolean(seedPhase) && /<YearWheel value=\{form\.birthYear\}/.test(phaseBlock(seedPhase)),
+    `seeded for "${seedPhase}", which does not render the wheel`);
   // NPC identity comes from the roster now. getNpcMembers stays in groupLoader
   // as the anchor smoke measures migration against, but App derives nothing.
   // A call or an import, not any mention: the comment explaining why the
