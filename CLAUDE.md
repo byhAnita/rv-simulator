@@ -3200,7 +3200,7 @@ Five commits, each shippable, and the first four are the release:
      `parseJsonish` factored out of `parseCard`. **No golden moved** - §22.5 predicted all
      six and was wrong, because no fixture holds a translated member. smoke **1603 → 1618**,
      14 mutations 14 RED. See *The filtered slot is FILLED*.
-   - ✅ **4b, the two tabs and the wiring.** `world_detail`, one stamped overlay field;
+   - ✅ **4b, the two tabs and the wiring.** `a51dbc8`. `world_detail`, one stamped overlay field;
      `applyWorldDetail` in `resolveRoster` and at the Start boundary; the editor's two
      tabs with the restaging block on tab 2; the whole-cast sweep on both doors. **All
      six goldens byte-identical**, for the third commit running. smoke **1618 → 1642**,
@@ -3252,7 +3252,8 @@ dev.idol-dating-sim.pages.dev
 - `62df3ed` - nothing to see yet: `world_position` had no writer until 4b, so the only
   observable change is that nothing changed. **That is the thing to confirm** - a
   non-idol run must read exactly as it did before, because the prompt is byte-identical.
-- 4b is the one to spend the most time on, and there are four things a guard cannot see:
+- `a51dbc8` is the one to spend the most time on, and there are four things a guard cannot
+  see:
   **the wait** at Start in a non-idol world, which is one concurrent call per cast member
   and has no progress bar beyond one toast; **the auto-generation** firing when tab 2 is
   opened, including whether it reads as the app spending her credits unasked; **whether the
