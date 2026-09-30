@@ -91,6 +91,43 @@ export function sanitizeProfile(profile = {}) {
   return out;
 }
 
+/**
+ * The fields an edited profile changes, against the library's own copy of her.
+ *
+ * A LIBRARY EDIT IS A DIFF, NEVER A SNAPSHOT (docs/V140_PLAN.md §22.3). resolveRoster
+ * applies `entry.override` over the member it fetched, so every field the player did
+ * not touch keeps arriving BY REFERENCE and a corrected library profile still reaches
+ * a game in progress - §4.2's rule. Snapshotting her would give that up for nothing.
+ *
+ * A field the player CLEARED is recorded as "", not dropped. Object.assign cannot
+ * delete, so a dropped key means the library's value comes back and the edit is
+ * silently discarded. "" works because the profile block tests every optional field
+ * for CONTENT rather than presence, and memberLine uses filter(Boolean) - so an
+ * emptied field renders nothing, which is what clearing it means.
+ *
+ * THE BASE MUST BE THE LIBRARY'S MEMBER, never an already-overridden copy: diffing
+ * against the overridden one compounds, and a field edited and then typed back to its
+ * original text would keep an entry saying it equals itself. That entry is the
+ * difference between a cast nobody edited and a byte-identical prompt.
+ *
+ * An EMPTY result is {} and the caller stores no override key at all, which is what
+ * makes "no golden moves if nothing is edited" a property of the data.
+ */
+export function overrideFrom(base = {}, edited = {}) {
+  const out = {};
+  const flat = (v) => (Array.isArray(v) ? v.join(String.fromCharCode(0)) : String(v ?? "").trim());
+  for (const f of PROFILE_FIELDS) {
+    // The id is authoritative and is not a field anyone may edit: every
+    // per-member map in the save is keyed by it.
+    if (f === "id") continue;
+    const was = flat(base[f]);
+    const now = flat(edited[f]);
+    if (was === now) continue;
+    out[f] = edited[f] === undefined || edited[f] === null ? "" : edited[f];
+  }
+  return out;
+}
+
 /** Which required fields a profile is still missing. Empty array means valid. */
 export function missingRequired(profile = {}) {
   return REQUIRED_FIELDS.filter((f) => !String(profile?.[f] ?? "").trim());
@@ -215,6 +252,42 @@ export function upsertMember(cast, entry) {
   return { ok: true, cast: next };
 }
 
+/**
+ * What the profile editor is handed for a member who is already in the cast.
+ *
+ * ONE EDITOR, TWO SOURCES (docs/V140_PLAN.md §22.2), and they differ in both
+ * directions: a custom member is edited as her PALETTE entry and saved as a new
+ * snapshot, while a library member is edited as her library record with this run's
+ * override laid on top and saved as a diff. `src` travels on the object so the save
+ * path reads a value instead of inferring which state opened the editor.
+ *
+ * A custom pick can outlive its palette entry - she was deleted, or the cast came
+ * from a saved roster, which snapshots her. Then the roster's own copy is the only
+ * one left, and it is also the copy the run will use, so it is what gets edited.
+ *
+ * NULL means a library member whose group config has not arrived; group configs are
+ * fetched per tab. Returning null rather than an empty profile is what stops the
+ * editor opening over nothing, which would read as data loss and would diff every
+ * field as a change - snapshotting her by the back door.
+ *
+ * Pure and here rather than in the component for the reason assignSlot is: a source
+ * regex can see that a branch is WRITTEN and not that it is REACHABLE.
+ */
+export function editorTargetFor(id, pick, opts = {}) {
+  const { paletteEntry = null, libraryBase = null, language = "zh" } = opts;
+  if (!pick || !id) return null;
+  if (pick.src === "custom") {
+    return paletteEntry
+      ? { ...paletteEntry, id, src: "custom" }
+      : { id, src: "custom", lang: pick.lang || language, profile: pick.profile || {} };
+  }
+  if (!libraryBase) return null;
+  return {
+    id, src: "library", groupId: pick.groupId ?? null,
+    profile: { ...libraryBase, ...(pick.override || {}) },
+  };
+}
+
 /** Remove one member. Safe unconditionally — see the palette note at the top. */
 export function removeMember(cast, id) {
   const list = Array.isArray(cast) ? cast : [];
@@ -324,6 +397,14 @@ export function rosterFromPicks(picks = {}) {
       .filter((p) => p.slot === slot)
       .map((p) => (p.src === "custom"
         ? toRosterEntry({ id: p.id, lang: p.lang, profile: p.profile }, slot)
-        : { src: "library", groupId: p.groupId, memberId: p.id, slot }))),
+        // The override is spread in CONDITIONALLY: an entry for a member
+        // nobody edited must be byte-identical to what it was before the
+        // editor existed, or every saved roster and every golden moves for a
+        // cast the player did not touch. A custom member needs none - her
+        // profile is snapshotted inline, so an edit is already in it.
+        : {
+          src: "library", groupId: p.groupId, memberId: p.id, slot,
+          ...(p.override && Object.keys(p.override).length ? { override: p.override } : {}),
+        }))),
   };
 }

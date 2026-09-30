@@ -3154,6 +3154,58 @@ commit: `memberLine`'s one expression, the §22.1 rule made conditional, and the
 
 **5. The unified door** — separate, optional, and only if Yuhan wants it.
 
+#### What writing commit 3 settled, and one thing it cannot fix
+
+**An override is a DIFF, and there is one function that computes it.** `overrideFrom(base,
+edited)` in `customCast.js` walks `PROFILE_FIELDS` and returns only what changed, so every field
+the player did not touch keeps arriving **by reference** and §4.2's rule survives - a corrected
+library profile still reaches a game in progress. An **empty** result is returned as `{}` and the
+caller stores no `override` key at all, which is what makes *no golden moves if nothing is edited*
+a property of the data rather than a hope.
+
+**A field the player CLEARED is recorded as an empty string, not as a dropped key.** `resolveRoster`
+applies the override with `Object.assign`, which cannot delete - so dropping the key means the
+library's value comes back and the edit is silently discarded, which is the whole class of defect
+this plan keeps recording. `""` works because the profile block tests every optional field for
+**content** rather than presence (CLAUDE.md, *EVERY optional field in the member profile block is
+conditional*) and `memberLine` uses `filter(Boolean)`, so an emptied field renders nothing. That is
+what clearing it means.
+
+**A second edit diffs against the LIBRARY, never against the already-overridden copy.** The base
+comes from the fetched group config and not from `picks[id]`, or an override would compound: a
+field edited and then restored to its original text would keep an override entry saying it equals
+itself, and the entry would stop being byte-identical for a cast nothing changed.
+
+**`animal_plastic` leaves `CARD_FIELDS` too, not only the editor.** §22.3.3 says it leaves the
+editor and stays in the data, and stopping there would break the invariant one guard already
+holds: *every field the card generator fills is editable in the editor*, because the player must
+be able to correct anything the model wrote. A generated field with no box to correct it in is
+worse than no generated field. It stays on `PROFILE_FIELDS` and stays rendered for all 57 library
+members, which is what keeps the goldens fixed; a custom member simply never has one, and an
+absent optional field renders nothing.
+
+**The generate box is hidden for a library member in commit 3**, and that is not a design choice
+so much as removing a control that provably does nothing. `runGenerate` merges **under** what is
+already filled - deliberately, so a generated value can never overwrite the player's own text -
+and a library member arrives with every field filled, so the button would spend a call and change
+nothing. Commit 4 gives her the generation that is actually about her: the world-scoped tab 2.
+
+**`applyRoster` has to carry the override back into the picks**, or a saved cast loses its edits
+the moment it is applied. Same shape as the picks reconstruction that function already exists for.
+
+**What this cannot fix, and it is worth writing down rather than discovering later: section 4
+keeps the group file's own copy of an edited member's prose.** A whole single group in a world
+with `useGroupLore: true` takes its `groupLore` **verbatim**, and that block duplicates the three
+texture fields section 5 renders per member (CLAUDE.md: *the single-group lore duplicates them and
+that is inherited token cost*). So editing Irene's `public_image` through the custom door in
+`kpop_idol` leaves the old sentence in section 4 and the new one in section 5 - **two sections
+disagreeing about one member**, which is the failure this document is named after. It is contained:
+it needs the custom door, a cast that is exactly one whole group, an idol world, and an edit to one
+of three fields. It is recorded in CLAUDE.md's Known Inconsistencies rather than fixed here,
+because the fix is either to stop duplicating the prose in single-group lore (which moves every
+golden) or to compose lore for an edited cast (which changes which template a classic cast gets).
+**Neither belongs in a commit whose gate is that no golden moves.**
+
 #### Guards, written from the requirement, each mutation-verified
 
 1. **The cast screens cannot be reached before the world is confirmed.** Derived from the phase

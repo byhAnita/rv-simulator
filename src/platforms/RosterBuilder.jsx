@@ -36,6 +36,7 @@ import { loadGroupIndex, loadGroupConfig } from "../rag/groupLoader";
 import { STORAGE_KEYS, loadFromStorage, saveToStorage, displayNameIn } from "../utils";
 import {
   loadCustomCast, saveCustomCast, upsertMember, removeMember, rosterFromPicks,
+  overrideFrom, editorTargetFor,
   assignSlot, savedRosterEntry, newMemberId,
 } from "../rag/customCast";
 import {
@@ -125,13 +126,26 @@ export default function RosterBuilder({
   const mainPick = chosen.find((p) => p.slot === "main");
   const canStart = Boolean(mainPick);
 
-  const memberOf = (id) => {
-    const p = picks[id];
-    if (p?.profile) return p.profile;
+  // HER LIBRARY RECORD, unmodified. The base an override is diffed against has to
+  // be this and never the overridden copy, or a second edit compounds: a field
+  // changed and then typed back to its original text would keep an override entry
+  // saying it equals itself, and the entry stops being byte-identical for a cast
+  // nobody meaningfully edited. See customCast.js#overrideFrom.
+  const libraryBase = (id) => {
     for (const cfg of Object.values(configs)) {
       const m = cfg.members.find((x) => x.id === id);
       if (m) return m;
     }
+    return null;
+  };
+
+  // What this member IS for this run - the library record with her edits applied, so
+  // every chip, avatar and name on this screen shows what the prompt will carry.
+  const memberOf = (id) => {
+    const p = picks[id];
+    if (p?.profile) return p.profile;
+    const base = libraryBase(id);
+    if (base) return p?.override ? { ...base, ...p.override } : base;
     return cast.find((m) => m.id === id)?.profile || null;
   };
   const nameOf = (id) => displayNameIn(memberOf(id) || {}, language) || id;
@@ -163,12 +177,76 @@ export default function RosterBuilder({
     const out = { ...prev }; delete out[id]; return out;
   });
 
+  /**
+   * Open the profile editor for a member who is already in the cast, from EITHER
+   * source - §22.2's one editor, reached by tapping her face.
+   *
+   * The two sources differ in what the editor is handed and in where a save lands,
+   * and both differences are here rather than in the component: a custom member is
+   * edited as her palette entry and saved as a new snapshot; a library member is
+   * edited as her library record with this run's override applied on top, and saved
+   * as a diff.
+   */
+  const editChosen = (id) => {
+    const pick = picks[id];
+    const target = editorTargetFor(id, pick, {
+      paletteEntry: cast.find((m) => m.id === id),
+      libraryBase: libraryBase(id),
+      language,
+    });
+    // Null for a library member means her group config has not arrived - they are
+    // fetched per tab. Asking for it and saying so beats opening an editor over an
+    // empty profile, which would read as data loss and would diff every field as a
+    // change, snapshotting her by the back door.
+    if (!target) {
+      if (pick && pick.src !== "custom") { needGroup(pick.groupId); notify?.(c.loadingMembers, "info"); }
+      return;
+    }
+    setEditing(target);
+  };
+
   // Shaped by rosterFromPicks (customCast.js) rather than here: entry order is
   // prompt order and prompt order is a cache boundary, so that logic is unit
   // tested as behaviour instead of asserted as a regex.
   const buildRoster = () => rosterFromPicks(picks);
 
+  /**
+   * An edit to a LIBRARY member lands on the roster entry as a diff.
+   *
+   * NOT a snapshot, which is what makes this worth its own function: resolveRoster
+   * applies `entry.override` over the member it fetched, so every field the player
+   * did not touch keeps arriving by reference and a corrected library profile still
+   * reaches a game in progress (§4.2). Snapshotting her would give that up and gain
+   * nothing - and it would pass any structural check, which is why the guard for it
+   * is behavioural, through resolveRoster.
+   *
+   * It writes NOTHING to the palette. The palette is the player's authored members;
+   * copying Irene into it would be a second Irene with the same id, and every
+   * per-member map in the save is keyed by id.
+   */
+  const saveLibraryEdit = (entry) => {
+    const base = libraryBase(entry.id);
+    // Her group is fetched per tab, so a base we cannot see means the config has not
+    // arrived. Refusing is right: diffing against {} would record every field as a
+    // change and snapshot her by the back door.
+    if (!base) { notify?.(c.saveFailed, "error"); return; }
+    const override = overrideFrom(base, entry.profile);
+    setPicks((prev) => {
+      const pick = prev[entry.id];
+      if (!pick) return prev;
+      const next = { ...pick };
+      // An EMPTY diff removes the key rather than storing {}: an entry for a member
+      // nobody changed must be what it was before this editor existed.
+      if (Object.keys(override).length) next.override = override; else delete next.override;
+      return { ...prev, [entry.id]: next };
+    });
+    setEditing(null);
+  };
+
   const saveMember = (entry) => {
+    // The editor forwards which copy it was editing, rather than this branch reading
+    // ambient state to work it out - see MemberEditor#submit.
+    if (entry.src === "library") { saveLibraryEdit(entry); return; }
     const res = upsertMember(cast, entry);
     if (!res.ok) {
       notify?.(res.reason === "full" ? c.castFull
@@ -274,7 +352,11 @@ export default function RosterBuilder({
     for (const e of r?.entries || []) {
       next[e.memberId] = e.src === "custom"
         ? { slot: e.slot, src: "custom", lang: e.lang, profile: e.profile }
-        : { slot: e.slot, src: "library", groupId: e.groupId };
+        // The OVERRIDE comes back too. A saved cast that dropped it would lose every
+        // edit the moment it was applied, which is the shape of loss this screen has
+        // already had once: the value is in the saved data and the reconstruction
+        // does not read it.
+        : { slot: e.slot, src: "library", groupId: e.groupId, ...(e.override ? { override: e.override } : {}) };
       if (e.src === "library") needGroup(e.groupId);
     }
     setPicks(next);
@@ -381,7 +463,14 @@ export default function RosterBuilder({
                     </button>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 11, borderRadius: 12, border: `1px solid ${k.accent}`, background: k.tint }}>
-                      {avatar(ids[0], 46)}
+                      {/* HER FACE IS THE WAY INTO HER PROFILE (§22.2), for a library
+                          member exactly as for an authored one - one editor, so the
+                          player never has to know which door a member came through. */}
+                      <button onClick={() => editChosen(ids[0])}
+                        aria-label={`${c.editShort} ${nameOf(ids[0])}`}
+                        style={{ padding: 0, border: "none", background: "none", cursor: "pointer", flexShrink: 0, lineHeight: 0 }}>
+                        {avatar(ids[0], 46)}
+                      </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: fs(13), color: k.textMain, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {nameOf(ids[0])}
@@ -405,16 +494,27 @@ export default function RosterBuilder({
                   )
                 ) : (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {/* TWO TARGETS, NOT ONE. The chip used to be a single button whose
+                        whole area unassigned, with the x as a label. §22.2 makes her face
+                        the way into her profile, and a nested button is not expressible -
+                        so this takes the shape the saved-roster chips above already have:
+                        the body does the thing you came for, the x is its own target. */}
                     {ids.map((id) => (
-                      <button key={id} onClick={() => unassign(id)}
-                        aria-label={`${c.remove} ${nameOf(id)}`}
-                        style={chipStyle}>
-                        {avatar(id, 22)}
-                        <span style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {nameOf(id)}
-                        </span>
-                        <span style={{ color: k.textFaint, fontSize: fs(12) }}>{"×"}</span>
-                      </button>
+                      <div key={id} style={{ ...chipStyle, padding: 0, gap: 0, overflow: "hidden" }}>
+                        <button onClick={() => editChosen(id)}
+                          aria-label={`${c.editShort} ${nameOf(id)}`}
+                          style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 4px 7px 9px", minHeight: 36, border: "none", background: "transparent", color: k.textMain, fontSize: fs(11.5), cursor: "pointer", fontFamily: "inherit" }}>
+                          {avatar(id, 22)}
+                          <span style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {nameOf(id)}
+                          </span>
+                        </button>
+                        <button onClick={() => unassign(id)}
+                          aria-label={`${c.remove} ${nameOf(id)}`}
+                          style={{ padding: "7px 9px 7px 4px", minHeight: 36, border: "none", background: "transparent", color: k.textFaint, fontSize: fs(12), cursor: "pointer" }}>
+                          {"×"}
+                        </button>
+                      </div>
                     ))}
                     <button onClick={() => setPickerSlot(s)} style={addStyle}>
                       + {c.addMore}
@@ -490,8 +590,8 @@ export default function RosterBuilder({
           cast={cast} photos={photos} picks={picks}
           onAssign={assign}
           onClose={() => setPickerSlot(null)}
-          onCreate={() => setEditing({ id: newMemberId(), profile: {}, isNew: true })}
-          onEdit={(id) => setEditing(cast.find((x) => x.id === id))}
+          onCreate={() => setEditing({ id: newMemberId(), profile: {}, isNew: true, src: "custom" })}
+          onEdit={(id) => setEditing({ ...cast.find((x) => x.id === id), src: "custom" })}
           onDelete={(id) => setConfirmDelete({ kind: "member", id })}
         />
       )}

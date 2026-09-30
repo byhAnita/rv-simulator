@@ -41,8 +41,14 @@ import MemberFace from "./memberFace";
 export const STEP_FIELDS = [
   ["name", "birthday"],
   ["private_personality", "public_image", "queer_texture", "speech_style", "habit"],
-  ["name_kr", "mbti", "role", "animal_plastic", "hidden_conflict"],
+  ["name_kr", "mbti", "role", "hidden_conflict"],
 ];
+
+// `animal_plastic` is NOT here, and it is not deleted either (§22.3.3): it renders
+// as `Animal` in the profile block for all 57 library members, so removing the field
+// would move every golden. What §22.2 removes is the BOX - one fewer thing to fill -
+// and cardGenerator drops it from CARD_FIELDS in the same commit, because a field the
+// model fills and the player cannot correct is the invariant below inverted.
 
 // Long prose gets a textarea; the rest a single line. `queer_texture` and
 // `private_personality` routinely run two sentences in the shipped library, so a
@@ -65,6 +71,12 @@ export default function MemberEditor({
   // store the image under one id and the member under another. `isNew` carries
   // what the title needs instead of inferring it from the id's presence.
   const editing = !isNew;
+  // WHICH COPY THIS EDITS. A custom member is her palette entry, so an edit is a new
+  // snapshot; a LIBRARY member is not ours to rewrite, so an edit is a diff the roster
+  // carries as `entry.override` (§22.3, customCast.js#overrideFrom). The component does
+  // not implement either rule - it forwards `src` and the caller branches - but it does
+  // have to render differently, because one of these two cannot be generated into.
+  const fromLibrary = member?.src === "library";
 
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState(() => ({ ...(member?.profile || {}) }));
@@ -191,7 +203,13 @@ export default function MemberEditor({
       return;
     }
     const id = member?.id;
-    onSave?.({ id, lang: language, profile: sanitizeProfile({ ...profile, id }) });
+    // `src` is FORWARDED rather than left for the caller to remember which state it
+    // opened this from: the two save paths write to different places, and inferring
+    // which from ambient state is how one of two call sites comes to be wrong.
+    onSave?.({
+      id, src: member?.src || "custom", lang: language,
+      profile: sanitizeProfile({ ...profile, id }),
+    });
   };
 
   // ── styling tokens, shared with the builder and the picker (castTheme.js) ──
@@ -283,7 +301,15 @@ export default function MemberEditor({
 
           {step === 0 && (
             <>
-              {/* the fast path: one line in, a full card out */}
+              {/* THE FAST PATH: one line in, a full card out - and it is hidden for a
+                  library member, because for her it provably does nothing. runGenerate
+                  merges UNDER what is already filled, deliberately, so a generated value
+                  can never overwrite the player's own words; a library member arrives
+                  with every field filled, so the button would spend a call and change
+                  nothing. A control that cannot act is worse than no control. §22.2's
+                  commit 4 gives her the generation that IS about her: world-scoped
+                  tab 2, which is a different call with a different input. */}
+              {!fromLibrary && (
               <div style={{ padding: 11, borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 14 }}>
                 <div style={{ fontSize: fs(11), color: accent, marginBottom: 6, fontWeight: 600 }}>{c.describe}</div>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION_CHARS))}
@@ -295,6 +321,17 @@ export default function MemberEditor({
                 </button>
                 <div style={{ fontSize: fs(9), color: textFaint, marginTop: 5, lineHeight: 1.4 }}>{c.generateHint}</div>
               </div>
+              )}
+
+              {/* An edit to a prebuilt member is THIS RUN's, not the library's. Saying so
+                  is not reassurance - it is the difference between a player expecting her
+                  change to follow Irene into the next game and a player who knows it will
+                  not. */}
+              {fromLibrary && (
+                <div style={{ padding: "9px 11px", borderRadius: 9, marginBottom: 12, fontSize: fs(10), lineHeight: 1.5, color: textDim, background: inputBg, border: `1px solid ${inputBorder}` }}>
+                  {c.editRunOnly}
+                </div>
+              )}
 
               {renderField("name")}
 

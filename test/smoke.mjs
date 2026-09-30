@@ -6209,6 +6209,10 @@ async function layerI() {
   check("the generator asks for no field that reaches no prompt",
     !cg.CARD_FIELDS.includes("mbti") && !cg.CARD_FIELDS.includes("role")
       && !cg.CARD_FIELDS.includes("emoji") && !cg.CARD_FIELDS.includes("tags")
+      // animal_plastic left in v1.4.1 §22.2 for a DIFFERENT reason from those
+      // four: it is rendered, and what it lost is the editor's box. A field the
+      // model fills and the player cannot correct fails the next check below.
+      && !cg.CARD_FIELDS.includes("animal_plastic")
       && cg.CARD_FIELDS.includes("habit"),
     JSON.stringify(cg.CARD_FIELDS));
 
@@ -6594,6 +6598,151 @@ async function layerI() {
     Object.keys(store.assignSlot({}, IRENE, "lead")).length === 0,
     "SLOTS is the whitelist; a typo must not create a fourth role");
 
+  // --- §22.5 commit 3: ONE profile editor, and a library edit is a DIFF -----
+  //
+  // resolveRoster has honoured `entry.override` since v1.4.0; what commit 3 adds is
+  // a way for a player to produce one. A SNAPSHOT would pass every structural check
+  // here while silently giving up §4.2's by-reference rule - a corrected library
+  // profile reaching a game in progress - so these go through resolveRoster and read
+  // the resolved member rather than asserting on the builder's markup.
+  //
+  // Slices a named function out of the component by finding where the NEXT top-level
+  // declaration starts, rather than by a hand-counted length: a source regex over the
+  // whole file cannot tell the library path from the custom one four lines below it.
+  const fnAfter = (src, marker) => {
+    const at = src.indexOf(marker);
+    if (at < 0) return "";
+    const rest = src.slice(at + marker.length);
+    const m = rest.match(/\r?\n {2}(?:const|function|\/\*\*) /);
+    return marker + (m ? rest.slice(0, m.index) : rest);
+  };
+
+  const LIB_BASE = { id: "irene", name: "Irene", public_image: "AUTHORED", mbti: "ISFP" };
+  const changed = (edits) => store.overrideFrom(LIB_BASE, { ...LIB_BASE, ...edits });
+  check("an override records only what changed, so an untouched field still arrives by reference",
+    JSON.stringify(changed({ public_image: "REWRITTEN" })) === JSON.stringify({ public_image: "REWRITTEN" }),
+    JSON.stringify(changed({ public_image: "REWRITTEN" })));
+  // THE GATE for this commit. It may not move a golden, and this is the property
+  // that says so: a cast nobody edited must produce the entry it produced before the
+  // editor existed - not the same entry carrying an empty override.
+  check("...and a member nobody edited yields no override key at all",
+    Object.keys(changed({})).length === 0
+      && !("override" in store.rosterFromPicks({
+        irene: { slot: "main", src: "library", groupId: "red_velvet" } }).entries[0]),
+    "an empty override is still a key the entry did not carry before");
+  // Diffing against the ALREADY-OVERRIDDEN copy compounds: a field changed and then
+  // typed back would keep an entry saying it equals itself, so the entry would never
+  // return to what an unedited cast produces.
+  check("...and typing a field back to the library's own words removes it again",
+    Object.keys(changed({ public_image: "AUTHORED" })).length === 0,
+    "an override diffed against an overridden copy never shrinks");
+  // Object.assign cannot DELETE, so a dropped key means the library's sentence comes
+  // back and the edit is discarded. "" is how a clear is expressed, and it renders as
+  // nothing because the profile block tests every optional field for CONTENT.
+  check("a field the player CLEARED is recorded as empty rather than dropped",
+    store.overrideFrom(LIB_BASE, { id: "irene", name: "Irene" }).public_image === "",
+    "a dropped key restores the library's text and throws the edit away");
+
+  const editedRoster = store.rosterFromPicks({
+    irene: { slot: "main", src: "library", groupId: "red_velvet",
+      override: { public_image: "REWRITTEN BY THE PLAYER" } },
+    yeri: { slot: "sub", src: "library", groupId: "red_velvet" },
+  });
+  check("a library edit reaches the roster as an override and never as a snapshot",
+    editedRoster.entries[0].override?.public_image === "REWRITTEN BY THE PLAYER"
+      && editedRoster.entries[0].profile === undefined
+      && !("override" in editedRoster.entries[1]),
+    JSON.stringify(editedRoster.entries));
+  const editedResolved = await fromDisk(
+    () => loader.resolveRoster(editedRoster, "zh", worldFor.zh));
+  const editedIrene = editedResolved.members.find((m) => m.id === "irene");
+  check("...and resolves to the edited words while every untouched field stays the library's",
+    editedIrene.public_image === "REWRITTEN BY THE PLAYER"
+      && Boolean(editedIrene.private_personality) && Boolean(editedIrene.birthday)
+      && Boolean(editedIrene.name_kr),
+    JSON.stringify({ pub: editedIrene.public_image, kr: editedIrene.name_kr }));
+
+  // ONE editor, TWO save paths, and the branch reads a FORWARDED value rather than
+  // inferring which state opened it. Inference is how one of two call sites comes
+  // to be wrong, which this repo has now recorded three times.
+  check("the editor forwards which copy it was editing",
+    /onSave\?\.\(\{[\s\S]{0,200}src: member\?\.src \|\| "custom"/.test(editorSrc),
+    "the caller must not have to work out which state opened this");
+  check("...and the builder branches on it before it can reach the palette",
+    /entry\.src === "library"/.test(builderSrc)
+      && builderSrc.indexOf('entry.src === "library"')
+        < builderSrc.indexOf("upsertMember(cast, entry)"),
+    "a library member copied into the palette is a second Irene with the same id");
+  const libEditFn = fnAfter(builderSrc, "const saveLibraryEdit = (");
+  check("a library edit writes nothing to the authored-member palette",
+    libEditFn.length > 120 && !/upsertMember|saveCustomCast|setCast\(/.test(libEditFn),
+    libEditFn ? "saveLibraryEdit reaches the palette" : "saveLibraryEdit not found, so this proves nothing");
+  const libBaseFn = fnAfter(builderSrc, "const libraryBase = (");
+  check("...and diffs against her library record rather than the overridden copy",
+    /overrideFrom\(base, entry\.profile\)/.test(libEditFn)
+      && libBaseFn.length > 80 && !/picks/.test(libBaseFn),
+    "libraryBase reading picks would hand the diff the copy it is diffing");
+
+  // HER FACE IS THE WAY IN (§22.2). Counting the call sites rather than testing that
+  // the helper exists: the main-member card and the sub/NPC chip are two surfaces,
+  // and a helper can exist, be correct, and be wired to one of them.
+  const editTaps = (builderSrc.match(/editChosen\((?:id|ids\[0\])\)/g) || []).length;
+  check("tapping a chosen member's face opens her profile, in both sections",
+    editTaps >= 2, editTaps + " call sites");
+  const PALETTE_ENTRY = { id: "c_1", lang: "ko", profile: { name: "Lin Xia" } };
+  const LIB_PICK = { slot: "main", src: "library", groupId: "red_velvet" };
+  check("...and it opens for a prebuilt member as well as an authored one",
+    store.editorTargetFor("irene", LIB_PICK, { libraryBase: LIB_BASE })?.src === "library"
+      && store.editorTargetFor("c_1", { slot: "sub", src: "custom" },
+        { paletteEntry: PALETTE_ENTRY })?.src === "custom",
+    "one editor for both doors is what §22.2 asks for");
+  // Her library record with THIS RUN's override laid on top: editing her a second
+  // time has to start from what the last edit produced, or the box shows the
+  // library's words and saving writes them back over her own.
+  // Dereferenced with ?. throughout: a mutation that returns null here would
+  // otherwise throw, and a stack trace where a verdict belongs reads exactly like a
+  // guard that cannot fail. Third time this repo has paid for that.
+  const editedTarget = store.editorTargetFor("irene",
+    { ...LIB_PICK, override: { public_image: "MINE" } }, { libraryBase: LIB_BASE });
+  check("...and hands a prebuilt member her library record with this run's edits on top",
+    editedTarget?.profile?.public_image === "MINE"
+      && editedTarget?.profile?.mbti === "ISFP",
+    JSON.stringify(editedTarget));
+  // Group configs are fetched per tab, so a base we cannot see is a real state. An
+  // empty profile would read as data loss AND would diff every field as a change,
+  // which snapshots her by the back door.
+  check("...and refuses rather than opening over an empty profile it would then snapshot",
+    store.editorTargetFor("irene", LIB_PICK, {}) === null
+      && store.editorTargetFor("irene", null, { libraryBase: LIB_BASE }) === null,
+    "a null base must not become an override recording every field");
+  // A custom pick can outlive its palette entry - deleted, or applied from a saved
+  // roster, which snapshots her. The roster's copy is then the only one left and is
+  // also the one the run will use.
+  check("...and edits a custom member's own snapshot when her palette entry is gone",
+    store.editorTargetFor("c_9",
+      { slot: "sub", src: "custom", lang: "en", profile: { name: "Gone" } },
+      {})?.profile?.name === "Gone",
+    "a deleted palette entry must not empty the cast she is still in");
+  check("...and the builder delegates that decision rather than branching itself",
+    /editorTargetFor\(id, pick, \{/.test(fnAfter(builderSrc, "const editChosen = (")),
+    "a source regex can see a branch written and not a branch reached");
+  check("applying a saved cast brings its edits back with it",
+    /e\.override/.test(fnAfter(builderSrc, "const applyRoster = (")),
+    "the override is in the saved data and the reconstruction has to read it");
+
+  // §22.3.3, BOTH halves, because either one alone is the wrong change: dropping the
+  // field moves every golden for all 57 library members, and keeping the box
+  // contradicts §22.2's tab 1. Comments are stripped, because this file explains the
+  // decision by naming the field - the third guard here to pass against its own prose.
+  check("animal_plastic has no box in the editor any more",
+    !/animal_plastic/.test(editorSrc.replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")),
+    "§22.2 drops the box; cardGenerator drops it from CARD_FIELDS in the same commit");
+  check("...and it is still stored and still reaches the prompt",
+    store.PROFILE_FIELDS.includes("animal_plastic")
+      && rosterSrc.includes("animal_plastic"),
+    "removing the field itself would move every golden for all 57 library members");
+
   // --- the slot control, rebuilt role-first ----------------------------------
   // Two generations of this control are now recorded, because the SECOND one is
   // the interesting lesson. It began as tap-to-cycle on symbols, which nobody
@@ -6838,7 +6987,7 @@ async function layerI() {
   // before anything is saved — so the CALLER mints the id. Minting it at submit
   // time instead would store the image under one id and the member under another.
   check("the builder mints the member id before opening the editor",
-    /setEditing\(\{ id: newMemberId\(\), profile: \{\}, isNew: true \}\)/.test(builderSrc),
+    /setEditing\(\{[^}]*\bid: newMemberId\(\)/.test(builderSrc),
     "otherwise a photo added on step 1 is orphaned the moment the member is saved");
   check("...and the editor never mints one of its own",
     !/newMemberId/.test(editorSrc),

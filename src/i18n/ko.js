@@ -109,6 +109,7 @@ const ko = {
     noCustomYet: "커스텀 멤버가 없습니다. 먼저 만들어주세요.",
     loadingMembers: "불러오는 중…",
     editShort: "편집",
+    editRunOnly: "수정은 이번 게임에만 적용됩니다. 라이브러리는 그대로이며, 건드리지 않은 항목은 여전히 라이브러리에서 가져옵니다.",
     deleteShort: "삭제",
     saveRoster: "구성 저장",
     rosterSaved: "구성이 저장되었습니다",

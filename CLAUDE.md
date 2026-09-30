@@ -1782,6 +1782,106 @@ GREEN on the first run and the **mutation** was at fault, not the guard: it anch
 *moved to the player-info page*, so it planted the duplicate where the control already
 belongs. **A mutation written against the pre-change layout tests the pre-change layout.**
 
+### One profile editor, and an edit to a prebuilt member is a DIFF
+
+**Tapping a chosen member's face opens her profile, whichever door she came through**
+(§22.2, and this is §22.5's commit 3). The editor was reachable for an authored member
+only, from the picker sheet's palette tab - so the 57 library members were the ones a
+player could not touch, which is the population §22.1 measures the defect over.
+
+**An edit to a library member lands on `entry.override` and is never a snapshot.**
+`resolveRoster` has honoured that field since v1.4.0 (`rosterResolver.js:266`); what this
+commit adds is a way for a player to produce one. The difference is not cosmetic:
+snapshotting her would give up §4.2's by-reference rule - *a fixed profile reaches games
+in progress* - for every field the player did not touch, and it would pass every
+structural check, which is why the guards for it go through `resolveRoster` and read the
+resolved member.
+
+`overrideFrom(base, edited)` in `customCast.js` is the one function that computes it, and
+three of its rules are each a defect avoided:
+
+- **An empty diff is `{}` and the caller stores no `override` key at all.** That is the
+  commit's gate rather than a tidiness rule: a cast nobody edited has to produce the
+  entry it produced before the editor existed, or every saved roster and every golden
+  moves for a cast the player never touched. All six goldens are byte-identical.
+- **A field the player CLEARED is recorded as `""`, not dropped.** `Object.assign` cannot
+  delete, so a dropped key means the library's sentence comes back and the edit is
+  silently discarded. `""` renders as nothing, because the profile block tests every
+  optional field for **content** rather than presence and `memberLine` uses
+  `filter(Boolean)` - so an emptied field is expressible, which is what clearing means.
+- **The base is her LIBRARY record, never the already-overridden copy.** Diffing against
+  the overridden one compounds: a field changed and then typed back to its original text
+  would keep an entry saying it equals itself, so the entry could never return to what an
+  unedited cast produces. `libraryBase` in the builder reads the fetched config and not
+  `picks`, and the guard asserts exactly that.
+
+**`editorTargetFor` is a pure function for a reason a mutation had to teach.** The first
+version of *"...and it opens for a prebuilt member as well as an authored one"* was a
+source regex over the component, and a mutation that made the library branch **dead code**
+left it GREEN - the branch was still written, so the strings it looked for were still
+there. **A source regex can see that a branch is written and not that it is reachable.**
+So the decision moved into `customCast.js` beside `assignSlot` and `savedRosterEntry`, and
+the four checks are behavioural: a library pick yields `src: "library"` with the override
+laid over the library record, a custom pick with no palette entry is edited as her own
+snapshot (she was deleted, or the cast came from a saved roster), and a missing library
+record returns **null** rather than an empty profile - which would read as data loss *and*
+would diff every field as a change, snapshotting her by the back door.
+
+**`animal_plastic` left the EDITOR and also left `CARD_FIELDS`** - §22.3.3 stopped at the
+first half, and stopping there breaks an invariant one guard already holds: *the player
+must be able to correct anything the model wrote*. A generated field with no box is worse
+than no generated field. The field itself stays on `PROFILE_FIELDS`, in all 30 group files
+and in the profile block for all 57 library members, which is what keeps the goldens
+fixed; a custom member simply has none, and an absent optional field renders nothing. Both
+halves are guarded, because either alone is the wrong change.
+
+**The generate box is hidden for a library member**, which is removing a control that
+provably does nothing rather than a design preference. `runGenerate` merges **under** what
+is already filled - deliberately, so a generated value can never overwrite the player's
+own words - and a library member arrives with every field filled, so the button would
+spend a call and change nothing. §22.5's commit 4 gives her the generation that is about
+her: the world-scoped tab 2.
+
+**The sub/NPC chip is two targets now, not one.** It was a single button whose whole area
+unassigned, with the x as a label; her face has to be the way into her profile, and a
+nested button is not expressible - so it takes the shape the saved-roster chips one
+section above already had. The comment explaining the old shape moved with it.
+
+**`applyRoster` carries the override back**, or a saved cast loses every edit the moment it
+is applied - the value would be in the saved data with nothing reading it, which is the
+shape this screen has already had once.
+
+**Known, contained, and NOT fixed here: section 4 keeps the group file's own copy of an
+edited member's prose.** A whole single group in a world with `useGroupLore: true` takes
+its `groupLore` verbatim, and that block duplicates the three texture fields section 5
+renders per member. So editing Irene's `public_image` through the custom door in
+`kpop_idol` leaves the old sentence in section 4 and the new one in section 5 - **two
+sections disagreeing about one member.** It needs the custom door, a cast that is exactly
+one whole group, an idol world, and an edit to one of three fields. The fix is either to
+stop duplicating the prose in single-group lore or to compose lore for an edited cast, and
+both move goldens - so neither belongs in a commit whose gate is that none does. See
+`docs/V140_PLAN.md` §22.5 and Known Inconsistencies.
+
+**21 mutations, 21 RED, and getting there cost three findings about the harness rather than
+about the code.** One reported GREEN with the **guard** at fault - the reachability entry
+above. One **crashed** the suite instead of failing, because the check after the failing one
+dereferenced a result the mutation had made null, and a stack trace where a verdict belongs
+reads exactly like a guard that cannot fail; every dereference of that function's result is
+`?.` now. And one mutation was **my** bug, not the code's: it assigned to a `const`.
+
+**Two mutation runs must never overlap, and one left a mutation on disk.** A run was
+backgrounded, appeared to produce nothing, and was restarted in the foreground while it was
+still alive - so two harnesses interleaved writes on the same five source files, and the
+second one's *pristine* snapshot was taken while the first had a mutation applied. Its
+`finally` then faithfully restored **the mutation**. Both runs' verdicts were garbage
+(GREEN, WRONG and CRASHED scattered across guards that are fine), and the stranded line sat
+in `libraryBase`. **What found it was one of this batch's own guards**, which is the best
+outcome available: *...and diffs against her library record rather than the overridden copy*
+failed on the next clean run and named the function. The rule this earns is stronger than
+*verify the tree after an interrupted run*: **a mutation harness is not safe to background
+at all**, because nothing distinguishes a slow run from a dead one, and the recovery for
+guessing wrong is a tree nobody can trust.
+
 ---
 
 ## Cast, world, roster (v1.4.0)
@@ -2900,10 +3000,11 @@ Five commits, each shippable, and the first four are the release:
 2. ✅ **Player info before the cast, on both doors.** `fcfb93d`. No prompt change; all six
    goldens byte-identical, which was the gate. smoke **1581 → 1584**, 9 mutations 9 RED. See
    *The player is asked before the cast, because the generator reads the world*.
-3. ⬜ **One profile editor for custom AND prebuilt members**, reached by tapping a chosen
-   member's bubble, a library edit landing on `entry.override` rather than a snapshot.
-   `animal_plastic` leaves the editor and stays in the data; `name_kr` stays and moves to tab 2.
-   No golden moves if nothing is edited, which is the gate.
+3. ✅ **One profile editor for custom AND prebuilt members**, reached by tapping a chosen
+   member's face. A library edit lands on `entry.override` as a **diff**, never a snapshot.
+   `animal_plastic` left the editor AND `CARD_FIELDS`; `name_kr` stays. **All six goldens
+   byte-identical**, which was the gate. smoke **1584 → 1603**, 21 mutations. See *One
+   profile editor, and an edit to a prebuilt member is a DIFF*.
 4. ⬜ **The two tabs, the generated detail, and `world_position`.** Prompt-facing: `memberLine`
    becomes `useRole ? m.role : m.world_position`, the generation runs for the whole cast at the
    Start boundary, and the §22.1 rule narrows to the members whose texture was not translated.
@@ -4137,6 +4238,17 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
    `npcAppearances`, bubble `photoDesc`, cast photos — a field complete on one side of a boundary
    and connected to nothing on the other, except that this one never had a reader at all. Either
    delete the constant or give it one; `docs/V140_PLAN.md` §18 carries the decision.
+
+3. **Section 4 keeps the group file's own copy of an edited member's prose.** A whole single
+   group in a world with `useGroupLore: true` renders its `groupLore` **verbatim**, and that
+   block duplicates the three texture fields section 5 renders per member. So an edit to
+   Irene's `public_image` through the custom door in `kpop_idol` leaves the old sentence in
+   section 4 and the new one in section 5 - two sections disagreeing about one member, which
+   is the failure this file spends the most words on. It needs all four of: the custom door, a
+   cast that is exactly one whole group, a world with `useGroupLore: true`, and an edit to one
+   of those three fields. The fix is either to stop duplicating the prose in single-group lore
+   or to compose lore for an edited cast, and **both move goldens** - see `docs/V140_PLAN.md`
+   §22.5.
 
 ### Cost strings must track README
 

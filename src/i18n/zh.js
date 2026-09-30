@@ -109,6 +109,7 @@ const zh = {
     noCustomYet: "还没有自定义成员。先创建一位。",
     loadingMembers: "加载中…",
     editShort: "编辑",
+    editRunOnly: "修改只属于本局游戏，不会改写角色库；你没动过的字段仍由角色库提供。",
     deleteShort: "删除",
     saveRoster: "保存阵容",
     rosterSaved: "阵容已保存",

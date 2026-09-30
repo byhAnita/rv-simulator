@@ -114,6 +114,7 @@ const en = {
     noCustomYet: "No custom members yet. Create one first.",
     loadingMembers: "Loading…",
     editShort: "Edit",
+    editRunOnly: "Changes belong to this run only. The library is untouched, and every field you leave alone still comes from it.",
     deleteShort: "Delete",
     saveRoster: "Save roster",
     rosterSaved: "Roster saved",

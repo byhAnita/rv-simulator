@@ -27,10 +27,17 @@ import { LLMError } from "../tools/llmErrors";
 // buildGroupLore renders those only for the primary group's own members, and
 // the profile block does not read them at all. Generating dead fields would
 // spend tokens on text nothing renders.
+// `animal_plastic` LEFT this list in v1.4.1 §22.2, together with the editor's box
+// for it. The field itself stays - it is on PROFILE_FIELDS, it is in all 30 group
+// files, and the profile block still renders it for all 57 library members, which
+// is what keeps the goldens fixed. What it may not do is be GENERATED while being
+// uneditable: the invariant one guard holds is that the player can correct anything
+// the model wrote, and §22.2's editor does not offer this one. So a custom member
+// simply has none, and an absent optional field renders nothing.
 export const CARD_FIELDS = [
   "name", "birthday",
   "private_personality", "public_image", "queer_texture",
-  "speech_style", "habit", "animal_plastic", "hidden_conflict",
+  "speech_style", "habit", "hidden_conflict",
 ];
 
 // Long enough that the model has something to work from. Below this the card is
@@ -84,7 +91,6 @@ Output ONLY valid JSON, no markdown fences, with exactly these keys:
   "queer_texture": "how attraction to a woman surfaces in her specifically, 1-2 sentences",
   "speech_style": "how she talks - register, rhythm, verbal tics, 1 sentence",
   "habit": "ONE concrete, observable, repeatable physical behaviour a scene can stage. Not a feeling and not a trait: something she does with her hands, her posture or an object",
-  "animal_plastic": "an animal comparison plus the twist, e.g. 'white rabbit - looks aloof, fiercely protective'",
   "hidden_conflict": "the tension she carries and hides, 1 sentence"
 }`;
 }
