@@ -3131,20 +3131,36 @@ button has nothing to retry. The pair reaches the whole cast (which is why A was
 and keeps the text reviewable, without charging a player for browsing casts.
 5. ⬜ The unified door - **not in scope**, and nothing above depends on it.
 
-**NOT verified: neither `81ccbeb` nor `fcfb93d` has been seen on a device.** Commit 2 is a page
-split on the one screen whose whole job is to be completed, which is the class four phone passes
-in a row have found something in. Both halves should now be *shorter* than the page they came
-from - player info carries four controls and the cast page carries the cast - but that is
-reasoning, not a measurement. The branch alias needs no deploy:
+**NOT verified: NONE of `81ccbeb`, `fcfb93d`, `832878d` or `62df3ed` has been seen on a
+device, and no live round has been played against any of them.** Two of the four are UI on
+the screens four phone passes in a row have found something on, and `62df3ed` adds a network
+call to a path that had none. Every claim below is offline: smoke, mutation and golden.
+The branch alias needs no deploy once `dev` is pushed:
 
 ```
 dev.idol-dating-sim.pages.dev
 ```
 
-**Worth looking at specifically:** that Continue is not refused with nothing left to fill (the
-year-wheel seed now fires on the new page - the guard ties the two together, but the guard is
-source-level), that Back from the builder lands on player info with the four answers intact, and
-that switching worlds on the new page does not strand the page on `Loading...`.
+**Worth looking at specifically, in commit order:**
+
+- `fcfb93d` - that Continue is not refused with nothing left to fill (the year-wheel seed
+  now fires on the new page; the guard ties the two together, but the guard is
+  source-level), that Back from the builder lands on player info with the four answers
+  intact, and that switching worlds does not strand the page on `Loading...`.
+- `832878d` - that tapping a **prebuilt** member's face opens her profile filled in, that
+  Save on her writes no second copy into the authored palette, and that the sub/NPC chip's
+  two targets are both hittable at 390px. It was ONE button whose whole area unassigned,
+  and a chip that now needs its `x` is the kind of change a thumb finds and a guard does not.
+- `62df3ed` - nothing to see yet: `world_position` has no writer until 4b, so the only
+  observable change is that nothing changed. **That is the thing to confirm** - a
+  non-idol run must read exactly as it did before, because the prompt is byte-identical.
+
+**A live round in a non-idol world is owed and is NOT a formality**, because `62df3ed` is the
+first commit whose whole subject is what a non-idol prompt says about a member:
+
+```bash
+node test/playthrough.mjs --world chaebol --identity rival_heiress --lang zh --rounds 4
+```
 
 #### Still next in the feature queue
 
