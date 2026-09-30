@@ -310,6 +310,42 @@ export function playerGivenIdolLife(story, { sharesIdolLife = false } = {}) {
 const REAL_AGENCIES = ["YG", "SM", "JYP", "HYBE", "ADOR", "Starship", "Pledis",
                        "Cube", "Source Music", "Belift", "KOZ"];
 
+// §22.1's own word list, and the same one its measurement used: 57 of 57 library
+// members, 80 field instances, zh. Group positions first, then idol activities.
+//
+// This grader reads the RESTAGING, not the prose. §22.2 regenerates a member's
+// texture for the world she is cast in, and the one half of "is the generated text
+// any good" an assertion can reach is whether it still carries the idol facts the
+// restaging exists to remove. Register, idiom and whether the position suits the
+// world all need a reader.
+//
+// zh ONLY, and the caller reports itself skipped in en/ko rather than guessing. An
+// en list has to contain "stage", which occurs in "stage name" and in "at this
+// stage"; a ko one has the same problem with 무대. A grader that cries wolf gets
+// tuned away, which is this repo's standing rule about metrics.
+export const IDOL_WORDS_ZH = [
+  "忙内", "队长", "主唱", "门面", "rapper",
+  "出道", "打歌", "回归", "专辑", "舞台",
+  "练习生", "粉丝", "偶像", "女团", "组合", "综艺",
+];
+
+// Counts INSTANCES and names each one, because that is the unit §22.1 reported and
+// the unit a fix moves - and a count with nothing to read is a number nobody can
+// act on. Every occurrence of a word is counted, not merely the first: a sentence
+// built on 舞台 twice is worse than one that mentions it once.
+export function scanIdolWords(detail, fields) {
+  const hits = [];
+  for (const f of fields) {
+    const text = String(detail?.[f] ?? "");
+    if (!text) continue;
+    for (const w of IDOL_WORDS_ZH) {
+      let i = text.indexOf(w);
+      while (i !== -1) { hits.push({ field: f, word: w }); i = text.indexOf(w, i + w.length); }
+    }
+  }
+  return hits;
+}
+
 export function outsideCastNames(story, forbidden = []) {
   if (!story) return [];
   const bad = [];

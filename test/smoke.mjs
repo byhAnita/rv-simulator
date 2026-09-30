@@ -3516,6 +3516,88 @@ async function layerI() {
   check("the live harness serves every data tree src/ fetches from disk",
     unserved.length === 0,
     `playthrough.mjs does not serve ${unserved.join(", ")} — it will die on a relative URL before round 1`);
+  // --------------------------------- the harness reaches the code under test
+  //
+  // THE FIFTH INSTANCE of the shape this repo tracks, and the first that is not a
+  // pinned field: the §22.2 restaging sweep lives in startNewGame, the harness
+  // REBUILDS that boundary because it is React state, and generateCastDetail
+  // appeared in playthrough.mjs nowhere. So 4b's live gate was unreachable - a run
+  // would have graded the un-restaged prompt and reported a healthy row.
+  //
+  // Derived on BOTH sides: the entry list the harness bundles and the names its
+  // worker destructures are both read out of its source, so a name added to one and
+  // not the other fails here instead of at round 0 on a paid key. A missing export
+  // is undefined at runtime, which a build cannot see.
+  const ENTRY_MARK = 'export * from "./src/';
+  const entryList = [];
+  for (let i = harnessSrc.indexOf(ENTRY_MARK); i !== -1; i = harnessSrc.indexOf(ENTRY_MARK, i + 1)) {
+    const end = harnessSrc.indexOf(";", harnessSrc.indexOf(".js", i));
+    entryList.push(harnessSrc.slice(i, end + 1));
+  }
+  const dStart = harnessSrc.indexOf("const {", harnessSrc.indexOf("async function runWorker"));
+  const dEnd = harnessSrc.indexOf("} = mod;", dStart);
+  const destructured = harnessSrc.slice(dStart + 7, dEnd)
+    .split(/[^A-Za-z0-9_$]+/).filter(Boolean);
+  check("the harness's bundle entry list and worker destructure are both readable",
+    entryList.length >= 6 && destructured.length >= 10,
+    `parsed ${entryList.length} entries and ${destructured.length} names - a broken scan would pass the next check vacuously`);
+  const workerBundle = join(OUT, "harnessWorker.mjs");
+  await esbuild.build({
+    stdin: { contents: entryList.join(String.fromCharCode(10)), resolveDir: ROOT, loader: "js" },
+    bundle: true, format: "esm", platform: "neutral", outfile: workerBundle, logLevel: "silent",
+    define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
+  });
+  const workerMod = await import("file://" + workerBundle.split(String.fromCharCode(92)).join("/") + "?t=" + Date.now());
+  const missingExports = destructured.filter((n) => workerMod[n] === undefined);
+  check("every symbol the harness worker destructures is exported by the bundle it builds",
+    missingExports.length === 0,
+    `${missingExports.join(", ")} would be undefined at runtime - the entry list does not re-export it`);
+  check("...including the restaging sweep, which is the whole of §22.2's live gate",
+    typeof workerMod.generateCastDetail === "function" && typeof workerMod.applyWorldDetail === "function",
+    "the harness cannot restage, so a live row says nothing about commit 4b");
+
+  // The harness must restage under the APP's condition, not one of its own. A sweep
+  // that ran in every world would grade a prompt the app never builds, in the one
+  // world all six goldens pin; one that ran in none is where this started.
+  const appSweepSrc = readFileSync(join(ROOT, "src", "App.jsx"), "utf8");
+  const USE_ROLE_GATE = "!world.castLore?.useRole";
+  check("the app restages only where the library's prose was not written for the world",
+    appSweepSrc.includes(USE_ROLE_GATE),
+    "App.jsx no longer gates the sweep on castLore.useRole");
+  check("...and the harness gates its sweep on the same condition",
+    harnessSrc.includes(USE_ROLE_GATE),
+    "playthrough.mjs restages on a condition of its own - it would grade a prompt no player gets");
+
+  // Round 1 must be built from the RESTAGED cast. Stamping a roster that round 2
+  // re-resolves while round 1 sends the original is a static-prompt drift of the
+  // whole ~5,500-token prefix. In the harness that reduces to one question: is the
+  // variable executeRound receives the variable the sweep wrote? The name is DERIVED
+  // so renaming it cannot quietly split the two apart.
+  const applyLine = harnessSrc.split(String.fromCharCode(10))
+    .find((ln) => ln.includes("applyWorldDetail(") && ln.includes(" = "));
+  const sweptVar = applyLine ? applyLine.trim().split(" = ")[0].trim() : null;
+  const rStart = harnessSrc.indexOf("await executeRound({");
+  const roundArgs = harnessSrc.slice(rStart, harnessSrc.indexOf("});", rStart));
+  check("the harness's sweep writes the cast variable, not a copy beside it",
+    sweptVar !== null && sweptVar.length > 0,
+    "no applyWorldDetail assignment found in playthrough.mjs");
+  check("...and round 1 is built from that same variable",
+    roundArgs.split(/[^A-Za-z0-9_$]+/).includes(sweptVar),
+    `executeRound does not receive ${sweptVar} - round 1 would send the un-restaged cast and round 2 the restaged one`);
+
+  // ON by default, because the app does it unconditionally. An opt-IN flag leaves
+  // the gate exactly as unreachable as it was, with a flag to point at.
+  check("the harness restages by default and takes a flag to opt OUT",
+    harnessSrc.includes('RESTAGE = !has("no-restage")'),
+    "an opt-in restage flag means a default run still grades a prompt no player gets");
+
+  // A scan that cannot run is not a scan that passed. The idol-word list is zh only
+  // - an en one would have to contain "stage", which occurs in "stage name" - so a
+  // non-zh run RECORDS itself skipped beside the two ROLE CONTRACT graders rather
+  // than reporting a clean 0 having scanned nothing.
+  check("a non-zh run records the idol-word scan as not run, rather than passing it",
+    harnessSrc.includes('gradersSkipped.push("restaged-prose-carries-idol-facts")'),
+    "an en or ko run would report 0 idol words having scanned nothing");
 
   // ------------------------------------------------------ save compatibility
   // A v1.3.5 save has no keepFull anywhere. It must collapse exactly as before.
@@ -6409,6 +6491,68 @@ async function layerI() {
       /no stage/.test(dp) && /no comeback/.test(dp) && /maknae/.test(dp),
       "the two must forbid the same list or they are two rules about one thing");
   }
+  // ---------------------------------------- the cast block, and why it exists
+  //
+  // FOUND BY THE FIRST LIVE RUN OF THE SWEEP, 2026-09-30, and by reading its
+  // output rather than its counters: five members restaged concurrently from five
+  // prompts that each showed ONE member produced Irene as 本家次女 and Seulgi as
+  // 次女 - two second daughters of one family - plus a hierarchy nobody assigned.
+  // Zero idol words, four clean rounds, and a cast that cannot all be true.
+  //
+  // The model was not ignoring a rule. The prompt never said she was one of
+  // several, so no rule about collision was applicable - the [Rounds Absent]
+  // lesson exactly: carry the fact, keep the rule beside it, point one at the
+  // other. What makes the fix work under CONCURRENCY is that the ladder is
+  // derived from birth years fixed at setup, so five calls that never see each
+  // other still agree on the order and disagree about which row is theirs.
+  {
+    const w = Object.values(allWorlds).map((b) => b.en).find((x) => x && x.castLore.useRole === false);
+    const cast = [
+      { id: "seulgi", name: "Seulgi", birthday: "1994-02-10" },
+      { id: "irene", name: "Irene", birthday: "1991-03-29" },
+      { id: "yeri", name: "Yeri", birthday: "1999-03-05" },
+    ];
+    const ladder = cg.seniorityLadder(cast);
+    check("the seniority ladder runs oldest first, on the axis the honorifics use",
+      ladder.map((r) => r.name).join(",") === "Irene,Seulgi,Yeri",
+      JSON.stringify(ladder.map((r) => r.name)));
+
+    // A custom member may carry only name, birthday and private_personality - and
+    // birthday is optional among those in practice. She cannot be placed on a
+    // ladder built from a fact she does not have, and inventing a year for her
+    // would be a fabricated age. Last, and stable, so the order stays derived.
+    const withUnknown = cg.seniorityLadder([{ id: "x", name: "X" }, ...cast, { id: "z", name: "Z" }]);
+    check("...and a member with no birth year sorts last, keeping her input order",
+      withUnknown.map((r) => r.name).join(",") === "Irene,Seulgi,Yeri,X,Z",
+      JSON.stringify(withUnknown.map((r) => r.name)));
+
+    // THE PROPERTY THE WHOLE FIX RESTS ON. Five concurrent calls never see each
+    // other's output, so the only thing that can make their positions differ is
+    // agreeing on one order and disagreeing about which row is theirs. If the
+    // ladder were built per-call from anything call-specific, this is the check
+    // that fails - and the collision comes straight back.
+    const prompts = cast.map((m) => cg.buildWorldDetailPrompt(m, w, "en", cast));
+    const orders = prompts.map((t) => (t.match(/1\. \w+[\s\S]*?3\. \w+/) || [""])[0]
+      .split(String.fromCharCode(10)).map((ln) => ln.replace(/ +<- .*/, "")).join("|"));
+    check("every member's prompt carries the SAME ladder, which is what lets them differ",
+      new Set(orders).size === 1 && orders[0].includes("Irene"),
+      JSON.stringify(orders));
+    check("...and each one marks a different row as the member being written",
+      new Set(prompts.map((t) => t.indexOf("<- the one you are writing"))).size === 3,
+      "two calls told to write the same row is the collision with extra steps");
+    check("...and states the rule the ladder exists to make applicable",
+      prompts.every((t) => /must be DISTINCT/.test(t) && /older member is/.test(t)),
+      "a fact with no rule beside it is a fact the model has no reason to use");
+
+    // The editor restages ONE member, from a screen where the roster may not exist
+    // yet, so it passes no cast. A block naming nobody would be a rule about an
+    // empty list - and a one-member cast has nothing to collide with.
+    check("a restaging with no cast to place her in carries no cast block at all",
+      !/THE REST OF THE CAST/.test(cg.buildWorldDetailPrompt(cast[0], w, "en"))
+        && !/THE REST OF THE CAST/.test(cg.buildWorldDetailPrompt(cast[0], w, "en", [cast[0]])),
+      "the editor cannot know the cast; the Start sweep is where distinctness is enforced");
+  }
+
   // The sweep decision A costs the player a wait for, so: concurrent, per-member
   // fallback, and it SKIPS anyone already translated - which is what stops it
   // re-paying for the editor's work and overwriting a line the player corrected.
@@ -6425,6 +6569,14 @@ async function layerI() {
       swept.failed === 1 && Object.keys(swept.detailById).length === 0,
       "an accelerator, never a gate - character creation cannot block on a provider");
   }
+
+  // The ladder is built from the WHOLE cast and not from the members still to be
+  // asked. A member the editor already restaged is skipped by the sweep - and she
+  // is exactly the member the others must not collide with, because her position
+  // is the one the player has already read and kept.
+  check("the sweep places each member against the whole cast, not only the ones it asks for",
+    /cast: members,/.test(readFileSync(join(ROOT, "src", "agent", "cardGenerator.js"), "utf8")),
+    "laddering against `todo` would let the cast collide with the member the player kept");
 
   check("the generator asks for no field that reaches no prompt",
     !cg.CARD_FIELDS.includes("mbti") && !cg.CARD_FIELDS.includes("role")
@@ -8518,6 +8670,52 @@ async function layerL() {
       && none(g.realAgencyNames("他用KOZY的杯子喝水。")),
     JSON.stringify([g.realAgencyNames("She sent an SMS and smiled."),
                     g.realAgencyNames("他用KOZY的杯子喝水。")]));
+
+  // ---------------------------------------- the restaging's own idol-word scan
+  //
+  // §22.2 regenerates a member's texture for the world she is cast in, and the one
+  // half of "is the generated text any good" an assertion can reach is whether it
+  // still carries the idol facts the restaging exists to remove. §22.1 measured the
+  // same list over the library: 57 of 57 members, 80 field instances.
+  const RF = ["world_position", "public_image", "queer_texture"];
+  const clean = { world_position: "家族法务部的内部律师",
+                  public_image: "在董事会上冷静而弘强，说话很慢",
+                  queer_texture: "只在深夜的车里对你收起防备" };
+  check("a restaging that still calls her a maknae is flagged, naming the field",
+    (() => {
+      const h = g.scanIdolWords({ ...clean, public_image: "队里的忙内，爱擒人" }, RF);
+      return h.length === 1 && h[0].field === "public_image" && h[0].word === "忙内";
+    })(),
+    JSON.stringify(g.scanIdolWords({ ...clean, public_image: "队里的忙内，爱擒人" }, RF)));
+  check("...and a restaging with no idol facts left in it is not",
+    g.scanIdolWords(clean, RF).length === 0,
+    JSON.stringify(g.scanIdolWords(clean, RF)));
+
+  // INSTANCES, not members and not fields. §22.1's number is 80 instances across 57
+  // members, so a scan that stopped at the first hit per field would report a
+  // different quantity under the same name - which is the [Stage Changes] defect,
+  // two labels for one scale. A sentence built on 舞台 twice is worse than one that
+  // mentions it once, and the count has to say so.
+  const twice = g.scanIdolWords(
+    { ...clean, public_image: "舞台上很亮，下了舞台却很安静" }, RF);
+  check("every occurrence is counted, not only the first in a field",
+    twice.length === 2, JSON.stringify(twice));
+  const spread = g.scanIdolWords(
+    { world_position: "练习生", public_image: "出道三年", queer_texture: "对粉丝很温柔" }, RF);
+  check("...and across every field it was asked for",
+    spread.length === 3 && new Set(spread.map((h) => h.field)).size === 3,
+    JSON.stringify(spread));
+
+  // It scans the fields it is GIVEN. The restaging writes five; a member also
+  // carries `role`, which in a non-idol world is filtered out of the prompt
+  // entirely and legitimately still says 忙内 - scanning it would report the defect
+  // the sweep routes around as one the sweep created.
+  check("a field outside the list is not scanned",
+    g.scanIdolWords({ ...clean, role: "副rapper·忙内" }, RF).length === 0,
+    "role is filtered from a non-idol prompt by useRole and is not the restaging's output");
+  check("an absent or empty field is not a hit",
+    g.scanIdolWords({ world_position: "", public_image: null }, RF).length === 0,
+    "a member the generation partly failed for must not read as clean-by-crash");
 
   // The harness must actually call them, or the layer tests dead code.
   const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");

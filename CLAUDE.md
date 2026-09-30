@@ -1970,6 +1970,61 @@ copy of the file and never from git.**
 
 ---
 
+### Five independent restagings produce two second daughters
+
+**The first live run of the sweep, 2026-09-30, `chaebol` / `rival_heiress` / zh /
+`deepseek-flash`.** 5 of 5 members restaged, **0 idol-word instances**, 4 of 4 clean
+rounds, 92.1% cache, 0 static-prompt drifts. §22.1's defect is closed in live prose and
+not only in a probe.
+
+**And the cast could not all be true at once, which no counter on that row can see.**
+Reading the five generated positions: Irene was `本家次女` and Seulgi `次女` - two second
+daughters of one family - Wendy was `董事总经理兼实际主事人`, the head of the business, above two
+members holding a plain `董事`, and Joy and Yeri were a third generation nobody had placed
+them in. A hierarchy assigned by no one, in a world whose whole premise is one.
+
+**The model was not ignoring a rule; there was no rule it could apply.**
+`buildWorldDetailPrompt` showed it one member and the world, and nothing else - so the
+prompt never said she was one of five, and two calls had no way to know they had both
+reached for the same place. **This is `[Rounds Absent]` one layer down**: a rule about
+not colliding is inert while nothing states who else exists.
+
+**The fix is a ladder, and it is what keeps the sweep CONCURRENT.** Every call now
+carries the whole cast, oldest first, with her own row marked - and the order is derived
+from **birth year**, which is data fixed at setup. So five calls that never see each
+other still agree on the order and disagree about which row is theirs, without waiting
+on one another. Serialising instead would be nine round-trips in front of a Start
+button, which is the cost decision A was taken to avoid.
+
+**Birth year is the axis because it is already the axis.** The address protocol decides
+every honorific in the game by birth-year boundary, so a restaged position derived from
+the same order cannot contradict the honorifics the same prompt sends. Any other
+ordering would be a second seniority axis, which is the thing this prompt spends the
+most words keeping singular. **A member with no birthday sorts last and keeps her input
+order** - a custom member may carry only three fields, and inventing a year for her
+would be a fabricated claim about her age.
+
+**It reduced the defect and did not close it - measured, same command, same model.**
+The hierarchy became coherent (`会长长女` / `家族次女` / `本家三小姐` / ... / `第三代中最小的`), and
+the collision went from two of five to **one** of five: Joy, fourth on the ladder, still
+claimed `本家次女`. **Independent sampling cannot guarantee distinctness** - the ladder lets
+a call infer what the others will avoid, and inference is not agreement.
+
+**What would close it is ONE call for the whole cast**, with the per-member concurrent
+path kept as the fallback for whoever is missing from a partial or failed response. That
+is strictly cheaper than today (one round-trip instead of N, so a shorter wait, not a
+longer one) and keeps *an accelerator, never a gate* by giving each member two chances
+rather than one. It is **not done here**: it changes the shape of decision A, and it
+wants its own measurement rather than riding along with the instrument that found the
+defect.
+
+**The grader for this is the one an assertion cannot write.** The idol-word scan measures
+the half that is a word list; *are these five people one plausible family* is a reading,
+and reading the five positions is a ten-second act that a green row actively discourages.
+**A run is not validated by its verdict line.**
+
+---
+
 ### One profile editor, and an edit to a prebuilt member is a DIFF
 
 **Tapping a chosen member's face opens her profile, whichever door she came through**
@@ -3260,14 +3315,25 @@ dev.idol-dating-sim.pages.dev
   generated Chinese is any good**, which is the whole point and no assertion reaches it; and
   **the two tabs at 390px**, since tab 1 gained three boxes and tab 2 gained a block.
 
-**A live round in a non-idol world is owed and is NOT a formality.** It is the only way to
-see a restaging the model actually wrote, and §22.1's failure profile is *universal and
-intermittent*, so one clean run establishes nothing about the world and everything about
-whether the pipeline runs at all:
+**The live round is DONE, 2026-09-30, and the harness could not run it until it was
+fixed.** `generateCastDetail` appeared in `playthrough.mjs` nowhere - the sweep lives in
+`startNewGame`, which the harness rebuilds - so 4b's gate was **unreachable**, not merely
+unmet. See *The fifth was not a pinned field at all*.
 
 ```bash
 node test/playthrough.mjs --world chaebol --identity rival_heiress --lang zh --rounds 4
 ```
+
+**Measured, twice, `deepseek-flash`:** 5/5 members restaged, **0 idol-word instances** in
+the generated fields against §22.1's 80 across the library, 4/4 clean rounds, 90-92%
+cache, **0 static-prompt drifts**, 0 ledger prefix breaks. The pipeline runs and §22.1 is
+closed in live prose.
+
+**And reading the output found a defect the row cannot show: five independent restagings
+produced two second daughters of one family.** Fixed to one of five by giving every call
+the cast's birth-year ladder; **not closed**, because independent sampling cannot
+guarantee distinctness. See *Five independent restagings produce two second daughters*
+for the remaining fix and why it was not taken in the same batch.
 
 **What the offline probe DID establish, because it is measurement and not reasoning:** a
 chaebol prompt built from a fully restaged cast carries **none** of 忙内 / 队长 / 出道 and
@@ -4132,6 +4198,59 @@ graders did not execute and prints them under the table. Deliberately **not** in
 feeds the clean/dirty verdict: this is a coverage statement, not a defect, and colouring the row
 would be the metric-that-fails-a-build that gets tuned away. **A grader that cannot run is not a
 grader that passed**, and nothing else on screen tells the two apart.
+
+#### The fifth was not a pinned field at all - it was a STEP the harness never had
+
+**Found before spending a credit on §22.2's owed live round, by grepping the harness for the
+function under test.** `generateCastDetail` appeared in it **nowhere**. The restaging sweep
+lives in `startNewGame`, and `playthrough.mjs` does not call `startNewGame` - it
+reimplements that boundary, because the boundary is React state. So the run would have graded
+the **un-restaged** prompt, reported a healthy row, and said nothing whatever about the commit
+it was run to validate.
+
+**The four before it were fields pinned to one value; this one is a step that does not exist**,
+and that is a harder thing to notice. A pinned field is visible in the `executeRound` call
+as a literal where a flag should be - `selectedModel: "qwen"` is right there to be read. A
+missing step is visible only as the absence of a name, and nothing draws the eye to a function
+that is not called. **The check is not reading the harness; it is grepping the harness for the
+symbol the commit added.** One command, and it is the cheapest gate in this repo:
+
+```bash
+grep -n generateCastDetail test/playthrough.mjs   # before trusting any live row about 4b
+```
+
+**Generalise it past this harness: every boundary the app owns and the harness REBUILDS is a
+place the two silently diverge.** `startNewGame` is one (the sweep, and `beginRun`'s
+clearing), `loadSave` is another, and each is code the harness cannot call and therefore
+has to reproduce. The sweep is the first one where reproducing it wrong made a live gate
+unreachable rather than merely narrow. The guard is written on the harness's own round call,
+not on a flag - the same rule `--provider` and `--mode` already follow.
+
+**The harness now mirrors the sweep exactly, including its condition** - restage when
+`castLore.useRole` is false, skip when it is true - so a run costs what a player's Start
+costs, which is the number `--restage` exists to let you *avoid* rather than to opt into.
+`--no-restage` plays the un-restaged prompt on purpose, which is the state §22.1's
+narrowed interim rule still covers and therefore still worth being able to grade.
+
+#### …and a restaging nobody reads is a restaging nobody can judge
+
+The sweep's whole purpose is that the generated prose carries no idol facts. That is the one
+half of *is the generated Chinese any good* an assertion can actually reach, and §22.1 already
+measured it over the library: **57 of 57 members, 80 field instances**, counting group
+positions (忙内, 队长, 主唱, 门面, rapper) and idol activities (出道, 打歌, 回归, 专辑, 舞台,
+练习生, 粉丝, 偶像, 女团, 组合, 综艺). So the harness scans the **generated fields** with that
+same list and reports the instances per member.
+
+**It is zh-only, deliberately, and says so rather than guessing.** The word list is the one that
+was measured; an en list would have to contain *stage*, which appears in *stage name* and in *at
+this stage*, and a grader that cries wolf gets tuned away - this file's standing rule. For `en`
+and `ko` the scan joins `gradersSkipped` and prints as a coverage line, beside the two ROLE
+CONTRACT graders that are silent in a new world. **A scan that cannot run is not a scan that
+passed.**
+
+What it still cannot see is everything else: register, whether the sentence is idiomatic, whether
+the restaged position is one this world would actually have. That needs a reader, and it is why
+the phone pass is still owed after a green run.
 
 ### `playthrough.mjs` had been dead since step 3, and that is the second time
 

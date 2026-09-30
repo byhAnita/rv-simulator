@@ -239,17 +239,57 @@ export async function generateCard({
  * time, done once at setup instead, where it can be reviewed and costs no tokens
  * per round.
  */
-export function buildWorldDetailPrompt(member, world, language = "zh") {
+// Who else is in this cast, oldest first. EXPORTED and pure because the whole
+// point of it is determinism: five concurrent calls each get the same ladder and
+// a different rank in it, which is what makes their positions differ without
+// serialising the sweep into five round-trips.
+//
+// Birth year is the axis, and it is the axis the ADDRESS PROTOCOL already uses -
+// so a restaged position cannot contradict the honorifics the same prompt sends.
+// Any other ordering would be a second seniority axis, which is the thing this
+// prompt spends the most words keeping singular.
+//
+// A member with no birthday sorts LAST and keeps her input order: she cannot be
+// placed on a ladder built out of a fact she does not carry, and a custom member
+// is allowed to carry only three fields.
+export function seniorityLadder(cast = []) {
+  const rows = (cast || [])
+    .filter((m) => m && m.name)
+    .map((m, i) => ({ id: m.id, name: m.name, year: Number(String(m.birthday || "").slice(0, 4)) || 0, i }));
+  return rows.sort((a, b) => (b.year ? 1 : 0) - (a.year ? 1 : 0)
+    || (a.year - b.year) || (a.i - b.i));
+}
+
+export function buildWorldDetailPrompt(member, world, language = "zh", cast = []) {
   const lang = LANGUAGE_NAME[language] || LANGUAGE_NAME.zh;
   const places = (world?.places || []).slice(0, 6).map((pl) => pl.name).filter(Boolean).join(", ");
   const was = (label, v) => (String(v || "").trim() ? `- ${label}: ${v}` : null);
+  // THE CAST BLOCK, and it is the fix for a defect only a live read found: five
+  // members restaged CONCURRENTLY from five prompts that each showed one member
+  // produced two second daughters of one family, and a hierarchy nobody assigned.
+  // The model was not ignoring a rule - the prompt never said she was one of
+  // several, so there was no rule it could apply. Carry the fact, state the rule,
+  // and point the rule at the fact: the shape [KKT Channels] and [Rounds Absent]
+  // already use one layer down.
+  const ladder = seniorityLadder(cast);
+  const meIdx = ladder.findIndex((r) => (member?.id && r.id === member.id) || r.name === member?.name);
+  const castBlock = ladder.length > 1 && meIdx !== -1 ? `
+
+THE REST OF THE CAST, oldest first. She is ONE OF THESE PEOPLE, not the only one:
+${ladder.map((r, i) => `${i + 1}. ${r.name}${r.year ? ` (b.${r.year})` : ""}${i === meIdx ? "  <- the one you are writing" : ""}`).join(String.fromCharCode(10))}
+
+Her position must be DISTINCT from every other member's - two of them holding the
+same place in the same organisation is the one thing that cannot be true of this
+list - and it must sit consistently on the order above, where an older member is
+not the junior of a younger one. Write only her; the others are named so that you
+do not collide with them.` : "";
   return `You are restaging one cast member of a dating sim into a different setting.
 
 THE SETTING
 - What these people do all day: ${world?.castLife?.theirs || ""}
 - The kind of organisation they belong to: ${world?.castLore?.orgNoun || ""}
 - Where the story opens: ${world?.scenario || ""}
-- Places that exist in it: ${places}
+- Places that exist in it: ${places}${castBlock}
 
 HER, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
 - Name: ${member?.name || ""}
@@ -321,10 +361,10 @@ export function isUsableDetail(detail) {
  */
 export async function generateWorldDetail({
   member, world, language = "zh", apiKey, modelId = "deepseek",
-  aliyun = null, reasoningEnabled = false,
+  aliyun = null, reasoningEnabled = false, cast = [],
 } = {}) {
   if (!member?.name || !world) return { ok: false, detail: {}, reason: "bad_request" };
-  const prompt = buildWorldDetailPrompt(member, world, language);
+  const prompt = buildWorldDetailPrompt(member, world, language, cast);
   const usable = (content) => {
     try { return isUsableDetail(parseWorldDetail(content)); } catch { return false; }
   };
@@ -361,7 +401,14 @@ export async function generateCastDetail({
   const todo = members.filter((m) => m?.name && !isUsableDetail(m));
   let done = 0;
   const results = await Promise.all(todo.map(async (m) => {
-    const res = await generateWorldDetail({ member: m, world, language, apiKey, modelId, aliyun });
+    // Every call gets the WHOLE cast, so each one knows the others exist and where
+    // she sits among them. Concurrency survives because the ladder is derived from
+    // data fixed at setup rather than from what another call happened to return - a
+    // sweep that waited to read its own output would be N round-trips in front of a
+    // Start button, which is the cost decision A was taken to avoid.
+    const res = await generateWorldDetail({
+      member: m, world, language, apiKey, modelId, aliyun, cast: members,
+    });
     onProgress?.(++done, todo.length);
     return [m.id, res];
   }));
