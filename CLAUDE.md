@@ -2142,6 +2142,72 @@ its verdict line.**
 
 ---
 
+### Both editor tabs fit on one screen, and the tab name is what let the block go
+
+**Yuhan's report, 2026-09-30:** *"use tighter placement for profile editor to make each tab in 1
+page, no scroll required [...] we have space between two photos, while the describe in one line and
+auto generation button exceed 1 page a little bit."*
+
+**This is the first layout change in this repo that was MEASURED rather than estimated.** The editor
+is bundled with esbuild and rendered in headless Chrome at the real panel width; the scroll body's
+content height is read off the layout, and the per-block breakdown says where the pixels are. Tab 1
+was **702px**, tab 2 **602px**, against a budget of 590-698px depending on the phone. Everything
+below is against those numbers.
+
+| | before | after |
+| --- | --- | --- |
+| tab 1 content | 702px | **603px** |
+| tab 2 content | 602px | **512px** |
+| panel header + footer + padding | 138px | **122px** |
+
+**The gap between the two photos was the wallpaper tile sizing the row.** It is 2:3, so at the
+photo's 44% column it is **213px tall against three fields that need 168** - the row is sized by the
+picture rather than by the form, and the slack shows up under the shorter of the two. **Its ratio is
+not the thing to change**: the tile is a preview of the crop the player chose, and *the frame is the
+shape the image will be seen in* is the rule three fixes were spent learning. **Narrowing is the
+only way to shorten a tile whose ratio is fixed**, so the column share became an argument and the
+wallpaper takes 32% where the photo keeps 44%. The guard asserts the *relation* - wall < photo - and
+both aspect ratios beside it, so squaring the tile off fails it too.
+
+**The emoji palette went from three rows to two**, at 22px per swatch. A half-width column is the
+one place a 26px grid wraps badly.
+
+**The panel's own chrome is BUDGET, not content.** Every pixel taken off the header, the footer or
+the body's padding is a pixel the body gets, which is why they are tightened in the same change as
+the fields - 16px of the 99.
+
+**Tab 2 is named for the world, and that is what deleted the status block.** The block was 69px of a
+602px tab saying which setting the text was written for; a tab reading `在校园世界` says the same
+thing in the place the player is already looking, for nothing. It renders `world.name`, the string
+section 6 of the prompt prints, and falls back to the neutral label while the world is null - a tab
+with no name is worse than a tab that does not name the world.
+
+**What did NOT go with it is the way back.** `detailRevert` is what makes a generation the player
+dislikes reversible, and *a generation with no way to a different answer gets routed around exactly
+as a prohibition with no substitute does*. It survives as one right-aligned line, rendered **only
+when there is a restaging to revert** - which is also the only time it means anything. The empty
+state needs no words now that the tab is named. `detailTitle`, `detailFor` and `detailNone` are
+deleted from all three languages: **a string for a control that no longer exists is the
+`pickMainHint` failure**, and this file has now recorded it three times.
+
+**`stepWorld` is particle-free by construction in ko.** `에서` has no vowel/consonant pair, unlike
+the `은/는`, `이/가` and `을/를` this repo resolves elsewhere - and a tab label is the wrong place to
+run `resolveKoreanParticles`, so the form chosen is the one that never needs it.
+
+**Measured, in a real browser, three member/world combinations across both tabs** - new custom in
+campus, a library member in campus, and a custom member in the idol world where `useRole` is true.
+All six render clean and all six fit, from an 812px phone upward.
+
+**At the larger text setting it still scrolls, and that is stated rather than hidden: tab 1 is
+692px at `fontScale: 1.25` against a 624px budget.** A player who asks for 25% larger type is asking
+for more vertical space, and the alternative is shrinking the type she just enlarged.
+
+**10 mutations, 10 RED**, including both halves of the tab-name fix separately - a renamed tab beside
+the block it makes redundant, and a deleted block with no rename - because either alone is half a
+fix. All six goldens byte-identical.
+
+---
+
 ### The header was under the clock, and `100vh` was only half of it
 
 **Reported from a phone for the SECOND time, 2026-09-30:** *"the upper part of current player set

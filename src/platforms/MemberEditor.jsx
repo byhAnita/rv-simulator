@@ -343,7 +343,7 @@ export default function MemberEditor({
     const required = REQUIRED_FIELDS.includes(f);
     const hint = c.hints?.[f];
     return (
-      <div key={f} style={{ marginBottom: 10 }}>
+      <div key={f} style={{ marginBottom: 8 }}>
         <label style={{ display: "block", fontSize: fs(10), color: textDim, marginBottom: 3 }}>
           {fieldLabel(f)}
           <span style={{ color: required ? accent : textFaint, marginLeft: 4 }}>
@@ -369,10 +369,17 @@ export default function MemberEditor({
   // Yuhan's design, 2026-09-30. `alignItems: flex-start` and not stretch, because a
   // stretched square stops being a square - and the right column is the taller of
   // the two, since the birth year is a WHEEL rather than a box.
-  const resumeRow = (image, fields) => (
-    <div style={{ display: "flex", gap: 9, marginBottom: 13, alignItems: "flex-start" }}>
-      <div style={{ flex: "0 0 44%", minWidth: 0 }}>{image}</div>
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+  //
+  // THE SHARE IS AN ARGUMENT BECAUSE THE TWO TILES ARE DIFFERENT SHAPES (22.7.2).
+  // The wallpaper is 2:3, so at the photo's 44% it is 213px tall against three
+  // fields that need 168 - the row is sized by the picture rather than by the
+  // form, which is the gap between the two photos Yuhan reported. Its ratio is
+  // not negotiable, because the tile is a preview of the crop the player chose,
+  // so NARROWING IS THE ONLY WAY TO SHORTEN IT.
+  const resumeRow = (image, fields, basis = "44%") => (
+    <div style={{ display: "flex", gap: 9, marginBottom: 6, alignItems: "flex-start" }}>
+      <div style={{ flex: `0 0 ${basis}`, minWidth: 0 }}>{image}</div>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
         {fields.map(renderCompact)}
       </div>
     </div>
@@ -427,15 +434,15 @@ export default function MemberEditor({
     if (f === "emoji") return (
       <div key={f}>
         {label}
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
           <input value={profile.emoji || ""}
             onChange={(e) => set("emoji", normalizeEmoji(e.target.value))}
             aria-label={fieldLabel("emoji")} inputMode="text" maxLength={24}
-            style={{ width: 40, flexShrink: 0, textAlign: "center", padding: "4px 0", borderRadius: 8, background: inputBg, border: `1px solid ${inputBorder}`, color: textMain, fontSize: fs(17), lineHeight: 1.2, outline: "none", fontFamily: "inherit" }} />
+            style={{ width: 36, flexShrink: 0, textAlign: "center", padding: "3px 0", borderRadius: 8, background: inputBg, border: `1px solid ${inputBorder}`, color: textMain, fontSize: fs(15), lineHeight: 1.2, outline: "none", fontFamily: "inherit" }} />
           {EMOJI_PALETTE.map((g) => (
             <button key={g} onClick={() => set("emoji", g)}
               aria-label={g} aria-pressed={profile.emoji === g}
-              style={{ width: 26, height: 26, padding: 0, borderRadius: 7, cursor: "pointer", fontSize: fs(14), lineHeight: 1, background: profile.emoji === g ? k.tint : "transparent", border: `1px solid ${profile.emoji === g ? accent : border}` }}>
+              style={{ width: 22, height: 22, padding: 0, borderRadius: 6, cursor: "pointer", fontSize: fs(12), lineHeight: 1, background: profile.emoji === g ? k.tint : "transparent", border: `1px solid ${profile.emoji === g ? accent : border}` }}>
               {g}
             </button>
           ))}
@@ -456,29 +463,43 @@ export default function MemberEditor({
     );
   };
 
+  // TAB 2 IS NAMED FOR THE WORLD (22.7.3), and that is what let the status block
+  // above tab 2 go. The block's only job was to say which setting the text was
+  // written for; a tab reading `在校园世界` says the same thing in the place the
+  // player is already looking, and it costs no vertical space at all. It renders
+  // `world.name`, which is the string section 6 of the prompt prints, so the two
+  // cannot disagree about which world she was written for.
+  //
+  // It falls back to the neutral label rather than to a blank: the world is null
+  // for the width of a world fetch, and a tab with no name is worse than a tab
+  // that does not name the world.
+  const tabLabels = (c.steps || []).map((label, i) => (
+    i === 1 && world?.name && c.stepWorld ? c.stepWorld(world.name) : label
+  ));
+
   return (
     <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 110, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.55)" : "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
       <div style={{ width: "100%", maxWidth: 360, maxHeight: "100%", background: panelBg, border: `1px solid ${border}`, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
 
         {/* header: title + step dots */}
-        <div style={{ background: isLight ? "linear-gradient(135deg,#5c3820,#4a2e14)" : "linear-gradient(135deg,rgba(232,135,176,.15),rgba(200,109,208,.15))", padding: "11px 14px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
+        <div style={{ background: isLight ? "linear-gradient(135deg,#5c3820,#4a2e14)" : "linear-gradient(135deg,rgba(232,135,176,.15),rgba(200,109,208,.15))", padding: "8px 12px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ color: isLight ? "#f5e8d0" : "#f8c8d8", fontSize: fs(13), fontWeight: 700 }}>
               {editing ? c.editorEdit : c.editorNew}
             </span>
             <button onClick={onCancel} aria-label={c.cancel} style={{ background: "none", border: "none", color: isLight ? "#c8a870" : "#a07090", cursor: "pointer", fontSize: fs(16) }}>✕</button>
           </div>
-          <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "center" }}>
-            {(c.steps || []).map((label, i) => (
+          <div style={{ display: "flex", gap: 5, marginTop: 6, alignItems: "center" }}>
+            {tabLabels.map((label, i) => (
               <button key={i} onClick={() => setStep(i)}
-                style={{ flex: 1, padding: "4px 2px", borderRadius: 7, border: "none", cursor: "pointer", background: i === step ? (isLight ? "rgba(245,232,208,.9)" : "rgba(248,200,216,.18)") : "transparent", color: i === step ? (isLight ? "#4a2e14" : "#f8c8d8") : (isLight ? "#c8a870" : "#8a6080"), fontSize: fs(9.5), fontWeight: i === step ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                style={{ flex: 1, padding: "3px 2px", borderRadius: 7, border: "none", cursor: "pointer", background: i === step ? (isLight ? "rgba(245,232,208,.9)" : "rgba(248,200,216,.18)") : "transparent", color: i === step ? (isLight ? "#4a2e14" : "#f8c8d8") : (isLight ? "#c8a870" : "#8a6080"), fontSize: fs(9.5), fontWeight: i === step ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {i + 1}. {label}
               </button>
             ))}
           </div>
         </div>
 
-        <div style={{ padding: 14, overflowY: "auto", flex: 1 }}>
+        <div style={{ padding: "9px 12px", overflowY: "auto", flex: 1 }}>
 
           {step === 0 && (
             <>
@@ -509,6 +530,7 @@ export default function MemberEditor({
               {resumeRow(
                 photoTile("wall", wall, "🖼", c.wall),
                 ["habit", "mbti", "emoji"],
+                "32%",
               )}
 
               {/* THE ONE THING ON THIS SCREEN THAT WANTS THE WIDTH. A sentence is not a
@@ -519,10 +541,10 @@ export default function MemberEditor({
                   below, which she keeps. */}
               {!fromLibrary && (
                 <>
-                  <div style={{ fontSize: fs(10.5), color: accent, marginBottom: 5, fontWeight: 600 }}>{c.describe}</div>
+                  <div style={{ fontSize: fs(10.5), color: accent, marginBottom: 3, fontWeight: 600 }}>{c.describe}</div>
                   <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION_CHARS))}
                     rows={2} placeholder={c.describePlaceholder}
-                    style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
+                    style={{ ...inputStyle, minHeight: 0, padding: "7px 9px", resize: "vertical", lineHeight: 1.45 }} />
                 </>
               )}
 
@@ -536,13 +558,13 @@ export default function MemberEditor({
                   never overwrites a word the player typed, which is what makes it safe
                   to press again; REGENERATE drops the current restaging first, which is
                   the only way to get a different answer once one exists. */}
-              <div style={{ display: "flex", gap: 7, marginTop: 8, marginBottom: 4 }}>
+              <div style={{ display: "flex", gap: 7, marginTop: 6, marginBottom: 3 }}>
                 <button onClick={() => runGenerate(false)} disabled={busy}
-                  style={{ flex: 1, padding: 10, minHeight: 40, borderRadius: 9, border: "none", cursor: busy ? "default" : "pointer", background: busy ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(11.5), fontWeight: 600 }}>
+                  style={{ flex: 1, padding: 8, minHeight: 34, borderRadius: 9, border: "none", cursor: busy ? "default" : "pointer", background: busy ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(11.5), fontWeight: 600 }}>
                   {busy ? c.generating : (restageable ? c.detailGenerate : c.generate)}
                 </button>
                 <button onClick={() => runGenerate(true)} disabled={busy}
-                  style={{ flex: 1, padding: 10, minHeight: 40, borderRadius: 9, cursor: busy ? "default" : "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(11.5) }}>
+                  style={{ flex: 1, padding: 8, minHeight: 34, borderRadius: 9, cursor: busy ? "default" : "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(11.5) }}>
                   {c.detailRetry}
                 </button>
               </div>
@@ -557,31 +579,26 @@ export default function MemberEditor({
           {step === 1 && (
             <>
               {/* THE GENERATE PAIR MOVED TO TAB 1, so this tab is what it is for:
-                  reading the result and correcting it. What stays is the status line -
-                  a generated paragraph is only reviewable if the player can see which
-                  setting it was written for - and the way BACK, because a control with
-                  no way back gets routed around exactly as a prohibition with no
-                  substitute does.
+                  reading the result and correcting it.
 
-                  The auto-run on opening this tab went with the move. It existed
-                  because the tab could otherwise be reached empty beside a retry button
-                  with nothing to retry; the generation is now on the tab the player
-                  asks from, so an unasked-for call is no longer the only way to fill
-                  this one. */}
-              {restageable && (
-                <div style={{ padding: "9px 11px", borderRadius: 10, background: isLight ? "rgba(139,105,20,.07)" : "rgba(232,135,176,.07)", border: `1px solid ${isLight ? "rgba(139,105,20,.18)" : "rgba(232,135,176,.18)"}`, marginBottom: 12 }}>
-                  <div style={{ fontSize: fs(10.5), color: accent, fontWeight: 600, marginBottom: 4 }}>
-                    {c.detailTitle?.(world?.name || "")}
-                  </div>
-                  <div style={{ fontSize: fs(9.5), color: textDim, lineHeight: 1.5 }}>
-                    {detailActive ? c.detailFor?.(world?.name || "") : c.detailNone}
-                  </div>
-                  {detailActive && (
-                    <button onClick={dropDetail}
-                      style={{ marginTop: 7, padding: "7px 10px", borderRadius: 8, cursor: "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(10.5) }}>
-                      {c.detailRevert}
-                    </button>
-                  )}
+                  THE STATUS BLOCK IS GONE and the WAY BACK IS NOT (22.7.3). The block
+                  said which world the text was written for, in 69px of a 602px tab;
+                  the tab's own name says it now. `detailRevert` is the control that
+                  makes a generation the player dislikes reversible, and a generation
+                  with no way to a different answer gets routed around exactly as a
+                  prohibition with no substitute does - so it survives as one line, and
+                  only when there IS a restaging to revert, which is also the only time
+                  it means anything.
+
+                  The empty state needs no words at all: the boxes below show her own
+                  lines, and a tab named for the world already says nothing has been
+                  written for it. */}
+              {restageable && detailActive && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                  <button onClick={dropDetail}
+                    style={{ padding: "4px 9px", borderRadius: 7, cursor: "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(9.5) }}>
+                    ↩ {c.detailRevert}
+                  </button>
                 </div>
               )}
               {/* `name_kr` is drawn on this tab and writes the BASE, which is not a
@@ -603,23 +620,23 @@ export default function MemberEditor({
         </div>
 
         {/* footer: Back / Next, and Save whenever the card is complete */}
-        <div style={{ padding: "10px 14px", borderTop: `1px solid ${border}`, display: "flex", gap: 7, alignItems: "center", flexShrink: 0 }}>
+        <div style={{ padding: "8px 12px", borderTop: `1px solid ${border}`, display: "flex", gap: 7, alignItems: "center", flexShrink: 0 }}>
           {step > 0 && (
             <button onClick={() => setStep((s) => s - 1)}
-              style={{ padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
+              style={{ padding: "8px 12px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
               ← {c.back}
             </button>
           )}
           {step < 1 && (
             <button onClick={() => setStep((s) => s + 1)}
-              style={{ flex: 1, padding: "9px 13px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 9, background: "transparent", border: `1px solid ${border}`, color: textDim, fontSize: fs(11.5), cursor: "pointer" }}>
               {c.next} →
             </button>
           )}
           {/* Live from either tab. A wizard that makes you walk to the end to commit
               is worse than the form it replaced, and tab 2 is optional and generated. */}
           <button onClick={submit} disabled={!canSave}
-            style={{ flex: 1, padding: "9px 13px", borderRadius: 9, border: "none", cursor: canSave ? "pointer" : "not-allowed", background: canSave ? accentGrad : (isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.08)"), color: canSave ? "#fff" : textFaint, fontSize: fs(11.5), fontWeight: 700 }}>
+            style={{ flex: 1, padding: "8px 12px", borderRadius: 9, border: "none", cursor: canSave ? "pointer" : "not-allowed", background: canSave ? accentGrad : (isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.08)"), color: canSave ? "#fff" : textFaint, fontSize: fs(11.5), fontWeight: 700 }}>
             {c.save}
           </button>
         </div>

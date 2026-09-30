@@ -6910,11 +6910,25 @@ async function layerI() {
   // third clause is the one that matters: tab 1 must not fall back to the
   // full-width renderer for any of its fields, because one box that does undoes
   // the row it sits in.
+  const photoShare = Number((editorSrc
+    .match(/const resumeRow = \(image, fields, basis = "(\d+)%"\)/) || [])[1]);
+  const wallShare = Number((tab1Block
+    .match(/photoTile\("wall"[^)]*\),\s*\[[^\]]*\],\s*"(\d+)%"/) || [])[1]);
   check("tab 1 is two resume rows, an image beside its fields",
     (tab1Block.match(/resumeRow\(/g) || []).length === 2
-      && /flex: "0 0 44%"/.test(editorSrc)
+      && photoShare > 0
       && !/renderField\(/.test(tab1Block),
     "an image at half width on the left, its fields one per line on the right");
+  // ...AND THE WALLPAPER'S COLUMN IS THE NARROWER ONE (22.7.2). At the photo's
+  // share its 2:3 ratio makes it 213px tall against three fields that need 168,
+  // so the row is sized by the picture rather than by the form - which is the
+  // gap between the two photos that was reported. The ratio is NOT the thing to
+  // change: the tile is a preview of the crop the player chose, so both aspect
+  // ratios are asserted here too and narrowing is the only lever left.
+  check("...and the wallpaper's column is narrower, because its 2:3 is not negotiable",
+    wallShare > 0 && wallShare < photoShare
+      && /aspectRatio: kind === "wall" \? "2 \/ 3" : "1 \/ 1"/.test(editorSrc),
+    `wallpaper column ${wallShare}% vs photo ${photoShare}% - a 2:3 tile at the photo's width is the tallest thing on the tab`);
   // ...and the generate pair is on THIS tab, not split across two. Tab 2 keeps the
   // way back, because a generation with no way to a different answer gets routed
   // around exactly as a prohibition with no substitute does.
@@ -6924,6 +6938,26 @@ async function layerI() {
     !/runGenerate\(/.test(tab2Block) && /dropDetail/.test(tab2Block)
       && (tab1Block.match(/runGenerate\(/g) || []).length === 2,
     "two generate buttons on two tabs is what made the fast path cross a tab");
+  // TAB 2 IS NAMED FOR THE WORLD (22.7.3), and the status block it replaces is
+  // GONE rather than shrunk - 69px of a 602px tab, saying in a paragraph what a
+  // tab label says for free. Both halves are asserted, because either alone is
+  // half a fix: a renamed tab beside the block it makes redundant is the block
+  // still costing the height, and a deleted block with no rename leaves nothing
+  // on screen saying which world the text was written for.
+  check("tab 2 is named for the world it is about",
+    /c\.stepWorld\(world\.name\)/.test(editorSrc) && /tabLabels\.map/.test(editorSrc)
+      && !/detailTitle|detailFor|detailNone/.test(editorSrc),
+    "the tab still says \"in this world\" while a block underneath names it");
+  // ...and the string is gone from every language, not only from the component.
+  // A label for a control that no longer exists is the pickMainHint failure, and
+  // this repo has now recorded it three times.
+  check("...and its label exists in all three languages, with the dead ones deleted",
+    ["zh", "en", "ko"].every((lang) => {
+      const src = readFileSync(join(ROOT, "src", "i18n", lang + ".js"), "utf8");
+      return /stepWorld:\s*\(w\)\s*=>/.test(src)
+        && !/detailTitle|detailFor|detailNone/.test(src);
+    }),
+    "a world-named tab in one language and a dead string in another");
   check("...and tab 1 renders exactly the fields it declares",
     rendered.length > 0 && JSON.stringify(rendered.slice().sort())
       === JSON.stringify(stepArrays[0].slice().sort()),
@@ -6966,7 +7000,7 @@ async function layerI() {
   // argument that hides tab 1's generate box for a library member.
   check("the restaging block is hidden in the world the library was written for",
     /restageable = Boolean\(world && !world\?\.castLore\?\.useRole\)/.test(editorSrc)
-      && /\{restageable && \(/.test(editorSrc),
+      && /\{restageable && /.test(tab2Block),
     "kpop_idol has nothing to restage");
   // Once per editor, from a ref. Without it every render of the tab fires a call,
   // which is the player's money and her rate limit.
