@@ -3733,6 +3733,135 @@ shortened to `自定义` / `Custom` / `커스텀` so it sits beside a group name
 
 ---
 
+### 22.10 The classic door is one page again, and the world folds
+
+**Yuhan's design, 2026-09-30**, and it is the counterpart to §22.9: having kept both doors, the
+classic one should be as fast as it was before v1.4.1 split it in two.
+
+> *"as for classic group entry to start a new game [...] pack pick main/sub picker + player info
+> into 1 page — this change only for classic entry. [...] Then subheader 玩家信息, below the
+> subheader split column: left side: 姓名 text box, (next line) 世界观 — change it to a foldable
+> list menu looks like 韩娱偶像 down arrow button beside to open the folded list of all 4 worlds to
+> choose from (but the 韩娱偶像 is default). While the right column: birth year wheel. Below them
+> left & right column merges. Below is the identity to choose from as it current looks. Then below
+> is the 返回, start with Irene button. — this provides the old player who wants a default and
+> quick start as previous game version build, but allows them to change world settings"*
+
+#### 22.10.1 Why the split was made, and why the classic door is exempt from it
+
+**§22.2 moved these four controls onto their own page BEFORE the cast screens, and that was a bug
+fix rather than a layout preference.** `generateCard` reads `world` out of App state, and the
+custom door went cover -> builder directly - so the button offering to describe a member *in this
+world* described her in **whichever world the last session left in `rv_sim_world`**.
+
+**The classic door has no generator on it.** `generateCard` and `generateWorldDetail` are called
+from `MemberEditor`, which is reached only from the roster builder; `generateCastDetail` runs at
+Start, after every answer on the page. So on this door there is no call that reads the world
+before the player has answered, and therefore no "before" to protect.
+
+**So §22.2's requirement NARROWS rather than being dropped**, exactly as §22.1's interim prompt
+rule did: *the custom door does not reach the builder before the world is chosen* is the sentence
+that was always doing the work, and the guard is rewritten to say it. A rule scoped to the door it
+is true of is not two answers to one question.
+
+**What the merge buys is the thing §22.5 commit 5 was going to take away.** A player who wants Red
+Velvet as shipped now answers everything on one screen and presses Start - which is the v1.3 flow,
+restored, for the players §22.9 kept the classic door for.
+
+#### 22.10.2 The order on the page, and what the two columns are for
+
+Top to bottom: the org/model line, main member, sub members, the NPC line - unchanged - then a
+`玩家信息` subheader, then **two columns**: name and the world fold on the left, the birth-year
+wheel on the right. Below them the columns merge for the identity grid, then Back and Start.
+
+**The wheel is the taller control and it is why the columns exist at all.** A 104px wheel above a
+38px name field wastes the field's row; beside it, the name and the world fold together come to
+about the wheel's height, and `alignItems: flex-start` keeps both tops level.
+
+**`玩家信息` is a real subheader and not decoration.** The page now asks two different kinds of
+question - who is in the story, and who the player is - and a screen that changes subject without
+saying so is the one a player scrolls past.
+
+#### 22.10.3 The world folds, and the blurbs move inside the fold
+
+Four world rows in a 2x2 grid plus the selected one's blurb is ~70px, on a page that has just
+absorbed two member grids. Collapsed it is one 32px row reading `韩娱偶像 v`.
+
+- **It is ONE definition, used by both pages.** The custom door's player-info page renders the
+  same fold. Two world pickers would be two controls to keep in step, which is what
+  `extractStoryText` is this repo's standing warning about - and the guard counts the call sites.
+- **The open list spans the full width, below the two columns**, rather than expanding inside the
+  narrow left one. A four-row list in a ~180px column wraps its names; the row below has the width
+  and costs nothing when the fold is shut.
+- **Every world's blurb renders INSIDE the open list**, one line under its name. §22.2 rejected
+  four blurbs at once as *"a wall of text under a control"*, and that was right when they were
+  always on screen. Inside a fold the player has just opened, they are the thing she opened it
+  for - and the alternative is a blurb under the collapsed row, which is the height the fold
+  exists to save.
+
+**The default is unchanged and deliberately so.** `rv_sim_world` still seeds the picker, falling
+back to `DEFAULT_WORLD_ID` (`kpop_idol`) when nothing is stored - so an old player who has never
+chosen a world sees `韩娱偶像` collapsed, which is what the report asks for, while a player who
+picked `campus` last night still opens on `campus`. **Assumption stated rather than silently
+taken:** a stored world is the player's own last answer and is a stronger default than a fixed
+one; if the intent was *always* kpop on the classic door, that is one line and a different
+sentence here.
+
+#### 22.10.4 The birth-year seed now has to fire on two phases, and that is the old bug's shape
+
+The wheel is seeded because **a wheel always displays a value**: unseeded, it showed `2000` while
+`form.birthYear` was `""`, so Start refused with *"please complete all options"* and nothing on
+screen left to fill. That seed fires on `phase === "playerInfo"`.
+
+**The classic door no longer passes through that phase**, so the merge reintroduces the exact
+v1.4.1 defect on the exact control it was found on. The seed is therefore keyed on **the set of
+phases that mount a wheel**, and the guard is rewritten to derive that set from the render rather
+than naming one phase - because naming one phase is what made this a bug the first time the phase
+moved.
+
+#### 22.10.5 One page means measured, and the number that decided it was the identity grid
+
+> *"And try to pack them in a one page height without need to scroll"*
+
+Measured the way §22.7.2 measured the editor: the page is bundled from `App.jsx` itself, rendered
+in headless Chrome at 390px with the group index served off disk, driven to the merged screen by
+clicking the cover's own New Game button, and the card's `scrollHeight` read against its content
+box - the screen, less the safe-area insets the page now pays, less the card's own 52px of
+padding, capped at 844.
+
+**First render: 707px against a 676px budget on an 812pt phone.** Where it went, and what each cut
+bought:
+
+| | |
+| --- | --- |
+| a second label for the player's half | `玩家信息` and `角色信息` stacked, saying one thing twice: **-30px** |
+| `.s-l`'s margins, 10/4 -> 4/3 | five labels on this page: **-30px** |
+| **the identity grid, two columns -> three** | nine cells were five rows: **-43px** |
+| the two member grids and their chips | padding, gap and an 11px label: **-20px** |
+| the NPC line and the button row | **-6px** |
+
+**Measured after, all three languages and every cast size:**
+
+| cast | zh | smallest phone (812pt, budget 676) |
+| --- | --- | --- |
+| Red Velvet (5), GNZ (8) | **585px** | fits, 91px spare |
+| TWICE (9), X (10) | **668px** | fits, 8px spare |
+| TWICE, en / ko | 642 / 658px | fits |
+
+**The nine- and ten-member casts are the binding case and they clear it by 8px**, which is honest
+rather than comfortable: a font fallback on a device this repo cannot render on could eat that.
+The five-member casts - which is what the classic door is mostly used for - have 91px.
+
+**Two things deliberately still scroll**, and both are transient states the player opened herself:
+the world fold open adds four rows with their blurbs (830px), and that is a list she is reading
+rather than a page she is completing.
+
+**The page does not scale with `fontScale`** - it never did; the setting reaches the story, the
+options and the overlays. That is a pre-existing gap, not one this change introduces, and it is
+why the 1.25 measurement is identical to the 1.0 one.
+
+---
+
 ## 21. Endings and the epilogue — v1.4.2
 
 **Raised by Yuhan 2026-09-28, immediately after step 2, as a rough mechanism to design against

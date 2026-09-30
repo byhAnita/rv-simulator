@@ -2142,6 +2142,64 @@ its verdict line.**
 
 ---
 
+### The classic door is one page again, and §22.2's rule narrows to the door it is about
+
+**Yuhan's design, 2026-09-30**, the counterpart to keeping both doors: *"as for classic group
+entry to start a new game, pack pick main/sub picker + player info into 1 page — this change only
+for classic entry [...] this provides the old player who wants a default and quick start as
+previous game version build, but allows them to change world settings."* And, a message later:
+*"try to pack them in a one page height without need to scroll."*
+
+**§22.2 split those four controls onto their own page BEFORE the cast screens, and that was a bug
+fix rather than a layout preference.** `generateCard` reads `world` out of App state, and the
+custom door went cover -> builder directly, so *"describe her in this world"* described her in
+**whichever world the last session left in `rv_sim_world`**.
+
+**The classic door has no generator on it.** `generateCard` and `generateWorldDetail` are called
+from `MemberEditor`, reached only from the builder; `generateCastDetail` runs at Start, after every
+answer on the page. So there is no call on this door that reads the world before the player has
+answered, and no *before* to protect. **The rule narrows to the door it is true of** — the same
+move §22.1's interim prompt rule made — and the guard is rewritten to say *the builder is never
+reached before the world is chosen*, with a second guard asserting the page the classic door
+**does** jump to asks for the world itself. Either half alone permits the original defect.
+
+**The world picker folds.** One collapsed row reading `韩娱偶像 v`; opening it lists all four
+**with their blurbs**, which §22.2 refused as *"a wall of text under a control"* when they were
+always on screen. Inside a fold the player has just opened they are the thing she opened it for,
+and the alternative — a blurb under the collapsed row — is the height the fold exists to save. It
+is **one definition serving both doors**, and the guard counts the call sites.
+
+**The birth-year seed is the defect this merge could have reintroduced.** A wheel always displays a
+value, so an unseeded one shows `2000` while `form.birthYear` is `""` and Start refuses with
+nothing on screen left to fill. The seed named **one phase**, and that is precisely how this broke
+twice: §22.2 moved the wheel to a new page, §22.10 moved the classic door off that page. It is
+`WHEEL_PHASES` now, and the guard **derives** the set of phases that render a wheel and requires
+the seed's list to cover it.
+
+**One page means measured, not estimated.** The page is bundled from `App.jsx`, rendered in
+headless Chrome at 390px with the group index served off disk, driven to the merged screen by
+clicking the cover's own New Game button.
+
+| | |
+| --- | --- |
+| first render | **707px** against a 676px budget on an 812pt phone |
+| after | **585px** for a 5-member cast, **668px** for a 9- or 10-member one |
+
+**The single biggest cut was the identity grid going from two columns to three** — nine cells were
+five rows, and are now three: **-43px**. Two labels for one thing (`玩家信息` above `角色信息`)
+were another 30. The nine- and ten-member casts clear the smallest phone by **8px**, which is
+honest rather than comfortable; the five-member casts, which is what this door is mostly used for,
+have 91px. Measured in all three languages.
+
+**What still scrolls, deliberately: the world fold open** (830px). That is a list the player opened
+to read, not a page she is completing.
+
+**10 mutations, 10 RED**, including both halves of the seed, the page losing the controls it starts
+from, the cover jumping into the builder, and a caption put back inside the wheel's own column. All
+six goldens byte-identical.
+
+---
+
 ### The custom door is a chip in the group row, and the unified door is cancelled
 
 **Yuhan's design, 2026-09-30**, and it reverses a plan item rather than fixing a defect: *"move
@@ -4047,6 +4105,16 @@ three languages: **10 chips on exactly 2 lines, 5 and 5**, card 469-480px, no sc
 **1702 → 1706**, 7 mutations 7 RED, goldens byte-identical. **Look at:** that a group chip and
 then New Game still reaches player info, that the 自定义 chip reaches the builder, that New Game is
 refused with no chip lit, and that the two lines do not become three on the actual phone.
+
+**And the classic door is one page again, in a third commit.** Cast picker and player info on one
+screen, with the world as a fold; the custom door is untouched and still asks first, because it is
+the one with a generator on it. **Measured at 390px in all three languages: 585px for a 5-member
+cast and 668px for a 9- or 10-member one, against a 676px budget on the smallest phone** — so a
+TWICE or X cast clears it by 8px, which is honest rather than comfortable. smoke **1706 → 1709**,
+10 mutations 10 RED, goldens byte-identical. **Look at:** that Red Velvet -> New Game lands on one
+page that asks everything and starts from it, that the world fold opens and picking a world closes
+it and moves the identity grid with it, that Back reaches the cover, and **whether a 9-member cast
+really does fit on your phone** — that is the 8px.
 
 **Still owed from three batches back:** the measured Start-wait regression (one whole-cast call
 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.

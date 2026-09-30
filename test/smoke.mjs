@@ -1097,13 +1097,24 @@ async function layerG(mod, MODEL_CONFIGS) {
     !/t\.cast\.castName\b/.test(appCode) && !/agencyFor\(/.test(appCode)
       && !/已加载组合/.test(appCode) && !/Group loaded/.test(appCode),
     "a literal noun here is right for kpop_idol and wrong for the other three");
-  // --- the world picker, v1.4.1 step 3 -------------------------------------
-  // It took the slot the pace picker vacated, which is WHY both cover doors get
-  // worlds without merging the entry pages: they both pass through Setup.
-  check("Setup carries a world picker fed by the world INDEX",
-    /loadWorldIndex\(\)\.then\(list => \{/.test(app) && /worldList\.map\(w =>/.test(app)
+  // --- the world picker, v1.4.1 step 3, folded in §22.10.3 ------------------
+  // Fed by the INDEX and not by a list in this file, which is what let step 7
+  // ship three more worlds as data. Since §22.10 it is a fold: one collapsed row
+  // naming the chosen world, opening to all four with their blurbs.
+  check("the world picker is fed by the world INDEX",
+    /loadWorldIndex\(\)\.then\(list => \{/.test(app) && /worldList\.map\(\(?w\)? =>/.test(app)
       && /setSelectedWorld\(w\.id\)/.test(app),
     "a hardcoded world list is what step 7 would then have to edit in code");
+  // ...and it is ONE definition used by both doors' first pages. Two world
+  // pickers is what `extractStoryText` is this repo's standing warning about -
+  // the copies drift, and the guard gets written against the one still correct.
+  check("...and one definition of it serves both doors",
+    (app.match(/const renderWorldFold = \(\) =>/g) || []).length === 1
+      && (app.match(/const renderIdentityGrid = \(\) =>/g) || []).length === 1
+      && (app.match(/renderPlayerFields\(\)/g) || []).length === 2
+      && (app.match(/renderIdentityGrid\(\)/g) || []).length === 2,
+    "one definition and one call site per door - the classic door's merged page "
+      + "and the custom door's player info");
   // Same correction the group index gets: a remembered id the index no longer
   // carries must not be left pointing at a world that cannot be fetched.
   check("...and a remembered world the index no longer lists falls back",
@@ -1156,7 +1167,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("the cover offers a second door into the roster builder",
     /setDoor\(g\.to\)/.test(coverBlock)
       && /to: "custom"/.test(coverBlock) && /to: "classic"/.test(coverBlock)
-      && /setPhase\(door === "custom" \? "roster" : "setup"\)/.test(app),
+      && /setPhase\("roster"\)/.test(phaseBlock("playerInfo")),
     "the custom door reaches the builder, and only after player info");
   // ...AND IT IS THE SAME CONTROL, not a second one under it. One map over the
   // group list plus the custom entry, so the chip cannot drift into looking like
@@ -1197,31 +1208,52 @@ async function layerG(mod, MODEL_CONFIGS) {
   // The builder's Generate button spends the player's key, so the key page has
   // to come first when there is none — §4.5 assumes the key already exists.
   check("the custom door routes through the key page when there is no key",
-    /if \(apiKey\?\.trim\(\)\) setPhase\("playerInfo"\); else setPhase\("keyInput"\);/.test(coverBlock)
-      && (coverBlock.match(/setPhase\("playerInfo"\)/g) || []).length === 1,
+    /if \(apiKey\?\.trim\(\)\) setPhase\(door === "custom" \? "playerInfo" : "setup"\);\s*\n?\s*else setPhase\("keyInput"\);/.test(coverBlock),
     "cardGenerator runs on the key the player already entered");
 
-  // ── THE CAST SCREENS COME AFTER THE WORLD IS CHOSEN - §22.2 ──────────────
+  // ── THE BUILDER COMES AFTER THE WORLD IS CHOSEN - §22.2, NARROWED ────────
   // `generateCard` reads `world` from App state, and the builder used to be
   // entered straight from the cover - so it described a member "in this world"
-  // using the world LEFT IN localStorage BY THE LAST SESSION. Asking first is
-  // what makes the generator's input correct by construction.
+  // using the world LEFT IN localStorage BY THE LAST SESSION.
   //
-  // Written as what must NOT happen, at the two entry points that could do it,
-  // because that is the defect: a screen before the world is chosen jumping
-  // straight to a screen that can generate. Derived over both doors, so neither
-  // can regress alone - the org-suffix lesson.
+  // §22.10 NARROWS this to the door it is true of, the way §22.1's interim rule
+  // narrowed: the card and detail generators live in the member editor, which
+  // only the builder reaches, so the CLASSIC door has no call that reads the
+  // world before the player has answered. Its merged page asks on the same
+  // screen it starts from, which is why the second half below is not optional -
+  // a classic door that jumped to a cast page WITHOUT the world on it would be
+  // the original defect with the generator swapped for the prompt.
   const earlyJumps = [];
   for (const id of ["cover", "keyInput"]) {
     const block = phaseBlock(id);
     if (!block) { earlyJumps.push(`${id}: block not found, so this proves nothing`); continue; }
-    for (const dest of ["roster", "setup"]) {
-      if (block.includes(`setPhase("${dest}")`)) earlyJumps.push(`${id} -> ${dest}`);
-    }
-    if (!block.includes('setPhase("playerInfo")')) earlyJumps.push(`${id} reaches no player-info page`);
+    if (block.includes('setPhase("roster")')) earlyJumps.push(`${id} -> roster`);
+    if (!block.includes('"playerInfo"')) earlyJumps.push(`${id} reaches no player-info page`);
   }
-  check("neither door reaches a cast screen before the world is chosen",
+  check("the builder is never reached before the world is chosen",
     earlyJumps.length === 0, earlyJumps.join(" | "));
+  // ...and the page the classic door DOES jump to asks for the world itself.
+  check("...and the classic door's page asks for the world it will start in",
+    /renderWorldFold\(\)|renderPlayerFields\(\)/.test(phaseBlock("setup"))
+      && /renderIdentityGrid\(\)/.test(phaseBlock("setup")),
+    "starting from a page with no world picker starts in whatever localStorage held");
+  // ...and it asks for EVERYTHING its Start button gates on. Derived from
+  // `canStart` itself rather than from a list beside it: a gate naming a field
+  // that no control on the page can fill is the year-wheel defect generalised -
+  // a button that refuses with nothing on screen left to answer.
+  const canStartLine = (phaseBlock("setup").match(/const canStart = [^\n]*/) || [""])[0];
+  const ASKED_BY = [
+    ["form.mainMember", /t\.setup\.mainMember\(/],
+    ["form.name", /renderPlayerFields\(\)/],
+    ["form.birthYear", /renderPlayerFields\(\)/],
+    ["form.identity", /renderIdentityGrid\(\)/],
+  ];
+  const unasked = ASKED_BY
+    .filter(([field, re]) => canStartLine.includes(field) && !re.test(phaseBlock("setup")))
+    .map(([field]) => field);
+  check("...and it asks for everything its Start button gates on",
+    canStartLine.length > 0 && unasked.length === 0,
+    canStartLine ? `no control for ${unasked.join(", ")}` : "canStart not found, so this proves nothing");
   // ...and the page that asks for it will not move on without one, or the world
   // is merely ASKED rather than settled - `world` is null for the width of a
   // fetch, so a gate without it lets a Continue through mid-switch.
@@ -1298,8 +1330,11 @@ async function layerG(mod, MODEL_CONFIGS) {
     !/\{pendingRoster \? \(/.test(phaseBlock("setup"))
       && !/t\.cast\.changeCast/.test(app) && !/t\.cast\.castLabel/.test(app),
     "the picker's own Start is the end of the custom door");
-  check("...and Back from Setup returns to player info, its only predecessor",
-    /setPhase\("playerInfo"\)/.test(phaseBlock("setup"))
+  // Back is ONE step, and since §22.10 that step is the cover: the merged page
+  // holds every question the classic door asks, so there is no page between them.
+  check("...and Back from the classic page returns to the cover, its only predecessor",
+    /setPhase\("cover"\)/.test(phaseBlock("setup"))
+      && !/setPhase\("playerInfo"\)/.test(phaseBlock("setup"))
       && !/setPhase\(pendingRoster \? "roster"/.test(app),
     "back is ONE step, and there is only one step back now");
   // The picker's Start is what replaced that page, so it is asserted on the CALL
@@ -1338,34 +1373,49 @@ async function layerG(mod, MODEL_CONFIGS) {
     startWithSites === 2 && !/`Start with \$\{/.test(app),
     `${startWithSites} call sites - the cast picker and the classic Setup page`);
 
-  // ── the four player-info controls live on ONE page, and it is not Setup ──
-  // Both directions, because a copy left behind is the failure: two pages asking
-  // for the birth year means two wheels, and a wheel is only seeded on the page
-  // that was remembered - which is the v1.4.1 year-wheel bug with a second way in.
+  // ── the four player controls are DEFINED ONCE, wherever they are asked ─────
+  //
+  // §22.2 put them on their own page and asserted they were not on Setup. §22.10
+  // merges them back into Setup for the CLASSIC door, so "not on Setup" is no
+  // longer the requirement - what is, and always was, is that there is exactly
+  // ONE of each. Two copies of the wheel is the v1.4.1 year-wheel bug with a
+  // second way in: a wheel is only seeded on the page that was remembered.
   const PLAYER_CONTROLS = [
-    ["the name field", /placeholder=\{language === "zh" \? "名字"/],
-    ["the birth-year wheel", /<YearWheel value=\{form\.birthYear\}/],
-    ["the world picker", /worldList\.map\(w =>/],
-    ["the identity grid", /world\.identities\.map\(i =>/],
-    // 22.6.2. It sits with the world because WHAT the organisation is comes
-    // from that world's own noun, and it left the page after the picker with it.
-    ["the organisation's name", /t\.cast\.orgName\(world\.castLore\.orgNoun\)/],
+    ["the name field", /placeholder=\{language === "zh" \? "名字"/g],
+    ["the birth-year wheel", /<YearWheel value=\{form\.birthYear\}/g],
+    ["the world picker", /worldList\.map\(\(?w\)? =>/g],
+    ["the identity grid", /world\.identities\.map\(i =>/g],
   ];
-  const misplaced = [];
+  const duplicated = [];
   for (const [what, re] of PLAYER_CONTROLS) {
-    if (!re.test(phaseBlock("playerInfo"))) misplaced.push(`${what} is not on the player-info page`);
-    if (re.test(phaseBlock("setup"))) misplaced.push(`${what} is STILL on the cast page`);
+    const n = (app.match(re) || []).length;
+    if (n !== 1) duplicated.push(`${what}: ${n} copies`);
   }
-  check("name, birth year, world, identity and the org name are asked once, before the cast",
-    misplaced.length === 0, misplaced.join(" | "));
-  // A WHEEL ALWAYS DISPLAYS A VALUE, so the seed has to fire on the page that
-  // MOUNTS the wheel. The existing scan proves some screen writes DEFAULT_YEAR;
-  // this proves the phase it writes it for is the phase the wheel is on, which is
-  // the half that moved in §22.2 and the half the original bug was.
-  const seedPhase = (app.match(/if \(phase === "(\w+)" && !form\.birthYear\)/) || [])[1];
-  check("the birth year is seeded for the phase that renders the wheel",
-    Boolean(seedPhase) && /<YearWheel value=\{form\.birthYear\}/.test(phaseBlock(seedPhase)),
-    `seeded for "${seedPhase}", which does not render the wheel`);
+  // ...and the org name is the one that is still door-shaped: a classic run IS
+  // one real group and already carries its real name, so the field would have
+  // nothing to write to. 22.6.2.
+  if (/t\.cast\.orgName\(world\.castLore\.orgNoun\)/.test(phaseBlock("setup"))) {
+    duplicated.push("the org name is on the classic door's page, which has no cast to name");
+  }
+  check("name, birth year, world and identity are each defined exactly once",
+    duplicated.length === 0, duplicated.join(" | "));
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so the seed has to fire on EVERY page that
+  // mounts one - unseeded, it shows 2000 while form.birthYear is "" and Start
+  // refuses with nothing on screen left to fill.
+  //
+  // It used to name ONE phase, and that is exactly how this broke twice: §22.2
+  // moved the wheel to a new page, §22.10 moved the classic door off that page.
+  // So the guard DERIVES the set of phases that render a wheel and requires the
+  // seed's own list to cover it - a phase added without seeding fails here.
+  const seedList = (app.match(/const WHEEL_PHASES = \[([^\]]*)\]/) || [, ""])[1]
+    .split(",").map((x) => x.trim().replace(/^"|"$/g, "")).filter(Boolean);
+  const wheelPhases = ["cover", "keyInput", "playerInfo", "roster", "setup"]
+    .filter((id) => /renderPlayerFields\(\)/.test(phaseBlock(id)));
+  const unseededPhases = wheelPhases.filter((id) => !seedList.includes(id));
+  check("the birth year is seeded for every phase that renders the wheel",
+    seedList.length > 0 && wheelPhases.length > 0 && unseededPhases.length === 0
+      && /WHEEL_PHASES\.includes\(phase\) && !form\.birthYear/.test(app),
+    `seeded for [${seedList}], rendered on [${wheelPhases}]`);
   // NPC identity comes from the roster now. getNpcMembers stays in groupLoader
   // as the anchor smoke measures migration against, but App derives nothing.
   // A call or an import, not any mention: the comment explaining why the
@@ -8394,11 +8444,18 @@ async function layerI() {
   // holds them must therefore contain exactly the field and the wheel, and
   // centre them — the selected year is the wheel box's own centre, since the
   // band sits at the middle row by construction.
+  // §22.10 puts the world fold under the name field, so the left column now
+  // holds two controls and the row aligns to flex-start rather than centring
+  // two boxes. What must still hold is the thing the defect was: the field and
+  // the wheel are ONE row, and the wheel's own column carries no caption above
+  // it - a caption there offsets the wheel by its own height, which is what put
+  // the field and the selected year on two different lines.
   const setupYearRow = appForCast.slice(0, appForCast.indexOf("<YearWheel"));
   const nameRow = setupYearRow.slice(setupYearRow.lastIndexOf('<div style={{ display: "flex"'));
-  check("...and in Setup the wheel's year sits on the name field's line",
-    /alignItems: "center"/.test(nameRow) && /className="s-in"/.test(nameRow)
-      && !/fontSize: 9/.test(nameRow),
+  const wheelCol = nameRow.slice(nameRow.indexOf("flex: 1, minWidth: 88"));
+  check("...and the wheel's year sits on the name field's line",
+    /className="s-in"/.test(nameRow) && /flex: 1, minWidth: 88/.test(nameRow)
+      && !/className="s-l"/.test(wheelCol),
     "a caption inside the wheel's column offsets it by the caption's own height");
 
   // ONE WALLPAPER, ONE JOB. Weverse used it as a post card's banner while the

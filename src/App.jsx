@@ -76,6 +76,15 @@ const seededStoryMode = (legacyPace) =>
 // can fetch.
 const CUSTOM_CAST_ID = "__custom__";
 
+// EVERY PHASE THAT MOUNTS THE BIRTH-YEAR WHEEL (§22.10.4). A wheel always
+// displays a value, so the field behind it has to hold one from the first frame
+// or Start refuses with nothing on screen left to fill - the v1.4.1 defect. The
+// seed used to name ONE phase, and §22.10 moved the classic door off it, which
+// is how that bug happened the first time: a seed keyed on a phase the wheel is
+// no longer on. Both doors' pages are listed here and the guard derives the same
+// set from what actually renders a wheel.
+const WHEEL_PHASES = ["playerInfo", "setup"];
+
 const THEMES = {
   dark: {
     pageBg: "linear-gradient(135deg,#0a0410,#1e0718,#0a0420)",
@@ -121,7 +130,7 @@ const THEMES = {
     subModelCardBg: "rgba(255,255,255,.03)",
     subModelCardColor: "#bbb",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(232,120,176,.2)}`,
-    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:3px;margin-top:4px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "rgba(255,59,92,.1)",
     notifBarBorder: "rgba(255,59,92,.2)",
     notifBarText: "#ff6b8a",
@@ -215,7 +224,7 @@ const THEMES = {
     subModelCardBg: "rgba(100,65,20,.05)",
     subModelCardColor: "#7a5030",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(100,65,20,.25)}`,
-    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:3px;margin-top:4px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "linear-gradient(135deg,#c8a84b,#a0522d)",
     notifBarBorder: "#a08060",
     notifBarText: "#fff",
@@ -405,6 +414,10 @@ export default function App() {
   const [confirmDest, setConfirmDest] = useState(null);
   const [keyJustSaved, setKeyJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // The world picker folds (§22.10.3). Session state and never persisted: it
+  // opens shut every time, because the collapsed row already names the world and
+  // a remembered-open list is a list nobody asked to see.
+  const [worldOpen, setWorldOpen] = useState(false);
   // The on-device console. Enabled by ?debug=1 and then persisted, so a PWA
   // launched from the home screen - which has no address bar to retype a query
   // string into - keeps it across reloads. Read once: it must not flip
@@ -468,7 +481,7 @@ export default function App() {
   // The member editor was given exactly this treatment in v1.4.0 step 8 and Setup
   // was not. Same control, same lie, one screen over.
   useEffect(() => {
-    if (phase === "playerInfo" && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
+    if (WHEEL_PHASES.includes(phase) && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
   }, [phase, form.birthYear]);
 
   // The correction, mid-run, for a save whose birth year was never stated —
@@ -1287,6 +1300,114 @@ export default function App() {
   );
 
   // ── Cover Page ──
+  // ── THE WORLD FOLD AND THE IDENTITY GRID: ONE DEFINITION, TWO PAGES ────────
+  //
+  // Both doors ask these two and, since §22.10, they ask on different screens -
+  // the classic door on its merged setup page, the custom door on player info.
+  // Two copies of one control is what `extractStoryText` is this repo's standing
+  // warning about: they drift, and the guard ends up written against the copy
+  // that is still correct. The guard here counts the call sites.
+  const worldNameOf = (w) => w?.name?.[language] || w?.name?.zh || w?.id;
+  // COLLAPSED IT IS ONE ROW. A 2x2 grid plus the selected world's blurb is ~70px
+  // on a page that has just absorbed two member grids, and three of the four are
+  // worlds this player has never opened.
+  const renderWorldFold = () => {
+    const cur = worldList.find((w) => w.id === selectedWorld);
+    return (
+      <>
+        <div className="s-l">{t.setup.world}</div>
+        <button onClick={() => setWorldOpen((o) => !o)} aria-expanded={worldOpen}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "7px 10px", borderRadius: 10, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+          <span>{cur?.emoji} {worldNameOf(cur)}</span>
+          <span style={{ fontSize: 9, opacity: 0.7 }}>{worldOpen ? "\u25B2" : "\u25BC"}</span>
+        </button>
+      </>
+    );
+  };
+  // The open list is rendered SEPARATELY because it belongs full width, below the
+  // two columns rather than inside the narrow one the toggle sits in: a four-row
+  // list in ~180px wraps every name.
+  //
+  // EVERY WORLD'S BLURB RENDERS HERE, which §22.2 refused when the blurbs were
+  // always on screen ("a wall of text under a control"). Inside a fold the player
+  // has just opened they are the thing she opened it for, and the alternative - a
+  // blurb under the collapsed row - is the height the fold exists to save.
+  const renderWorldList = () => worldOpen && (
+    <div style={{ display: "grid", gap: 4, marginTop: 4, marginBottom: 6 }}>
+      {worldList.map((w) => (
+        <div key={w.id} onClick={() => { setSelectedWorld(w.id); setWorldOpen(false); }}
+          style={{ padding: "6px 9px", borderRadius: 10, border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+          <div>{w.emoji} {worldNameOf(w)}</div>
+          <div style={{ fontSize: 9, color: th.textFaint, marginTop: 1, lineHeight: 1.4 }}>
+            {w.blurb?.[language] || w.blurb?.zh || ""}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  // The world's own identities, plus the custom escape hatch. Not a list in this
+  // file: `world.identities` is where they are declared, and the copy that used to
+  // live here read as an id-to-label mapping that was an identity function. The
+  // label is the world's `name`, the same string section 6 of the prompt prints.
+  const renderIdentityGrid = () => (
+    <>
+      <div className="s-l">{t.setup.identity}</div>
+      {/* THREE COLUMNS, not two (22.10.5). Nine cells at two columns is five
+          rows and 139px on a page that has to hold two member grids as well. The
+          labels are world data and the longest of them wraps to two lines here,
+          which costs one row its height and still leaves the grid shorter. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 4 }}>
+        {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
+          { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
+          <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
+            style={{ padding: "6px 9px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+            {it.label}
+          </div>
+        ))}
+      </div>
+      {form.identity === CUSTOM_IDENTITY_ID && (
+        <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
+      )}
+    </>
+  );
+  // NAME AND BIRTH YEAR, two columns, because the wheel is the taller control.
+  // A 104px wheel above a 38px field wastes the field's row; beside it, the name
+  // and the world fold together come to about the wheel's height.
+  //
+  // THE CAPTIONS LIVE IN THE SECTION LABELS, not above their controls - second
+  // hand test, v1.4.0 step 8. A caption inside the wheel's own column pushes the
+  // wheel down by its own height, so the pair read as two rows of one control
+  // each. With them lifted out, `alignItems: flex-start` keeps both tops level
+  // and the wheel's middle row - which IS the selected year, by construction - is
+  // where the eye already is.
+  const renderPlayerFields = () => (
+    <>
+      <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
+        <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "玩家信息" : language === "ko" ? "플레이어 정보" : "Player info"}</div>
+        <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
+          {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "flex-start" }}>
+        <div style={{ flex: 2, minWidth: 0 }}>
+          <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} />
+          {renderWorldFold()}
+        </div>
+        {/* A wheel, not a field - step 8. The year is one of 63 ordered values,
+            which is a picker; a text box invites a keyboard that on iOS covers
+            the box it is filling, and it can hold "19", which is a year the
+            address protocol must never see. */}
+        <div style={{ flex: 1, minWidth: 88 }}>
+          <YearWheel value={form.birthYear} onChange={setBirthYear}
+            min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
+            ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+            colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
+        </div>
+      </div>
+      {renderWorldList()}
+    </>
+  );
+
   if (phase === "cover") {
     const coverTexts = {
       zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.1", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
@@ -1366,7 +1487,11 @@ export default function App() {
               // Leaving a builder roster in place would silently override the
               // group just picked, since startNewGame prefers it.
               if (door !== "custom") setPendingRoster(null);
-              if (apiKey?.trim()) setPhase("playerInfo"); else setPhase("keyInput");
+              // ONE first page per door (§22.10): the classic door's questions all
+              // live on its cast page now, and the custom door still answers them
+              // before the builder, because the builder can generate.
+              if (apiKey?.trim()) setPhase(door === "custom" ? "playerInfo" : "setup");
+              else setPhase("keyInput");
             }}
             style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: castChosen ? "pointer" : "default", background: castChosen ? th.accentGrad : th.newGameDisabled, color: castChosen ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
             {ct.newGame}
@@ -1570,7 +1695,7 @@ export default function App() {
                 {language === "zh" ? "✅ Key 已保存！选择下一步" : language === "ko" ? "✅ Key 저장 완료! 다음을 선택하세요" : "✅ Key saved! What's next?"}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setKeyJustSaved(false); if (door !== "custom" && !selectedGroup) setPhase("cover"); else setPhase("playerInfo"); }}
+                <button onClick={() => { setKeyJustSaved(false); if (door !== "custom" && !selectedGroup) setPhase("cover"); else setPhase(door === "custom" ? "playerInfo" : "setup"); }}
                   style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: th.accentGrad, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {language === "zh" ? "✨ 开始新游戏" : language === "ko" ? "✨ 새 게임" : "✨ New Game"}
                 </button>
@@ -1631,80 +1756,8 @@ export default function App() {
           </div>
 
 
-          {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
-              second hand test. A caption inside the wheel's own column pushes
-              the wheel down by its own height, so the name field and the
-              selected year sat on two different lines and the pair read as two
-              rows of one control each. With the captions lifted out, the row
-              below holds exactly two boxes and `alignItems: center` puts the
-              38px field's centre on the 104px wheel's centre — which is the
-              selected year, since the band sits at the middle row by
-              construction (`pad = ROW_H`). */}
-          <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
-            <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
-            <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
-              {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
-            <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            {/* A wheel, not a field — step 8. The year is one of 63 ordered
-                values, which is a picker; a text box invites a keyboard that on
-                iOS covers the box it is filling, and it can hold "19", which is
-                a year the address protocol must never see. The wheel cannot
-                produce a partial or out-of-range year at all. */}
-            <div style={{ flex: 1, minWidth: 88 }}>
-              <YearWheel value={form.birthYear} onChange={setBirthYear}
-                min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
-                ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
-            </div>
-          </div>
-
-          {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
-              Settings as the four-way story mode, because a choice frozen at
-              character setup cannot be a choice about how the story is driven -
-              and the tail is where a live one costs nothing. Step 3 put the
-              WORLD picker in this slot, which is why both cover doors get worlds
-              without the entry merge: they both pass through this page.
-
-              One row per world from `index.json`, so step 7 ships three worlds
-              as data. Only the SELECTED world's blurb renders: four blurbs at
-              390px is a wall of text under a control, and the blurb's job is to
-              say what the choice she has made means. */}
-          <div className="s-l">{t.setup.world}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 3 }}>
-            {worldList.map(w => (
-              <div key={w.id} onClick={() => setSelectedWorld(w.id)}
-                style={{ padding: "7px 8px", borderRadius: 10, textAlign: "center", border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {w.emoji} {w.name?.[language] || w.name?.zh || w.id}
-              </div>
-            ))}
-          </div>
-          <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-            {worldList.find(w => w.id === selectedWorld)?.blurb?.[language]
-              || worldList.find(w => w.id === selectedWorld)?.blurb?.zh || ""}
-          </p>
-
-          {/* The world's own identities, plus the custom escape hatch. Not a list
-              in this file: `world.identities` is where they are declared, and the
-              copy that used to live here read as an id-to-label mapping that was
-              an identity function. The label is the world's `name`, which is the
-              same string section 6 of the prompt prints — one copy, so the two
-              cannot disagree about what the player picked. */}
-          <div className="s-l">{t.setup.identity}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
-              { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
-              <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {it.label}
-              </div>
-            ))}
-          </div>
-          {form.identity === CUSTOM_IDENTITY_ID && (
-            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
-          )}
+          {renderPlayerFields()}
+          {renderIdentityGrid()}
           {/* THE CAST BELONGS TO SOMETHING, and it is named HERE rather than on a
               page after the picker (docs/V140_PLAN.md 22.6.2). It sits beside the
               world for the same reason the identity does: WHAT this organisation is
@@ -1732,15 +1785,15 @@ export default function App() {
               </p>
             </>
           )}
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button onClick={() => { setPendingRoster(null); setPhase("cover"); }}
-              style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
+              style={{ padding: "12px 18px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>
             {/* The forward button names the NEXT step rather than saying "next",
                 because this page has no cast on it and the one thing a player
                 needs to know is that choosing one is what follows. */}
-            <button onClick={() => setPhase(door === "custom" ? "roster" : "setup")} disabled={!canContinue}
+            <button onClick={() => setPhase("roster")} disabled={!canContinue}
               style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canContinue ? "pointer" : "not-allowed", background: canContinue ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
               {canContinue
                 ? (language === "zh" ? "选择角色阵容 →" : language === "ko" ? "캐스트 선택 →" : "Select your cast →")
@@ -1822,11 +1875,11 @@ export default function App() {
           {members.length === 0 ? (
             <div style={{ textAlign: "center", color: th.textMuted, padding: 20, fontSize: 12 }}>{t.setup.loading}</div>
           ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
               {members.map(m => (
                 <button key={m.id} onClick={() => setForm(f => ({ ...f, mainMember: m.id, subMembers: (f.subMembers || []).filter(id => id !== m.id) }))}
-                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 14, border: `1px solid ${form.mainMember === m.id ? m.accent : th.groupBtnBorder}`, background: form.mainMember === m.id ? m.accent + "18" : th.memberBtnBg, color: form.mainMember === m.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 8px", borderRadius: 14, border: `1px solid ${form.mainMember === m.id ? m.accent : th.groupBtnBorder}`, background: form.mainMember === m.id ? m.accent + "18" : th.memberBtnBg, color: form.mainMember === m.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 14 }}>{m.emoji}</span>
                   <span style={{ fontWeight: form.mainMember === m.id ? 700 : 400 }}>{m.name_kr}</span>
                 </button>
               ))}
@@ -1838,31 +1891,52 @@ export default function App() {
             <div style={{ textAlign: "center", color: th.textMuted, padding: 10, fontSize: 11 }}>Loading...</div>
           ) : (
             <>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
                 {members.filter(m => m.id !== form.mainMember).map(m => {
                   const sel = (form.subMembers || []).includes(m.id);
                   return (
                     <button key={m.id} onClick={() => setForm(f => ({ ...f, subMembers: sel ? f.subMembers.filter(x => x !== m.id) : [...(f.subMembers || []), m.id].slice(0, members.length - 1) }))}
-                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 14, border: `1px solid ${sel ? (m.accent || th.accent) : th.groupBtnBorder}`, background: sel ? (m.accent || th.accent) + "18" : th.memberBtnBg, color: sel ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 8px", borderRadius: 14, border: `1px solid ${sel ? (m.accent || th.accent) : th.groupBtnBorder}`, background: sel ? (m.accent || th.accent) + "18" : th.memberBtnBg, color: sel ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 14 }}>{m.emoji}</span>
                       <span style={{ fontWeight: sel ? 700 : 400 }}>{m.name_kr}</span>
                     </button>
                   );
                 })}
               </div>
               {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).length > 0 && (
-                <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 4 }}>NPC: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>
+                <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 2, lineHeight: 1.3 }}>NPC: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>
               )}
             </>
           )}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            {/* Back is ONE step, and there is only one step back: player info, which
-                is the page this screen lost its four controls to. The custom door
-                branch went with 22.6.2 - that door starts the game from its own cast
-                picker and never reaches this page. */}
-            <button onClick={() => setPhase("playerInfo")}
-              style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
+          {/* THE PLAYER'S HALF OF THE PAGE (§22.10). The classic door asks
+              everything here and starts from here - which is the v1.3 flow, for the
+              players §22.9 kept this door for.
+
+              §22.2 split these four onto their own page BEFORE the cast screens,
+              and that was a real fix: `generateCard` reads `world` out of App
+              state, so the custom door's "describe her in this world" described her
+              in whichever world the LAST SESSION left in localStorage. That door
+              still asks first. THIS one has no generator on it at all - the card
+              and detail generators live in the member editor, which only the
+              builder reaches - so there is no call here that reads the world before
+              the player has answered, and no "before" to protect. §22.2's rule
+              narrows to the door it is true of rather than being dropped.
+
+              The subheader is not decoration: the page asks two different kinds of
+              question now - who is in the story, and who the player is - and a
+              screen that changes subject without saying so is the one a player
+              scrolls past. */}
+          {renderPlayerFields()}
+          {renderIdentityGrid()}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            {/* Back is ONE step, and since §22.10 that step is the cover: this page
+                holds every question the classic door asks, so there is no page
+                between them any more. The custom door branch went with 22.6.2 -
+                that door starts the game from its own cast picker. */}
+            <button onClick={() => { setPendingRoster(null); setPhase("cover"); }}
+              style={{ padding: "12px 18px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>
             <button onClick={() => startNewGame()} disabled={!canStart}
