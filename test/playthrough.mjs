@@ -647,10 +647,26 @@ async function runWorker(model) {
             .filter((r) => r.hits.length)
         : null;
       if (idol === null) report.gradersSkipped.push("restaged-prose-carries-idol-facts");
+      // TWO members holding the byte-identical position is what an assertion can
+      // see. It UNDERCOUNTS, deliberately and by construction: the defect this
+      // pipeline was rebuilt for was 本家次女 beside 次女 - one family position in
+      // two spellings, which no string comparison reaches. So the duplicates are
+      // counted AND every position is printed, because the half that matters is
+      // still a reading. A run is not validated by its verdict line.
+      const posOf = Object.fromEntries(Object.entries(detailById)
+        .map(([id, d]) => [id, String(d?.world_position ?? "")]));
+      const seen = {};
+      for (const [id, pos] of Object.entries(posOf)) {
+        if (!pos) continue;
+        (seen[pos] = seen[pos] || []).push(id);
+      }
+      const dupes = Object.entries(seen).filter(([, ids]) => ids.length > 1)
+        .map(([pos, ids]) => ({ position: pos, ids }));
       report.restaging = {
         asked: swept.asked, failed: swept.failed, ok: Object.keys(detailById).length,
-        positions: Object.fromEntries(Object.entries(detailById)
-          .map(([id, d]) => [id, String(d?.world_position ?? "")])),
+        fromCastCall: swept.fromCastCall, castCall: swept.castCall,
+        duplicates: dupes,
+        positions: posOf,
         detail: detailById,
         idolWordRows: idol,
         idolWordInstances: idol ? idol.reduce((n, r) => n + r.hits.length, 0) : null,
@@ -661,6 +677,7 @@ async function runWorker(model) {
       // accelerator and never a gate, the same law generateCard follows.
       if (swept.failed) report.notes.push(`restage-failed:${swept.failed}/${swept.asked}`);
       if (report.restaging.idolWordInstances) report.notes.push("restaged-prose-carries-idol-facts");
+      if (dupes.length) report.notes.push(`restaged-positions-collide:${dupes.length}`);
     }
     const memberIds = members.map(m => m.id);
 
@@ -1030,14 +1047,30 @@ async function runParent() {
     const rs = r.restaging;
     console.log(`${nlx}restaged for ${r.world}: ${rs.ok}/${rs.asked} members` +
       (rs.failed ? `  ${C.y}${rs.failed} failed (they keep their own idol prose, which §22.1's rule still covers)${C.x}` : ""));
+    // WHICH PASS placed them. One whole-cast call is the cheap path and the only
+    // one that can hold positions apart; the per-member sweep behind it is what
+    // keeps a partial or dead response from costing the player a member.
+    if (rs.fromCastCall !== undefined) {
+      const fell = rs.ok - rs.fromCastCall;
+      console.log(`  ${C.d}one whole-cast call placed ${rs.fromCastCall}` +
+        `${fell > 0 ? `, per-member fallback placed ${fell}` : ""}` +
+        `${rs.castCall !== "ok" ? `  (cast call: ${rs.castCall})` : ""}${C.x}`);
+    }
     for (const [id, pos] of Object.entries(rs.positions)) {
       console.log(`  ${C.d}${id}${C.x} ${pos || C.y + "(no position)" + C.x}`);
+    }
+    if (rs.duplicates?.length) {
+      console.log(`  ${C.r}${rs.duplicates.length} position(s) held by more than one member${C.x}`);
+      for (const d of rs.duplicates) console.log(`    ${d.position} <- ${d.ids.join(", ")}`);
+    } else {
+      console.log(`  ${C.g}0 byte-identical positions${C.x}` +
+        `  ${C.d}(exact match only - read the list above for the ones it cannot see)${C.x}`);
     }
     if (rs.idolWordInstances === null) {
       console.log(`  ${C.d}idol-word scan: not run (zh only)${C.x}`);
     } else if (rs.idolWordInstances === 0) {
       console.log(`  ${C.g}0 idol-word instances in the restaged fields${C.x}` +
-        `  ${C.d}(§22.1 measured 80 across 57 library members)${C.x}`);
+        `  ${C.d}(§22.1: 80 (member, field) pairs across all 57 library members)${C.x}`);
     } else {
       console.log(`  ${C.r}${rs.idolWordInstances} idol-word instance(s) SURVIVED the restaging${C.x}`);
       for (const row of rs.idolWordRows) {

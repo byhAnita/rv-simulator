@@ -6462,10 +6462,21 @@ async function layerI() {
     "a model that fences its JSON must not cost the player the call");
   // ONE recovery, not two copies. `extractStoryText` is this repo's standing warning:
   // two copies drifted and the guard had been written against the one still correct.
-  check("...through the SAME JSON recovery the card parser uses, not a second copy",
-    (cgSrc.match(/parseJsonish\(/g) || []).length === 3
-      && (cgSrc.match(/const fenced = /g) || []).length === 1,
-    (cgSrc.match(/parseJsonish\(/g) || []).length + " references to one recovery");
+  // THREE parsers now: a card, one member's restaging, and a whole cast's. One
+  // declaration and three call sites - counted, because a helper can exist, be
+  // correct, and be used in two of three places.
+  check("...through the SAME JSON recovery the other parsers use, not a copy each",
+    cgSrc.split("parseJsonish(").length - 1 === 4
+      && cgSrc.split("const fenced = ").length - 1 === 1,
+    (cgSrc.split("parseJsonish(").length - 1) + " references to one recovery");
+  // Same argument one field over: the restaging LAW and the five-field schema are
+  // one rule each, rendered by both prompts. Two copies of one rule is what
+  // extractStoryText is this repo's standing warning about.
+  check("...and both prompts render ONE copy of the restaging law and the schema",
+    cgSrc.split("${restageLaw(lang)}").length - 1 === 2
+      && cgSrc.split("${DETAIL_SCHEMA}").length - 1 === 2
+      && cgSrc.split("no comeback").length - 1 === 1,
+    "a second copy of the forbidden list is a second list to forget to update");
   // The MARKER the prompt reads. A detail with prose and no position would count as
   // translated while rendering nothing in the slot `useRole` emptied - a member with
   // no statement of what she does at all, which is worse than the idol prose.
@@ -6487,9 +6498,23 @@ async function layerI() {
     check("...and hands her existing lines over as the source to restage",
       dp.includes("the maknae") && /KEEP WHO SHE IS/.test(dp),
       "a restaging with nothing to restage invents a stranger");
+    // DERIVED, not sampled. The two rules are one rule - the restaging removes the
+    // idol facts and the interim rule tells the model to read past whatever the
+    // restaging did not reach - so a rank named in one and not the other is a rank
+    // one of them treats as unconstrained. That is not hypothetical: the live run
+    // of 2026-09-30 wrote Joy as 门面担当 in a family compound, and the enumeration
+    // said "leader, main vocal or maknae" with the VISUAL missing from both.
+    const ranksIn = (src) => (src.match(/performing group such as ([^.]+)\./) || [, ""])[1]
+      .split(/,| or /).map((x) => x.trim()).filter(Boolean).sort().join("|");
+    const agentSrc = readFileSync(join(ROOT, "src", "agent", "mainAgent.js"), "utf8");
     check("...and forbids the idol facts the interim rule forbids at read time",
-      /no stage/.test(dp) && /no comeback/.test(dp) && /maknae/.test(dp),
-      "the two must forbid the same list or they are two rules about one thing");
+      /no stage/.test(dp) && /no comeback/.test(dp) && /maknae/.test(dp)
+        && ranksIn(cgSrc) !== "" && ranksIn(cgSrc) === ranksIn(agentSrc),
+      "the two must forbid the same list or they are two rules about one thing: "
+        + ranksIn(cgSrc) + " vs " + ranksIn(agentSrc));
+    check("...including the VISUAL, which the enumeration omitted and a live run leaked",
+      ranksIn(cgSrc).includes("visual"),
+      "when a contract enumerates, the model treats what it omits as unconstrained");
   }
   // ---------------------------------------- the cast block, and why it exists
   //
@@ -6557,26 +6582,182 @@ async function layerI() {
   // fallback, and it SKIPS anyone already translated - which is what stops it
   // re-paying for the editor's work and overwriting a line the player corrected.
   {
-    const swept = await cg.generateCastDetail({
-      members: [{ id: "a", name: "A" }, { id: "b", name: "B", world_position: "already" }],
-      world: { castLife: { theirs: "x" }, castLore: { orgNoun: "y" }, scenario: "z", places: [] },
-      apiKey: "", modelId: "deepseek",
-    });
+    let swept = null, threw = null;
+    try {
+      swept = await cg.generateCastDetail({
+        members: [{ id: "a", name: "A" }, { id: "b", name: "B", world_position: "already" }],
+        world: { castLife: { theirs: "x" }, castLore: { orgNoun: "y" }, scenario: "z", places: [] },
+        apiKey: "", modelId: "deepseek",
+      });
+    } catch (e) { threw = e?.kind || "throw"; }
     check("the cast sweep asks only for members who have not been restaged yet",
-      swept.asked === 1,
+      swept?.asked === 1,
       "re-asking overwrites a line the player reviewed and charges her for it");
     check("...and a failed member leaves the run startable rather than throwing",
-      swept.failed === 1 && Object.keys(swept.detailById).length === 0,
-      "an accelerator, never a gate - character creation cannot block on a provider");
+      threw === null && swept?.failed === 1 && Object.keys(swept?.detailById || {}).length === 0,
+      threw ? "it threw " + threw : "an accelerator, never a gate - creation cannot block on a provider");
   }
 
-  // The ladder is built from the WHOLE cast and not from the members still to be
-  // asked. A member the editor already restaged is skipped by the sweep - and she
-  // is exactly the member the others must not collide with, because her position
-  // is the one the player has already read and kept.
-  check("the sweep places each member against the whole cast, not only the ones it asks for",
-    /cast: members,/.test(readFileSync(join(ROOT, "src", "agent", "cardGenerator.js"), "utf8")),
-    "laddering against `todo` would let the cast collide with the member the player kept");
+  // ---------------------------------------- ONE call places the whole cast
+  //
+  // The birth-year ladder lets each of N concurrent calls INFER what the others
+  // will avoid, and inference is not agreement: measured live, it took the
+  // collision from two of five to one of five and stopped there. Positions can
+  // only be held apart by something that sees them together, so pass 1 is ONE
+  // call carrying every member. Measured, that is a smaller bill (3.3x fewer
+  // characters sent at five members, 4.2x at nine) and a LONGER wait (5.2s
+  // against 2.2s), because one response writes five answers in series where
+  // five calls write in parallel. The round-trip count is what this counts.
+  {
+    const w = Object.values(allWorlds).map((b) => b.en).find((x) => x && x.castLore.useRole === false);
+    const cast = [
+      { id: "seulgi", name: "Seulgi", birthday: "1994-02-10", public_image: "the maknae" },
+      { id: "irene", name: "Irene", birthday: "1991-03-29", private_personality: "reserved" },
+      { id: "yeri", name: "Yeri", birthday: "1999-03-05", habit: "taps the table" },
+      { id: "wendy", name: "Wendy", birthday: "1994-02-21", world_position: "the in-house counsel" },
+    ];
+    const targets = ["irene", "seulgi", "yeri"];
+    const cp = cg.buildCastDetailPrompt(cast, w, "en", targets);
+
+    // A member the editor already restaged is asked for in NEITHER pass - that is
+    // what stops the Start boundary re-paying for her and overwriting a line the
+    // player corrected. Her position is still exactly what the new ones must not
+    // collide with, so it is printed rather than left implicit.
+    check("the whole-cast prompt lists every member, and asks for only the ones still missing",
+      cast.every((m) => cp.includes(m.name))
+        && cp.includes("already placed as: the in-house counsel")
+        && (cp.split("WRITE HER").length - 1) === targets.length
+        && !cp.includes("[3] Wendy"),
+      "a cast she is not shown is a cast she can collide with");
+
+    // KEYED BY LADDER POSITION, never by member id. A custom member's id is a
+    // timestamp, so keying on ids asks the model to echo a 13-digit number per
+    // member - a transcription task beside a writing one, and the one place a
+    // single wrong digit hands one member's profile to another.
+    check("...and names the keys it wants, which are the positions it printed",
+      cp.includes("and no others: 1, 2, 4") && cp.includes('key "1"'),
+      "a key the model has to invent is a key it can get wrong");
+
+    // THE ROUND TRIP the whole design rests on: key N must come back to ladder
+    // row N. If the two ever disagree, every member silently wears somebody
+    // else's life and nothing anywhere throws.
+    const good = cg.parseCastDetail(JSON.stringify({
+      "1": { world_position: "the eldest daughter" },
+      "2": { world_position: "the second daughter", public_image: "two\nlines" },
+      "4": { world_position: "the youngest" },
+    }), cast, targets);
+    check("a position key comes back to the member that position belongs to",
+      good.irene?.world_position === "the eldest daughter"
+        && good.seulgi?.world_position === "the second daughter"
+        && good.yeri?.world_position === "the youngest"
+        && good.seulgi?.public_image === "two lines",
+      JSON.stringify(good));
+
+    // A RETURNED KEY IS UNTRUSTED TEXT. Tolerant, then strict: a position in
+    // range, an id, or a name - and then only a member this call asked for.
+    // Anything else is dropped rather than guessed at, because pass 2 covers
+    // whoever is left, so discarding costs one small call and misattributing
+    // costs the player a member wearing another member's life.
+    const messy = cg.parseCastDetail(JSON.stringify({
+      "Yeri": { world_position: "by name" },
+      "irene": { world_position: "by id" },
+      "99": { world_position: "out of range" },
+      "3": { world_position: "a member nobody asked for" },
+      "who": { world_position: "nobody at all" },
+    }), cast, targets);
+    check("...and a key that names nobody this call asked for is dropped, not guessed at",
+      messy.yeri?.world_position === "by name"
+        && messy.irene?.world_position === "by id"
+        && messy.wendy === undefined && Object.keys(messy).length === 2,
+      JSON.stringify(messy));
+
+    // world_position is the ONE marker the narrowed §22.1 rule keys on, so a
+    // member who came back with prose and no position is NOT placed - she falls
+    // through to pass 2 instead of being left with nothing in the slot useRole
+    // emptied.
+    check("...and a member who came back without a position is not counted as placed",
+      Object.keys(cg.parseCastDetail(JSON.stringify({
+        "1": { public_image: "prose but no position" },
+        "2": { world_position: "placed" },
+      }), cast, targets)).join() === "seulgi",
+      "a partial detail renders nothing in the slot the world emptied");
+  }
+
+  // ---------------------------------------- the two passes, counted
+  //
+  // PASS 1 is one call for everyone; PASS 2 is the per-member concurrent sweep
+  // for whoever pass 1 left out. Each member therefore gets TWO chances, which
+  // is what keeps `an accelerator, never a gate` true of a provider that answers
+  // badly rather than not at all. Counted through the transport, because the
+  // number of round-trips IS the claim: one where there used to be N.
+  {
+    const w = { castLife: { theirs: "x" }, castLore: { orgNoun: "y" }, scenario: "z", places: [] };
+    const cast = [
+      { id: "a", name: "A", birthday: "1991-01-01" },
+      { id: "b", name: "B", birthday: "1994-01-01" },
+      { id: "c", name: "C", birthday: "1999-01-01" },
+    ];
+    const answer = (bodies, reply) => async (u, i) => {
+      bodies.push(JSON.parse(i.body));
+      return { ok: true, status: 200,
+        json: async () => ({ choices: [{ message: { content: reply(bodies.length) } }] }) };
+    };
+    const real = globalThis.fetch;
+
+    // A complete answer: one round-trip for the whole cast, and pass 2 never runs.
+    const whole = [];
+    globalThis.fetch = answer(whole, () => JSON.stringify({
+      "1": { world_position: "p1" }, "2": { world_position: "p2" }, "3": { world_position: "p3" },
+    }));
+    let swept;
+    try {
+      swept = await cg.generateCastDetail({ members: cast, world: w, apiKey: "k", modelId: "deepseek" });
+    } finally { globalThis.fetch = real; }
+    check("a cast of three is restaged in ONE round-trip, not three",
+      whole.length === 1 && swept?.fromCastCall === 3 && swept?.failed === 0
+        && Object.keys(swept?.detailById || {}).length === 3,
+      whole.length + " calls, " + swept?.fromCastCall + " placed by the cast call");
+
+    // A PARTIAL answer is kept and topped up rather than retried. validateContent
+    // fires bad_response when it returns false, so demanding the full set would
+    // spend two retries on a response that is mostly right and then fall back for
+    // everybody - where accepting one member costs one small call for the rest.
+    const partial = [];
+    globalThis.fetch = answer(partial, (n) => (n === 1
+      ? JSON.stringify({ "1": { world_position: "p1" } })
+      : JSON.stringify({ world_position: "fallback" })));
+    let topped;
+    try {
+      topped = await cg.generateCastDetail({ members: cast, world: w, apiKey: "k", modelId: "deepseek" });
+    } finally { globalThis.fetch = real; }
+    check("...and a member the one call omitted is picked up by the per-member pass",
+      partial.length === 3 && topped?.fromCastCall === 1 && topped?.failed === 0
+        && topped?.detailById.b?.world_position === "fallback"
+        && topped?.detailById.a?.world_position === "p1",
+      partial.length + " calls for a response covering one of three");
+
+    // ...and the fallback is told what pass 1 already took. Without this the
+    // member being re-asked guesses against a board she cannot see, which is the
+    // collision coming back through the second pass.
+    check("...and that pass is told which positions the first one already took",
+      partial.slice(1).every((b) => b.messages.at(-1).content.includes("already placed as: p1")),
+      "a fallback that cannot see pass 1's answers re-opens the collision");
+
+    // BOTH passes dead is the state §22.1's narrowed interim rule still covers:
+    // the member keeps her own idol prose and the run starts. An accelerator,
+    // never a gate - character creation cannot block on a provider.
+    let dead = null, deadThrew = null;
+    try {
+      dead = await cg.generateCastDetail({
+        members: cast, world: w, apiKey: "", modelId: "deepseek",
+      });
+    } catch (e) { deadThrew = e?.kind || "throw"; }
+    check("...and a provider that answers neither pass leaves the run startable",
+      deadThrew === null && dead?.asked === 3 && dead?.failed === 3 && dead?.castCall === "auth"
+        && Object.keys(dead?.detailById || {}).length === 0,
+      deadThrew ? "it threw " + deadThrew
+        : JSON.stringify({ asked: dead?.asked, failed: dead?.failed, castCall: dead?.castCall }));
+  }
 
   check("the generator asks for no field that reaches no prompt",
     !cg.CARD_FIELDS.includes("mbti") && !cg.CARD_FIELDS.includes("role")
@@ -8696,6 +8877,18 @@ async function layerL() {
   // different quantity under the same name - which is the [Stage Changes] defect,
   // two labels for one scale. A sentence built on 舞台 twice is worse than one that
   // mentions it once, and the count has to say so.
+  // NARROWED ON A MEASUREMENT, not on a preference. Bare 门面 is an ordinary
+  // Chinese noun - a shopfront, a family's public face - and the first live run of
+  // the whole-cast call flagged 像家族门面一样滴水不漏 as an idol fact, which is good
+  // prose. Measured over the zh library before narrowing it: 门面 occurs ONCE, as
+  // 门面主唱, which 主唱 catches anyway - so this cost 1 raw instance of 155 and 0
+  // of 57 members. A grader that cries wolf is the one that gets tuned away.
+  check("the scan reads 门面担当 as a group position and 家族门面 as an ordinary noun",
+    g.scanIdolWords({ ...clean, public_image: "充满生命力的门面担当" }, RF).length === 1
+      && g.scanIdolWords({ ...clean, public_image: "像家族门面一样滴水不漏" }, RF).length === 0
+      && g.scanIdolWords({ ...clean, public_image: "公认的门面主唱" }, RF).length === 1,
+    "the one library instance is 门面主唱, still caught through 主唱");
+
   const twice = g.scanIdolWords(
     { ...clean, public_image: "舞台上很亮，下了舞台却很安静" }, RF);
   check("every occurrence is counted, not only the first in a field",

@@ -260,10 +260,79 @@ export function seniorityLadder(cast = []) {
     || (a.year - b.year) || (a.i - b.i));
 }
 
+// THE RESTAGING LAW, and the five-field schema, written ONCE and rendered by both
+// prompts. The whole-cast call and the single-member fallback forbid the same list
+// because they are one rule - and two copies of one rule is what extractStoryText
+// is this repo's standing warning about, where the copies drifted and the guard
+// had been written against the one that was still correct.
+function restageLaw(lang) {
+  return `KEEP WHO SHE IS AND CHANGE ONLY THE CIRCUMSTANCES. Her temperament, what she shows
+and what she hides, how she behaves while she is watched - all of that survives.
+What must go is every fact that only holds for a performing idol: no stage, no
+debut, no comeback, no fandom, no album, no variety show, and no rank in a
+performing group such as leader, main vocal, visual or maknae. Restage each trait inside
+the setting above instead.
+
+Do not invent a real company, school or family name. Do not contradict the opening
+scene. Write every field in ${lang} and add no field that is not listed.`;
+}
+
+const DETAIL_SCHEMA = `{
+  "world_position": "what she does in THIS setting - a short noun phrase, the way a role in a group would be written, e.g. a position, a year, a job",
+  "public_image": "the persona the people around her see, 1-2 sentences",
+  "queer_texture": "how attraction to a woman surfaces in her specifically, 1-2 sentences",
+  "speech_style": "how she talks - register, rhythm, verbal tics, 1 sentence",
+  "hidden_conflict": "the tension she carries and hides, 1 sentence"
+}`;
+
+// NO NEW WORLD FIELD, which is why §4.5's `world.setting` is still not shipped: the
+// world already answers what a restaging wants, and because these are the same
+// fields the ROLE CONTRACT and section 11 render, the generated detail cannot
+// contradict the rest of the prompt.
+function settingBlock(world) {
+  const places = (world?.places || []).slice(0, 6).map((pl) => pl.name).filter(Boolean).join(", ");
+  return `THE SETTING
+- What these people do all day: ${world?.castLife?.theirs || ""}
+- The kind of organisation they belong to: ${world?.castLore?.orgNoun || ""}
+- Where the story opens: ${world?.scenario || ""}
+- Places that exist in it: ${places}`;
+}
+
+// Her existing lines go in as the SOURCE, not as an example: a restaging with
+// nothing to restage invents a stranger.
+function sourceLines(member) {
+  const was = (label, v) => (String(v || "").trim() ? `- ${label}: ${v}` : null);
+  return [was("Private personality", member?.private_personality),
+    was("Public image", member?.public_image),
+    was("Queer texture", member?.queer_texture),
+    was("Speech style", member?.speech_style),
+    was("Hidden conflict", member?.hidden_conflict),
+    was("Habit", member?.habit)].filter(Boolean).join("\n");
+}
+
+// ONE renderer for the ladder rows, so the whole-cast prompt and the single-member
+// one cannot come to disagree about what the order is, or about how a position that
+// is already taken reads. A member the editor already restaged is never a target,
+// and her position is exactly the one the others must not collide with - so it is
+// printed rather than left implicit.
+function ladderRows(ladder, byId, isTarget, keyed) {
+  return ladder.map((r, i) => {
+    const year = r.year ? ` (b.${r.year})` : "";
+    if (isTarget(r.id)) {
+      const mark = keyed ? `WRITE HER, key "${i + 1}"` : "the one you are writing";
+      return `${i + 1}. ${r.name}${year}  <- ${mark}`;
+    }
+    const taken = String(byId.get(String(r.id))?.world_position || "").trim();
+    return `${i + 1}. ${r.name}${year}${taken ? `  <- already placed as: ${taken}. Do not reuse her position.` : ""}`;
+  }).join("\n");
+}
+
+function castById(members) {
+  return new Map((members || []).filter((m) => m && m.id != null).map((m) => [String(m.id), m]));
+}
+
 export function buildWorldDetailPrompt(member, world, language = "zh", cast = []) {
   const lang = LANGUAGE_NAME[language] || LANGUAGE_NAME.zh;
-  const places = (world?.places || []).slice(0, 6).map((pl) => pl.name).filter(Boolean).join(", ");
-  const was = (label, v) => (String(v || "").trim() ? `- ${label}: ${v}` : null);
   // THE CAST BLOCK, and it is the fix for a defect only a live read found: five
   // members restaged CONCURRENTLY from five prompts that each showed one member
   // produced two second daughters of one family, and a hierarchy nobody assigned.
@@ -271,12 +340,18 @@ export function buildWorldDetailPrompt(member, world, language = "zh", cast = []
   // several, so there was no rule it could apply. Carry the fact, state the rule,
   // and point the rule at the fact: the shape [KKT Channels] and [Rounds Absent]
   // already use one layer down.
+  //
+  // It REDUCES the collision and cannot close it, which is why buildCastDetailPrompt
+  // exists. This prompt is now the FALLBACK path: the member nobody placed in the
+  // one whole-cast call, and the editor's single-member restaging, which runs from a
+  // screen where the roster may not exist yet.
   const ladder = seniorityLadder(cast);
   const meIdx = ladder.findIndex((r) => (member?.id && r.id === member.id) || r.name === member?.name);
+  const meId = meIdx === -1 ? null : String(ladder[meIdx].id);
   const castBlock = ladder.length > 1 && meIdx !== -1 ? `
 
 THE REST OF THE CAST, oldest first. She is ONE OF THESE PEOPLE, not the only one:
-${ladder.map((r, i) => `${i + 1}. ${r.name}${r.year ? ` (b.${r.year})` : ""}${i === meIdx ? "  <- the one you are writing" : ""}`).join(String.fromCharCode(10))}
+${ladderRows(ladder, castById(cast), (id) => String(id) === meId, false)}
 
 Her position must be DISTINCT from every other member's - two of them holding the
 same place in the same organisation is the one thing that cannot be true of this
@@ -285,54 +360,140 @@ not the junior of a younger one. Write only her; the others are named so that yo
 do not collide with them.` : "";
   return `You are restaging one cast member of a dating sim into a different setting.
 
-THE SETTING
-- What these people do all day: ${world?.castLife?.theirs || ""}
-- The kind of organisation they belong to: ${world?.castLore?.orgNoun || ""}
-- Where the story opens: ${world?.scenario || ""}
-- Places that exist in it: ${places}${castBlock}
+${settingBlock(world)}${castBlock}
 
 HER, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
 - Name: ${member?.name || ""}
-${[was("Private personality", member?.private_personality),
-  was("Public image", member?.public_image),
-  was("Queer texture", member?.queer_texture),
-  was("Speech style", member?.speech_style),
-  was("Hidden conflict", member?.hidden_conflict),
-  was("Habit", member?.habit)].filter(Boolean).join("\n")}
+${sourceLines(member)}
 
-KEEP WHO SHE IS AND CHANGE ONLY THE CIRCUMSTANCES. Her temperament, what she shows
-and what she hides, how she behaves while she is watched - all of that survives.
-What must go is every fact that only holds for a performing idol: no stage, no
-debut, no comeback, no fandom, no album, no variety show, and no rank in a
-performing group such as leader, main vocal or maknae. Restage each trait inside
-the setting above instead.
-
-Do not invent a real company, school or family name. Do not contradict the opening
-scene. Write every field in ${lang} and add no field that is not listed.
+${restageLaw(lang)}
 
 Output ONLY valid JSON, no markdown fences, with exactly these keys:
 
-{
-  "world_position": "what she does in THIS setting - a short noun phrase, the way a role in a group would be written, e.g. a position, a year, a job",
-  "public_image": "the persona the people around her see, 1-2 sentences",
-  "queer_texture": "how attraction to a woman surfaces in her specifically, 1-2 sentences",
-  "speech_style": "how she talks - register, rhythm, verbal tics, 1 sentence",
-  "hidden_conflict": "the tension she carries and hides, 1 sentence"
-}`;
+${DETAIL_SCHEMA}`;
 }
 
-/** Pull a world-detail object out of whatever the model returned. */
-export function parseWorldDetail(text) {
-  const obj = parseJsonish(text);
-  if (!obj) return {};
+/**
+ * ONE call that places the WHOLE cast.
+ *
+ * The birth-year ladder lets each of N concurrent calls INFER what the others will
+ * avoid, and inference is not agreement - measured, it took the collision from two
+ * of five to one of five and could not close it. Only a call that sees every member
+ * at once can hold their positions apart, because they are then in one context, next
+ * to each other.
+ *
+ * It costs LESS TO SEND and MORE TO WAIT FOR, and both halves are measured. The
+ * setting, the ladder and the law go once instead of N times: 3,741 characters for
+ * five members against 12,179 for five separate prompts, and 4.2x at nine. But the
+ * five answers are written one after another inside ONE response where N calls
+ * write in parallel, so the wall clock went the other way - 5.2s against 2.2s for
+ * the same cast, back to back on deepseek-flash. It scales the wrong way with cast
+ * size, and that is the price of the only thing that can hold the positions apart.
+ *
+ * KEYED BY LADDER POSITION, never by member id. A custom member's id is a timestamp,
+ * so keying on ids asks the model to echo a 13-digit number per member - a
+ * transcription task beside a writing one, and the one place a single wrong digit
+ * silently hands one member's profile to another. The numbers are already printed.
+ */
+export function buildCastDetailPrompt(members = [], world, language = "zh", targetIds = null) {
+  const lang = LANGUAGE_NAME[language] || LANGUAGE_NAME.zh;
+  const ladder = seniorityLadder(members);
+  const byId = castById(members);
+  const wanted = new Set((targetIds
+    ? targetIds
+    : ladder.filter((r) => !isUsableDetail(byId.get(String(r.id)))).map((r) => r.id)
+  ).map(String));
+  const isTarget = (id) => wanted.has(String(id));
+  const keys = ladder.map((r, i) => (isTarget(r.id) ? String(i + 1) : null)).filter(Boolean);
+  const blocks = ladder
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => isTarget(r.id))
+    .map(({ r, i }) => `[${i + 1}] ${r.name}\n${sourceLines(byId.get(String(r.id)) || {})}`)
+    .join("\n\n");
+
+  return `You are restaging the cast of a dating sim into a different setting.
+
+${settingBlock(world)}
+
+THE WHOLE CAST, oldest first. The number in front of a member is her key in your answer:
+${ladderRows(ladder, byId, isTarget, true)}
+
+EVERY POSITION YOU WRITE MUST BE DIFFERENT from every other position in that list,
+including the ones already placed - two of them holding the same place in the same
+organisation is the one thing that cannot be true of this list - and they must sit
+consistently on the order above, where an older member is not the junior of a
+younger one.
+
+EACH MEMBER YOU ARE WRITING, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
+
+${blocks}
+
+${restageLaw(lang)}
+
+Output ONLY valid JSON, no markdown fences. The top level is an object whose keys are
+exactly these numbers and no others: ${keys.join(", ")}. Each value is an object with
+exactly these keys:
+
+${DETAIL_SCHEMA}`;
+}
+
+/**
+ * The per-field normalisation a detail gets, written once for both parsers.
+ *
+ * One line per field: the profile block renders each as one line, and a newline
+ * inside would break the line-per-field shape the prompt relies on.
+ */
+function normalizeDetail(obj) {
   const out = {};
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return out;
   for (const f of WORLD_FIELDS) {
     const v = obj[f];
     if (v === undefined || v === null) continue;
     const str = String(v).trim();
-    // One line per field: the profile block renders each as one line, and a
-    // newline inside would break the line-per-field shape the prompt relies on.
     if (str) out[f] = str.replace(/\s*[\r\n]+\s*/g, " ");
+  }
+  return out;
+}
+
+/** Pull a world-detail object out of whatever the model returned. */
+export function parseWorldDetail(text) {
+  return normalizeDetail(parseJsonish(text));
+}
+
+/**
+ * Pull a whole cast's details out of one response, keyed back onto member ids.
+ *
+ * A RETURNED KEY IS UNTRUSTED TEXT, so resolution is tolerant and then strict: a key
+ * counts if it is a ladder position in range, a member id, or a member name - and
+ * then only if it names a member this call actually asked for. Anything else is
+ * DROPPED rather than guessed at, because the per-member pass covers whoever is left,
+ * so discarding costs one small call and misattributing costs the player a member
+ * wearing somebody else's life.
+ */
+export function parseCastDetail(text, members = [], targetIds = null) {
+  const obj = parseJsonish(text);
+  if (!obj) return {};
+  const ladder = seniorityLadder(members);
+  const allowed = new Set((targetIds ? targetIds : ladder.map((r) => r.id)).map(String));
+  const byRawId = new Map(ladder.map((r) => [String(r.id), r.id]));
+  const byName = new Map();
+  for (const r of ladder) {
+    const k = String(r.name || "").trim().toLowerCase();
+    if (k && !byName.has(k)) byName.set(k, r.id);
+  }
+
+  const out = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const k = String(key).trim();
+    let id;
+    // Position first: the numbers are what the prompt asked for, and a member id
+    // that is all digits is a custom member's timestamp, never a small integer.
+    if (/^\d+$/.test(k) && Number(k) >= 1 && Number(k) <= ladder.length) id = ladder[Number(k) - 1].id;
+    if (id === undefined && byRawId.has(k)) id = byRawId.get(k);
+    if (id === undefined) id = byName.get(k.toLowerCase());
+    if (id === undefined || !allowed.has(String(id)) || out[id] !== undefined) continue;
+    const detail = normalizeDetail(value);
+    if (isUsableDetail(detail)) out[id] = detail;
   }
   return out;
 }
@@ -382,40 +543,77 @@ export async function generateWorldDetail({
 }
 
 /**
- * Restage a whole cast, concurrently, and never fail the run.
+ * Restage a whole cast in TWO passes, and never fail the run.
  *
- * CONCURRENT because the wait is what decision A costs the player: run in series,
- * nine members is nine round-trips in front of a Start button; run together, it is
- * roughly one. PER-MEMBER FALLBACK because a dead provider must not block character
- * creation - a member who fails is simply absent from the map, which is exactly the
- * state §22.1's narrowed rule still covers.
+ * PASS 1 is one call carrying every member, because distinctness is the one property
+ * N independent calls cannot promise however well each one is briefed - the ladder
+ * took the measured collision from two of five to one of five and stopped there.
+ * Positions can only be held apart by something that sees them together.
  *
- * Members who ALREADY carry a detail are skipped, so the Start-boundary sweep does
- * not re-pay for anyone the editor already generated - and so it cannot overwrite a
- * line the player reviewed and corrected.
+ * PASS 2 is the per-member concurrent sweep, for whoever pass 1 left out: a member it
+ * skipped, a member whose object carried no `world_position`, or everyone if the call
+ * failed outright. So each member gets TWO chances rather than one, and a provider
+ * that dies halfway costs the run nothing it did not already cost - an accelerator,
+ * never a gate.
+ *
+ * The common case is one round-trip where it used to be N. That is a smaller bill
+ * and a LONGER wait - see the measurement above; it is a deliberate trade of a few
+ * seconds at a one-time setup boundary for a cast that can all be true at once.
+ *
+ * Members who ALREADY carry a detail are asked for in neither pass, so the Start
+ * boundary does not re-pay for anyone the editor generated - and cannot overwrite a
+ * line the player reviewed and corrected. They are still printed in the ladder, as
+ * positions that are taken.
  */
 export async function generateCastDetail({
   members = [], world, language = "zh", apiKey, modelId = "deepseek",
   aliyun = null, onProgress = null,
 } = {}) {
   const todo = members.filter((m) => m?.name && !isUsableDetail(m));
-  let done = 0;
-  const results = await Promise.all(todo.map(async (m) => {
-    // Every call gets the WHOLE cast, so each one knows the others exist and where
-    // she sits among them. Concurrency survives because the ladder is derived from
-    // data fixed at setup rather than from what another call happened to return - a
-    // sweep that waited to read its own output would be N round-trips in front of a
-    // Start button, which is the cost decision A was taken to avoid.
+  if (!todo.length || !world) {
+    return { detailById: {}, asked: 0, failed: 0, fromCastCall: 0, castCall: "skipped" };
+  }
+  const targetIds = todo.map((m) => m.id);
+
+  // ---- pass 1: one call for all of them ------------------------------------
+  const detailById = {};
+  let castCall = "ok";
+  try {
+    const prompt = buildCastDetailPrompt(members, world, language, targetIds);
+    // AT LEAST ONE member, not all of them. validateContent fires bad_response and
+    // retries when it returns false, so demanding the full set would spend two
+    // retries on a response that is mostly right and then fall back for everybody.
+    // At one, a response covering four of five is kept and the fifth costs one call.
+    const usable = (content) => {
+      try { return Object.keys(parseCastDetail(content, members, targetIds)).length > 0; }
+      catch { return false; }
+    };
+    const raw = await callLLM(prompt, [], "", apiKey, modelId, null, false, aliyun, usable);
+    Object.assign(detailById, parseCastDetail(raw, members, targetIds));
+    if (!Object.keys(detailById).length) castCall = "empty";
+  } catch (e) {
+    console.error("[castDetail] whole-cast call failed:", e?.kind || "unknown", e?.message || e);
+    castCall = e?.kind || "unknown";
+  }
+  const fromCastCall = Object.keys(detailById).length;
+  let done = fromCastCall;
+  onProgress?.(done, todo.length);
+
+  // ---- pass 2: whoever pass 1 did not place --------------------------------
+  // The cast handed to the fallback carries pass 1's positions, so the member being
+  // re-asked is told which places are already taken rather than guessing again.
+  const placed = members.map((m) => (detailById[m.id] ? { ...m, ...detailById[m.id] } : m));
+  const missing = todo.filter((m) => !detailById[m.id]);
+  const results = await Promise.all(missing.map(async (m) => {
     const res = await generateWorldDetail({
-      member: m, world, language, apiKey, modelId, aliyun, cast: members,
+      member: m, world, language, apiKey, modelId, aliyun, cast: placed,
     });
     onProgress?.(++done, todo.length);
     return [m.id, res];
   }));
-  const detailById = {};
   let failed = 0;
   for (const [id, res] of results) {
     if (res.ok) detailById[id] = res.detail; else failed += 1;
   }
-  return { detailById, asked: todo.length, failed };
+  return { detailById, asked: todo.length, failed, fromCastCall, castCall };
 }

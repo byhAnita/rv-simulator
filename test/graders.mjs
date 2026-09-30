@@ -324,7 +324,12 @@ const REAL_AGENCIES = ["YG", "SM", "JYP", "HYBE", "ADOR", "Starship", "Pledis",
 // stage"; a ko one has the same problem with 무대. A grader that cries wolf gets
 // tuned away, which is this repo's standing rule about metrics.
 export const IDOL_WORDS_ZH = [
-  "忙内", "队长", "主唱", "门面", "rapper",
+  // 门面担当, not bare 门面: the bare word is an ordinary Chinese noun (a shopfront,
+  // a family's public face) and flagged 像家族门面一样滴水不漏 in a live chaebol run.
+  // Measured over the zh library before narrowing it: 门面 occurs once, as 门面主唱,
+  // which 主唱 catches anyway - so this costs 1 raw instance of 155 and 0 of 57
+  // members. A grader that cries wolf is the one that gets tuned away.
+  "忙内", "队长", "主唱", "门面担当", "rapper",
   "出道", "打歌", "回归", "专辑", "舞台",
   "练习生", "粉丝", "偶像", "女团", "组合", "综艺",
 ];

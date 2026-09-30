@@ -2010,18 +2010,135 @@ the collision went from two of five to **one** of five: Joy, fourth on the ladde
 claimed `本家次女`. **Independent sampling cannot guarantee distinctness** - the ladder lets
 a call infer what the others will avoid, and inference is not agreement.
 
-**What would close it is ONE call for the whole cast**, with the per-member concurrent
-path kept as the fallback for whoever is missing from a partial or failed response. That
-is strictly cheaper than today (one round-trip instead of N, so a shorter wait, not a
-longer one) and keeps *an accelerator, never a gate* by giving each member two chances
-rather than one. It is **not done here**: it changes the shape of decision A, and it
-wants its own measurement rather than riding along with the instrument that found the
-defect.
+**What closes it is ONE call for the whole cast, and it is SHIPPED** - in its own commit,
+with its own measurement, rather than riding along with the instrument that found the
+defect. One part of the reasoning above did not survive that measurement: *one
+round-trip instead of N* is a smaller bill and a **longer** wait, not a shorter one.
+Keeping the per-member path as the fallback does give each member two chances rather
+than one, which is *an accelerator, never a gate* holding. See *One call places the
+whole cast*, below.
 
 **The grader for this is the one an assertion cannot write.** The idol-word scan measures
 the half that is a word list; *are these five people one plausible family* is a reading,
 and reading the five positions is a ten-second act that a green row actively discourages.
 **A run is not validated by its verdict line.**
+
+---
+
+### One call places the whole cast, and the per-member sweep catches what it drops
+
+**A ladder lets a call INFER what the others will avoid. Only one call can AGREE.**
+That is the whole distinction, and it is why the birth-year ladder reduced the
+collision two-of-five to one-of-five and could not close it: five independent samples
+from five prompts are five independent samples however well each one is briefed.
+`generateCastDetail` now makes **one call carrying the whole cast** and asks for every
+member in a single response, where distinctness is something the model can actually
+hold - the positions are in one context, next to each other.
+
+**It costs LESS TO SEND and MORE TO WAIT FOR, and I got that backwards before
+measuring it.** The setting, the ladder and the restaging law go once instead of N
+times - **3,741 characters for a five-member cast against 12,179** for five separate
+prompts, and **4.2x** at nine. But the five answers are written one after another
+inside a single response, where N calls write in parallel, so the wall clock moved
+the other way: **5.2s against 2.2s**, same cast, same world, same model, back to
+back (n=1 each, `deepseek-flash`). It scales the wrong way with cast size.
+
+**So this is a trade, not a free win, and decision A's cost argument is the thing it
+trades against.** A few seconds at a one-time boundary, in front of a Start button
+that already shows a restaging toast, against a cast whose members can all be true
+at once. That is the right way round for a fact the player then lives with for the
+whole run - but it is **Yuhan's to overrule**, because the wait is the half only a
+phone shows honestly.
+
+**The per-member path is KEPT, as the second pass.** Whoever is missing from the
+response - a member the model skipped, a member whose object carried no
+`world_position`, or every member if the call failed outright - is swept concurrently
+exactly as before. So each member gets **two** chances rather than one, and *an
+accelerator, never a gate* survives a provider that dies halfway: a member who fails
+both passes is simply absent from the map, which is the state §22.1's narrowed rule
+still covers.
+
+**The response is keyed by LADDER POSITION, not by member id, and that is not
+cosmetic.** A custom member's id is `Date.now()`, so keying on ids asks the model to
+echo a 13-digit number back per member - a transcription task next to a writing task,
+and the one place a single wrong digit silently reassigns a member's whole profile to
+someone else. The ladder numbers them 1..N and the numbers are already printed in the
+prompt, so the key is something the model reads rather than copies.
+
+**A returned key is untrusted text, so resolution is tolerant and then strict.** A key
+resolves if it is a position in range, a member id, or a member name - and then only
+to a member the call actually asked for. A key that resolves to nobody, or to a member
+who was not a target, is dropped rather than guessed at: the fallback pass covers
+whoever is left, so discarding is cheap and misattributing is not.
+
+**The validator accepts a PARTIAL response rather than retrying it.** `callLLM`'s
+`validateContent` callback fires `bad_response` and retries when it returns false, so
+the bar is *at least one member parsed*, not *all of them*. Demanding all would spend
+two retries on a response that is mostly right and then fall back for everyone; at one,
+a response covering four of five members is kept and the fifth costs one small call.
+
+**Members the editor already restaged appear in the ladder as TAKEN, not as targets.**
+They are skipped by the sweep - that is what stops it re-paying for the editor's work
+and overwriting a line the player corrected - but their positions are exactly what the
+new ones must not collide with, so the prompt prints each one and says so.
+
+**The two prompts share their rules rather than carrying a copy each.** The restaging
+law (keep the trait, drop every idol fact, do not invent a real organisation) and the
+five-field schema are single constants that both the whole-cast prompt and the
+single-member one render. `extractStoryText` is this repo's standing warning about the
+alternative: two copies drifted, and the guard had been written against the one that
+was still correct. The guard here **counts the call sites**.
+
+**MEASURED LIVE, twice, same command as the run that found the defect** (`--world
+chaebol --identity rival_heiress --lang zh --rounds 4`, `deepseek-flash`): **5 of 5
+members placed by the one call**, both times, so the per-member pass never ran at
+all. 0 byte-identical collisions, 4/4 clean rounds, 0 static-prompt drifts, 0 ledger
+prefix breaks, 89.7-91.7% cache.
+
+**And reading the five, which is the half that matters:** `会长长女` / `副会长次女` /
+`首席运营官` / `影视公司创意总监` / `最年轻的董事`. Five distinct posts, ordered on the
+ladder - and the two daughters are told apart by **whose** they are, which is the
+exact thing two independent calls could not do. The cast that produced `本家次女`
+beside `次女` is gone.
+
+**It is evidence and not proof, and the failure profile is why.** Three whole-cast
+runs, fifteen members, no collision - against a defect that is *universal and
+intermittent*, where no amount of clean play establishes that a path is clean. The
+controlled probe makes the point against itself: run back to back on one cast, the
+**per-member ladder path also came back with five coherent positions that time**. One
+call is the better mechanism because the positions are in one context together, not
+because three runs came out right.
+
+#### Run 1 found two more, and only one of them was the model's
+
+The first live run flagged **2 idol-word instances** where the previous runs had zero,
+and they are not the same kind of thing - the ninth and tenth time in this project that
+a live flag turned out to be a hypothesis about the grader first:
+
+- **Joy came back as `充满生命力的门面担当`**, the K-pop term verbatim, in a family compound.
+  **Real, and the cause is an enumeration.** The restaging law forbade *"no rank in a
+  performing group such as leader, main vocal or maknae"* - and the **visual** is not on
+  that list. *When a contract enumerates, the model treats what it omits as
+  unconstrained*, which this file records as a lesson and then paid for again. Both the
+  generator's law and §22.1's interim rule now name it, because they are one list; the
+  three non-idol goldens moved by that one word and the diff was read.
+- **Irene came back as `像家族门面一样滞水不漏`**, which is good prose. `门面` on its own is an
+  ordinary Chinese noun - a shopfront, a family's public face - and the scan was reading
+  it as a group position. **Narrowed to `门面担当` on a measurement, not a preference:
+  across the zh library `门面` occurs exactly ONCE, as `门面主唱`, which `主唱` catches
+  anyway** - so the narrowing costs 1 raw instance of 155 and **0 of 57 members**, and
+  §22.1's measurement is unmoved. A grader that cries wolf is the one that gets tuned
+  away.
+
+**Run 2, after both fixes: 0 idol-word instances and 0 collisions.**
+
+**The collision grader is exact-match and therefore UNDERCOUNTS, which it says.** Two
+members holding the byte-identical `二小姐` is something an assertion can see; `本家次女`
+beside `次女` is the same family position in two spellings and no string comparison
+reaches it. So the harness reports the exact duplicates **and prints every position**,
+because the half that matters is still a reading - *are these people one plausible
+family* - and a green row is what discourages taking it. **A run is not validated by
+its verdict line.**
 
 ---
 
@@ -3330,10 +3447,23 @@ cache, **0 static-prompt drifts**, 0 ledger prefix breaks. The pipeline runs and
 closed in live prose.
 
 **And reading the output found a defect the row cannot show: five independent restagings
-produced two second daughters of one family.** Fixed to one of five by giving every call
-the cast's birth-year ladder; **not closed**, because independent sampling cannot
-guarantee distinctness. See *Five independent restagings produce two second daughters*
-for the remaining fix and why it was not taken in the same batch.
+produced two second daughters of one family.** The birth-year ladder took it from two of
+five to one of five and could not close it - independent sampling cannot guarantee
+distinctness. See *Five independent restagings produce two second daughters*.
+
+**§22.2's remaining fix is DONE, 2026-09-30: one call places the whole cast**, with the
+per-member sweep kept as the second pass for whoever it leaves out. Two more live runs
+on the same command: **5/5 placed by the one call both times, 0 collisions, 0 idol-word
+instances after the two fixes run 1 found, 4/4 clean, 0 drifts.** See *One call places
+the whole cast*.
+
+**The one number that came out against expectation, and it is Yuhan's to weigh: the
+Start wait went UP.** Measured back to back on one cast - one whole-cast call **5.2s**
+against five concurrent per-member calls **2.2s** - because one response writes five
+answers in series where five calls write in parallel, and it scales the wrong way with
+cast size. What went down is what is *sent*: 3.3x fewer characters at five members,
+4.2x at nine. The trade is a few seconds at a one-time boundary for a cast that can all
+be true at once, and **the phone pass is where that wait is judged honestly.**
 
 **What the offline probe DID establish, because it is measurement and not reasoning:** a
 chaebol prompt built from a fully restaged cast carries **none** of 忙内 / 队长 / 出道 and
