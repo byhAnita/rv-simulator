@@ -46,7 +46,10 @@ export default function MemberPicker({
   const fs = (px) => scaleFont(px, fontScale);
   const c = t?.cast || {};
 
-  const [tab, setTab] = useState(() => groups[0]?.id || CUSTOM_TAB);
+  // The CUSTOM tab opens first and SITS first, which is the whole point of this
+  // door: a player who came through it came to use her own members, and the tab
+  // she wants was the last of ten behind a horizontal scroll.
+  const [tab, setTab] = useState(CUSTOM_TAB);
 
   // The parent owns the group cache: it needs the same data to name a picked
   // member who is not on the visible tab, and a cache in here would be thrown
@@ -56,8 +59,8 @@ export default function MemberPicker({
   }, [tab, configs, onNeedGroup]);
 
   const tabs = useMemo(() => [
-    ...groups.map((g) => ({ id: g.id, label: g.name, emoji: g.emoji })),
     { id: CUSTOM_TAB, label: c.myCast || "", emoji: "✨" },
+    ...groups.map((g) => ({ id: g.id, label: g.name, emoji: g.emoji })),
   ], [groups, c.myCast]);
 
   const members = tab === CUSTOM_TAB

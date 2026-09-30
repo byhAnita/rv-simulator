@@ -572,12 +572,12 @@ export default function RosterBuilder({
         <div style={{ padding: "10px 13px 13px", borderTop: `1px solid ${k.border}`, flexShrink: 0, display: "flex", gap: 7 }}>
           <button onClick={() => { if (!canStart) { notify?.(c.needMain, "error"); return; } setCastLabel(nameOf(mainPick.id)); }}
             disabled={!canStart}
-            style={{ padding: "12px 13px", minHeight: 44, borderRadius: 40, border: `1px solid ${k.border}`, background: "transparent", color: canStart ? k.textDim : k.textFaint, fontSize: fs(11.5), cursor: canStart ? "pointer" : "default" }}>
+            style={{ flex: 1, padding: 12, minHeight: 44, borderRadius: 40, border: `1px solid ${k.border}`, background: "transparent", color: canStart ? k.textDim : k.textFaint, fontSize: fs(11.5), cursor: canStart ? "pointer" : "default" }}>
             {c.saveRoster}
           </button>
           <button onClick={() => onStart?.(buildRoster())} disabled={!canStart}
             style={{ flex: 1, padding: 12, minHeight: 44, borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? k.accentGrad : (isLight ? "rgba(100,65,20,.15)" : "rgba(255,255,255,.08)"), color: canStart ? k.onAccent : k.textFaint, fontSize: fs(12.5), fontWeight: 700 }}>
-            {canStart ? `${c.nextStep} →` : c.needMain}
+            {canStart ? c.startWith(nameOf(mainPick.id)) : c.needMain}
           </button>
         </div>
       </div>

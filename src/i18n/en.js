@@ -134,7 +134,11 @@ const en = {
     savedRosters: "Saved rosters",
     start: "Start",
     needMain: "Pick a main member first",
-    nextStep: "Next: your character",
+    // ONE definition, two call sites: the cast picker and the classic Setup
+    // page. Particle-free by construction in ko - the word in front of a Korean
+    // particle is a variable here, which is the whole reason resolveKoreanParticles
+    // exists, and a button label is the wrong place to resolve one.
+    startWith: (name) => `Start with ${name}`,
     castCount: (n, max) => `${n} / ${max}`,
     pickFor: {
       main: "Choose a main member",
@@ -153,8 +157,6 @@ const en = {
     classicDesc: "Pick a group and play",
     customTitle: "✨ Custom cast",
     customDesc: "Any members, any mix",
-    changeCast: "Change cast",
-    castLabel: "Cast",
     roles: { main: "Main", sub: "Sub", npc: "NPC" },
     roleHints: {
       main: "the core romance line — exactly one",

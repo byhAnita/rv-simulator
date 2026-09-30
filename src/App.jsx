@@ -588,27 +588,13 @@ export default function App() {
     }).catch(console.error);
   }, [selectedGroup, language, pendingRoster, world]);
 
-  // The custom door, resolved once so Setup sees exactly the `members` shape the
-  // classic door gets from a group load. Deriving form.mainMember/subMembers from
-  // the roster's own slots is what lets everything downstream — mainMember,
-  // allTargetMembers, createInitialStats, the stats bar — stay untouched: they
-  // read the form, and the form now agrees with the builder.
-  useEffect(() => {
-    if (!pendingRoster || phaseRef.current === "game" || !world) return;
-    resolveRoster(pendingRoster, language, world).then(r => {
-      setGroupConfig(r.groupConfig);
-      setMembers(r.members);
-      setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
-    }).catch(e => {
-      // A roster that cannot be resolved must say so rather than fall back to a
-      // default cast — the v1.3.5 lesson, where loadGroupIndex's catch returning
-      // a hardcoded Red Velvet entry hid a path bug for a whole release.
-      console.error("roster resolve failed:", e);
-      setPendingRoster(null);
-      setPhase("cover");
-      showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
-    });
-  }, [pendingRoster, language, world]);
+  // The effect that used to resolve `pendingRoster` here is GONE, and it is gone
+  // rather than left with nothing to fire on. It existed so the page BETWEEN the
+  // cast picker and the game could read `members`, `groupConfig` and
+  // `form.mainMember` before anything downstream did - and docs/V140_PLAN.md 22.6.2
+  // deletes that page, so the resolve moved into `startNewGame`, which is the only
+  // caller that ever needed it. An effect with no reachable trigger is the shape
+  // this file already tracks seven instances of.
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -834,11 +820,47 @@ export default function App() {
     preRoundSnapshotRef.current = null;
   };
 
-  const startNewGame = async () => {
+  // `overrideRoster` is the custom door's cast, handed straight in by the picker's
+  // own Start button (docs/V140_PLAN.md 22.6.2). Start used to live one page later,
+  // and that page existed so an effect could resolve the roster into `members`,
+  // `groupConfig` and `form.mainMember` before anything read them. With the page
+  // gone the resolve happens here - and it happens BEFORE any setter runs, because
+  // it fetches and can therefore fail. A half-applied start would leave the player
+  // in a game assembled out of nothing, which is the rule `loadSave` already
+  // follows for exactly this reason.
+  const startNewGame = async (overrideRoster = null) => {
     if (!apiKey?.trim()) { showNotif("Please set API Key", "error"); return; }
-    if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
-    const mainId = form.mainMember;
-    const subIds = form.subMembers || [];
+    // The locals below are what the rest of this function reads. On the classic
+    // door they are today's state; on the custom door they are the freshly
+    // resolved cast, because the state setters have not flushed yet and will not
+    // before round 1 is built.
+    let cast = members, cfg = groupConfig;
+    let mainId = form.mainMember, subIds = form.subMembers || [];
+    if (overrideRoster) {
+      if (!world) { showNotif(t.common.startFailed, "error"); return; }
+      try {
+        const r = await resolveRoster(overrideRoster, language, world);
+        if (!r.members.length) throw new Error("roster resolved to an empty cast");
+        cast = r.members; cfg = r.groupConfig; mainId = r.mainId; subIds = r.subIds;
+        // Pinned BEFORE setPendingRoster, the same trick loadSave uses on the group
+        // effect: that effect reads phaseRef to decide whether to clear the chosen
+        // members, and the effect mirroring `phase` into it has not run yet.
+        phaseRef.current = "game";
+        setPendingRoster(overrideRoster);
+        setGroupConfig(r.groupConfig);
+        setMembers(r.members);
+        setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
+      } catch (e) {
+        // A roster that cannot be resolved must SAY SO rather than fall back to a
+        // cast the player did not choose - the v1.3.5 lesson, where
+        // loadGroupIndex's catch returning a hardcoded Red Velvet entry hid a path
+        // bug for a whole release. Nothing has been written at this point.
+        console.error("roster resolve failed:", e);
+        showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
+        return;
+      }
+    }
+    if (!mainId) { showNotif("Please select main member", "error"); return; }
     // Two doors, one roster. The custom door already built one and it is
     // authoritative — rebuilding it from the form would throw away the NPC slots
     // the player assigned and flatten a cross-group cast into a single group.
@@ -848,8 +870,9 @@ export default function App() {
     // Built rather than resolved, because `members` is already the answer
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
-    const builtRoster = (pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
-      || buildClassicRoster(selectedGroup, mainId, subIds, members.map(m => m.id));
+    const customRoster = overrideRoster || pendingRoster;
+    const builtRoster = (customRoster && { ...customRoster, name: castName.trim() || DEFAULT_CAST_NAME })
+      || buildClassicRoster(selectedGroup, mainId, subIds, cast.map(m => m.id));
     setMessages([]); setCurrentOptions([]);
     // A new game states its birth year at Setup, so nothing here is an estimate.
     setBirthYearEstimated(false);
@@ -877,14 +900,14 @@ export default function App() {
     // which is the ex-girlfriend `Math.random()` defect with a network call in it.
     // Both paths go through `applyWorldDetail`, so the two rounds are byte-identical.
     let roundRoster = builtRoster;
-    let roundMembers = members;
+    let roundMembers = cast;
     if (world && !world.castLore?.useRole) {
-      showNotif(t.cast.restaging(members.length));
+      showNotif(t.cast.restaging(cast.length));
       const { detailById } = await generateCastDetail({
-        members, world, language, apiKey, modelId: selectedModel, aliyun: aliyunOptions(),
+        members: cast, world, language, apiKey, modelId: selectedModel, aliyun: aliyunOptions(),
       });
       roundRoster = withCastDetail(builtRoster, detailById, world.id);
-      roundMembers = members.map(m => applyWorldDetail(detailById[m.id]
+      roundMembers = cast.map(m => applyWorldDetail(detailById[m.id]
         ? { ...m, [WORLD_DETAIL_KEY]: { world: world.id, ...detailById[m.id] } }
         : m, world.id));
       setMembers(roundMembers);
@@ -899,10 +922,13 @@ export default function App() {
     mem.affections = { [mainId]: initialStats.affection, ...initialStats.multiAff };
     memoryRef.current = mem;
     const initFeeds = {};
-    allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
+    // Derived from the resolved cast rather than from `allTargetMembers`, which is
+    // computed off `form` - and on the custom door `form` is one render behind.
+    const roundTargets = [mainId, ...subIds].map(id => cast.find(m => m.id === id)).filter(Boolean);
+    roundTargets.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
     // A new game has no previous round, so every feed starts empty and nothing
     // is popped. See beginRun.
-    beginRun({ socialFeeds: initFeeds, topMember: mainMember });
+    beginRun({ socialFeeds: initFeeds, topMember: cast.find(m => m.id === mainId) });
     try {
       preRoundSnapshotRef.current = { stats: { ...initialStats }, memory: JSON.parse(JSON.stringify(mem)), kktUnlocked: {}, kktMessages: {}, triggeredAchievements: new Set(), playerChoice: "Game start" };
       const result = await executeRound({
@@ -911,7 +937,7 @@ export default function App() {
         // `roundMembers`, not `members`: see the sweep above. The state setter has
         // not flushed yet, and the round after this one resolves the same stamped
         // roster, so this is the copy that makes the two prompts agree.
-        members: roundMembers, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
+        members: roundMembers, mainId, subIds, groupConfig: cfg, world, apiKey, selectedModel, kktUnlocked: {}, language,
         aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       statsRef.current = result.newStats;
@@ -920,7 +946,7 @@ export default function App() {
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
-      const statsBox = buildStatsBox(result.newStats, members, mainId, subIds, t);
+      const statsBox = buildStatsBox(result.newStats, cast, mainId, subIds, t);
       setCurrentOptions(result.options);
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
@@ -1664,6 +1690,33 @@ export default function App() {
           {form.identity === CUSTOM_IDENTITY_ID && (
             <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
           )}
+          {/* THE CAST BELONGS TO SOMETHING, and it is named HERE rather than on a
+              page after the picker (docs/V140_PLAN.md 22.6.2). It sits beside the
+              world for the same reason the identity does: WHAT this organisation is
+              comes from `castLore.orgNoun` - an agency, a university, a company, a
+              family business - so the label, the suffix and the sentence under it
+              all move when the world above it changes.
+
+              Naming it is also what stops the model inventing one. A cross-group
+              cast was once described as the main member own group, which is how a
+              BLACKPINK main produced "YG".
+
+              CUSTOM DOOR ONLY, and not because the classic door is a special case:
+              a classic run IS one real group and already carries its real name, so
+              the field would have nothing to write to. Optional - an empty one
+              falls back to DEFAULT_CAST_NAME at start, exactly as before. */}
+          {door === "custom" && (
+            <>
+              <div className="s-l">{t.cast.orgName(world.castLore.orgNoun)}</div>
+              <input className="s-in" value={castName} maxLength={24}
+                onChange={e => setCastName(e.target.value)}
+                placeholder={DEFAULT_CAST_NAME} style={{ marginBottom: 3 }} />
+              <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+                {world.castLore.orgHint.replace("{org}",
+                  orgNameFor(castName.trim(), world.castLore.orgSuffix))}
+              </p>
+            </>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button onClick={() => { setPendingRoster(null); setPhase("cover"); }}
               style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
@@ -1695,7 +1748,7 @@ export default function App() {
           fontScale={fontScale}
           apiKey={apiKey} modelId={selectedModel}
           aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
-          onStart={(r) => { setPendingRoster(r); setPhase("setup"); }}
+          onStart={(r) => startNewGame(r)}
           onBack={() => { setPendingRoster(null); setPhase("playerInfo"); }}
           notify={showNotif}
         />
@@ -1736,56 +1789,20 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, padding: "2px 0 0", fontSize: 10, color: th.textMuted }}>
             {/* The noun is the world's too. This line said "Group loaded" in all
                 three languages, which is the cast's kind and not a fixed word. */}
-            <span>{t.cast.orgLoaded(world.castLore.orgNoun)}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</span>
+            <span>{t.cast.orgLoaded(world.castLore.orgNoun)}{groupConfig?.group?.name || "Loading..."}</span>
             {!apiKey && <span style={{ color: "#d07070" }}>{language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>}
             <span>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
             <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
           </div>
 
-          {/* The custom door already chose the cast AND the slots, so Setup shows
-              it rather than asking again. This is what keeps this page short on
-              that path: identity, name, birth year and pace, and nothing else. */}
-          {pendingRoster ? (
-            <>
-              <div className="s-l">{t.cast.castLabel}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6, alignItems: "center" }}>
-                {members.map(m => {
-                  const slot = m.id === form.mainMember ? "★"
-                    : (form.subMembers || []).includes(m.id) ? "●" : "○";
-                  return (
-                    <span key={m.id} style={{ display: "flex", alignItems: "center", gap: 3, padding: "5px 9px", borderRadius: 14, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 14 }}>{m.emoji}</span>
-                      <span>{m.name}</span>
-                      <span style={{ color: th.textMuted, fontSize: 10 }}>{slot}</span>
-                    </span>
-                  );
-                })}
-                <button onClick={() => setPhase("roster")}
-                  style={{ padding: "5px 10px", borderRadius: 14, border: `1px dashed ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 10, cursor: "pointer" }}>
-                  {t.cast.changeCast}
-                </button>
-              </div>
-              {/* The cast belongs to something, so it needs a name — and naming the
-                  organisation after it is what stops the model inventing one. A
-                  cross-group cast was previously described as the main member's
-                  group, which is how a BLACKPINK main produced "YG".
+          {/* CLASSIC DOOR ONLY since docs/V140_PLAN.md 22.6.2. The custom door does
+              not pass through this page at all any more: its cast picker carries
+              Start, so the screen that showed the chosen cast back and asked for one
+              more field is gone. A page that repeats the previous page answer and
+              adds one field is a page nobody needs.
 
-                  WHAT that organisation is comes from the world, not from here:
-                  an idol agency, a university, a company, a family firm. The world
-                  supplies one noun and the sentence around it, because "they debut
-                  as one group" is a different claim from "they study here" rather
-                  than the same sentence with a different word in it. */}
-              <div className="s-l">{t.cast.orgName(world.castLore.orgNoun)}</div>
-              <input className="s-in" value={castName} maxLength={24}
-                onChange={e => setCastName(e.target.value)}
-                placeholder={DEFAULT_CAST_NAME} style={{ marginBottom: 3 }} />
-              <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-                {world.castLore.orgHint.replace("{org}",
-                  orgNameFor(castName.trim(), world.castLore.orgSuffix))}
-              </p>
-            </>
-          ) : (
-          <>
+              What is left is the one question the classic door has nowhere else to
+              ask - which of this group members is the main, and which are subs. */}
           <div className="s-l">{t.setup.mainMember(MAIN_INITIAL_AFFECTION)}</div>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", color: th.textMuted, padding: 20, fontSize: 12 }}>{t.setup.loading}</div>
@@ -1823,23 +1840,19 @@ export default function App() {
               )}
             </>
           )}
-          </>
-          )}
-
 
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            {/* Back goes one step, not all the way out: on the custom door the
-                previous step is the builder, and dropping the player at the cover
-                would discard a cast they may have spent real time assembling. On
-                the classic door it is now player info, which is the step this page
-                lost its four controls to. */}
-            <button onClick={() => setPhase(pendingRoster ? "roster" : "playerInfo")}
+            {/* Back is ONE step, and there is only one step back: player info, which
+                is the page this screen lost its four controls to. The custom door
+                branch went with 22.6.2 - that door starts the game from its own cast
+                picker and never reaches this page. */}
+            <button onClick={() => setPhase("playerInfo")}
               style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>
-            <button onClick={startNewGame} disabled={!canStart}
+            <button onClick={() => startNewGame()} disabled={!canStart}
               style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
-              {canStart ? `Start with ${mainMember?.name || "..."}` : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
+              {canStart ? t.cast.startWith(mainMember?.name || "...") : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
             </button>
           </div>
         </div>

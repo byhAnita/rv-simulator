@@ -129,7 +129,11 @@ const ko = {
     savedRosters: "저장된 구성",
     start: "시작",
     needMain: "먼저 메인 멤버를 선택해주세요",
-    nextStep: "다음: 내 캐릭터",
+    // ONE definition, two call sites: the cast picker and the classic Setup
+    // page. Particle-free by construction in ko - the word in front of a Korean
+    // particle is a variable here, which is the whole reason resolveKoreanParticles
+    // exists, and a button label is the wrong place to resolve one.
+    startWith: (name) => `시작 · ${name}`,
     castCount: (n, max) => `${n} / ${max}`,
     pickFor: {
       main: "메인 멤버 선택",
@@ -148,8 +152,6 @@ const ko = {
     classicDesc: "그룹을 골라 시작",
     customTitle: "✨ 커스텀 캐스트",
     customDesc: "어떤 멤버든, 어떤 조합이든",
-    changeCast: "캐스트 변경",
-    castLabel: "캐스트",
     roles: { main: "메인", sub: "서브", npc: "NPC" },
     roleHints: {
       main: "핵심 로맨스 라인 — 한 명만",

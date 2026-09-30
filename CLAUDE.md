@@ -2142,6 +2142,71 @@ its verdict line.**
 
 ---
 
+### The cast picker starts the game, and the page after it is gone
+
+**Yuhan's design, 2026-09-30, and the correction is to §22.5's reading of it rather than to the
+code it produced:** the agency name belongs on the player-info page, and Start belongs at the
+bottom of the cast picker, half-width, with Save cast on its left. The page in between — the one
+that showed the chosen cast back and asked for one more field — is **deleted**.
+
+**A page that repeats the previous page's answer and adds one field is a page nobody needs.**
+That screen existed for a structural reason and not a design one, which is why it survived
+review: `startNewGame` reads `form.mainMember`, `members` and `groupConfig` out of state, and all
+three were filled by an **effect** keyed on `pendingRoster`. The page was the gap in which that
+effect ran. So the flow had a screen in it whose whole job was to let a `useEffect` finish.
+
+So the custom door is `cover -> playerInfo -> roster -> game`, and `setup` is **unreachable from
+it**. Setup stays for the classic door, which still has to name a main and subs out of one group
+and has nowhere else to ask.
+
+**The resolve moved into `startNewGame`, and it happens before any setter runs.** It fetches, so
+it can fail; a half-applied start would leave the player in a game assembled out of nothing,
+which is the rule `loadSave` already follows. On a failure it writes nothing and says so — never
+a fall back to a cast the player did not choose, the v1.3.5 lesson where `loadGroupIndex`'s catch
+returning a hardcoded Red Velvet entry hid a path bug for a release.
+
+Three things about that function are load-bearing and each is guarded:
+
+- **The roster handed IN beats the roster in state.** `setPendingRoster` has not flushed inside
+  the closure that called it, so reading the state would compose a *classic* roster out of
+  whichever group was last selected. Everything the rest of the function reads — the cast, the
+  group config, the main and sub ids — is a local, for the same reason.
+- **`phaseRef.current` is pinned to `"game"` before `setPendingRoster`**, the same trick
+  `loadSave` uses, so the group effect does not clear the cast that was just resolved.
+- **The effect that used to resolve the roster is DELETED, not left with nothing to fire on.** An
+  effect keyed on a value nothing sets before the game is dead code, which is the shape this file
+  already tracks seven instances of.
+
+**The agency name sits beside the world because it is the world that names it.** `castLore.orgNoun`
+decides whether the label says agency, university, company or family business, and `orgSuffix` and
+`orgHint` move with it — so the field belongs on the page where the world is chosen, not two
+screens later. Custom door only: a classic run *is* one real group and already carries its real
+name, so the field would have nothing to write to.
+
+**The cast library opens on the player's own members, and that tab sits first.** It was the last
+of ten behind a horizontal scroll, on the door that exists for authoring members. Both halves are
+guarded, because either alone is half a fix: opening on it while it sits last means scrolling back
+to find it again, and listing it first while opening on Red Velvet means the door's own tab is
+never the one you land on.
+
+**`nextStep`, `changeCast` and `castLabel` are deleted from all three languages.** A label for a
+control that no longer exists is the `pickMainHint` failure — a hint describing a control deleted
+two redesigns earlier, in three languages. **And `Start with ${name}` was an English literal in
+`App.jsx`** in a game that ships three: it is `t.cast.startWith` now, one definition with its call
+sites counted, and it is particle-free by construction in ko because a button label is the wrong
+place to resolve 와/과.
+
+**All six goldens are byte-identical, and that is the commit's gate.** Nothing here touches
+`buildSystemPrompt`, the roster shape or the world; the cast name still reaches `startNewGame` the
+same way and is still applied once, at the same moment. A golden that moved would mean a reorder
+had changed what the model is told.
+
+**12 mutations, 12 RED** — including both halves of the tab fix separately, the resolve reading
+state instead of its argument, and the resolve moved *after* the first setter, which is the one
+that turns a failed fetch into a half-built game.
+
+---
+
 ### The top of a page was unreachable, because `100vh` is not the visible viewport
 
 **Reported from a phone, 2026-09-30:** *"player set up page & decide agency name page doesn't

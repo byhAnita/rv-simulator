@@ -129,7 +129,11 @@ const zh = {
     savedRosters: "已保存的阵容",
     start: "开始",
     needMain: "请先选一位主线成员",
-    nextStep: "下一步：你的角色",
+    // ONE definition, two call sites: the cast picker and the classic Setup
+    // page. Particle-free by construction in ko - the word in front of a Korean
+    // particle is a variable here, which is the whole reason resolveKoreanParticles
+    // exists, and a button label is the wrong place to resolve one.
+    startWith: (name) => `开始 · ${name}`,
     castCount: (n, max) => `${n} / ${max}`,
     pickFor: {
       main: "选择主线成员",
@@ -148,8 +152,6 @@ const zh = {
     classicDesc: "选一个团体开始",
     customTitle: "✨ 自定义卡司",
     customDesc: "任意成员，任意组合",
-    changeCast: "更换卡司",
-    castLabel: "卡司",
     roles: { main: "主线", sub: "支线", npc: "NPC" },
     roleHints: {
       main: "核心恋爱线，只能选一位",

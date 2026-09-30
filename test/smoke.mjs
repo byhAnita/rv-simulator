@@ -1022,16 +1022,23 @@ async function layerG(mod, MODEL_CONFIGS) {
     /\{!apiKey && <span style=\{\{ color: "#d07070" \}\}>/.test(setupHead));
 
   check("startNewGame records the roster it is starting",
-    /\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app)
+    /\(customRoster && \{ \.\.\.customRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app)
       && /setRoster\(\w+\);/.test(app),
     "the builder's roster, named, or one composed from the form");
+  // ...and the ARGUMENT wins over the state, which is not a style choice: the
+  // picker's Start hands the roster straight in (22.6.2) and `setPendingRoster`
+  // has not flushed inside this closure, so reading the state would compose a
+  // classic roster out of whichever group was last selected.
+  check("...and the roster handed in beats the one in state",
+    /const customRoster = overrideRoster \|\| pendingRoster;/.test(app),
+    "the state is one render behind the call that started the game");
   // Two doors, and the builder's roster wins. Rebuilding it from the form would
   // throw away the NPC slots the player assigned and flatten a cross-group cast
   // into whichever single group happened to be selected. The order in that
   // expression IS the behaviour, so it is pinned rather than merely mentioned.
   check("a roster built by the builder is preferred over one composed from the form",
-    app.indexOf("(pendingRoster && { ...pendingRoster") > 0
-      && !/buildClassicRoster\([^)]*\) \|\| pendingRoster/.test(app),
+    app.indexOf("(customRoster && { ...customRoster") > 0
+      && !/buildClassicRoster\([^)]*\) \|\| customRoster/.test(app),
     "pendingRoster must come first");
 
   // --- §22.5 commit 4b: the Start-boundary restaging sweep -------------------
@@ -1042,7 +1049,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   // flag: the `--provider` lesson is that a guard on the argument list passes while
   // the value stays hardcoded one line below it.
   check("the Start boundary restages the whole cast into the world it is starting in",
-    /generateCastDetail\(\{[\s\S]{0,120}members, world,/.test(app),
+    /generateCastDetail\(\{[\s\S]{0,120}members: cast, world,/.test(app),
     "a fix that reaches only players who open an editor does not reach the defect");
   // In the world the library was authored for, the prose is already about this
   // world: restaging it would replace correct text with generated text and spend a
@@ -1057,7 +1064,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   // with a network call in it.
   check("...and round 1 is built from the restaged cast, not the cast before it",
     /members: roundMembers,/.test(app)
-      && /roundMembers = members\.map\(m => applyWorldDetail\(/.test(app),
+      && /roundMembers = cast\.map\(m => applyWorldDetail\(/.test(app),
     "round 1 and round 2 must build the same static prompt");
   check("...and the roster the save records is the stamped one",
     /roundRoster = withCastDetail\(builtRoster, detailById, world\.id\)/.test(app)
@@ -1134,8 +1141,15 @@ async function layerG(mod, MODEL_CONFIGS) {
 // --- the two doors --------------------------------------------------------
   // Both end at Setup holding a roster, which is what keeps "one engine, two
   // doors" true: nothing downstream of resolveRoster knows which was used.
+  // The cover opens the door and PLAYER INFO forwards to the builder, which is
+  // the 22.2 order: the generator reads the world, so the world is chosen first.
+  // It used to be read off Setup's "change cast" button, and that button went with
+  // the page - a guard that happens to find a string elsewhere is a guard about
+  // nothing.
   check("the cover offers a second door into the roster builder",
-    /setDoor\("custom"\)/.test(app) && /setPhase\("roster"\)/.test(app));
+    /setDoor\("custom"\)/.test(app)
+      && /setPhase\(door === "custom" \? "roster" : "setup"\)/.test(app),
+    "the custom door reaches the builder, and only after player info");
   // The builder's Generate button spends the player's key, so the key page has
   // to come first when there is none — §4.5 assumes the key already exists.
   check("the custom door routes through the key page when there is no key",
@@ -1180,8 +1194,28 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("the group effect stands down while a builder roster is pending",
     /if \(pendingRoster\) \{[\s\S]{0,200}return;/.test(app),
     "otherwise loadGroupConfig overwrites the builder's cast at Setup");
-  check("the builder's roster is resolved so Setup sees the same members shape",
-    /resolveRoster\(pendingRoster, language, world\)/.test(app));
+  // THE RESOLVE MOVED INTO startNewGame (22.6.2). The effect that did it existed
+  // so the page between the picker and the game could read `members`; that page is
+  // gone, so an effect keyed on `pendingRoster` would have no reachable trigger.
+  // Both halves matter: it must resolve, and it must resolve BEFORE the first
+  // setter, because a resolve fetches and a half-applied start is a game assembled
+  // out of nothing.
+  const startBody = app.slice(app.indexOf("const startNewGame = async ("),
+    app.indexOf("const loadSave = async ("));
+  check("the builder's roster is resolved by the call that starts the game",
+    /resolveRoster\(overrideRoster, language, world\)/.test(startBody)
+      && !/useEffect\(\(\) => \{[\s\S]{0,200}resolveRoster\(pendingRoster/.test(app),
+    "an effect keyed on a value nothing sets before the game is dead code");
+  check("...and resolved before the first setter of any kind",
+    startBody.indexOf("resolveRoster(overrideRoster") > 0
+      && startBody.indexOf("resolveRoster(overrideRoster") < startBody.search(/\bset[A-Z]\w*\(/),
+    "a resolve can fail, so nothing may be written before it returns");
+  // ...and it fails the way loadSave fails: a notice, and no state written. Never
+  // a fall back to a cast the player did not choose - the v1.3.5 lesson.
+  check("...and a roster that cannot be resolved aborts with a notice",
+    /roster resolve failed/.test(startBody)
+      && /roster resolved to an empty cast/.test(startBody),
+    "never start a game on a cast nobody chose");
   // Counted, not tested for presence. Section 4's framing is the world's since
   // v1.4.1 step 4, so a call site that forgot the third argument does not render a
   // lecture hall as an agency - it throws - but a call site handed the WRONG world
@@ -1211,19 +1245,53 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("...and the form's main and subs are derived from the roster's slots",
     /setForm\(f => \(\{ \.\.\.f, mainMember: r\.mainId, subMembers: r\.subIds \}\)\)/.test(app),
     "everything downstream reads the form, so the form has to agree with the builder");
-  // A roster that cannot be resolved must say so rather than fall back to a
-  // default cast: loadGroupIndex's catch returning a hardcoded Red Velvet entry
-  // is what hid the v1.3.5 path bug for a whole release.
-  check("a builder roster that cannot be resolved aborts to the cover with a notice",
-    /roster resolve failed/.test(app) && /setPendingRoster\(null\);\s*\n?\s*setPhase\("cover"\)/.test(app),
-    "never fall back to a cast the player did not choose");
-  // Setup asks only what the builder did not: identity, name, birth year, pace.
-  check("Setup hides the member pickers when the builder already chose the cast",
-    /\{pendingRoster \? \(/.test(app) && /t\.cast\.changeCast/.test(app),
-    "asking twice is what makes that page long");
-  check("...and Back from Setup returns to the builder, or to player info",
-    /setPhase\(pendingRoster \? "roster" : "playerInfo"\)/.test(app),
-    "back is ONE step: the cover discards a cast, and player info is the step this page lost its controls to");
+  // NO PAGE AFTER THE CAST PICKER. It showed the chosen cast back and asked for
+  // one more field, which is a page that repeats the previous page's answer -
+  // Yuhan, 2026-09-30. Setup is the CLASSIC door's page now and carries nothing
+  // about a builder roster at all.
+  check("no page after the cast picker repeats it",
+    !/\{pendingRoster \? \(/.test(phaseBlock("setup"))
+      && !/t\.cast\.changeCast/.test(app) && !/t\.cast\.castLabel/.test(app),
+    "the picker's own Start is the end of the custom door");
+  check("...and Back from Setup returns to player info, its only predecessor",
+    /setPhase\("playerInfo"\)/.test(phaseBlock("setup"))
+      && !/setPhase\(pendingRoster \? "roster"/.test(app),
+    "back is ONE step, and there is only one step back now");
+  // The picker's Start is what replaced that page, so it is asserted on the CALL
+  // rather than on the button's label: a label check passes while onStart still
+  // routes to a page - which is exactly what it used to do.
+  check("the cast picker starts the game itself",
+    /onStart=\{\(r\) => startNewGame\(r\)\}/.test(app)
+      && !/onStart=\{\(r\) => \{ setPendingRoster\(r\); setPhase\("setup"\); \}\}/.test(app),
+    "Start belongs where the cast is");
+
+  // ── the cast library opens on the CUSTOM tab, and it sits first ──────────
+  // A player who came through the custom door came to use her own members, and
+  // that tab was the last of ten behind a horizontal scroll. Both halves, because
+  // either alone is half the fix: opening on it while it sits last means
+  // scrolling back to find it again, and listing it first while opening on Red
+  // Velvet means the door's own tab is never the one you land on.
+  const pickerSrc = readFileSync(join(ROOT, "src/platforms/MemberPicker.jsx"), "utf8");
+  const tabsDecl = (pickerSrc.match(/const tabs = useMemo\(\(\) => \[([\s\S]*?)\]/) || [, ""])[1];
+  check("the cast library lists the player's own members first",
+    tabsDecl.indexOf("CUSTOM_TAB") >= 0
+      && tabsDecl.indexOf("CUSTOM_TAB") < tabsDecl.indexOf("groups.map("),
+    "the tab this door exists for was the last of ten behind a scroll");
+  check("...and opens on it",
+    /useState\(CUSTOM_TAB\)/.test(pickerSrc),
+    "landing on a library group means scrolling to find your own cast");
+
+  // ── ONE definition of the Start label, and it is localized ───────────────
+  // It was the literal `Start with ${name}` in App.jsx - untranslated in a game
+  // that ships three languages - and the picker needed the same words. Counted
+  // against the call sites, because a helper can exist, be correct, and be used
+  // in one of two places.
+  const startWithSites = (app.match(/t\.cast\.startWith\(/g) || []).length
+    + (readFileSync(join(ROOT, "src/platforms/RosterBuilder.jsx"), "utf8")
+        .match(/c\.startWith\(/g) || []).length;
+  check("both Start buttons read their label from one localized definition",
+    startWithSites === 2 && !/`Start with \$\{/.test(app),
+    `${startWithSites} call sites - the cast picker and the classic Setup page`);
 
   // ── the four player-info controls live on ONE page, and it is not Setup ──
   // Both directions, because a copy left behind is the failure: two pages asking
@@ -1234,13 +1302,16 @@ async function layerG(mod, MODEL_CONFIGS) {
     ["the birth-year wheel", /<YearWheel value=\{form\.birthYear\}/],
     ["the world picker", /worldList\.map\(w =>/],
     ["the identity grid", /world\.identities\.map\(i =>/],
+    // 22.6.2. It sits with the world because WHAT the organisation is comes
+    // from that world's own noun, and it left the page after the picker with it.
+    ["the organisation's name", /t\.cast\.orgName\(world\.castLore\.orgNoun\)/],
   ];
   const misplaced = [];
   for (const [what, re] of PLAYER_CONTROLS) {
     if (!re.test(phaseBlock("playerInfo"))) misplaced.push(`${what} is not on the player-info page`);
     if (re.test(phaseBlock("setup"))) misplaced.push(`${what} is STILL on the cast page`);
   }
-  check("name, birth year, world and identity are asked once, before the cast",
+  check("name, birth year, world, identity and the org name are asked once, before the cast",
     misplaced.length === 0, misplaced.join(" | "));
   // A WHEEL ALWAYS DISPLAYS A VALUE, so the seed has to fire on the page that
   // MOUNTS the wheel. The existing scan proves some screen writes DEFAULT_YEAR;
