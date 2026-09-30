@@ -3336,6 +3336,135 @@ no longer **sent** for a translated member — which is a property of the prompt
 assertable — and that the interim rule still covers the members for whom it is.
 
 
+### §22.6 The fifth phone pass: the top of a page is unreachable, and the flow is not the one that was agreed
+
+**Reported by Yuhan, 2026-09-30, hand-testing `fcfb93d`..`f8b4a95` on a device.** Two kinds of
+finding, and they want separate commits because only the first is a bug.
+
+#### 22.6.1 The upper part of the page is blocked
+
+> *"player set up page & decide agency name page doesn't present all page, the upper part of that
+> page is blocked"*
+
+Both named pages are the two that lay content at y=0 and scroll INSIDE a container that is
+`height: 100vh`. Two mechanisms produce exactly that symptom and this repo has both:
+
+- **`100vh` is not the visible viewport on iOS.** It is the viewport with the browser chrome
+  *hidden*, so every page container is taller than what is on screen; the document itself then
+  scrolls, and a nested `overflowY: auto` panel consumes the upward gesture that would bring the
+  header back. The page is not merely cut - the top is unreachable.
+- **`apple-mobile-web-app-status-bar-style: black-translucent`** (index.html) makes a
+  Home-Screen launch draw *under* the status bar and the notch, with no `env(safe-area-inset-top)`
+  anywhere to pay for it. The first ~47px of the page sits behind the clock.
+
+**Neither is reproducible on this machine, so the fix addresses the mechanism and the device is
+the measurement.** Say that plainly rather than claiming it fixed.
+
+The fix is that **the document never scrolls**: the app is one fixed-size card and only its inner
+panels move.
+
+- `html, body { height: 100%; overflow: hidden; overscroll-behavior: none }`, inside
+  `@media screen` so the print path is untouched.
+- Page containers take `height: 100%` (which tracks the *visible* viewport, unlike `100vh`) with
+  `height: 100dvh` after it as the modern belt. One class, `.rv-page`, in `src/index.css` -
+  not an inline style, because the fallback pair cannot be expressed in a JS style object.
+- Inner scrollers take `overscroll-behavior: contain`, which is what stops a panel at its own
+  scroll limit from handing the gesture to the document.
+- The status bar style becomes `default`. Edge-to-edge is worth nothing to a 390px card with
+  rounded corners and a drop shadow, and it is the whole cost of the second mechanism.
+- Centred modals swap `maxHeight: "88vh"` for `"88%"`: their parent is `position: fixed; inset: 0`,
+  which is already the visible viewport, so a percentage is exact where a viewport unit re-imports
+  the bug one layer down.
+
+**The guard is derived and not a list of today's pages**: no file in `src/` may set a page-sized
+`height: "100vh"` inline, and every full-screen page container must carry the class. A ninth screen
+cannot reintroduce it.
+
+#### 22.6.2 The flow is not the one that was agreed
+
+> *"your reorder didn't totally follow my design"*
+
+Yuhan's design, restated from his message and authoritative over §22.5's reading of it:
+
+| Page | Holds |
+| --- | --- |
+| 0 Cover | as today |
+| **1 Player info** | Name\*, Birth year\*, World\*, Identity\*, **and the agency name** |
+| **2 Cast picker** | main / subs / NPCs, remove, save cast, **and Start** |
+| 3 Cast library | tabs, **custom first** |
+| 4 Character profile | two tabs, résumé layout |
+| 5 Game | as today |
+
+Three things this repo has that the design does not:
+
+1. **The agency name is on a page of its own.** It sits on `setup`, behind `pendingRoster`, which
+   is the page the custom door reaches *after* the builder. It belongs on player info, beside the
+   world whose `castLore.orgNoun` names it.
+2. **Start is on that page too**, so the custom door ends on a screen that shows a cast the player
+   has just finished assembling and asks nothing new except a name. **A page that repeats the
+   previous page's answer and adds one field is a page nobody needs.** Start belongs on the picker,
+   which is where the cast is.
+3. **The custom tab is last** in the picker's tab strip, and it is the tab the custom door exists
+   for.
+
+So the custom door becomes `cover -> playerInfo -> roster -> game` and the `setup` phase is
+**unreachable from it**. It stays for the classic door, which still has to pick a main and subs
+from one group and has nowhere else to do it - the design describes the custom flow and says
+nothing about the other door, so nothing about the classic one changes.
+
+**The expensive half is that Start now runs before the roster has been resolved.** `startNewGame`
+reads `form.mainMember`, `members` and `groupConfig` out of state, and all three are filled by the
+effect that resolves `pendingRoster` - which is exactly the page transition being deleted. So it
+takes the roster as an argument, resolves it itself, and uses the resolved values as locals:
+`phaseRef.current` is pinned to `"game"` before `setPendingRoster`, the same trick `loadSave`
+already uses, so the resolve effect does not fire a second fetch behind it.
+
+**A resolve can fail, so it fails the way `loadSave` does** - a notice and no state written -
+rather than dropping the player into a game assembled out of nothing. That is the v1.3.5 lesson
+(`loadGroupIndex`'s catch returning a hardcoded Red Velvet entry) and it is why the resolve is
+awaited *before* `setPhase("game")`.
+
+**No prompt change, and all six goldens must be byte-identical.** Nothing here touches
+`buildSystemPrompt`, the roster shape or the world; the cast name still reaches `startNewGame` the
+same way and is still applied once, at the same moment. A golden that moved would mean the reorder
+changed what the model is told, which is the commit's gate.
+
+#### 22.6.3 The profile editor reads like a form and should read like a résumé
+
+> *"use multiple column design to make profile edit page tight. The photo on the left with a larger
+> square, several fields on the right line by line - makes the profile look like a funny résumé's
+> style - clear and funny. Reduce the use of full-width text box to fill in."*
+
+Tab 1 is nine full-width boxes stacked, which is one and a half screens of scrolling to answer
+three required fields. The design is two blocks, each an image on the left and its fields on the
+right:
+
+```
++-----------+  Name*                  +-----------+  Habit
+|           |  Birth year*            | wallpaper |  MBTI
+|  photo    |  Private personality*   |           |  Animal emoji
++-----------+                         +-----------+
+```
+
+then the one-line description and the generate pair, full width, because a sentence is the one
+thing on this screen that genuinely wants the width.
+
+**Tab 2 keeps five boxes and not four.** The design lists public texture, queer texture, speaking
+style and hidden conflict; `world_position` is the fifth and it is not optional - it is the box
+that fills the slot `castLore.useRole` empties, which is the defect commit 4 exists to close.
+Removing it would leave a custom member in a non-idol world with nothing saying what she does.
+
+**The generate button moves to tab 1 and does both generations.** His label -
+*生成她在世界观下的设定详细设定* - asks one control to produce her card *and* her restaging, which is
+what tab 1's `generateCard` and tab 2's `generateWorldDetail` do between them today. One button, one
+wait, and tab 2 becomes what it is for: reading and correcting the result. The
+auto-run-on-opening-tab-2 goes with it, since the tab can no longer be reached empty by a player who
+asked for a generation.
+
+A **library** member has no description box - her card is already written - so for her that control
+is the restaging alone, the one generation that IS about her. Same argument that hides the card
+generator for her today.
+
 ---
 ## 21. Endings and the epilogue — v1.4.2
 

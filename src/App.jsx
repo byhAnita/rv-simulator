@@ -1268,8 +1268,8 @@ export default function App() {
       : "linear-gradient(90deg,#c8a84b,#8b6914,#a0522d,#8b6914,#c8a84b)";
 
     return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBg }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBg }}>
+        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
           <NotificationBar />
           <div style={{ fontSize: 44, marginBottom: 14 }}>💗</div>
           <h1 style={{ fontSize: "clamp(24px,6vw,44px)", fontWeight: 700, background: titleGrad, backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmerCover 4s linear infinite", marginBottom: 4 }}>Idol Dating</h1>
@@ -1376,8 +1376,8 @@ export default function App() {
 
     return (
       <>
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflowY: "auto" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflowY: "auto" }}>
           <NotificationBar />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 2 }}>
             <div style={{ flex: 1 }} />
@@ -1573,11 +1573,11 @@ export default function App() {
     // fetch, so this is a real state and not only the first paint.
     const canContinue = form.name && validBirthYear(form.birthYear) && form.identity && world;
     if (!world) return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
     );
     return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
           {/* ONE LINE, and only what is actionable. A MISSING key is the thing
@@ -1714,11 +1714,11 @@ export default function App() {
     // nulls it for the length of one fetch, so this is a real state and not only
     // the first paint.
     if (!world) return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
     );
     return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
           {/* ONE LINE, NOT FOUR - the page ran past 844px and the Start button sat
@@ -1848,11 +1848,11 @@ export default function App() {
   }
 
   // ── Game Main Screen ──
-  if (!groupConfig || !members.length) return <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg, color: th.textPrimary }}>Loading...</div>;
+  if (!groupConfig || !members.length) return <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg, color: th.textPrimary }}>Loading...</div>;
 
   return (
-    <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg }}>
-      <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
+    <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg }}>
+      <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
         <NotificationBar />
         <style>{`@media print{body *{visibility:hidden}#rv-story-panel,#rv-story-panel *{visibility:visible}#rv-story-panel{position:fixed;top:0;left:0;right:0;bottom:0;height:auto!important;overflow:visible!important;padding:24px!important;background:#fff!important}}`}</style>
         <style>{`${th.scrollCss}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes slideUp{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}.stat-item{cursor:help;transition:all .15s;position:relative}.stat-item:hover{transform:scale(1.05)}.stat-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:${th.panelBg};border:1px solid ${th.borderAccent};border-radius:6px;padding:3px 8px;fontSize:9px;color:${th.textHeading};white-space:nowrap;pointer-events:none;z-index:999}.notification-dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite}`}</style>
@@ -2088,7 +2088,7 @@ export default function App() {
         {showSettings && (
           <div style={{ position: "absolute", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", background: th.modalOverlay, backdropFilter: "blur(6px)" }}
             onClick={e => { if (e.target === e.currentTarget) { setShowSettings(false); setConfirmDest(null); } }}>
-            <div style={{ width: "88%", maxWidth: 320, maxHeight: "88vh", overflowY: "auto", background: th.panelBg, border: `1px solid ${th.borderAccent}`, borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.4)" }}>
+            <div style={{ width: "88%", maxWidth: 320, maxHeight: "88%", overflowY: "auto", background: th.panelBg, border: `1px solid ${th.borderAccent}`, borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.4)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: th.textHeading }}>{t.settings?.title}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

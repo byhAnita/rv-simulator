@@ -54,7 +54,41 @@ body {
   margin: 0;
 }
 
+/* THE DOCUMENT NEVER SCROLLS. The app is one fixed-size card and only its inner
+   panels move - and the reason this is a rule rather than a preference is that
+   `100vh` on iOS is the viewport with the browser chrome HIDDEN. Every page
+   container was therefore taller than what is on screen, the document scrolled,
+   and a nested `overflowY: auto` panel then swallowed the upward gesture that
+   would have brought the header back: the top of the player-info and Setup pages
+   was not merely cut off, it was unreachable. Reported from a phone, 2026-09-30.
+
+   `@media screen` because the PDF export prints this document and a clipped,
+   unscrollable body is exactly what a multi-page print must not have. */
+@media screen {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
+/* A FULL-SCREEN PAGE CONTAINER. `height: 100%` tracks the VISIBLE viewport,
+   which is the whole point - it grows and shrinks with the browser chrome where
+   `100vh` does not. `100dvh` after it is the modern spelling of the same thing
+   and wins where it is understood; the pair cannot be written in a JS style
+   object, which is why this is a class and not an inline style.
+
+   `overscroll-behavior: contain` is the other half: a panel that has hit its own
+   scroll limit must keep the gesture rather than hand it to whatever is behind. */
+.rv-page {
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: contain;
+}
+
 #root {
+  height: 100%;
   width: 1126px;
   max-width: 100%;
   margin: 0 auto;

@@ -7767,6 +7767,84 @@ async function layerI() {
     !/imageStore|CastImageSheet|onPickPhoto/.test(pickerSrc),
     "uploads belong on the members already chosen, not on 57 assign targets");
 
+  // --- the fifth phone pass: the top of a page was unreachable --------------
+  // docs/V140_PLAN.md §22.6.1. `100vh` on iOS is the viewport with the browser
+  // chrome HIDDEN, so a page sized with it is TALLER than what is on screen: the
+  // document scrolls, a nested `overflowY: auto` panel then swallows the upward
+  // gesture that would bring the header back, and the top of the page is not
+  // merely cut off but unreachable. Reported from a phone, 2026-09-30.
+  //
+  // DERIVED over src/, not written about the two pages that were reported. Every
+  // screen in this app has the same shape, so a guard naming playerInfo and setup
+  // would be a sample - the org-suffix lesson, three screens over.
+  const vhSized = [];
+  const cardsNotPages = [];
+  (function scanViewportUnits(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { scanViewportUnits(p); continue; }
+      if (!/\.(jsx?|css)$/.test(e.name)) continue;
+      const rel = p.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, "");
+      const src = readFileSync(p, "utf8");
+      // COMMENTS STRIPPED. Three guards in this repo have now passed against
+      // their own documentation, and the prose right beside this fix names the
+      // unit it removes.
+      const code = src
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      // An inline `height`/`maxHeight` in a viewport unit. Every panel in this
+      // app lives inside a `position: fixed; inset: 0` parent or IS the page, so
+      // a percentage is exact everywhere a viewport unit was being used - and a
+      // percentage cannot re-import this defect one layer down.
+      if (/(?:height|maxHeight):\s*"\d+(?:\.\d+)?[dsl]?vh"/.test(code)) vhSized.push(rel);
+      // ...and every phone-sized card takes its height from the class, which is
+      // the only place the `100%` / `100dvh` pair can be written at all.
+      for (const m of code.matchAll(/<\w+([^>]*?)maxHeight:\s*844/g)) {
+        if (!/className="rv-page"/.test(m[1])) cardsNotPages.push(rel);
+      }
+    }
+  })(join(ROOT, "src"));
+  check("no screen is sized in viewport units",
+    vhSized.length === 0,
+    `${[...new Set(vhSized)].join(", ")} still size a box against a viewport unit`);
+  check("...and every phone-sized card takes its height from .rv-page",
+    cardsNotPages.length === 0,
+    `${[...new Set(cardsNotPages)].join(", ")} sizes the 844px card without the class`);
+
+  // The class itself, and the fallback PAIR - `100%` tracks the visible viewport
+  // where `100vh` does not, and `100dvh` is the modern spelling that wins where
+  // it is understood. Either alone is half a fix: without `100%` an older iOS
+  // gets no height at all, and without `100dvh` a browser that shrinks its chrome
+  // leaves a gap. They cannot be expressed in a JS style object, which is the
+  // whole reason this is a stylesheet rule.
+  const appCss = readFileSync(join(ROOT, "src", "index.css"), "utf8");
+  const rvPage = (appCss.match(/\.rv-page\s*\{([^}]*)\}/) || [, ""])[1];
+  check("the page class carries BOTH heights, in the order that makes it a fallback",
+    /height:\s*100%\s*;[\s\S]*height:\s*100dvh\s*;/.test(rvPage),
+    "one of the two heights is missing, so half the browsers get no fix");
+  // The other half: the DOCUMENT must not scroll at all. With the body scrollable
+  // the page can still be pushed up under the chrome, whatever the card is sized
+  // to - and `overscroll-behavior` is what stops a panel at its own limit handing
+  // the gesture on.
+  check("...and the document itself cannot scroll",
+    /@media screen\s*\{[\s\S]*?\bbody\s*\{[^}]*overflow:\s*hidden[\s\S]*?\}\s*\}/.test(appCss)
+    && /overscroll-behavior:\s*contain/.test(rvPage),
+    "the body still scrolls, or a panel still chains its overscroll outward");
+  // A percentage height resolves against a DEFINITE parent. Without this the
+  // class is inert and every check above passes.
+  check("...and #root has a definite height for it to resolve against",
+    /#root\s*\{[^}]*height:\s*100%/.test(appCss),
+    "`.rv-page`'s 100% falls back to auto");
+
+  // A Home-Screen launch is the second mechanism and it is one word: a
+  // translucent status bar draws the page UNDER the clock and the notch, and
+  // nothing in this repo pays for that with env(safe-area-inset-top).
+  check("a Home-Screen launch does not draw under the status bar",
+    !/apple-mobile-web-app-status-bar-style"\s+content="black-translucent"/
+      .test(readFileSync(join(ROOT, "index.html"), "utf8")),
+    "black-translucent puts the first ~47px of every page behind the clock");
+
   // --- step 8, second pass: the four hand-test bugs -------------------------
   // Every one of these is a defect no assertion written in advance reached, and
   // each guard is written from what the player should see.
@@ -7945,7 +8023,7 @@ async function layerI() {
   // The panel's content area scrolls, which is what lets the list grow a
   // release at a time without a layout change.
   check("...and the panel's content area scrolls",
-    /flex: 1, overflowY: "auto"/.test(helpSrc) && /maxHeight: "86vh"/.test(helpSrc),
+    /flex: 1, overflowY: "auto"/.test(helpSrc) && /maxHeight: "\d+%"/.test(helpSrc),
     "a fixed-height panel would cut the oldest releases off");
   // Renaming a tab and leaving prose pointing at the old name is the
   // `pickMainHint` failure: a control described in three languages that had

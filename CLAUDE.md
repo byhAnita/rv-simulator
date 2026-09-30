@@ -2142,6 +2142,64 @@ its verdict line.**
 
 ---
 
+### The top of a page was unreachable, because `100vh` is not the visible viewport
+
+**Reported from a phone, 2026-09-30:** *"player set up page & decide agency name page doesn't
+present all page, the upper part of that page is blocked."* Not cut off - **unreachable**, and
+the difference is the diagnosis.
+
+Every screen in this app was `height: 100vh` inside a `height: 100vh` centring flex. On iOS
+`100vh` is the viewport with the browser chrome **hidden**, so each page container was taller
+than what is on screen and the **document** scrolled. The two pages named are the only two that
+lay content at `y = 0` and also scroll *inside* themselves - so once the document had scrolled
+down, the nested `overflowY: auto` panel consumed every upward gesture that would have brought
+the header back. A page whose top can be scrolled away and not scrolled back reads exactly like
+a page whose top is missing.
+
+**A second mechanism produces the identical symptom and this repo had that too.**
+`apple-mobile-web-app-status-bar-style: black-translucent` makes a Home-Screen launch draw
+*under* the status bar and the notch, and nothing anywhere paid for it with
+`env(safe-area-inset-top)` - so the first ~47px of every page sat behind the clock. It is one
+word, and edge-to-edge is worth nothing to a 390px card with rounded corners and a drop shadow.
+
+**The fix is that the DOCUMENT never scrolls.** The app is one fixed-size card; only its inner
+panels move.
+
+- `html, body { height: 100%; overflow: hidden; overscroll-behavior: none }`, inside
+  `@media screen` so the print path is untouched - a clipped, unscrollable body is precisely
+  what a multi-page PDF must not have.
+- Page containers take **`.rv-page`**, which is `height: 100%` followed by `height: 100dvh`.
+  `100%` tracks the *visible* viewport where `100vh` does not, and `100dvh` is the modern
+  spelling that wins where it is understood. **The pair cannot be written in a JS style object**,
+  which is the whole reason this is a stylesheet rule and not an inline style - and `#root`
+  needs a definite `height: 100%` of its own or the percentage silently falls back to `auto`
+  and the entire fix is inert.
+- `overscroll-behavior: contain` on the page class is the other half: a panel at its own scroll
+  limit must keep the gesture rather than hand it outward.
+
+**Every viewport unit in `src/` is gone, not only the two pages that were reported.** Ten
+overlays sized themselves `80vh` / `86vh` / `88vh` inside a `position: fixed; inset: 0` parent -
+which *is* the visible viewport, so a percentage is exact there and a viewport unit is the same
+defect one layer down waiting for a taller phone. They are percentages now.
+
+**The guards are derived over `src/`, with comments stripped.** No inline `height`/`maxHeight`
+in a viewport unit anywhere; every phone-sized card (`maxHeight: 844`) carries the class; the
+class carries **both** heights *in fallback order*; the body cannot scroll; `#root` has the
+definite height the percentage resolves against. A guard naming playerInfo and Setup would have
+been a sample - the org-suffix lesson, three screens over - and three guards in this repo have
+now passed against their own documentation, which is why the scan reads code rather than prose.
+
+**9 mutations, 9 RED**, including both arms of the fallback pair separately: deleting `100%`
+and deleting `100dvh` each break a different half of the fix, so a single check asserting "a
+height is present" would pass against either.
+
+**NOT verified, and this is the honest part: neither mechanism is reproducible on this machine.**
+Both are iOS layout behaviours. What is measured is that the units are gone and the rules are
+present; whether the page now starts where it should is **Yuhan's phone**, and that is the
+measurement.
+
+---
+
 ### One profile editor, and an edit to a prebuilt member is a DIFF
 
 **Tapping a chosen member's face opens her profile, whichever door she came through**

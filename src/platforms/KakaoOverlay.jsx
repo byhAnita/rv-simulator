@@ -13,7 +13,7 @@ export default function KakaoOverlay({ memberId, members, kktMessages, kktUnlock
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.5)" : "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
-      <div style={{ width: "100%", maxWidth: 360, height: "80vh", maxHeight: 600, background: isLight ? "#e8d9c0" : "#b2c7d9", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
+      <div style={{ width: "100%", maxWidth: 360, height: "80%", maxHeight: 600, background: isLight ? "#e8d9c0" : "#b2c7d9", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
         <div style={{ background: isLight ? "#4a3018" : "#3c1e1e", padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", fontSize: 18, cursor: "pointer", padding: "0 4px" }}>‹</button>
           <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{t.social.kakao.title}</span>

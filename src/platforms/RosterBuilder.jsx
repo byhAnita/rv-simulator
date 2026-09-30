@@ -397,8 +397,8 @@ export default function RosterBuilder({
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: k.pageBg }}>
-      <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: k.pageBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: k.textMain, display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
+    <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: k.pageBg }}>
+      <div className="rv-page" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: k.pageBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: k.textMain, display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
 
         <div style={{ padding: "12px 13px 10px", borderBottom: `1px solid ${k.border}`, flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={onBack} aria-label={c.back}
