@@ -3229,6 +3229,46 @@ golden) or to compose lore for an edited cast (which changes which template a cl
 8. **Generated text reaches the save, and the prompt is byte-identical across two builds of it** —
    Layer J's purity rule, which is what a network call in the setup path must not break.
 
+#### What commit 4a settled, and the one thing 4b cannot decide alone
+
+**This plan said commit 4 moves all six goldens. It moves none**, and that is the better
+outcome rather than a scope cut. `world_position` is absent from every fixture, so
+`filter(Boolean)` drops it; and the narrowed interim rule renders its *whom* clause only
+for a SUBSET, which no fixture is in either. The narrowed branch is therefore exercised
+against a synthetic translated member - the technique step 6 used for the platform trimming
+before any world on disk could reach it.
+
+**`isUsableDetail` is stricter than `isUsableCard`, deliberately.** A card is usable if it
+filled anything; a detail is usable only if it carries `world_position`, because that is the
+one marker the prompt reads to decide whether a member still needs the interim rule. A
+partial detail with two prose fields and no position would count as translated while
+rendering nothing in the slot `useRole` empties.
+
+**The rule's subset clause needs its second half.** Naming the un-translated members is not
+enough: without *"every other member's three fields were rewritten for this world and are
+literal"*, the model is still told to read the whole cast's prose figuratively, including
+the lines that were restaged so they could be read straight.
+
+**4b is blocked on the storage rule, and the block is real rather than caution.** *Only tab
+1 is persisted* collides with this document's own screen: a generated tab-2 field that is
+not persisted cannot survive `upsertMember`, so the text the player reviewed is discarded
+and the sweep regenerates it - which makes the `[retry]` button in §22.2's sketch
+meaningless. `name_kr` hits the same collision from the other side: it is drawn in tab 2 and
+is world-INDEPENDENT by §22.2's own test.
+
+The proposal is to **persist the generated detail and stamp it with the world it was
+generated for**, and have `resolveRoster` drop a stamped detail whose world does not match.
+That makes staleness unexpressible rather than merely unwritten, delivers guard 3 (*a world
+change during setup discards generated tab 2*) exactly, and cannot touch a custom member's
+hand-authored prose, which carries no stamp. It costs two profile fields in the save, which
+is why it is Yuhan's call and not mine.
+
+**And the generation TIMING that decision A leaves open.** A says *automatic for the whole
+cast at the Start boundary*, which means tab 2 is empty for the whole of setup. The shape
+taken is **lazy on opening an empty tab 2, plus an unconditional Start sweep** - the sweep
+is what makes it reach the whole cast, the lazy call is what makes the text reviewable, and
+skipping anyone who already has detail is what stops the sweep overwriting a correction.
+
 #### What this plan does NOT claim
 
 It does not claim §22.1's defect is *measured* as fixed. Translated prose is still model output about

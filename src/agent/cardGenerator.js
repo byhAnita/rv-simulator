@@ -105,7 +105,32 @@ Output ONLY valid JSON, no markdown fences, with exactly these keys:
  * hand the player a blank form for no reason.
  */
 export function parseCard(text) {
-  if (typeof text !== "string" || !text.trim()) return {};
+  const obj = parseJsonish(text);
+  if (!obj) return {};
+  const out = {};
+  for (const f of CARD_FIELDS) {
+    const v = obj[f];
+    if (v === undefined || v === null) continue;
+    const str = String(v).trim();
+    // A habit must be one line - the profile block renders it as one, and a
+    // newline inside it would break the line-per-field shape the prompt relies
+    // on. Same reason smoke rejects a multi-line habit in the group library.
+    if (str) out[f] = str.replace(/\s*[\r\n]+\s*/g, " ");
+  }
+  return out;
+}
+
+/**
+ * The JSON recovery both parsers need, written once.
+ *
+ * It was parseCard's body, and §22.2 needed the identical tolerance for the
+ * world-detail response - a second copy is what `extractStoryText` is a standing
+ * warning about in this repo, where two copies drifted and the guard had been
+ * written against the one that was still correct. Returns null rather than {} so a
+ * caller can tell *nothing parsed* from *parsed, no recognised field*.
+ */
+function parseJsonish(text) {
+  if (typeof text !== "string" || !text.trim()) return null;
 
   let body = text.trim();
   // Fenced output, with or without a language tag.
@@ -126,21 +151,10 @@ export function parseCard(text) {
     const opens = (fixed.match(/\{/g) || []).length;
     const closes = (fixed.match(/\}/g) || []).length;
     for (let i = closes; i < opens; i++) fixed += "}";
-    try { obj = JSON.parse(fixed); } catch { return {}; }
+    try { obj = JSON.parse(fixed); } catch { return null; }
   }
-  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
-
-  const out = {};
-  for (const f of CARD_FIELDS) {
-    const v = obj[f];
-    if (v === undefined || v === null) continue;
-    const s = String(v).trim();
-    // A habit must be one line — the profile block renders it as one, and a
-    // newline inside it would break the line-per-field shape the prompt relies
-    // on. Same reason smoke rejects a multi-line habit in the group library.
-    if (s) out[f] = s.replace(/\s*[\r\n]+\s*/g, " ");
-  }
-  return out;
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  return obj;
 }
 
 /** A card is worth showing if it filled anything the player would have typed. */
@@ -192,4 +206,172 @@ export async function generateCard({
     console.error("[cardGenerator] generation failed:", kind, e?.message || e);
     return { ok: false, profile: {}, reason: kind };
   }
+}
+
+// ── her world-scoped detail (docs/V140_PLAN.md §22.2, tab 2) ───────────────────
+//
+// THE FIELDS THAT ARE TRUE OF HER IN A WORLD, rather than true of her. The test
+// §22.2 states is *would this sentence still be true if she were cast in a
+// different world?* - and the three ★ texture fields fail it: the library's are
+// authored for a performing-idol setting and reach all four worlds, 57 of 57
+// members, 80 field instances (§22.1). `world_position` is the fourth, and it is
+// what fills the slot `castLore.useRole` empties.
+//
+// `name_kr` is NOT here. It is a tab-2 field on screen and world-INDEPENDENT in
+// fact - a Korean name is her name in a lecture hall as much as on a stage - so
+// generating it per world would be re-rolling a fixed fact, and the prebuilt cast
+// already carries it. §22.3.1 has the twelve-plus readers it would break.
+export const WORLD_FIELDS = [
+  "world_position", "public_image", "queer_texture", "speech_style", "hidden_conflict",
+];
+
+/**
+ * The prompt that restages one member in one world.
+ *
+ * IT NEEDS NO NEW WORLD FIELD, which is why §4.5's `world.setting` is still not
+ * shipped. The world already carries what a world-scoped generation wants:
+ * `castLife.theirs` answers *what do these people do all day*, `castLore.orgNoun`
+ * names the kind of organisation, `scenario` is the opening scene and `places` is
+ * the canon list. Generating from those costs ZERO world-file edits against twelve
+ * documents - and because they are the same fields the ROLE CONTRACT and section 11
+ * already render, the generated detail cannot contradict the rest of the prompt.
+ *
+ * HER EXISTING LINES GO IN AS THE SOURCE, not as an example to match. The job is a
+ * restaging: keep who she is, change the circumstances it is described through -
+ * which is exactly what §22.1's interim prompt rule asks the MODEL to do at read
+ * time, done once at setup instead, where it can be reviewed and costs no tokens
+ * per round.
+ */
+export function buildWorldDetailPrompt(member, world, language = "zh") {
+  const lang = LANGUAGE_NAME[language] || LANGUAGE_NAME.zh;
+  const places = (world?.places || []).slice(0, 6).map((pl) => pl.name).filter(Boolean).join(", ");
+  const was = (label, v) => (String(v || "").trim() ? `- ${label}: ${v}` : null);
+  return `You are restaging one cast member of a dating sim into a different setting.
+
+THE SETTING
+- What these people do all day: ${world?.castLife?.theirs || ""}
+- The kind of organisation they belong to: ${world?.castLore?.orgNoun || ""}
+- Where the story opens: ${world?.scenario || ""}
+- Places that exist in it: ${places}
+
+HER, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
+- Name: ${member?.name || ""}
+${[was("Private personality", member?.private_personality),
+  was("Public image", member?.public_image),
+  was("Queer texture", member?.queer_texture),
+  was("Speech style", member?.speech_style),
+  was("Hidden conflict", member?.hidden_conflict),
+  was("Habit", member?.habit)].filter(Boolean).join("\n")}
+
+KEEP WHO SHE IS AND CHANGE ONLY THE CIRCUMSTANCES. Her temperament, what she shows
+and what she hides, how she behaves while she is watched - all of that survives.
+What must go is every fact that only holds for a performing idol: no stage, no
+debut, no comeback, no fandom, no album, no variety show, and no rank in a
+performing group such as leader, main vocal or maknae. Restage each trait inside
+the setting above instead.
+
+Do not invent a real company, school or family name. Do not contradict the opening
+scene. Write every field in ${lang} and add no field that is not listed.
+
+Output ONLY valid JSON, no markdown fences, with exactly these keys:
+
+{
+  "world_position": "what she does in THIS setting - a short noun phrase, the way a role in a group would be written, e.g. a position, a year, a job",
+  "public_image": "the persona the people around her see, 1-2 sentences",
+  "queer_texture": "how attraction to a woman surfaces in her specifically, 1-2 sentences",
+  "speech_style": "how she talks - register, rhythm, verbal tics, 1 sentence",
+  "hidden_conflict": "the tension she carries and hides, 1 sentence"
+}`;
+}
+
+/** Pull a world-detail object out of whatever the model returned. */
+export function parseWorldDetail(text) {
+  const obj = parseJsonish(text);
+  if (!obj) return {};
+  const out = {};
+  for (const f of WORLD_FIELDS) {
+    const v = obj[f];
+    if (v === undefined || v === null) continue;
+    const str = String(v).trim();
+    // One line per field: the profile block renders each as one line, and a
+    // newline inside would break the line-per-field shape the prompt relies on.
+    if (str) out[f] = str.replace(/\s*[\r\n]+\s*/g, " ");
+  }
+  return out;
+}
+
+/**
+ * A detail is only usable if it carries `world_position`.
+ *
+ * NOT `Object.keys(...).length > 0`, which is what a card needs, and the difference
+ * matters downstream: `world_position` is the ONE marker the prompt reads to decide
+ * whether a member still needs §22.1's interim rule. A partial detail carrying two
+ * prose fields and no position would count as translated while rendering nothing in
+ * the slot `useRole` emptied - a member with no statement of what she does at all,
+ * which is worse than the idol prose the rule was written for.
+ */
+export function isUsableDetail(detail) {
+  return Boolean(detail && String(detail.world_position || "").trim());
+}
+
+/**
+ * Restage one member in one world. Never throws.
+ *
+ * AN ACCELERATOR, NEVER A GATE - `generateCard`'s own law, and here it is what the
+ * §22.1 rule's condition is built on: a failure returns no detail, the member stays
+ * un-translated, and the prompt keeps telling the model to read her lines for traits
+ * rather than facts. Nothing about character creation blocks on a provider.
+ */
+export async function generateWorldDetail({
+  member, world, language = "zh", apiKey, modelId = "deepseek",
+  aliyun = null, reasoningEnabled = false,
+} = {}) {
+  if (!member?.name || !world) return { ok: false, detail: {}, reason: "bad_request" };
+  const prompt = buildWorldDetailPrompt(member, world, language);
+  const usable = (content) => {
+    try { return isUsableDetail(parseWorldDetail(content)); } catch { return false; }
+  };
+  try {
+    const raw = await callLLM(
+      prompt, [], "", apiKey, modelId, null, reasoningEnabled, aliyun, usable);
+    const detail = parseWorldDetail(raw);
+    return isUsableDetail(detail)
+      ? { ok: true, detail }
+      : { ok: false, detail: {}, reason: "bad_response" };
+  } catch (e) {
+    console.error("[worldDetail] generation failed:", e?.kind || "unknown", e?.message || e);
+    return { ok: false, detail: {}, reason: e?.kind || "unknown" };
+  }
+}
+
+/**
+ * Restage a whole cast, concurrently, and never fail the run.
+ *
+ * CONCURRENT because the wait is what decision A costs the player: run in series,
+ * nine members is nine round-trips in front of a Start button; run together, it is
+ * roughly one. PER-MEMBER FALLBACK because a dead provider must not block character
+ * creation - a member who fails is simply absent from the map, which is exactly the
+ * state §22.1's narrowed rule still covers.
+ *
+ * Members who ALREADY carry a detail are skipped, so the Start-boundary sweep does
+ * not re-pay for anyone the editor already generated - and so it cannot overwrite a
+ * line the player reviewed and corrected.
+ */
+export async function generateCastDetail({
+  members = [], world, language = "zh", apiKey, modelId = "deepseek",
+  aliyun = null, onProgress = null,
+} = {}) {
+  const todo = members.filter((m) => m?.name && !isUsableDetail(m));
+  let done = 0;
+  const results = await Promise.all(todo.map(async (m) => {
+    const res = await generateWorldDetail({ member: m, world, language, apiKey, modelId, aliyun });
+    onProgress?.(++done, todo.length);
+    return [m.id, res];
+  }));
+  const detailById = {};
+  let failed = 0;
+  for (const [id, res] of results) {
+    if (res.ok) detailById[id] = res.detail; else failed += 1;
+  }
+  return { detailById, asked: todo.length, failed };
 }

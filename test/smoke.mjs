@@ -4265,7 +4265,9 @@ async function layerI() {
   // field (80 instances, `public_image` 56 of them), which is why a chaebol
   // heiress posted about a recording session and being the maknae from a family
   // compound. The interim rule tells the model how to READ that prose; 22.2
-  // fixes the data and must delete the rule.
+  // fixes the data - and NARROWS this rule rather than deleting it, because
+  // `generateCard` is an accelerator and never a gate, so a run can always hold a
+  // member whose texture was not translated. The narrowing is guarded below.
   //
   // Derived over every world rather than asserted about campus, which is the
   // lesson the org-suffix scan and the platform loop above both had to learn: a
@@ -4313,6 +4315,46 @@ async function layerI() {
       noSubstitute.length === 0, noSubstitute.join(" | "));
     check("...and sits BEFORE the profiles it tells the model how to read",
       misplaced.length === 0, misplaced.join(" | "));
+
+    // §22.2 NARROWS the rule to the members it is true of. Three states, and each
+    // one is a different promise: gone once everybody is translated, scoped and
+    // naming whom when it is a subset, and byte-identical to today when nobody is -
+    // which is what lets this land without moving a golden, since no fixture
+    // contains a translated member. Same technique step 6 used to exercise the
+    // platform trimming before any world on disk could.
+    const nonIdol = Object.values(allWorlds).map((b) => b.en)
+      .find((w) => w && w.castLore.useRole === false);
+    if (!nonIdol) {
+      check("a non-idol world exists to exercise the narrowed rule against", false,
+        "without one every check below would pass vacuously");
+    } else {
+      const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+        members.map((m) => m.id));
+      const cast = await fromDisk(() => loader.resolveRoster(roster, "en", nonIdol));
+      const render = (ms) => buildSystemPrompt(form({ identity: nonIdol.identities[0].id }),
+        ms, "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", nonIdol);
+      const done = (m) => ({ ...m, world_position: "restaged" });
+      const none = render(cast.members);
+      const all = render(cast.members.map(done));
+      const some = render(cast.members.map((m, i) => (i === 0 ? m : done(m))));
+      check("the traits-not-facts rule disappears once every member has been translated",
+        !TRAITS_RULE.test(all),
+        "a rule about data that is no longer sent is the append-only failure");
+      check("...and stays for a run where even one member has not been",
+        TRAITS_RULE.test(some) && TRAITS_RULE.test(none),
+        "generateCard is an accelerator and never a gate, so this state is reachable");
+      // Scoped to the CLAUSE. Searching the whole prompt for the translated
+      // member's name finds her sub-member line and fails on prose that is
+      // correct - the name is a claim about who still needs the rule only here.
+      const clauseIn = (pr) => (pr.match(/This applies to [^\n]*?are literal\./) || [""])[0];
+      check("...naming exactly her, and saying the others' lines are literal",
+        clauseIn(some).includes(cast.members[0].name)
+          && cast.members.slice(1).every((m) => !clauseIn(some).includes(m.name)),
+        JSON.stringify(clauseIn(some)));
+      check("...and says nothing about whom when nobody has been translated, so no golden moves",
+        !/and to no one else/.test(none) && !/are literal/.test(none),
+        "every fixture is in this state; a clause here would move three goldens");
+    }
   }
 
     // Direction, rendered. `prof_of_cast` points the title at the player and
@@ -5296,6 +5338,27 @@ async function layerI() {
   // ...and the field is still THERE. Stripping it at the loader would have taken an
   // idol position out of the idol world too, which is the half of Yuhan's
   // instruction a filter satisfies and a deletion does not.
+  // §22.2: THE FILTERED SLOT IS FILLED, by `world_position` - what she does in THIS
+  // world. Filtering the idol position left a non-idol world with nothing at all
+  // saying what she does, and that is the most world-specific fact there is.
+  //
+  // They are ALTERNATIVES IN ONE EXPRESSION, so both directions are asserted on the
+  // same cast: the idol world must render `role` and never the position, the non-idol
+  // world the reverse. A cross-group cast is used because a whole single group in an
+  // idol world takes its group lore verbatim and never reaches memberLine at all -
+  // so a check written on the classic cast would pass without exercising anything.
+  const POS = "SENTINEL-WORLD-POSITION";
+  const posCast = { ...roleCast, entries: roleCast.entries.map((e) => ({ ...e, override: { world_position: POS } })) };
+  const posIdol = await fromDisk(() => loader.resolveRoster(posCast, "zh", worlds.zh));
+  const posSans = await fromDisk(() =>
+    loader.resolveRoster(posCast, "zh", noRoleWorld || worlds.zh));
+  check("a world-scoped position fills the slot the idol position was filtered out of",
+    posSans.groupConfig.groupLore.includes(POS),
+    "a non-idol world had nothing at all saying what she does");
+  check("...and an idol world renders her idol position instead, never both",
+    !posIdol.groupConfig.groupLore.includes(POS)
+      && roleStrings.every((r) => posIdol.groupConfig.groupLore.includes(r)),
+    "two answers to *what does she do* is the failure this repo records five of");
   check("`role` still reaches the app from the group library",
     withRole.members.every((m) => typeof m.role === "string" && m.role.length > 0),
     "the cast picker and the member editor read it; only the PROMPT is filtered");
@@ -6013,6 +6076,7 @@ async function layerI() {
   // blank form so a dead provider, an exhausted free route or a missing key
   // cannot block character creation. That is the whole contract, and it is the
   // one thing a live test would exercise least often.
+  const cgSrc = readFileSync(join(ROOT, "src/agent/cardGenerator.js"), "utf8");
   const cardBundle = join(OUT, "cardGen.mjs");
   await esbuild.build({
     stdin: {
@@ -6205,6 +6269,76 @@ async function layerI() {
   check("a description too short to use spends no API call",
     shortDesc.ok === false && shortDesc.reason === "no_description" && called === 0,
     `fetch called ${called} times`);
+
+  // --- §22.5 commit 4: restaging a member into the world she is cast in --------
+  //
+  // §22.1's defect is the library's prose, not its structured fields: 57 of 57 members
+  // describe themselves through idol work in a world-agnostic field. The interim rule
+  // tells the MODEL to read that prose for traits; this does it once at setup instead,
+  // where it can be reviewed and costs nothing per round.
+  const DETAIL = {
+    world_position: "the family's in-house counsel",
+    public_image: "line one\nline two",
+    queer_texture: "  padded  ",
+    nonsense: "not a field",
+  };
+  const parsedDetail = cg.parseWorldDetail(JSON.stringify(DETAIL));
+  check("a world detail keeps only the fields it declares, one line each",
+    parsedDetail.public_image === "line one line two"
+      && parsedDetail.queer_texture === "padded"
+      && !("nonsense" in parsedDetail),
+    JSON.stringify(parsedDetail));
+  check("...and is recovered from a fenced response the way a card is",
+    cg.parseWorldDetail("```json\n" + JSON.stringify(DETAIL) + "\n```").world_position
+      === DETAIL.world_position,
+    "a model that fences its JSON must not cost the player the call");
+  // ONE recovery, not two copies. `extractStoryText` is this repo's standing warning:
+  // two copies drifted and the guard had been written against the one still correct.
+  check("...through the SAME JSON recovery the card parser uses, not a second copy",
+    (cgSrc.match(/parseJsonish\(/g) || []).length === 3
+      && (cgSrc.match(/const fenced = /g) || []).length === 1,
+    (cgSrc.match(/parseJsonish\(/g) || []).length + " references to one recovery");
+  // The MARKER the prompt reads. A detail with prose and no position would count as
+  // translated while rendering nothing in the slot `useRole` emptied - a member with
+  // no statement of what she does at all, which is worse than the idol prose.
+  check("a detail is usable only when it says what she does in this world",
+    cg.isUsableDetail(parsedDetail) === true
+      && cg.isUsableDetail({ public_image: "x", queer_texture: "y" }) === false
+      && cg.isUsableDetail({ world_position: "   " }) === false,
+    "world_position is the one field the narrowed interim rule keys on");
+  // No new world field, which is why §4.5's `world.setting` is still not shipped: the
+  // world already answers what a restaging needs, and reusing the fields the ROLE
+  // CONTRACT and section 11 render is what stops the detail contradicting them.
+  {
+    const w = Object.values(allWorlds).map((b) => b.en).find((x) => x && x.castLore.useRole === false);
+    const dp = w ? cg.buildWorldDetailPrompt({ name: "Yeri", public_image: "the maknae" }, w, "en") : "";
+    check("the restaging prompt is built from fields the world already carries",
+      Boolean(w) && dp.includes(w.castLife.theirs) && dp.includes(w.castLore.orgNoun)
+        && dp.includes(w.scenario) && dp.includes(w.places[0].name),
+      "a new prose field would be twelve world documents for something already there");
+    check("...and hands her existing lines over as the source to restage",
+      dp.includes("the maknae") && /KEEP WHO SHE IS/.test(dp),
+      "a restaging with nothing to restage invents a stranger");
+    check("...and forbids the idol facts the interim rule forbids at read time",
+      /no stage/.test(dp) && /no comeback/.test(dp) && /maknae/.test(dp),
+      "the two must forbid the same list or they are two rules about one thing");
+  }
+  // The sweep decision A costs the player a wait for, so: concurrent, per-member
+  // fallback, and it SKIPS anyone already translated - which is what stops it
+  // re-paying for the editor's work and overwriting a line the player corrected.
+  {
+    const swept = await cg.generateCastDetail({
+      members: [{ id: "a", name: "A" }, { id: "b", name: "B", world_position: "already" }],
+      world: { castLife: { theirs: "x" }, castLore: { orgNoun: "y" }, scenario: "z", places: [] },
+      apiKey: "", modelId: "deepseek",
+    });
+    check("the cast sweep asks only for members who have not been restaged yet",
+      swept.asked === 1,
+      "re-asking overwrites a line the player reviewed and charges her for it");
+    check("...and a failed member leaves the run startable rather than throwing",
+      swept.failed === 1 && Object.keys(swept.detailById).length === 0,
+      "an accelerator, never a gate - character creation cannot block on a provider");
+  }
 
   check("the generator asks for no field that reaches no prompt",
     !cg.CARD_FIELDS.includes("mbti") && !cg.CARD_FIELDS.includes("role")

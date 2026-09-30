@@ -1782,6 +1782,94 @@ GREEN on the first run and the **mutation** was at fault, not the guard: it anch
 *moved to the player-info page*, so it planted the duplicate where the control already
 belongs. **A mutation written against the pre-change layout tests the pre-change layout.**
 
+### The filtered slot is FILLED, and the interim rule narrows to whoever still needs it
+
+**`castLore.useRole` took the idol position out of a non-idol world's prompt and left
+nothing in its place** - so a chaebol prompt said what her MBTI is and never what she
+*does*, which is the most world-specific fact there is and the whole reason `castLife`
+exists. §22.2's answer is `world_position`: what she does in THIS world, written once at
+setup rather than reasoned about every round.
+
+**It is ONE expression and never two fields.** `memberLine` renders
+`useRole ? m.role : m.world_position` - alternatives, so an idol world renders her idol
+position and never the other, a non-idol world the reverse. A second field on its own line
+would be two answers to *what does she do*, which is the failure this file records five
+instances of. `kpop_idol` is byte-identical because `useRole` is true there.
+
+**§22.1's interim rule NARROWS rather than being deleted, and the comment in
+`mainAgent.js` that promised deletion was wrong.** `generateCard`'s law is *an accelerator,
+never a gate*, so every failure leaves a member un-translated and for her the prose is
+still idol prose; deleting the rule while that data is still being sent is a silent
+regression. **A rule scoped to the members it is true of is not two answers to one
+question** - the *append-only* instances here are two rules contradicting each other about
+the same subject, and a condition naming whom it applies to has one subject and one answer.
+
+Three states, each a different promise, and all three guarded:
+
+| the run holds | the rule |
+| --- | --- |
+| nobody translated | renders exactly as it did before this commit, with no clause about whom |
+| some translated | renders, **names the un-translated members**, and says the others' lines are literal |
+| everybody translated | gone |
+
+**The middle row's second half is load-bearing.** Without *"every other member's three
+fields were rewritten for this world and are literal"*, the model is told to read the whole
+cast's prose figuratively - including the lines that were restaged precisely so they could
+be read straight.
+
+**NO GOLDEN MOVED, which §22.5 predicted wrong.** The plan said commit 4 moves all six; it
+moves none, because no fixture contains a translated member, so the subset clause is empty
+and `world_position` is absent. That is the better outcome and it is the same technique step
+6 used for the platform trimming: **the narrowed branch is exercised against a synthetic
+translated member** rather than waiting for data on disk to reach it.
+
+**The restaging prompt needs no new world field**, which is why §4.5's `world.setting` is
+still not shipped after three releases of being named. The world already carries what a
+restaging wants - `castLife.theirs` (*what do these people do all day*), `castLore.orgNoun`,
+`scenario`, `places` - so this cost **zero** world-file edits against twelve documents, and
+because those are the same fields the ROLE CONTRACT and section 11 already render, the
+generated detail cannot contradict the rest of the prompt.
+
+**Her existing lines go in as the SOURCE, not as an example.** The call is a restaging: keep
+who she is, change the circumstances it is described through - which is exactly what the
+interim rule asks the model to do at read time, done once at setup where it can be reviewed
+and costs nothing per round. The two forbid the same list of idol facts, and a guard asserts
+that, because two rules about one thing is how they come to disagree.
+
+**`isUsableDetail` requires `world_position` and not merely a non-empty object**, unlike
+`isUsableCard`. It is the ONE marker the prompt reads to decide whether a member still needs
+the interim rule, so a partial detail carrying two prose fields and no position would count
+as translated while rendering nothing in the slot `useRole` emptied - a member with no
+statement of what she does at all, which is worse than the idol prose the rule exists for.
+
+**`name_kr` is a tab-2 field on screen and is NOT generated.** A Korean name is her name in a
+lecture hall as much as on a stage, so generating it per world would re-roll a fixed fact,
+and the prebuilt cast already carries it - §22.3.1 has the twelve-plus readers that would
+break.
+
+**The sweep is concurrent, skips anyone already restaged, and never fails the run.**
+Concurrent because that wait is what decision A costs the player: in series, nine members is
+nine round-trips in front of a Start button. Skipping is what stops it re-paying for the
+editor's work and overwriting a line the player corrected. Per-member fallback because a
+dead provider must not block character creation, and a member who fails is simply absent
+from the map - which is the state the narrowed rule still covers.
+
+**One JSON recovery, not two.** `parseCard`'s body became `parseJsonish` and both parsers
+call it. A second copy is what `extractStoryText` is this repo's standing warning about, where
+two copies drifted and the guard had been written against the one that was still correct. The
+guard counts the references.
+
+**14 mutations, 14 RED, and one WRONG verdict found a VACUOUS check of my own.** *"...and a
+cast nobody translated renders exactly what it did before the field existed"* compared one
+resolution of a roster against a fresh resolution of the **same** roster in the same world -
+equal by construction - and its other half tested a cast that *is* translated. Neither half
+was about the case it was named for. It is **deleted** rather than repaired: the
+dangling-separator guard four lines above it runs on exactly that cast, and the mutation
+reddens it by name along with the three non-idol goldens. A check that duplicates a guard and
+cannot fail is decoration.
+
+---
+
 ### One profile editor, and an edit to a prebuilt member is a DIFF
 
 **Tapping a chosen member's face opens her profile, whichever door she came through**
@@ -3005,10 +3093,42 @@ Five commits, each shippable, and the first four are the release:
    `animal_plastic` left the editor AND `CARD_FIELDS`; `name_kr` stays. **All six goldens
    byte-identical**, which was the gate. smoke **1584 → 1603**, 21 mutations. See *One
    profile editor, and an edit to a prebuilt member is a DIFF*.
-4. ⬜ **The two tabs, the generated detail, and `world_position`.** Prompt-facing: `memberLine`
-   becomes `useRole ? m.role : m.world_position`, the generation runs for the whole cast at the
-   Start boundary, and the §22.1 rule narrows to the members whose texture was not translated.
-   It moves all six goldens, so `update-golden.mjs` runs once and the diff is read.
+4. ◩ **The two tabs, the generated detail, and `world_position`** - split in two, because
+   the prompt half is complete and the UI half turned up a design gap.
+   - ✅ **4a, the prompt and the generator.** `memberLine`'s one expression, the §22.1 rule
+     narrowed to whoever still needs it, `generateWorldDetail` / `generateCastDetail`, and
+     `parseJsonish` factored out of `parseCard`. **No golden moved** - §22.5 predicted all
+     six and was wrong, because no fixture holds a translated member. smoke **1603 → 1618**,
+     14 mutations 14 RED. See *The filtered slot is FILLED*.
+   - ⬜ **4b, the two tabs and the wiring.** BLOCKED on one decision, below.
+
+**4b's open decision, and it is Yuhan's because it touches what a save carries.** §22.2's
+storage rule is *only tab 1 is persisted*, and it collides with §22.2's own screen: if a
+generated tab-2 field is not persisted, it cannot survive the trip through `upsertMember`,
+so the text the player reviewed and corrected is thrown away and the Start sweep regenerates
+it. The same collision hits `name_kr`, which sits in tab 2 on screen and is
+world-INDEPENDENT by §22.2's own test (*would this sentence still be true in another
+world?*).
+
+**My proposal: persist the generated detail and STAMP it with the world it was generated
+for.** `resolveRoster` then drops a stamped detail whose world does not match, which makes
+staleness unexpressible downstream instead of relying on nothing having written it - and it
+delivers what §22.5's guard 3 actually asks for (*a world change during setup discards
+generated tab 2*) without deleting a custom member's hand-authored prose, which has no
+stamp and is therefore never touched. The cost is two new profile fields
+(`world_position`, `world_detail_for`) reaching the save.
+
+**Not taken without a decision**, because a new persisted field is the save shape, and
+§22.5's rule as written says the opposite. The alternative is to keep tab 2 unpersisted and
+accept that the player cannot correct generated text before Start - which makes the retry
+button in §22.2's own sketch meaningless.
+
+**Also decided while writing 4a, and stated so it can be overruled:** generation runs
+**lazily when tab 2 is opened empty, PLUS an unconditional Start-boundary sweep** for
+everyone still missing detail. §22.5's decision A is *automatic for the whole cast at the
+Start boundary*, and A alone means tab 2 is empty for the whole of setup and its retry
+button has nothing to retry. The pair reaches the whole cast (which is why A was chosen)
+and keeps the text reviewable, without charging a player for browsing casts.
 5. ⬜ The unified door - **not in scope**, and nothing above depends on it.
 
 **NOT verified: neither `81ccbeb` nor `fcfb93d` has been seen on a device.** Commit 2 is a page

@@ -105,10 +105,25 @@ export const orgNameFor = (castName, suffix) =>
  * `parseGroupConfig`'s whitelist, in all 30 group files, and on every cast screen
  * — stripping it at the loader would take an idol position out of the idol world
  * too. `mbti` and `animal_plastic` are world-neutral and are not filtered.
+ *
+ * SINCE v1.4.1 §22.2 THE FILTERED SLOT IS FILLED RATHER THAN LEFT EMPTY, by
+ * `world_position` — what she does in THIS world, generated at setup. Filtering the
+ * idol position left a non-idol world with nothing at all saying what she does, and
+ * *what these five people do all day* is the most world-specific fact there is,
+ * which is the whole reason `castLife` exists (§22.3.2).
+ *
+ * IT IS ONE EXPRESSION AND NEVER TWO FIELDS. They are alternatives: an idol world
+ * renders `role` and never `world_position`, a non-idol world the reverse. Rendering
+ * both, or putting the new one on its own line, would be two answers to *what does
+ * she do* — the failure this repo records five instances of. `kpop_idol` is
+ * byte-identical because `useRole` is true there, and a non-idol world whose cast has
+ * not been translated is byte-identical too, because the field is simply absent and
+ * `filter(Boolean)` drops it.
  */
 function memberLine(m, useRole) {
   const kr = m.name_kr ? `(${m.name_kr})` : "";
-  const facts = [useRole ? m.role : null, m.mbti, m.animal_plastic].filter(Boolean).join(", ");
+  const facts = [useRole ? m.role : m.world_position, m.mbti, m.animal_plastic]
+    .filter(Boolean).join(", ");
   return `${m.emoji ? `${m.emoji} ` : ""}${m.name}${kr}${facts ? ` - ${facts}` : ""}`;
 }
 

@@ -372,17 +372,32 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // trait and restage it in castLife.theirs, which is the field that already answers
   // `what do these people do all day` for each world.
   //
-  // DELETE THIS when §22.2 lands the generated per-world texture, in that same commit.
-  // It tells the model how to read data that is wrong for the world; §22.2 makes the
-  // data right, and keeping both would put two answers to one question in the prompt -
-  // the `a prompt is not append-only` failure CLAUDE.md records five instances of.
+  // IT NARROWS RATHER THAN BEING DELETED, and that is a correction to what this comment
+  // used to promise ("DELETE THIS when §22.2 lands"). §22.2 makes the data right - but
+  // `generateCard`'s own law is AN ACCELERATOR, NEVER A GATE, so every failure leaves a
+  // member un-translated, and for exactly those members the prose is still idol prose.
+  // Deleting the rule while that data is still being sent is a silent regression.
+  //
+  // A RULE SCOPED TO THE MEMBERS IT IS TRUE OF IS NOT TWO ANSWERS TO ONE QUESTION. The
+  // `a prompt is not append-only` instances this repo records are two rules making
+  // contradictory claims about the SAME subject; a condition naming whom it applies to
+  // has one subject and one answer. So it renders only while somebody still needs it,
+  // and when that is a SUBSET it says whose lines are literal - without which the model
+  // is left reading a translated member's prose as figuratively as an untranslated one's.
+  //
+  // The subset clause is EMPTY when nothing has been translated, which is the state every
+  // fixture is in - so this lands without moving a golden, and the narrowed branch is
+  // exercised against a synthetic translated member instead. Same technique step 6 used
+  // for the platform trimming, before any world on disk could exercise it.
   //
   // It is appended to the CRITICAL line rather than placed on its own line, so a world
   // with useRole:true renders byte-identically - not even a newline moves - and it sits
   // BEFORE the profiles, because a rule about how to read the prose has to reach the
   // model before the prose does.
-  const textureCaveat = world.castLore.useRole ? "" : `
-READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting and this story is not one. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through: here she has no stage, no debut, no comeback, no fandom, and no rank in a performing group such as leader, main vocal or maknae. What she has instead is ${world.castLife.theirs}. Where a line describes her through idol work, keep the trait and restage it there.`;
+  const untranslated = members.filter((m) => !m.world_position);
+  const literalOnes = untranslated.length === members.length ? "" : ` This applies to ${untranslated.map((m) => m.name).join(", ")} and to no one else: every other member's three fields were rewritten for this world and are literal.`;
+  const textureCaveat = (world.castLore.useRole || untranslated.length === 0) ? "" : `
+READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting and this story is not one. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through: here she has no stage, no debut, no comeback, no fandom, and no rank in a performing group such as leader, main vocal or maknae. What she has instead is ${world.castLife.theirs}. Where a line describes her through idol work, keep the trait and restage it there.${literalOnes}`;
 
   // One context for both renderers, so a catalog entry that needs a world-varying
   // value cannot get it in one list and not the other.
