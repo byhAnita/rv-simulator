@@ -3558,6 +3558,124 @@ control that no longer exists is the `pickMainHint` failure, and this file has n
 times.
 
 ---
+### 22.8 The seventh phone pass - one image column, and two tabs that are one size
+
+**Yuhan's report, 2026-09-30, hand-testing `b1d7e9f`** with a screenshot of tab 1 in the office
+world. The header fix and the world-named tab both passed; this is a layout proposal on top of
+them, and it is his design in his words.
+
+> *"here's a large space between photo and wallpaper, I'd suggest tab 1 and tab 2 with same window
+> size by raising wallpaper photo a little bit to be right below the profile photo. Then move emoji
+> below wallpaper also as the half width left side part. [...] left column will be from up to down:
+> profile photo, wallpaper, emoji to pick from [...] right column from up to down: name, birth
+> year, private personality, MBTI, habit (change the order of MBTI and habit). Then below the left
+> & right column with full width is the describe in one sentence and generate her setting in this
+> world, retry as it is now (but change "重新生成" to a small square retry icon as we use in the
+> retry for story panel [...]). Try to use this and make the profile editor window size for tab 1
+> & 2 uniform"*
+
+#### 22.8.1 Two rows become one, and the gap it closes is structural
+
+§22.7.2 narrowed the wallpaper's column to 32% because a 2:3 tile at the photo's 44% was **213px
+tall against three fields beside it that need 168** - the row was sized by the picture. That made
+the tile shorter and left the *shape* of the defect in place: **two rows, each as tall as the
+taller of its two columns, means every row pays for its own mismatch.** The screenshot shows
+exactly that, as the space between the two tiles.
+
+One row instead, with **one image column**: photo, wallpaper and the emoji palette stacked on the
+left, the five text fields on the right. The mismatch is then paid **once**, across the whole tab,
+and it is the only arrangement in which the wallpaper sits directly under the photo - which is what
+the report asks for.
+
+**The column share is the one number, and it trades two heights against each other.** The
+wallpaper is 2:3, so a *wider* column makes it taller; the emoji palette wraps, so a *narrower*
+column makes it taller. The share is therefore chosen by measurement rather than by taste, in the
+same headless-Chrome harness §22.7.2 used.
+
+**MBTI moves above Habit** because the report says so, and there is nothing to weigh: both are
+optional one-line boxes and neither reads first by any rule this project holds.
+
+#### 22.8.2 The retry is an icon, and the width goes to the button that says what it does
+
+`生成她在此世界的设定` and `重新生成` split the row in half, so the label that carries the whole
+meaning of the control was the one being truncated. The retry becomes a square icon button - `↺`,
+the glyph the story panel already uses for exactly this act - and Generate takes the rest of the
+row.
+
+**The icon keeps the label it loses**, as `aria-label` and `title` from the same `c.detailRetry`
+string. An icon-only control with no accessible name is a control a screen reader cannot announce,
+and the string already exists in all three languages.
+
+#### 22.8.3 "Uniform" is a property, so it is made true by construction
+
+The panel has no height of its own: it is content-sized, so switching tabs resizes the window under
+the player's thumb. Two ways to stop that, and only one of them is derived:
+
+- **Pin a height.** A number in the source that has to be re-measured whenever either tab changes,
+  and that is wrong by a little on every phone. This is the hand-maintained list this file keeps
+  recording, wearing a pixel's clothes.
+- **Put both tabs in the same grid cell.** Both panes occupy `gridArea: 1 / 1`, so the row is as
+  tall as the taller of them **whatever either one contains**, and the inactive pane is
+  `visibility: hidden` - which removes it from the tab order and from the accessibility tree
+  without removing it from the layout.
+
+The second is taken. It needs no measurement to stay true, and a field added to either tab keeps
+it true. What it costs is that both tabs are always mounted: the editor is one small component with
+no data fetching of its own, so the cost is a few hundred DOM nodes and no request.
+
+**`display: none` would not do it** - it takes the pane out of layout, which is the whole point -
+and neither would `opacity: 0`, which leaves the pane clickable on top of the visible one.
+
+#### 22.8.4 The ladybird
+
+> *"remove the 🐞 emoji from list, no one likes it"*
+
+`EMOJI_PALETTE` is **also the default glyph source**: `withDefaults` assigns `palette[index %
+palette.length]` to a member who has none. Removing an entry therefore shifts the default for
+every custom member at a later index who never chose one - a cosmetic change to an unchosen value,
+on the screen where the palette that produced it is sitting. It is not worth a migration and it is
+worth stating.
+
+#### 22.8.5 The editor opened underneath the sheet that opened it
+
+> *"after click `+ 创建成员` the cast library menu below stays on the top of a new character
+> editor. `+ 创建成员` should make the editor in top of library layer"*
+
+Reported from the same phone pass, with a screenshot: the member picker's bottom sheet sits over a
+blurred profile editor, and the editor is the thing that was just opened.
+
+**`+ 创建成员` is a control INSIDE the picker**, so the editor is the picker's child modal and has
+to outrank it. It did not: `MemberEditor` was `zIndex: 110` and `MemberPicker` `115`. Both are
+rendered by `RosterBuilder` as **siblings**, so nothing about the markup ordered them either - the
+two numbers were the whole decision.
+
+**The numbers were five literals in five files with nothing anywhere saying which was meant to be
+on top**, which is the hand-maintained list this file keeps recording, wearing a pixel's clothes.
+So `castTheme.js` gains `Z`, one map naming each layer for what it *is*:
+
+| | | opened from |
+| --- | --- | --- |
+| `sheet` | 115 | the roster builder |
+| `imageSheet` | 120 | the roster builder |
+| `dialog` / `confirm` | 125 / 130 | the roster builder |
+| `editor` | **140** | the builder **and the picker's palette tab** |
+| `cropper` | **150** | the editor and the image sheet |
+
+**The guard asserts the RELATION, not the numbers.** `Z.editor > Z.sheet`, `Z.editor >
+Z.imageSheet`, `Z.cropper > Z.editor` - a pinned pair would pass against the bug the moment
+somebody renumbered the sheet instead. Beside it, a derived scan over the whole directory: every
+key is claimed by **exactly one** root, no two layers share a level (a tie is resolved by DOM
+order, which is the thing that was never stated), and a file that reads the ladder may not carry a
+literal beside it.
+
+**Why the cropper's number never showed the defect**, which is worth knowing before changing any of
+these: each of these roots is `position: fixed` with a `z-index`, so each one **creates a stacking
+context**. The cropper is rendered *inside* the editor, so its 130 was only ever compared against
+the editor's own children - the whole editor subtree competed with the picker at the editor's 110.
+Raising a child does nothing when the parent is the layer that is too low.
+
+---
+
 ## 21. Endings and the epilogue — v1.4.2
 
 **Raised by Yuhan 2026-09-28, immediately after step 2, as a rough mechanism to design against

@@ -34,7 +34,7 @@ import {
 } from "../agent/cardGenerator";
 // The restaging's own vocabulary, from the module that lays it back over a member.
 import { WORLD_FIELDS, WORLD_DETAIL_KEY } from "../rag/rosterResolver";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, Z } from "./castTheme";
 import YearWheel, { DEFAULT_YEAR } from "./YearWheel";
 import ImageCropper from "./ImageCropper";
 import { photoFill } from "./memberFace";
@@ -364,26 +364,53 @@ export default function MemberEditor({
     );
   };
 
-  // ── A RESUME ROW: an image at half width on the left, its fields on the right ─
+  // ── THE RESUME: ONE image column, and the five fields beside it ─────────────
   //
-  // Yuhan's design, 2026-09-30. `alignItems: flex-start` and not stretch, because a
-  // stretched square stops being a square - and the right column is the taller of
-  // the two, since the birth year is a WHEEL rather than a box.
+  // Yuhan's design, 2026-09-30 (22.8.1): photo, wallpaper and the emoji palette
+  // stacked on the left; name, birth year, private personality, MBTI and habit on
+  // the right, one per line.
   //
-  // THE SHARE IS AN ARGUMENT BECAUSE THE TWO TILES ARE DIFFERENT SHAPES (22.7.2).
-  // The wallpaper is 2:3, so at the photo's 44% it is 213px tall against three
-  // fields that need 168 - the row is sized by the picture rather than by the
-  // form, which is the gap between the two photos Yuhan reported. Its ratio is
-  // not negotiable, because the tile is a preview of the crop the player chose,
-  // so NARROWING IS THE ONLY WAY TO SHORTEN IT.
-  const resumeRow = (image, fields, basis = "44%") => (
+  // IT IS ONE ROW BECAUSE TWO ROWS EACH PAY FOR THEIR OWN MISMATCH. 22.7.2 gave
+  // the wallpaper a narrower column than the photo, which shortened that tile and
+  // left the shape of the defect alone: a row is as tall as its taller column, so
+  // the slack shows up under the shorter one - the space between the two photos,
+  // reported twice. With ONE image column the mismatch is paid once for the whole
+  // tab, and the wallpaper sits directly under the photo, which is what was asked.
+  //
+  // THE SHARE IS MEASURED, NOT CHOSEN, and it trades two heights against each
+  // other: the wallpaper is 2:3, so a wider column is a TALLER tile, while the
+  // palette wraps, so a narrower column is a TALLER palette. Neither tile's ratio
+  // is negotiable - each is a preview of the crop the player chose - so the column
+  // width is the only lever, and it is set where the two curves cross.
+  const IMAGE_COL = "30%";
+  const resumeBlock = (images, fields) => (
     <div style={{ display: "flex", gap: 9, marginBottom: 6, alignItems: "flex-start" }}>
-      <div style={{ flex: `0 0 ${basis}`, minWidth: 0 }}>{image}</div>
+      <div style={{ flex: `0 0 ${IMAGE_COL}`, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+        {images}
+      </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
         {fields.map(renderCompact)}
       </div>
     </div>
   );
+
+  // ── ONE SIZE FOR BOTH TABS (22.8.3) ─────────────────────────────────────────
+  //
+  // The panel has no height of its own - it is content-sized - so switching tabs
+  // resized the window under the player's thumb. BOTH PANES OCCUPY THE SAME GRID
+  // CELL, so the row is as tall as the taller of them whatever either one holds:
+  // true by construction, where a pinned height would be a number to re-measure
+  // every time a field moves, and wrong by a little on every phone.
+  //
+  // `visibility: hidden` and not `display: none`, which would take the pane out of
+  // the layout and defeat the whole thing; and not `opacity: 0`, which leaves the
+  // hidden pane clickable on top of the visible one. Hidden visibility also takes
+  // it out of the tab order and out of the accessibility tree, which is why the
+  // panes need no other guard against a stray focus.
+  const pane = (i) => ({
+    gridArea: "1 / 1", minWidth: 0,
+    visibility: i === step ? "visible" : "hidden",
+  });
 
   // HER PHOTO IS THIS TILE'S OWN BACKGROUND, never a child for something else to
   // clip - three fixes were spent learning that, and `photoFill` is the one
@@ -478,7 +505,7 @@ export default function MemberEditor({
   ));
 
   return (
-    <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 110, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.55)" : "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
+    <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: Z.editor, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.55)" : "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
       <div style={{ width: "100%", maxWidth: 360, maxHeight: "100%", background: panelBg, border: `1px solid ${border}`, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
 
         {/* header: title + step dots */}
@@ -499,10 +526,10 @@ export default function MemberEditor({
           </div>
         </div>
 
-        <div style={{ padding: "9px 12px", overflowY: "auto", flex: 1 }}>
+        <div style={{ padding: "9px 12px", overflowY: "auto", flex: 1, display: "grid" }}>
 
-          {step === 0 && (
-            <>
+          {/* TAB 1 */}
+          <div style={pane(0)} aria-hidden={step !== 0}>
               {/* An edit to a prebuilt member is THIS RUN's, not the library's. Saying so
                   is not reassurance - it is the difference between a player expecting her
                   change to follow Irene into the next game and a player who knows it will
@@ -523,14 +550,13 @@ export default function MemberEditor({
                   `alignItems: flex-start`, not stretch: a stretched square stops being
                   a square, and the right column is taller than the left because the
                   birth year is a WHEEL rather than a box. */}
-              {resumeRow(
-                photoTile("photo", photo, profile.emoji || "📷", c.photo),
-                ["name", "birthYear", "private_personality"],
-              )}
-              {resumeRow(
-                photoTile("wall", wall, "🖼", c.wall),
-                ["habit", "mbti", "emoji"],
-                "32%",
+              {resumeBlock(
+                <>
+                  {photoTile("photo", photo, profile.emoji || "📷", c.photo)}
+                  {photoTile("wall", wall, "🖼", c.wall)}
+                  {renderCompact("emoji")}
+                </>,
+                ["name", "birthYear", "private_personality", "mbti", "habit"],
               )}
 
               {/* THE ONE THING ON THIS SCREEN THAT WANTS THE WIDTH. A sentence is not a
@@ -563,21 +589,27 @@ export default function MemberEditor({
                   style={{ flex: 1, padding: 8, minHeight: 34, borderRadius: 9, border: "none", cursor: busy ? "default" : "pointer", background: busy ? (isLight ? "rgba(100,65,20,.2)" : "rgba(255,255,255,.1)") : accentGrad, color: "#fff", fontSize: fs(11.5), fontWeight: 600 }}>
                   {busy ? c.generating : (restageable ? c.detailGenerate : c.generate)}
                 </button>
+                {/* AN ICON, AND IT KEEPS THE LABEL IT LOSES (22.8.2). The two buttons
+                    split the row in half, so the label carrying the whole meaning of
+                    the control was the one being truncated. The glyph is the one the
+                    story panel already uses for exactly this act; `aria-label` and
+                    `title` carry `detailRetry`, because an icon-only control with no
+                    accessible name is one a screen reader cannot announce. */}
                 <button onClick={() => runGenerate(true)} disabled={busy}
-                  style={{ flex: 1, padding: 8, minHeight: 34, borderRadius: 9, cursor: busy ? "default" : "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(11.5) }}>
-                  {c.detailRetry}
+                  aria-label={c.detailRetry} title={c.detailRetry}
+                  style={{ flex: "0 0 auto", width: 34, minHeight: 34, padding: 0, borderRadius: 9, cursor: busy ? "default" : "pointer", background: "transparent", border: `1px solid ${inputBorder}`, color: textDim, fontSize: fs(16), lineHeight: 1 }}>
+                  ↺
                 </button>
               </div>
               <div style={{ fontSize: fs(9), color: textFaint, lineHeight: 1.4 }}>
                 {restageable ? c.detailHint : c.generateHint}
               </div>
 
-              <input ref={fileRef} type="file" accept="image/*" onChange={took} style={{ display: "none" }} />
-            </>
-          )}
+            <input ref={fileRef} type="file" accept="image/*" onChange={took} style={{ display: "none" }} />
+          </div>
 
-          {step === 1 && (
-            <>
+          {/* TAB 2 */}
+          <div style={pane(1)} aria-hidden={step !== 1}>
               {/* THE GENERATE PAIR MOVED TO TAB 1, so this tab is what it is for:
                   reading the result and correcting it.
 
@@ -612,11 +644,10 @@ export default function MemberEditor({
               {renderField(positionField)}
               {["public_image", "queer_texture", "speech_style", "hidden_conflict"].map(renderField)}
 
-              <div style={{ fontSize: fs(9.5), color: textFaint, marginTop: 4, lineHeight: 1.5 }}>
-                {c.optional} — {c.fictionNote}
-              </div>
-            </>
-          )}
+            <div style={{ fontSize: fs(9.5), color: textFaint, marginTop: 4, lineHeight: 1.5 }}>
+              {c.optional} — {c.fictionNote}
+            </div>
+          </div>
         </div>
 
         {/* footer: Back / Next, and Save whenever the card is complete */}

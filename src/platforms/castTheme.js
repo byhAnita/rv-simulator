@@ -64,6 +64,27 @@ export const scaleFont = (px, fontScale = 1) =>
 // but not the variable resolves it to the fallback, and one that knows neither
 // drops the whole declaration - which would take the author's own margin with
 // it. The fallback is what makes this a no-op on a device with no notch.
+// ── THE CAST FLOW'S STACKING ORDER (22.8.5) ─────────────────────────────────
+//
+// A MODAL OPENED FROM ANOTHER MODAL HAS TO OUTRANK IT, and until now the numbers
+// that decide that were five literals in five files with nothing anywhere saying
+// which was meant to be on top. The profile editor sat at 110 and the member
+// picker at 115 - so `+ create member`, which is a control INSIDE the picker,
+// opened the editor UNDERNEATH the sheet it was tapped in. Reported from a phone,
+// 2026-09-30.
+//
+// One map, named for what each layer IS rather than for a number, so the relation
+// is something the suite can read. The gaps are room to insert a layer between
+// two without renumbering every file below it.
+export const Z = {
+  sheet: 115,       // MemberPicker - the roster's own bottom sheet
+  imageSheet: 120,  // CastImageSheet
+  dialog: 125,      // RosterBuilder: name this cast
+  confirm: 130,     // RosterBuilder: delete this cast
+  editor: 140,      // MemberEditor - openable from INSIDE the picker, so above it
+  cropper: 150,     // ImageCropper - openable from the editor and the image sheet
+};
+
 export const safeInset = (px = 0) =>
   ["top", "right", "bottom", "left"]
     .map((side) => `calc(env(safe-area-inset-${side}, 0px) + ${px}px)`)

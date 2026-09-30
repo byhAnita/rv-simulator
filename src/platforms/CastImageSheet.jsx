@@ -21,7 +21,7 @@
 import React, { useRef, useState } from "react";
 import MemberFace from "./memberFace";
 import ImageCropper from "./ImageCropper";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, Z } from "./castTheme";
 import {
   PHOTO_MAX_COUNT, WALL_MAX_COUNT, photoBytes,
 } from "../utils/imageStore";
@@ -86,7 +86,7 @@ export default function CastImageSheet({
 
   return (
     <div className="rv-fixed"
-      style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
+      style={{ position: "fixed", inset: 0, zIndex: Z.imageSheet, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >
       <div

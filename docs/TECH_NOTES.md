@@ -842,6 +842,46 @@ that contains it, while the `scene` field itself must be written in the player's
 inherited from the sentence it sits in rather than introduced here, and it is the one place in the
 new fields where the example and the instruction disagree about language.
 
+### Structural invariants for layout: one grid cell, one z-ladder — v1.4.2
+
+**What it is.** Two layout requirements from the seventh phone pass are held by the *structure*
+rather than by a number anybody maintains. *"The editor panel must be the same size on both
+tabs"*: both tab panes are placed in the **same CSS grid cell** (`gridArea: 1 / 1`), so the row is
+as tall as the taller of them whatever either one contains, and the inactive pane is
+`visibility: hidden`. *"A modal opened from inside a sheet must be drawn above it"*: every
+full-screen layer in the cast flow reads its level from one exported `Z` map in `castTheme.js`,
+and the suite asserts the **ordering relation** between named layers rather than their values.
+
+**What it replaced.** For the panel: nothing - it was content-sized, so it resized under the
+player's thumb when the tab changed. The obvious fix is to measure the taller tab and pin the
+panel's height, which was considered and rejected. For the layers: five `zIndex` literals in five
+files, with nothing anywhere stating which was meant to be on top - and they were wrong, so
+`+ create member` opened the profile editor *underneath* the picker sheet it was tapped in.
+
+**What it bought.** The panel is one height across both tabs and all three member/world
+combinations, **measured in headless Chrome: 537px of content in every case**, with no number in
+the source to re-measure when a field moves. The ladder turns a class of bug into a check: the
+guard reddens on `editor < sheet`, on `cropper < editor`, on two layers sharing a level, and on a
+new root that does not read the ladder at all.
+
+**What it costs.** Both tab panes are always mounted - a few hundred extra DOM nodes; acceptable
+only because this component fetches nothing and subscribes to nothing, and it would not be if a
+pane loaded data on mount. The grid stack also means `display: none` and conditional rendering are
+now *forbidden* for these panes, which is a non-obvious constraint the guard has to state
+explicitly. The ladder adds one import to five files and one indirection when reading them.
+
+**Where it lives.** `src/platforms/MemberEditor.jsx` (`pane`, the grid body, `resumeBlock`),
+`src/platforms/castTheme.js` (`Z`), and the guards in `test/smoke.mjs` around *"the two tabs are
+one size"* and *"a modal opened from inside a sheet is drawn above it"*. Design in
+`docs/V140_PLAN.md` §22.8.3 and §22.8.5.
+
+**Short form.** If two things must be the same size, give them the same box instead of measuring
+one and typing the number into the other. If one layer must sit above another, name both in one
+ladder and assert the relation - a pinned pair passes against the same bug the moment somebody
+renumbers the other side.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

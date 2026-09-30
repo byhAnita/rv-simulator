@@ -2142,6 +2142,103 @@ its verdict line.**
 
 ---
 
+### One image column, and two tabs that cannot disagree about their size
+
+**Yuhan's report, 2026-09-30**, on the tab 1 that §22.7.2 had just shortened: *"here's a large
+space between photo and wallpaper [...] left column will be from up to down: profile photo,
+wallpaper, emoji to pick from. [...] right column [...] name, birth year, private personality,
+MBTI, habit [...] make the profile editor window size for tab 1 & 2 uniform."*
+
+**§22.7.2 measured the right thing and fixed half of it.** The wallpaper tile really was 213px
+tall at the photo's 44% against three fields needing 168, and narrowing its column really did take
+tab 1 from 702px to 603px. What it left alone is the **shape**: two rows, each as tall as the
+taller of its two columns, means **every row pays for its own mismatch** - and the slack shows up
+under the shorter side, which is the gap between the two photos, reported twice.
+
+**One row, with one image column.** Photo, wallpaper and the emoji palette stacked on the left;
+name, birth year, private personality, MBTI and habit on the right. The mismatch is now paid once
+for the whole tab, and the wallpaper sits directly under the photo - which is what the report asks
+for and is only expressible in this arrangement.
+
+**The column share is measured, and it trades two heights against each other.** The wallpaper is
+2:3, so a **wider** column is a taller tile; the palette wraps, so a **narrower** column is a
+taller palette. They move in opposite directions, so the sweep is not monotonic - 18% renders
+taller than 20%, and 26% taller than 30% - and no amount of reasoning gets to that. Measured at
+the real panel width in headless Chrome: **30%**, at which tab 1 is **537px** against 603.
+
+| | before this batch | after |
+| --- | --- | --- |
+| tab 1 content | 603px | **537px** |
+| tab 2 content | 512px | 512px |
+| the panel's height | **two different heights** | **one, 555px including its padding** |
+
+**"Uniform" is a property, so it is made true by construction rather than by a number.** A pinned
+panel height would be re-measured every time a field moved and wrong by a little on every phone -
+the hand-maintained list this file keeps recording, wearing a pixel's clothes. **Both panes sit in
+the same grid cell** (`gridArea: 1 / 1`), so the row is as tall as the taller of them whatever
+either one holds, and the inactive pane is `visibility: hidden`.
+
+- **`display: none` would not do it.** It takes the pane out of the layout, which is the whole
+  point of keeping it there. The guard's load-bearing clause is that neither pane is rendered
+  conditionally any more, because a conditional pane is a pane out of the layout by another route.
+- **`opacity: 0` would not either** - it leaves the hidden pane sitting clickable on top of the
+  visible one. `visibility: hidden` also takes it out of the tab order and the accessibility tree,
+  which is why the panes need no other guard against a stray focus.
+- What it costs is that both tabs are always mounted. The editor fetches nothing and holds no
+  subscription, so that is a few hundred DOM nodes and no request.
+
+**The retry becomes an icon, and keeps the name it stops printing.** `生成她在此世界的设定` and
+`重新生成` split the row in half, so the label carrying the control's whole meaning was the one
+being truncated; `↺` is the glyph the story panel already uses for this act. `aria-label` and
+`title` carry the same `detailRetry` string, because **an icon-only control with no accessible name
+is one a screen reader cannot announce** - and the string already exists in all three languages.
+
+**At `fontScale: 1.25` it still scrolls, and by less: 630px against a 593px budget** on the
+smallest phone, where the previous layout was 692 against 624. Deliberate, and unchanged as a
+decision: a player who asks for 25% larger type is asking for more vertical space.
+
+**`🐞` is out of `EMOJI_PALETTE`** on Yuhan's ask. The palette is **also the default glyph source**
+- `withDefaults` assigns `palette[index % palette.length]` - so removing an entry shifts the
+default for a custom member at a later index who never chose one. A cosmetic change to an unchosen
+value, on the screen carrying the palette that produced it; not worth a migration, and worth
+stating.
+
+**14 mutations, 14 RED**, including both halves of the grid fix separately and the emoji palette
+removed from the column while its declaration still stands. All six goldens byte-identical.
+
+---
+
+### A modal opened from inside a sheet has to outrank it
+
+**Reported from the same phone pass, 2026-09-30:** *"after click `+ 创建成员` the cast library menu
+below stays on the top of a new character editor."*
+
+`+ 创建成员` is a control **inside** the member picker, so the profile editor it opens is the
+picker's child modal. `MemberEditor` was `zIndex: 110` and `MemberPicker` `115`, and both are
+rendered by `RosterBuilder` as **siblings** - so nothing about the markup ordered them either. Two
+numbers in two files were the entire decision, and they were the wrong way round.
+
+**Five literals in five files, with nothing anywhere saying which was meant to be on top.** That is
+the shape this file keeps recording: a list a human has to remember to update. `castTheme.js` now
+carries `Z`, one map naming each layer for what it *is* - `sheet`, `imageSheet`, `dialog`,
+`confirm`, `editor`, `cropper` - with the editor above every sheet it can be opened from and the
+cropper above the editor.
+
+**The guard asserts the RELATION and not the numbers.** `Z.editor > Z.sheet`, `Z.editor >
+Z.imageSheet`, `Z.cropper > Z.editor`: a pinned pair would pass against this bug the moment someone
+renumbered the sheet instead. Beside it, a scan **derived over the whole directory** - every key is
+claimed by exactly one root, no two layers share a level (a tie is decided by DOM order, which is
+the thing that was never stated), and a file that reads the ladder may not carry a literal beside
+it. A sixth layer is covered the day it lands.
+
+**Why raising the cropper could never have found this**, which is worth knowing before touching any
+of these numbers: each root is `position: fixed` with a `z-index`, so each one **creates a stacking
+context**. `ImageCropper`'s 130 was only ever compared against the editor's own children - the
+whole editor subtree competed with the picker at the editor's 110. **Raising a child does nothing
+when the parent is the layer that is too low.**
+
+---
+
 ### Both editor tabs fit on one screen, and the tab name is what let the block go
 
 **Yuhan's report, 2026-09-30:** *"use tighter placement for profile editor to make each tab in 1
@@ -3845,6 +3942,59 @@ touches `buildSystemPrompt`, the roster shape or the world.
 **Still owed from the previous batch and not addressed here:** the measured Start-wait regression
 (one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
 **Yuhan's to weigh**, and this batch put the resolve on the same path, so the two compound.
+
+#### The seventh phone pass — one commit, and it answers two reports from the same sitting
+
+**Yuhan's report, 2026-09-30, hand-testing `b1d7e9f`.** The sixth pass's two fixes both passed:
+the header is clear of the clock and the world-named tab reads right. Plan in `docs/V140_PLAN.md`
+§22.8. What came back was a layout proposal and one bug:
+
+1. **Tab 1 is one resume block, and both tabs are one size.** Photo, wallpaper and the emoji
+   palette in one image column; name, birth year, private personality, MBTI and habit beside it.
+   Tab 1 **603 → 537px**, measured in a browser at the real panel width; the panel is now **one
+   height for both tabs**, because the two panes share a grid cell rather than a pinned number.
+   The retry is `↺` with its label moved to `aria-label`/`title`, so Generate has the width. `🐞`
+   is out of the palette.
+2. **The editor opened underneath the picker it was opened from.** `zIndex: 110` against the
+   picker's `115`, as siblings. `castTheme.js#Z` is now the one ladder and the guard asserts the
+   ordering relation, not the numbers.
+
+**One commit rather than two, and that is a deviation worth naming:** both changes land in
+`MemberEditor.jsx` and in one pass of the same screen, so splitting them would have meant
+reverting and re-applying a patch across six files to produce two commits nobody would bisect
+between. The two reports are recorded separately in `CLAUDE.md` and in §22.8.
+
+**Verified:** smoke **1697 → 1702**; **14 mutations, 14 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, tree
+restored byte-identical; **all six goldens byte-identical** (`update-golden.mjs` reported six
+unchanged and wrote nothing); build clean at **439.22 kB / gzip 153.92**. Measured in headless
+Chrome across three member/world combinations - new custom in campus, a library member in campus,
+a custom member in the idol world - **both panes identical in every one**, and every one fits from
+an 812pt phone upward.
+
+**NOT VERIFIED.**
+
+- **Nothing here has been on a device.** The stacking fix in particular is one number: it is
+  correct by the CSS spec and by the ladder's own guard, and whether the editor now lands on top is
+  the phone.
+- **The editor was rendered, not used.** A thumb on a 22px emoji swatch in a column that is now
+  30% of 334px is the thing no assertion reaches.
+- **No live round has been played against this commit**, which touches neither the prompt, the
+  roster nor the world.
+- **At `fontScale: 1.25` tab 1 still scrolls**, 630px against a 593px budget on the smallest phone
+  — better than the 692 against 624 it replaces, and still deliberate.
+
+**What to look at:**
+
+- Tab 1 at the default text size: photo, wallpaper and the emoji palette down the left, the five
+  fields down the right, and the describe box plus `生成她在此世界的设定 ↺` full width under both.
+  **Whether the tiles are still big enough** at 30% is the judgement call — the photo is ~100px and
+  the wallpaper ~100x150.
+- **Switch between the tabs.** The panel must not change height.
+- `+ 创建成员` from inside the picker, and `编辑` on a member there: the editor must cover the
+  sheet. Then a photo tap inside the editor — the cropper must cover the editor.
+
+**Still owed from three batches back:** the measured Start-wait regression (one whole-cast call
+5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.
 
 #### The sixth phone pass — two commits, and the first one is a second attempt
 

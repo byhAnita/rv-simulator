@@ -86,7 +86,7 @@ export function sanitizeWorldDetail(detail) {
 // second copy of ten glyphs in a component is the hand-maintained list this
 // repo keeps losing. It is the DEFAULT set, not the allowed set - the field
 // takes any glyph the player can type.
-export const EMOJI_PALETTE = ["🎻", "🐦", "🦌", "🐈", "🦢", "🦔", "🐝", "🦉", "🐞", "🦋"];
+export const EMOJI_PALETTE = ["🎻", "🐦", "🦌", "🐈", "🦢", "🦔", "🐝", "🦉", "🦋"];
 const COLOR_PALETTE = [
   ["#e887b0", "#f8c8d8"], ["#7fb5d5", "#c5e2f0"], ["#c9a86c", "#ecdcc0"],
   ["#9b8bc4", "#d8d0ec"], ["#7fc4a8", "#c8e8dc"], ["#d49080", "#f0d0c8"],

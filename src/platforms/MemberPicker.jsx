@@ -27,7 +27,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { displayNameIn } from "../utils";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, Z } from "./castTheme";
 import { photoFill } from "./memberFace";
 import { CAST_MAX } from "../rag/customCast";
 
@@ -80,7 +80,7 @@ export default function MemberPicker({
 
   return (
     <div className="rv-fixed"
-      style={{ position: "fixed", inset: 0, zIndex: 115, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
+      style={{ position: "fixed", inset: 0, zIndex: Z.sheet, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >
       <div

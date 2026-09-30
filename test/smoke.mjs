@@ -6901,39 +6901,68 @@ async function layerI() {
   // Tab 1 renders its fields as the resume blocks' arguments, so the declaration
   // above is documentation unless something ties the two together. The wheel
   // collects a YEAR and stores a DATE, which is why that one name differs.
-  const tab1Block = editorSrc.slice(editorSrc.indexOf("{step === 0 && ("),
-    editorSrc.indexOf("{step === 1 && ("));
-  const rendered = parseArrays(tab1Block).flat()
+  const tab1Block = editorSrc.slice(editorSrc.indexOf("{/* TAB 1 */}"),
+    editorSrc.indexOf("{/* TAB 2 */}"));
+  // Two ways a field reaches tab 1 - inside the resume block's list, or as a
+  // direct renderCompact call for the one control that is a palette rather than
+  // a box - so both are collected, or the invariant below reads five where the
+  // tab renders six.
+  const rendered = [...parseArrays(tab1Block).flat(),
+    ...[...tab1Block.matchAll(/renderCompact\("(\w+)"\)/g)].map((m) => m[1])]
     .map((f) => (f === "birthYear" ? "birthday" : f));
   // THE LAYOUT ITSELF (docs/V140_PLAN.md 22.6.3). Nine stacked full-width boxes
   // was one and a half screens of scrolling to answer three required fields. The
   // third clause is the one that matters: tab 1 must not fall back to the
   // full-width renderer for any of its fields, because one box that does undoes
   // the row it sits in.
-  const photoShare = Number((editorSrc
-    .match(/const resumeRow = \(image, fields, basis = "(\d+)%"\)/) || [])[1]);
-  const wallShare = Number((tab1Block
-    .match(/photoTile\("wall"[^)]*\),\s*\[[^\]]*\],\s*"(\d+)%"/) || [])[1]);
-  check("tab 1 is two resume rows, an image beside its fields",
-    (tab1Block.match(/resumeRow\(/g) || []).length === 2
-      && photoShare > 0
+  const imageCol = Number((editorSrc
+    .match(/const IMAGE_COL = "(\d+)%"/) || [])[1]);
+  check("tab 1 is ONE resume block, an image column beside the fields",
+    (tab1Block.match(/resumeBlock\(/g) || []).length === 1
+      && imageCol > 0 && imageCol < 50
       && !/renderField\(/.test(tab1Block),
-    "an image at half width on the left, its fields one per line on the right");
+    "two rows each pay for their own mismatch; one row pays it once");
   // ...AND THE WALLPAPER'S COLUMN IS THE NARROWER ONE (22.7.2). At the photo's
   // share its 2:3 ratio makes it 213px tall against three fields that need 168,
   // so the row is sized by the picture rather than by the form - which is the
   // gap between the two photos that was reported. The ratio is NOT the thing to
   // change: the tile is a preview of the crop the player chose, so both aspect
   // ratios are asserted here too and narrowing is the only lever left.
-  check("...and the wallpaper's column is narrower, because its 2:3 is not negotiable",
-    wallShare > 0 && wallShare < photoShare
+  const colAt = (needle) => tab1Block.indexOf(needle, tab1Block.indexOf("resumeBlock("));
+  const iPhoto = colAt('photoTile("photo"'), iWall = colAt('photoTile("wall"');
+  const iEmoji = colAt('renderCompact("emoji")');
+  check("...and the image column is photo, wallpaper, emoji, top to bottom",
+    iPhoto > 0 && iWall > iPhoto && iEmoji > iWall
       && /aspectRatio: kind === "wall" \? "2 \/ 3" : "1 \/ 1"/.test(editorSrc),
-    `wallpaper column ${wallShare}% vs photo ${photoShare}% - a 2:3 tile at the photo's width is the tallest thing on the tab`);
+    "the wallpaper sits directly under the photo, and neither tile's ratio moves");
+  // The right column's ORDER is the requirement, not an accident of the loop -
+  // Yuhan asked for MBTI above habit, and the three required fields lead.
+  check("...and the fields beside it read name, year, personality, MBTI, habit",
+    /\["name", "birthYear", "private_personality", "mbti", "habit"\]/.test(tab1Block),
+    "the order the player reads them in is the design");
+  // THE TWO TABS ARE ONE SIZE (22.8.3), and it is made true by construction
+  // rather than by a pinned height: both panes sit in the same grid cell, so the
+  // row is as tall as the taller of them whatever either one holds. The last
+  // clause is the load-bearing one - a pane rendered conditionally is a pane out
+  // of the layout, which is exactly what made the panel resize under the thumb.
+  check("the two tabs are one size, because both panes share a grid cell",
+    /overflowY: "auto", flex: 1, display: "grid"/.test(editorSrc)
+      && /gridArea: "1 \/ 1"/.test(editorSrc)
+      && /visibility: i === step \? "visible" : "hidden"/.test(editorSrc)
+      && !/\{step === [01] && \(/.test(editorSrc),
+    "a pane taken out of the layout cannot hold the panel's height open");
   // ...and the generate pair is on THIS tab, not split across two. Tab 2 keeps the
   // way back, because a generation with no way to a different answer gets routed
   // around exactly as a prohibition with no substitute does.
-  const tab2Block = editorSrc.slice(editorSrc.indexOf("{step === 1 && ("),
+  const tab2Block = editorSrc.slice(editorSrc.indexOf("{/* TAB 2 */}"),
     editorSrc.indexOf("{/* footer:"));
+  // AN ICON-ONLY CONTROL STILL HAS TO BE ANNOUNCEABLE (22.8.2). The label moved
+  // off the face of the button so Generate could have the width; it did not stop
+  // existing, and the same i18n string is what a screen reader now reads.
+  check("...and the retry button is an icon that still carries its label",
+    /aria-label=\{c\.detailRetry\} title=\{c\.detailRetry\}/.test(tab1Block)
+      && !/>\s*\{c\.detailRetry\}/.test(tab1Block),
+    "an icon with no accessible name is a control a screen reader cannot announce");
   check("...and tab 2 carries the way back, not a second generate button",
     !/runGenerate\(/.test(tab2Block) && /dropDetail/.test(tab2Block)
       && (tab1Block.match(/runGenerate\(/g) || []).length === 2,
@@ -7707,6 +7736,48 @@ async function layerI() {
       && ct.scaleFont(8, 1) === ct.CAST_MIN_FONT
       && ct.scaleFont(8, 1.25) === Math.round(ct.CAST_MIN_FONT * 1.25),
     `floor ${ct.CAST_MIN_FONT}: an 8px line is raised before the scale, not after`);
+
+  // ── A MODAL OPENED FROM INSIDE A SHEET HAS TO OUTRANK IT (22.8.5) ──────────
+  //
+  // Reported from a phone, 2026-09-30: `+ create member` is a control INSIDE the
+  // member picker, and it opened the profile editor UNDERNEATH it - the editor
+  // sat at 110 and the picker at 115. Both are siblings rendered by the builder,
+  // so nothing about the markup ordered them; five literals in five files did,
+  // with nothing anywhere saying which was meant to be on top.
+  //
+  // The relation is the requirement, so the relation is what is asserted. A
+  // number pinned here would pass against the bug the moment someone renumbered
+  // the sheet instead.
+  const zOrder = [];
+  if (!(ct.Z?.editor > ct.Z?.sheet)) zOrder.push("editor is not above the picker");
+  if (!(ct.Z?.editor > ct.Z?.imageSheet)) zOrder.push("editor is not above the image sheet");
+  if (!(ct.Z?.cropper > ct.Z?.editor)) zOrder.push("cropper is not above the editor");
+  check("a modal opened from inside a sheet is drawn above it",
+    zOrder.length === 0, zOrder.join(" | "));
+  // ...and the ladder is the only place those levels are written. Derived over
+  // the whole directory, so a sixth layer is covered the day it lands: every key
+  // is claimed by exactly one root, no two keys share a number - a tie is decided
+  // by DOM order, which is the thing that was never stated - and a file that
+  // reads the ladder must not also carry a literal beside it.
+  const zKeys = Object.keys(ct.Z || {});
+  const zBad = [];
+  if (new Set(Object.values(ct.Z || {})).size !== zKeys.length) zBad.push("two layers share a level");
+  const zUse = Object.fromEntries(zKeys.map((key) => [key, 0]));
+  for (const rel of readdirSync(join(ROOT, "src/platforms")).filter((f) => f.endsWith(".jsx"))) {
+    const src = readFileSync(join(ROOT, "src/platforms", rel), "utf8")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    for (const m of src.matchAll(/zIndex: Z\.(\w+)/g)) {
+      if (!(m[1] in zUse)) zBad.push(`${rel}: Z.${m[1]} is not on the ladder`);
+      else zUse[m[1]] += 1;
+    }
+    if (/zIndex: Z\./.test(src) && /zIndex: \d/.test(src)) zBad.push(`${rel}: a literal beside the ladder`);
+  }
+  for (const [key, n] of Object.entries(zUse)) {
+    if (n !== 1) zBad.push(`Z.${key} claimed by ${n} roots`);
+  }
+  check("...and every layer on that ladder is claimed by exactly one root",
+    zBad.length === 0, zBad.slice(0, 4).join(" | "));
 
   // One palette across the three screens the player walks through in one sitting.
   // It was three copies of the same fifteen literals; `extractStoryText` is the
