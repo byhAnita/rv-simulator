@@ -2142,6 +2142,53 @@ its verdict line.**
 
 ---
 
+### The custom door is a chip in the group row, and the unified door is cancelled
+
+**Yuhan's design, 2026-09-30**, and it reverses a plan item rather than fixing a defect: *"move
+`✨自定义卡司` entry button besides the groups [...] Red Velvet, TWICE, aespa, IVE, ITZY,
+BLACKPINK, … 自定义 with same type of look [...] cancel the merge to custom entry policy we
+claimed before, change to keep both and make the custom entry button same as a custom group — more
+intuitive and also friendly for old players familiar with the fast classic group entry."*
+
+**The cover asked one question twice, in two shapes.** A row of group chips, and then an outline
+button under New Game. Both answer *which cast*, and a player reads a different shape as a
+different **kind** of decision - so the authored-cast flow looked like a mode rather than like
+another cast, and the classic path every player has used since v1.3 sat one extra decision away
+from the button that starts it.
+
+**The chip row IS the door selector now.** It renders the group list plus one entry through the
+same markup, tapping any chip sets `door`, and New Game does exactly one thing. The guard asserts
+**one button definition** in that row, because a second one would render identically today and
+diverge at the next restyle - which is what the outline button was.
+
+- **`castChosen` is one predicate**, read by the button's enabled state *and* by its own handler.
+  Two copies of *is a cast chosen* is how a button comes to look live and then refuse with nothing
+  on screen left to fill: the year-wheel defect, one screen over.
+- **The sentinel is a DOOR, not a group id.** `CUSTOM_CAST_ID` is a chip identity and a React key;
+  it never reaches `setSelectedGroup`, `rv_sim_group` or `loadGroupConfig`, so `selectedGroup`
+  keeps naming a real group - which is what the builder loads as its opening palette. Guarded,
+  because the alternative is the cover's own picker fetching `/groups/__custom__/zh.json`.
+- **Measured in a real browser at 390px, in all three languages: 10 chips on exactly 2 lines, 5
+  and 5**, with the card at 469-480px against its 844 cap and no scroll. The chips gave up 1px of
+  gap, 1px of horizontal padding and 1px of emoji size, which is what the second line costs.
+
+**§22.5's commit 5 - the unified door - is CANCELLED**, and the reasoning is worth keeping because
+it cuts against this file's usual direction. **Two doors is not duplication here**: one engine has
+served both since v1.4.0 (`resolveRoster`), so the second door costs a chip rather than a second
+code path. What it buys is that the fastest flow in the app stays one tap for a player who wants
+Red Velvet as shipped, while the builder stays for a player who wants a cast. Unifying them would
+have made every player walk the builder to express *"Red Velvet, unchanged"*.
+
+**`customDesc` is deleted from all three languages** - it described the subtitle of an outline
+button that never shipped with one, and had **no reader in `src/` at all**. That is the
+`pickMainHint` failure, now recorded four times. `customTitle` survives as the chip's label,
+shortened to `自定义` / `Custom` / `커스텀` so it reads beside a group name rather than above one.
+
+**7 mutations, 7 RED**, including the chip removed, the chip brought back as a button under New
+Game, the sentinel written into the group id, and the predicate split back into two copies.
+
+---
+
 ### One image column, and two tabs that cannot disagree about their size
 
 **Yuhan's report, 2026-09-30**, on the tab 1 that §22.7.2 had just shortened: *"here's a large
@@ -3992,6 +4039,14 @@ an 812pt phone upward.
 - **Switch between the tabs.** The panel must not change height.
 - `+ 创建成员` from inside the picker, and `编辑` on a member there: the editor must cover the
   sheet. Then a photo tap inside the editor — the cropper must cover the editor.
+
+**The cover page moved too, in this batch's second commit.** The custom
+door is a chip at the end of the group row rather than an outline button under New Game, and
+**§22.5's commit 5 - the unified door - is CANCELLED** on Yuhan's call. Measured at 390px in all
+three languages: **10 chips on exactly 2 lines, 5 and 5**, card 469-480px, no scroll. smoke
+**1702 → 1706**, 7 mutations 7 RED, goldens byte-identical. **Look at:** that a group chip and
+then New Game still reaches player info, that the 自定义 chip reaches the builder, that New Game is
+refused with no chip lit, and that the two lines do not become three on the actual phone.
 
 **Still owed from three batches back:** the measured Start-wait regression (one whole-cast call
 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.

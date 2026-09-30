@@ -1129,7 +1129,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   // The classic door must still be able to start: leaving a builder roster in
   // place would make a group pick silently resolve to the previous custom cast.
   check("choosing the classic door clears any roster the builder left behind",
-    /setDoor\("classic"\); setPendingRoster\(null\);/.test(app),
+    /if \(door !== "custom"\) setPendingRoster\(null\);/.test(app),
     "otherwise startNewGame prefers a cast the player is no longer looking at");
   // Scoped to loadSave's own body: the same two calls appear in the builder's
   // onBack handler, so a whole-file match passed with the line deleted from
@@ -1146,14 +1146,59 @@ async function layerG(mod, MODEL_CONFIGS) {
   // It used to be read off Setup's "change cast" button, and that button went with
   // the page - a guard that happens to find a string elsewhere is a guard about
   // nothing.
+  // BOTH DOORS SURVIVE, and the custom one is a chip in the group row (§22.9).
+  // Yuhan cancelled §22.5's commit 5 - the unified door - so "the cover offers
+  // exactly one way in" is NOT the requirement and never was: what must hold is
+  // that a player can still reach the classic flow she has used since v1.3, and
+  // the authored-cast flow, from the same screen.
+  const coverBlock = app.slice(app.indexOf('if (phase === "cover")'),
+    app.indexOf("// ── Key Input Page ──"));
   check("the cover offers a second door into the roster builder",
-    /setDoor\("custom"\)/.test(app)
+    /setDoor\(g\.to\)/.test(coverBlock)
+      && /to: "custom"/.test(coverBlock) && /to: "classic"/.test(coverBlock)
       && /setPhase\(door === "custom" \? "roster" : "setup"\)/.test(app),
     "the custom door reaches the builder, and only after player info");
+  // ...AND IT IS THE SAME CONTROL, not a second one under it. One map over the
+  // group list plus the custom entry, so the chip cannot drift into looking like
+  // a different kind of decision - which is what an outline button below New Game
+  // was. Asserted as ONE button definition in the row, because two would render
+  // identically today and diverge on the next restyle.
+  check("...and it is a chip in the group row, not a button under it",
+    (coverBlock.match(/<button key=\{g\.id\}/g) || []).length === 1
+      && /\[\.\.\.groupList\.map\(/.test(coverBlock)
+      && /id: CUSTOM_CAST_ID/.test(coverBlock)
+      && !/\{t\.cast\.customTitle\}\s*<\/button>/.test(coverBlock),
+    "both doors answer WHICH cast, so they belong in one control");
+  // The sentinel selects a DOOR. If it ever reached the group id, the group
+  // effect would fetch /groups/__custom__/zh.json and the cover's own picker
+  // would be the thing that broke the library.
+  check("...and the custom chip never becomes a group id",
+    /CUSTOM_CAST_ID = "__custom__"/.test(app)
+      && !/setSelectedGroup\(CUSTOM_CAST_ID\)/.test(app)
+      && /if \(g\.to === "classic"\) setSelectedGroup\(g\.id\)/.test(coverBlock),
+    "rv_sim_group has to keep holding something loadGroupConfig can fetch");
+  // ONE predicate behind the button's enabled state and its own handler. Two
+  // copies of "is a cast chosen" is how a button comes to look live and then
+  // refuse with nothing on screen left to fill - the year-wheel defect exactly.
+  check("...and New Game reads one predicate for both doors",
+    /const castChosen = door === "custom" \|\| Boolean\(selectedGroup\);/.test(coverBlock)
+      && (coverBlock.match(/castChosen/g) || []).length >= 4,
+    "an enabled button that refuses is worse than a disabled one");
+  // ...and the label the chip now carries exists in all three languages, with the
+  // one that described the deleted button gone. `customDesc` had NO reader in
+  // src/ at all - it was the subtitle of an outline button that never shipped
+  // with one - which is the pickMainHint failure, recorded here four times now.
+  check("...and the chip's label is in all three languages, the dead one deleted",
+    ["zh", "en", "ko"].every((lang) => {
+      const src = readFileSync(join(ROOT, "src", "i18n", lang + ".js"), "utf8");
+      return /customTitle: "[^"]+"/.test(src) && !/customDesc/.test(src);
+    }) && !/customDesc/.test(app),
+    "a chip named in one language and a dead string in another");
   // The builder's Generate button spends the player's key, so the key page has
   // to come first when there is none — §4.5 assumes the key already exists.
   check("the custom door routes through the key page when there is no key",
-    /setDoor\("custom"\);[\s\S]{0,600}if \(apiKey\?\.trim\(\)\) setPhase\("playerInfo"\); else setPhase\("keyInput"\);/.test(app),
+    /if \(apiKey\?\.trim\(\)\) setPhase\("playerInfo"\); else setPhase\("keyInput"\);/.test(coverBlock)
+      && (coverBlock.match(/setPhase\("playerInfo"\)/g) || []).length === 1,
     "cardGenerator runs on the key the player already entered");
 
   // ── THE CAST SCREENS COME AFTER THE WORLD IS CHOSEN - §22.2 ──────────────

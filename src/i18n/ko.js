@@ -148,8 +148,7 @@ const ko = {
     composedHint: "이 멤버들은 한 그룹으로 데뷔합니다. 다음 화면에서 그룹 이름을 정할 수 있습니다.",
     classicTitle: "🎤 클래식",
     classicDesc: "그룹을 골라 시작",
-    customTitle: "✨ 커스텀 캐스트",
-    customDesc: "어떤 멤버든, 어떤 조합이든",
+    customTitle: "커스텀",
     roles: { main: "메인", sub: "서브", npc: "NPC" },
     roleHints: {
       main: "핵심 로맨스 라인 — 한 명만",

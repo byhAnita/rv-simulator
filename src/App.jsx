@@ -71,6 +71,11 @@ const STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱�
 const seededStoryMode = (legacyPace) =>
   resolveStoryMode(loadFromStorage("rv_sim_story_mode"), legacyPace);
 
+// The custom door's chip in the cover's group row. Deliberately not a group id:
+// it selects a DOOR, and rv_sim_group must keep holding something loadGroupConfig
+// can fetch.
+const CUSTOM_CAST_ID = "__custom__";
+
 const THEMES = {
   dark: {
     pageBg: "linear-gradient(135deg,#0a0410,#1e0718,#0a0420)",
@@ -1289,6 +1294,10 @@ export default function App() {
       ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.1", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
+    // ONE predicate, read by the button's enabled state AND by its handler. Two
+    // copies of "is a cast chosen" is how a button comes to look live and then
+    // refuse - the year-wheel defect, one screen over.
+    const castChosen = door === "custom" || Boolean(selectedGroup);
     const titleGrad = theme === "dark"
       ? "linear-gradient(90deg,#f8c8d8,#e887b0,#c86dd0,#e887b0,#f8c8d8)"
       : "linear-gradient(90deg,#c8a84b,#8b6914,#a0522d,#8b6914,#c8a84b)";
@@ -1302,15 +1311,31 @@ export default function App() {
           <h2 style={{ fontSize: "clamp(13px,2.5vw,20px)", letterSpacing: ".3em", color: th.textSecondary, marginBottom: 4 }}>{ct.subtitle}</h2>
           <p style={{ fontSize: 10, color: th.textMuted, letterSpacing: ".1em", marginBottom: 16 }}>{ct.desc}</p>
 
-          {/* Group Selection */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center", marginBottom: 16 }}>
-            {groupList.map(g => (
-              <button key={g.id} onClick={() => setSelectedGroup(g.id)}
-                style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 12, border: `1px solid ${selectedGroup === g.id ? (g.color || th.accent) : th.groupBtnBorder}`, background: selectedGroup === g.id ? th.langBtnActiveBg : th.groupBtnBg, color: selectedGroup === g.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.groupBtnColor, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
-                <span style={{ fontSize: 12 }}>{g.emoji}</span>
-                <span style={{ fontWeight: selectedGroup === g.id ? 700 : 400 }}>{g.name}</span>
-              </button>
-            ))}
+          {/* THE CUSTOM DOOR IS A CHIP, NOT A SECOND BUTTON (§22.9).
+              Yuhan's call, 2026-09-30, and it CANCELS §22.5's commit 5: the two
+              doors are kept and the custom one is dressed as one more group.
+
+              Both doors answer the same question - WHICH cast - so they belong in
+              the same control. An outline button under New Game asked it twice, in
+              two shapes, and put the fast classic path one extra decision away from
+              the players who have used it since v1.3.
+
+              THE ROW IS THEREFORE THE DOOR SELECTOR, which is why door is set
+              here rather than at the button below. New Game then does one thing. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center", marginBottom: 14 }}>
+            {[...groupList.map((g) => ({ ...g, to: "classic" })),
+              { id: CUSTOM_CAST_ID, name: t.cast.customTitle, emoji: "✨", color: th.accent, to: "custom" },
+            ].map((g) => {
+              const on = g.to === "custom" ? door === "custom" : (door !== "custom" && selectedGroup === g.id);
+              return (
+                <button key={g.id}
+                  onClick={() => { setDoor(g.to); if (g.to === "classic") setSelectedGroup(g.id); }}
+                  style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 8px", borderRadius: 12, border: `1px solid ${on ? (g.color || th.accent) : th.groupBtnBorder}`, background: on ? th.langBtnActiveBg : th.groupBtnBg, color: on ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.groupBtnColor, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 11 }}>{g.emoji}</span>
+                  <span style={{ fontWeight: on ? 700 : 400 }}>{g.name}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Language + Theme row */}
@@ -1328,33 +1353,23 @@ export default function App() {
             </button>
           </div>
 
-          {/* Two doors, one engine (docs/V140_PLAN.md §14.1). Classic is exactly
-              today's flow and stays the primary button; the custom door leads to
-              the roster builder. Both end at Setup with a roster, so nothing
-              downstream knows which one was used. */}
+          {/* Two doors, one engine (docs/V140_PLAN.md §14.1 and §22.9). The chip
+              row above chose which one; this button opens it. Both end with a
+              roster, so nothing downstream knows which was used.
+
+              Player info comes first on BOTH doors (§22.2): the builder's Generate
+              spends the key, and that call reads the WORLD - which, before the
+              reorder, was whichever world the last session left in localStorage. */}
           <button
             onClick={() => {
-              if (!selectedGroup) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
+              if (!castChosen) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
               // Leaving a builder roster in place would silently override the
               // group just picked, since startNewGame prefers it.
-              setDoor("classic"); setPendingRoster(null);
+              if (door !== "custom") setPendingRoster(null);
               if (apiKey?.trim()) setPhase("playerInfo"); else setPhase("keyInput");
             }}
-            style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: selectedGroup ? "pointer" : "default", background: selectedGroup ? th.accentGrad : th.newGameDisabled, color: selectedGroup ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
+            style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: castChosen ? "pointer" : "default", background: castChosen ? th.accentGrad : th.newGameDisabled, color: castChosen ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
             {ct.newGame}
-          </button>
-          <button
-            onClick={() => {
-              setDoor("custom");
-              // The builder's Generate button spends the player's key, so the key
-              // page comes first when there is none — §4.5 assumes it exists.
-              // Player info first on this door too, since §22.2: that Generate call
-              // reads the WORLD, and before the reorder it read whichever world the
-              // last session left in localStorage.
-              if (apiKey?.trim()) setPhase("playerInfo"); else setPhase("keyInput");
-            }}
-            style={{ padding: "11px 30px", borderRadius: 40, border: `1px solid ${th.coverContinueBorder}`, background: "transparent", color: th.coverContinueColor, fontSize: 13, cursor: "pointer", marginBottom: 10 }}>
-            {t.cast.customTitle}
           </button>
           {hasSaves() && (
             <button onClick={() => setOverlay({ type: "save" })}
@@ -1588,8 +1603,8 @@ export default function App() {
   //
   // It is one page for BOTH doors, which is what stops the fix being door-shaped:
   // the classic door used to ask these four on Setup and the custom door reached
-  // the builder without them. §22.5's commit 5 may delete the classic door; this
-  // page does not depend on that either way.
+  // the builder without them. §22.5's commit 5 - the unified door - is CANCELLED
+  // (§22.9.2), so both doors are permanent and this page serves both.
   //
   // The cast is deliberately NOT described here - no org line, no member chips.
   // What this page knows is the player; the next one knows the cast.

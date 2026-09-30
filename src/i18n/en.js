@@ -153,8 +153,7 @@ const en = {
     composedHint: "These members debut as one group — you can name it on the next screen.",
     classicTitle: "🎤 Classic",
     classicDesc: "Pick a group and play",
-    customTitle: "✨ Custom cast",
-    customDesc: "Any members, any mix",
+    customTitle: "Custom",
     roles: { main: "Main", sub: "Sub", npc: "NPC" },
     roleHints: {
       main: "the core romance line — exactly one",

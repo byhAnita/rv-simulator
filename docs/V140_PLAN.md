@@ -3163,7 +3163,9 @@ commit: `memberLine`'s one expression, the §22.1 rule made conditional, and the
 **It moves all six goldens** — three non-idol ones lose the caveat or keep a narrowed one, and the
 `world_position` render is new — so `update-golden.mjs` runs once and the diff is read.
 
-**5. The unified door** — separate, optional, and only if Yuhan wants it.
+**5. The unified door** — **CANCELLED**, Yuhan's call 2026-09-30. Both doors are kept and the
+custom one is dressed as one more group chip on the cover; see §22.9.2 for why two doors is not
+duplication when one engine already serves both.
 
 #### What writing commit 3 settled, and one thing it cannot fix
 
@@ -3673,6 +3675,61 @@ these: each of these roots is `position: fixed` with a `z-index`, so each one **
 context**. The cropper is rendered *inside* the editor, so its 130 was only ever compared against
 the editor's own children - the whole editor subtree competed with the picker at the editor's 110.
 Raising a child does nothing when the parent is the layer that is too low.
+
+---
+
+### 22.9 The custom door is a chip, and the unified door is CANCELLED
+
+**Yuhan's design, 2026-09-30, from the same phone pass**, and it is a reversal of a plan item
+rather than a fix to a defect:
+
+> *"as for cover page, move `✨自定义卡司` entry button besides the groups, change it to Red
+> Velvet, TWICE, aespa, IVE, ITZY, BLACKPINK, … 自定义 with same type of look for buttons. Then
+> below the groups are the current big buttons 开始新游戏, 继续游戏（读档）, 修改API Key/切换模型,
+> 帮助/常见问题. [...] I'd propose cancel the merge to custom entry policy we claimed before,
+> change to keep both and make the custom entry button same as a custom group — more intuitive and
+> also friendly for old players familiar with the fast classic group entry"*
+
+#### 22.9.1 Both doors answer WHICH cast, so they are one control
+
+The cover asked the question twice, in two shapes: a row of group chips, and then an outline
+button under New Game reading `✨ 自定义卡司`. A player reads a different shape as a different
+*kind* of decision, so the authored-cast flow looked like a mode rather than like another cast -
+and the classic path, which every player since v1.3 has used, sat one extra decision away from the
+button that starts it.
+
+**The chip row is now the door selector.** It renders the group list plus one entry with the same
+markup, and tapping any of them sets `door` - so `New Game` does exactly one thing and branches on
+nothing. `castChosen` is **one predicate** read by both the button's enabled state and its own
+handler, because two copies of *is a cast chosen* is how a button comes to look live and then
+refuse with nothing on screen left to fill (the year-wheel defect, one screen over).
+
+**The sentinel is a door, not a group.** `CUSTOM_CAST_ID` is a chip identity and a React key; it
+is never written to `rv_sim_group` and never reaches `loadGroupConfig`, so `selectedGroup` keeps
+naming a real group - which is what the builder loads as its opening palette. A guard asserts the
+sentinel never reaches `setSelectedGroup`.
+
+**Measured, in a real browser at 390px, all three languages: 10 chips on exactly 2 lines, 5 and
+5**, with the cover's card at 469-480px against its 844 cap and no scroll. The chips lost 1px of
+gap and 1px of horizontal padding and the emoji dropped from 12 to 11px, which is what the second
+line costs.
+
+#### 22.9.2 §22.5's commit 5 is cancelled, and the reason is worth keeping
+
+Commit 5 was *the unified door*: one entry point, with the classic group pick expressed as a
+special case of the roster builder. It was always optional and nothing ever depended on it - and
+it is now **cancelled outright** on Yuhan's call.
+
+**Two doors is not duplication here.** One engine already serves both (`resolveRoster`, since
+v1.4.0), so what the second door costs is a chip - not a second code path. What it buys is that
+the fastest flow in the app stays one tap for a player who wants Red Velvet and nothing else, and
+the builder stays for a player who wants a cast. Unifying them would have made every player walk
+the builder to express *"Red Velvet, as shipped"*.
+
+**`customDesc` is deleted from all three languages.** It described the subtitle of an outline
+button that never shipped with one, and it had **no reader in `src/` at all** - the `pickMainHint`
+failure, recorded in `CLAUDE.md` four times now. `customTitle` survives as the chip's label,
+shortened to `自定义` / `Custom` / `커스텀` so it sits beside a group name rather than above one.
 
 ---
 

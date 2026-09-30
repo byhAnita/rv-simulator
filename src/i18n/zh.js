@@ -148,8 +148,7 @@ const zh = {
     composedHint: "这些成员将作为一个组合出道，下一步可以给组合命名。",
     classicTitle: "🎤 经典模式",
     classicDesc: "选一个团体开始",
-    customTitle: "✨ 自定义卡司",
-    customDesc: "任意成员，任意组合",
+    customTitle: "自定义",
     roles: { main: "主线", sub: "支线", npc: "NPC" },
     roleHints: {
       main: "核心恋爱线，只能选一位",
