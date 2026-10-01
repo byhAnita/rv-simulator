@@ -21,6 +21,22 @@ scheduled for v1.4.2.
 | **6 — UI** (cont.) | ✅ **released in v1.4.0.** Eight further commits after the row above: the birth-year correction, the harness revival + `--cast` + the live gate, the ROLE CONTRACT with six prompt-review fixes, and the save-slot cap with per-language stage names and section 4's per-roster preamble. Smoke 849 → **949**. Splitting the classic Setup page was **not** done and does not block anything. |
 | **7 — Release v1.4.0** | ✅ **released 2026-09-28**, tag `v1.4.0` on deploy commit `7b3ceea`. Preceded by a full prompt re-read (nineteen defects, seven invisible to the zh fixture), 105 live rounds across five configurations, and a controlled four-arm re-validation that found two bugs in the measurement itself. Smoke 949 → **1081**. |
 | **8 — Four hand-test passes** | ✅ **released in v1.4.0.** Photos reaching the game at all, then the player's own crop, then three phone-only rendering bugs, then the avatar a third time — see CLAUDE.md, *The second fix made the square reachable*. Smoke 1081 → **1204**. Release notes now render inside the game. |
+| **9 — Release v1.4.1** | ✅ **released 2026-09-29**, tag `v1.4.1` on deploy commit `0e27d8b`. Eight steps: the shared address-register table, the story-mode switch replacing the pace, the world picker on Setup, the world owning section 4's wording, the place map, world-owned platforms, three new worlds (`campus`, `office`, `chaebol`) with three more goldens, and three phone passes. Smoke 1204 → **1511**. **It shipped broken on GitHub Pages only** and was fixed the next day with an empty `.nojekyll` (`d052226`, no source change, same bundle hash) — see CLAUDE.md, *Pages serves the root THROUGH Jekyll*. |
+| **10 — §22, the cast library and the setup flow** | 🟡 **built, verified on a phone, UNRELEASED.** This is everything in `main..dev` and it is v1.4.2's content. §22.1's interim prompt rule; §22.2's restructure in five commits (player info before the cast, one profile editor for prebuilt and custom members, the world-scoped restaging, the two tabs, the whole-cast call); then **nine phone passes** of layout and flow correction — §22.6 through §22.12. Smoke 1511 → **1720**. **All six goldens byte-identical since `f857869`**, which is what says none of the UI work changed what the model is told. |
+
+**What step 10 does NOT include, and each is a deliberate cut rather than an oversight:**
+
+- **The unified door is CANCELLED** (§22.9, Yuhan 2026-09-30). §15's v1.4.2 list still names it;
+  it is superseded. Two doors cost a chip, not a code path, because one engine has served both
+  since v1.4.0.
+- **`WorldBuilder.jsx`** and `rv_sim_worlds_custom_v14` — §18 decision 7, out as scoped.
+- **Plot mode (§19)**, **endings and the epilogue (§21)**, the **affinity matrix** (§7.3/7.4) and
+  **player-side composers** (§8) are all still unbuilt. §21 is blocked on `PROPOSALS.md` §6, which
+  is §18 decision 8 and the one item on that list that blocks another.
+- **§22.4's two undiagnosed defects** — the saved cast whose deleted custom member returns as name
+  + emoji (**not reproduced**), and the round that names nobody, only 她 (which also makes
+  `[Rounds Absent]` report a false absence). One prompt rule may close the second; it moves all six
+  goldens and wants its own commit.
 
 **Step 1 paid for itself before the first fixture existed.** Writing a snapshot forces the
 question *is this output actually stable?*, which nothing had ever asked. It is not: the
@@ -2314,7 +2330,8 @@ indistinguishable from a passing one.**
 
 ### v1.4.2
 
-Unified game entry (groups & cast & world on one screen); `WorldBuilder.jsx` +
+~~Unified game entry (groups & cast & world on one screen)~~ — **CANCELLED**, see §22.9;
+`WorldBuilder.jsx` +
 `rv_sim_worlds_custom_v14`; player KKT/IG composers; `playerPostReactions` in the schema and
 parser; relations in §4; affinity matrix call + `BETA` prior in `probabilityEngine.js` (§7.4); **plot
 mode (§19)** — authored story beats, offered as option D, injected into the tail; **endings and the
