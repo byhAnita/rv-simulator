@@ -25,6 +25,12 @@
 
 export const RELEASE_NOTES = [
   {
+    version: "1.4.2",
+    zh: "非偶像世界里，卡司的设定会在开始时按世界重写：她在这里的身份、对外形象、说话方式都重新生成，五个人一次生成，所以彼此不冲突。点任何一位已选成员的头像就能打开她的资料卡（包括预设成员），分为「她是谁」和「在这个世界」两页。经典开局恢复为一页，自定义卡司变成团体旁边的一个按钮，页面顶部也不再被状态栏逄住。",
+    en: "In the non-idol worlds the cast is rewritten for the setting when you press Start — her position here, her public image and how she talks are all regenerated, in one call for the whole cast so they agree with each other. Tapping any chosen member's face opens her profile, prebuilt members included, with one tab for who she is and one for who she is in this world. The classic start is one page again, the custom cast is a chip beside the groups, and the top of the page no longer sits under the clock.",
+    ko: "아이돌이 아닌 세계에서는 시작을 누를 때 출연진 설정이 그 세계에 맞게 다시 쓰입니다. 여기서의 위치, 대외적 이미지, 말투가 모두 새로 생성되며, 한 번의 호출로 출연진 전체를 배치하기 때문에 서로 충돌하지 않습니다. 선택한 멤버의 얼굴을 누르면 프로필이 열리고(기본 멤버도 포함), 「그녀는 누구인가」와 「이 세계에서」 두 탭으로 나뉘어집니다. 클래식 시작은 다시 한 페이지가 되었고, 커스텀 출연진은 그룹 옆의 버튼이 되었으며, 페이지 상단이 상태표시줄에 가려지지 않습니다.",
+  },
+  {
     version: "1.4.1",
     zh: "新增三个世界：校园、职场、财阀家族。同一批成员可以换一个世界重新开始——每个世界有自己的开场、十个地点、专属身份和社交平台。剧情模式从角色设定移到了设置里，随时可改；输入框旁新增 📍 按钮，可以直接去某个地方（移动会消耗一个回合）。",
     en: "Three new worlds — campus, office and chaebol houses. The same cast can start again somewhere else, and each world has its own opening scene, its own ten places, its own identities for you and its own social platforms. Story Mode has moved out of character setup and into Settings, so it can be changed mid-run, and a 📍 button beside the input row takes you straight to a place — moving costs a round.",
