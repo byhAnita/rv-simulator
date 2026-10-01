@@ -94,7 +94,7 @@ Output ONLY valid JSON, no markdown fences, with exactly these keys:
   "public_image": "the persona the public sees, 1-2 sentences",
   "queer_texture": "how attraction to a woman surfaces in her specifically, 1-2 sentences",
   "speech_style": "how she talks - register, rhythm, verbal tics, 1 sentence",
-  "habit": "ONE concrete, observable, repeatable physical behaviour a scene can stage. Not a feeling and not a trait: something she does with her hands, her posture or an object",
+  "habit": "her tastes and small facts the player could learn and act on to show care - a drink she avoids, a favourite colour, a hobby. A few short items separated by semicolons, on one line",
   "hidden_conflict": "the tension she carries and hides, 1 sentence"
 }`;
 }

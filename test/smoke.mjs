@@ -2563,10 +2563,19 @@ async function layerI() {
     for (const [lang, ms] of Object.entries(langs))
       for (const m of ms) everyMember.push({ gid, lang, ...m });
 
-  const noHabit = everyMember.filter((m) => !m.habit || !m.habit.trim());
-  check("every member in every group reaches the prompt with a habit",
-    noHabit.length === 0,
-    noHabit.map((m) => `${m.gid}/${m.lang}:${m.id}`).join(", ") || `${everyMember.length} checked`);
+  // Since 2026-10-01 `habit` is OPTIONAL and means the member's tastes - what the
+  // player can know about her and act on. Yuhan wrote Red Velvet's and emptied the
+  // rest: an unverified fact about a real person is worse than none. What must
+  // hold is that a member has tastes in all three languages or in none, or a
+  // player gets a different person depending on her UI language.
+  const halfTranslated = [];
+  for (const [gid, langs] of Object.entries(library))
+    for (const m of langs.zh) {
+      const has = LIB_LANGS.map((l) => Boolean(langs[l].find((x) => x.id === m.id)?.habit?.trim()));
+      if (new Set(has).size > 1) halfTranslated.push(`${gid}:${m.id} (${LIB_LANGS.filter((l, i) => has[i]).join("/")})`);
+    }
+  check("a member's tastes are authored in all three languages or in none",
+    halfTranslated.length === 0, halfTranslated.join(", "));
 
   // A habit renders as ONE line in the member profile block. A newline would
   // split it in two and silently reshape the section for that cast only.
@@ -2605,7 +2614,7 @@ async function layerI() {
   const dupes = [];
   for (const [gid, langs] of Object.entries(library))
     for (const lang of LIB_LANGS) {
-      const hs = langs[lang].map((m) => m.habit);
+      const hs = langs[lang].map((m) => m.habit).filter((h) => h && h.trim());
       if (new Set(hs).size !== hs.length) dupes.push(`${gid}/${lang}`);
     }
   check("no two members of one cast share a habit",
@@ -2730,16 +2739,24 @@ async function layerI() {
   const profilesOf = (text) => text.slice(
     text.indexOf("5. MEMBER PROFILES"),
     text.lastIndexOf("╔", text.indexOf("6. CAST IDENTITY")));
+  // Since 2026-10-01 the `habit` field renders as what the PLAYER knows about her
+  // (Yuhan: tastes she can act on to show care), under a label naming the player.
+  const TL = `Little things ${form().name} knows`;
+  const tastesLines = (text) => (profilesOf(text).match(new RegExp(`^ {2}${TL}: `, "gm")) || []).length;
+  const withTastes = members.filter((m) => m.habit && m.habit.trim()).length;
   const ireneHabit = members.find((m) => m.id === "irene").habit;
-  check("a member's habit reaches the member profile block",
-    profilesOf(p).includes(`\n  Habit: ${ireneHabit}`), addressOfIn(p, "Irene"));
-  check("every member of the cast carries exactly one Habit line",
-    (profilesOf(p).match(/^ {2}Habit: /gm) || []).length === members.length,
-    `${(profilesOf(p).match(/^ {2}Habit: /gm) || []).length} lines / ${members.length} members`);
-  // Placement is meaning here: Habit is the staging handle for the three prose
-  // fields, not a fourth differentiator sitting among them.
-  check("Habit renders below Queer Texture",
-    /\n {2}Queer Texture: [^\n]*\n {2}Habit: /.test(profilesOf(p)));
+  check("a member's tastes reach the member profile block, under the player-knows label",
+    profilesOf(p).includes(`\n  ${TL}: ${ireneHabit}`), addressOfIn(p, "Irene"));
+  check("every member who has tastes carries exactly one tastes line, and nobody else does",
+    withTastes > 0 && tastesLines(p) === withTastes,
+    `${tastesLines(p)} lines / ${withTastes} members with tastes`);
+  check("the tastes line renders below Queer Texture",
+    new RegExp(`\\n {2}Queer Texture: [^\\n]*\\n {2}${TL}: `).test(profilesOf(p)));
+  // The rule saying HOW they are used - care shown in an act, never a fact recited -
+  // and section 1's allowance for a word of a language she is learning are sent
+  // only when some member in the cast has such a line: a rule about a line nobody
+  // carries is a rule pointing at nothing.
+  const tastesRuleRe = /LITTLE THINGS [^\n]* KNOWS: [^\n]*never facts to recite: do not narrate one as a statement about her/;
 
   // A member with no habit must render NOTHING — not `  Habit: ` with a
   // trailing space, which no reviewer sees and which costs the whole cached
@@ -2747,8 +2764,15 @@ async function layerI() {
   const strippedMembers = members.map(({ habit, ...rest }) => rest);
   const noHabitPrompt = buildSystemPrompt(
     form(), strippedMembers, "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("a member with no habit renders no Habit line at all",
-    !/Habit:/.test(noHabitPrompt), profilesOf(noHabitPrompt).slice(0, 300));
+  check("a member with no tastes renders no tastes line at all",
+    !noHabitPrompt.includes(`${TL}:`), profilesOf(noHabitPrompt).slice(0, 300));
+  check("the tastes rule is sent when a member has tastes, and only then",
+    tastesRuleRe.test(p) && !/LITTLE THINGS/.test(noHabitPrompt),
+    `with=${tastesRuleRe.test(p)} without=${/LITTLE THINGS/.test(noHabitPrompt)}`);
+  check("...and so is section 1's allowance for a word of a language she is learning",
+    /The other exception: where a member's "Little things [^"]+ knows" line says she is learning a language/.test(p)
+      && !/The other exception:/.test(noHabitPrompt),
+    "section 1 is HIGHEST PRIORITY; a permission written only in her line loses to it");
   const trailing = profilesOf(noHabitPrompt).split("\n").filter((l) => /[ \t]$/.test(l));
   check("...and leaves no trailing whitespace where the line would have been",
     trailing.length === 0, JSON.stringify(trailing.slice(0, 3)));
@@ -2756,9 +2780,9 @@ async function layerI() {
   const oneMissing = buildSystemPrompt(
     form(), members.map((m) => (m.id === "yeri" ? { ...m, habit: "" } : m)),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("one habit-less member does not disturb the rest of the cast",
-    (profilesOf(oneMissing).match(/^ {2}Habit: /gm) || []).length === members.length - 1
-      && profilesOf(oneMissing).includes(`\n  Habit: ${ireneHabit}`),
+  check("one member without tastes does not disturb the rest of the cast",
+    tastesLines(oneMissing) === withTastes - 1
+      && profilesOf(oneMissing).includes(`\n  ${TL}: ${ireneHabit}`),
     profilesOf(oneMissing).split("\n").filter((l) => /[ \t]$/.test(l)).join("|"));
 
   // --- step 6: a member built from the REQUIRED tier alone -------------------
@@ -2811,7 +2835,7 @@ async function layerI() {
   const OPTIONAL_LINES = [
     ["animal_plastic", "Animal"], ["public_image", "Public"],
     ["private_personality", "Private"], ["queer_texture", "Queer Texture"],
-    ["speech_style", "Speech Style"], ["habit", "Habit"],
+    ["speech_style", "Speech Style"], ["habit", TL],
     ["hidden_conflict", "Hidden Conflict"],
   ];
   const strippedOffenders = [];
@@ -2836,10 +2860,10 @@ async function layerI() {
   const withSpeech = buildSystemPrompt(
     form(), members.map((m) => (m.id === "irene" ? { ...m, speech_style: "clipped, trails off" } : m)),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("a speech_style renders below Queer Texture and above Habit",
-    /\n {2}Queer Texture: [^\n]*\n {2}Speech Style: clipped, trails off\n {2}Habit: /
+  check("a speech_style renders below Queer Texture and above the tastes line",
+    new RegExp(`\\n {2}Queer Texture: [^\\n]*\\n {2}Speech Style: clipped, trails off\\n {2}${TL}: `)
       .test(profilesOf(withSpeech)),
-    (profilesOf(withSpeech).match(/^ {2}(Queer Texture|Speech Style|Habit): .*/gm) || [])
+    (profilesOf(withSpeech).match(new RegExp(`^ {2}(Queer Texture|Speech Style|${TL}): .*`, "gm")) || [])
       .slice(0, 3).join(" / "));
 
   // The real path: a custom entry is snapshotted inline by resolveRoster and so
@@ -4838,7 +4862,7 @@ async function layerI() {
     + " escape hatch is a prohibition it will route around");
   check("...and says that where she is decides who is there",
     /WHERE SHE IS DECIDES WHO IS THERE/.test(pEn)
-      && /Habit and Private Personality/.test(pEn),
+      && /Private Personality and tastes/.test(pEn),
     "going somewhere was supposed to be how you run into someone");
   check("...and points that rule at [Rounds Absent] rather than restating it",
     /a member \[Rounds Absent\] shows has been away is a reason to put her there/.test(pEn),
