@@ -12,6 +12,11 @@ Active branches:
 
 See **Branch & Deploy Workflow** for the release, hotfix and merge-back rules.
 
+> **More than one agent works on this repo, one at a time.** If you are not the main VS Code
+> session, read **`docs/AGENTS.md`** (roles, scope, and the rules a cloud or third-party agent
+> cannot see because they live in Yuhan's personal config) and then **`docs/HANDOFF.md`** (the one
+> task in flight, and the exact next command). Stand-in agents **fix bugs and do not design**.
+
 Production numbers (reasoning off). **Four cache figures exist and they are not interchangeable** —
 quote the right one, with its source:
 
@@ -4027,11 +4032,11 @@ dates, not the tense.**
 **v1.4.2 is live.** `main` = `origin/main` = **`376fba4`**, tagged `v1.4.2` on that deploy
 commit. The merge back into `dev` is done. Tree clean, nothing stashed, nothing running.
 
-**`dev` is AHEAD of `origin/dev` by two docs commits and they are NOT pushed** — `557e9f7`
-(the dev-mode `index.html` after the deploy) is what the remote has; on top of it sit
-`b055a49`, the CV rule in the Release section, and this status update. Nothing in either
-touches `src/`, so the deployed bundle is unaffected; push them with the next batch or on
-their own, as you prefer.
+**`dev` is AHEAD of `origin/dev` and NOT pushed.** The remote has `5daf039`; on top of it sit
+`b055a49` (the CV rule), `e929076` (that status update) and `9e82d09` (the prompt's prose rules
+moving to the per-language register document — see `docs/HANDOFF.md`). Only the last touches
+`src/`, and it renders byte-identically, so the deployed bundle is unaffected either way; push
+them with the next batch or on their own, as you prefer.
 
 **Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of
 the three mirrors — 47 data files, `index.html`, both manifests, the bundle and the
