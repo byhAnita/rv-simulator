@@ -428,3 +428,32 @@ Samples for (1) and (2) exist — `C_noMode` and `O_oldOrder` in `ab2-1790879094
 `ab2-1790879171190.json`, with `O` verified to emit social-before-story 3 of 3. **The next step is
 Yuhan reading them blind against v1.4.2 and v1.3.9.** Nothing in the prompt is changed until that
 reading names a block.
+
+### The blind read — and the regression did not reproduce
+
+Yuhan rated eight round-2 stories **blind** (version labels hidden, order shuffled; key in the
+scratchpad's `packet-key.json`), two per arm, from `ab2-1790879094230.json` / `ab2-1790879171190.json`:
+
+| arm | her two ratings |
+| --- | --- |
+| v1.3.9 | 自然, 一般 |
+| v1.4.2 as shipped | 一般, 自然 |
+| v1.4.2, v1.3.9's schema order | 自然, 翻译腔 |
+| v1.4.2, no free-mode tail line | 翻译腔, 翻译腔 |
+
+**Blind, v1.4.2 and v1.3.9 are level.** The first read, which found v1.3.9 clearly better, was
+**unblinded** — the harness printed `A_v142` / `B_v139` above every story — so expectation could tip
+it, and the section above that says "it is the PROMPT" overstates what that read could show. n=2 per
+arm is weak in both directions; what it does establish:
+
+- **The free-mode tail line is not the cause** — removing it was rated worst.
+- **Reverting the schema order is not the fix** — one natural, one translated.
+- **Translationese is a RATE, present in every version**: 3 of 8 rated 翻译腔, 2 一般, 3 自然.
+
+So bisecting the v1.3.9 -> v1.4.2 diff is the wrong search: there may be no block to find. The lever
+is lowering the rate, and the strongest candidate is the rule that has never existed — `prose.voice`,
+saying what natural Chinese prose is — in place of the two lines that ask for the opposite
+(`Style: Literary, emotional, sensory details` and `Open with 1-2 sentences establishing scene
+atmosphere`, both unchanged since v1.3.9). **Every reading from here is blind**, and needs more than
+two samples per arm, because the per-sample variance seen here is larger than any difference between
+arms.
