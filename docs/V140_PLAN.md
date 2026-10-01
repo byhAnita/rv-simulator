@@ -4120,6 +4120,52 @@ is what says the world really switched rather than the probe failing to click.
 
 ---
 
+### 22.13 The live gate before v1.4.2, and the one thing it found
+
+**Run 2026-10-01, before the release**, because every claim about §22 up to that point was offline:
+smoke, mutation, golden and one rendered-prompt probe. Three arms on `deepseek-flash`, 12 rounds:
+
+| arm | result |
+| --- | --- |
+| `chaebol` / `rival_heiress` / zh | 4/4 clean, 5/5 restaged, 90.4% cache, 0 drifts, 0 prefix breaks |
+| `kpop_idol` classic / zh | 4/4 clean, 90.4% cache, 0 drifts — the path no restaging runs on |
+| `campus` / `junior_student` / ko | 4/4 clean, 89.6% cache, 5/5 restaged, 0 drifts |
+
+**0 static-prompt drifts across all 12 rounds**, which is what says the whole §22 UI restructure
+changed nothing the model is sent — the claim the six byte-identical goldens make offline, now made
+live.
+
+#### 22.13.1 One idol word survived the restaging, and the rule was written in the wrong script
+
+The chaebol arm flagged `yeri: 忙内 in public_image`. Read rather than taken at face value: the
+generated line carries the opening noun of her library line verbatim, restaging only the second half.
+**The restaging law named the ranks in English while the prose it restages, and the output, are
+Chinese** — so the rule and the token were the same fact in two scripts, and the model followed the
+rule and still broke it.
+
+Measured across the zh library, over the three fields a restaging replaces: 忙内 occurs 6 times and
+**exactly one** is a field where no other idol word sits beside it — the one that leaked. Both the
+law and §22.1's interim rule now name `队长, 主唱, 门面, 忙内`; smoke compares the enumerations as it
+already did, and a new check requires each list, **separately**, to carry them. Re-run: **0 idol-word
+instances**, Yeri placed as `家族中最年幼的女儿`.
+
+#### 22.13.2 ...and the Korean half of that fix was wrong
+
+The first version also named `리더, 메인보컬, 비주얼, 막내`. The ko arm came back with `엉뚱한 막내`
+beside `선배` and `세미나` — campus register throughout, 막내 in its ordinary sense. **In Korean that
+is the everyday word for the youngest of any group and there is no neutral substitute**; Chinese has
+one (最年幼), which is what makes the loanword refusable there. The Korean forms were removed and the
+reason is in `cardGenerator.js`, so the next person does not re-add them.
+
+**The ko run was CLEAN when it did that.** The idol-word scan is zh-only and printed itself skipped.
+It was found by reading the five generated positions — ten seconds, which a green verdict line
+discourages. **A grader that cannot run is not a grader that passed.**
+
+**6 mutations, 6 RED.** The three non-idol goldens moved by this one clause; the three idol ones did
+not, because `useRole` is true there and the rule renders empty.
+
+---
+
 ### 21.1 Three things are wrong today, and they are one bug
 
 **1. The ending and the epilogue are separate systems that share no state.**

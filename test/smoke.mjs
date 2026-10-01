@@ -6791,7 +6791,8 @@ async function layerI() {
     // of 2026-09-30 wrote Joy as 门面担当 in a family compound, and the enumeration
     // said "leader, main vocal or maknae" with the VISUAL missing from both.
     const ranksIn = (src) => (src.match(/performing group such as ([^.]+)\./) || [, ""])[1]
-      .split(/,| or /).map((x) => x.trim()).filter(Boolean).sort().join("|");
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/\s+/g, " ").split(/,| or /).map((x) => x.trim()).filter(Boolean).sort().join("|");
     const agentSrc = readFileSync(join(ROOT, "src", "agent", "mainAgent.js"), "utf8");
     check("...and forbids the idol facts the interim rule forbids at read time",
       /no stage/.test(dp) && /no comeback/.test(dp) && /maknae/.test(dp)
@@ -6801,6 +6802,23 @@ async function layerI() {
     check("...including the VISUAL, which the enumeration omitted and a live run leaked",
       ranksIn(cgSrc).includes("visual"),
       "when a contract enumerates, the model treats what it omits as unconstrained");
+    // The game writes zh, en and ko, so a rule naming the rank in English only is one
+    // the model can follow and still break - it is copying a token out of Chinese
+    // prose. Both lists are checked, because the equality above is satisfied by two
+    // lists that are equally wrong.
+    // EACH LIST ON ITS OWN, never their concatenation: joined, either one alone
+    // satisfies the check and the other is free to be wrong - two rules covering for
+    // each other, which is what cropRect's double clamp cost an hour to find.
+    // zh ONLY, and that is a measurement rather than an omission: a live ko run came
+    // back with the Korean word for the youngest sitting in campus register, where it
+    // is the ordinary word for it and has no neutral substitute. See cardGenerator.js.
+    const transliterated = ["\u961f\u957f", "\u4e3b\u5531", "\u95e8\u9762", "\u5fd9\u5185"];
+    const missing = [["the restaging law", ranksIn(cgSrc)], ["the interim rule", ranksIn(agentSrc)]]
+      .flatMap(([where, list]) => transliterated.filter((w) => !list.includes(w))
+        .map((w) => where + ": " + w));
+    check("...and names each rank in the scripts the game actually writes in",
+      missing.length === 0,
+      "an English-only list is followed and still broken: " + missing.join(" "));
   }
   // ---------------------------------------- the cast block, and why it exists
   //

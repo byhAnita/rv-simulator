@@ -2142,6 +2142,57 @@ its verdict line.**
 
 ---
 
+### A rule written in English about a word the model is copying in Chinese
+
+**Found by the live gate before v1.4.2, 2026-10-01**, which is the run that exists to be read rather
+than passed. `--world chaebol --identity rival_heiress --lang zh --rounds 4`: 4/4 clean, 5/5
+restaged, 0 drifts — and **one idol word survived the restaging**, `yeri: 忙内 in public_image`.
+
+It is not a grader bug, which is the first thing this file requires checking. The generated line
+reads `...和谁都能迅速打成一片的忙内`, and her library line — the source the call was handed — opens
+`忙内，古灵精怪的社交小能手，和谁都能迅速打成一片`. **The model restaged the second half and carried
+the first half's noun over verbatim.**
+
+**The restaging law named the ranks in English: *leader, main vocal, visual or maknae*.** The prose
+it restages is Chinese, the output is Chinese, and the token the model was copying is 忙内. The rule
+and the word are the same fact in two scripts and nothing said so, so the model followed the rule
+and still broke it. **This is the address table's lesson in a new place** — that table bans 姐 and
+the other native substitutes *by name*, because a generic "keep it Korean" is not enough when the
+wrong word is the one the model reaches for by default.
+
+**Measured over the zh library, and the measurement is what makes it a defect rather than taste:**
+across the three fields a restaging replaces, 忙内 occurs 6 times, and **exactly one** of those is a
+field where no other scanned idol word sits beside it — Yeri's `public_image`, the one that leaked.
+The scan caught her and nobody else because she is the only member it *could* catch.
+
+The law and §22.1's interim rule now both name `队长, 主唱, 门面, 忙内`, and smoke compares the two
+enumerations as it already did. **Re-run live: 0 idol-word instances**, with Yeri placed as
+`家族中最年幼的女儿` — the plain words the rule asks for instead.
+
+**Then the same rule, extended to Korean, was wrong — and only a live run in a language nobody here
+reads could show it.** The first version also named `리더, 메인보컬, 비주얼, 막내`. A campus run in
+ko came back with `엉뚱한 막내` sitting beside `선배`, `세미나` and `술자리` — campus register
+throughout, with 막내 in its ordinary sense: **the youngest of any group, which is what the word
+means in Korean, with no neutral substitute.** Chinese has an everyday word for the same idea
+(最年幼), which is exactly what makes the loanword refusable there and not here.
+
+**So the Korean forms came back out, and the comment says why.** Generalised: *a rule about a
+borrowed word holds only where the target language has its own word for the thing* — the same
+distinction `呀` already forced in the address table, where zh keeps the Korean form only in the one
+use the two languages share.
+
+**That run was CLEAN, and the defect was in its output.** The idol-word scan is zh-only and
+reported itself skipped; the three rounds graded fine. It was found by reading the five generated
+positions, which takes ten seconds and which a green verdict line actively discourages. **A grader
+that cannot run is not a grader that passed**, and a run is not validated by its verdict.
+
+**6 mutations, 6 RED**, including the law dropping the list, the law keeping one word of four, the
+interim rule keeping the old English-only list, the two lists disagreeing in each direction, and the
+visual going back out. The three non-idol goldens moved by exactly this clause and the diff was read;
+the three idol goldens did not move, because `useRole` is true there and the rule renders empty.
+
+---
+
 ### A layer you can read through, and a dependency list that was a claim about the wrong effect
 
 **Yuhan's report, 2026-10-01**, on the layer §22.11 had just shipped. Two bugs, unrelated to each

@@ -260,6 +260,28 @@ export function seniorityLadder(cast = []) {
     || (a.year - b.year) || (a.i - b.i));
 }
 
+// THE RANKS ARE NAMED IN THE SCRIPT THE SOURCE IS AUTHORED IN - zh - and NOT in
+// Korean. A live ko campus run came back with \ub9c9\ub0b4 beside \uc120\ubc30, which is
+// the ordinary Korean word for the youngest of any group and has no neutral
+// substitute, so forbidding it would ban correct Korean. In zh the same concept has
+// an everyday word (\u6700\u5e74\u5e7c), which is what makes \u5fd9\u5185 a loanword
+// worth refusing. Same shape as \u5440 in the address table: a rule about a borrowed
+// word holds only where the target language has its own word for the thing.
+//
+// THE RANKS ARE NAMED IN THE SCRIPT THE SOURCE USES, not only in English. Measured
+// live on a chaebol run, 2026-10-01: Yeri came back as "...the \u5fd9\u5185", the word
+// carried over from the library line this call was restaging - and across the zh
+// library the ONE field where that word stands alone with no other idol word beside
+// it is hers, which is why the scan catches her and nobody else. A rule written in
+// English about a token the model is copying in Chinese is a rule it can follow and
+// still break. Same reason section 6's address table bans the native substitutes BY
+// NAME rather than saying "keep it Korean".
+//
+// The substitute is supplied, because a prohibition with nothing behind it gets
+// routed around: in a family, an office or a cohort the youngest member really is
+// the \ub9c9\ub0b4, so the rule says to use plain words rather than pretending the
+// fact does not exist.
+//
 // THE RESTAGING LAW, and the five-field schema, written ONCE and rendered by both
 // prompts. The whole-cast call and the single-member fallback forbid the same list
 // because they are one rule - and two copies of one rule is what extractStoryText
@@ -270,8 +292,10 @@ function restageLaw(lang) {
 and what she hides, how she behaves while she is watched - all of that survives.
 What must go is every fact that only holds for a performing idol: no stage, no
 debut, no comeback, no fandom, no album, no variety show, and no rank in a
-performing group such as leader, main vocal, visual or maknae. Restage each trait inside
-the setting above instead.
+performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR
+TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185. If she is simply the
+youngest or the most senior of this cast, say that in plain words; do not reach for
+the group-rank word. Restage each trait inside the setting above instead.
 
 Do not invent a real company, school or family name. Do not contradict the opening
 scene. Write every field in ${lang} and add no field that is not listed.`;
