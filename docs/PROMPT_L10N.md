@@ -457,3 +457,23 @@ saying what natural Chinese prose is — in place of the two lines that ask for 
 atmosphere`, both unchanged since v1.3.9). **Every reading from here is blind**, and needs more than
 two samples per arm, because the per-sample variance seen here is larger than any difference between
 arms.
+
+### Blind read 2 — the voice rule, PENDING Yuhan's ratings
+
+One change: in v1.4.2's rendered prompt, the two lines `- Style: Literary, emotional, sensory details
+(sight/sound/touch/smell).` and `- Open with 1-2 sentences establishing scene atmosphere` are replaced
+by this candidate `prose.voice` (English, as a test of whether a concrete rule moves the rate at all —
+the zh wording stays Yuhan's to write if it does):
+
+```
+- Voice: write the way a native Chinese romance novelist writes, in plain spoken modern Chinese. Carry the scene with what people do and say; let a feeling be stated plainly, the way a person would say it, rather than staged through imagery.
+- Description stays literal. Lights, shadows, sounds and rooms do what they physically do — a light goes out, it does not sleep; a shadow moves, it does not shatter; darkness falls, it does not swallow anyone. At most one simile in the whole story, and only a common one a reader would not stop on.
+- Never write a sentence a Chinese reader would recognise as translated: no "不是X，是Y" reveals, no "站在这里的是…" constructions, no abstract noun doing a person's action.
+```
+
+Same fixed round-2 scene as read 1; 5 samples per arm, v1.4.2 as shipped against v1.4.2 + voice, in
+`ab2-1790881082111.json`; blind key in the scratchpad's `packet2-key.json`; the reading page is the
+same private artifact as read 1. **Nothing in `src/` or the register files has changed.** If the voice
+arm reads clearly more natural, the rule goes into `public/worlds/_registers/zh.json` as `prose.voice`
+(plumbing already exists), the two lines it replaces are deleted rather than kept beside it, and the
+goldens move by exactly that.
