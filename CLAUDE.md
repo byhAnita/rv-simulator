@@ -4025,9 +4025,13 @@ so mutating the other left it green. It counts them now. Smoke **1544 → 1551**
 dates, not the tense.**
 
 **v1.4.2 is live.** `main` = `origin/main` = **`376fba4`**, tagged `v1.4.2` on that deploy
-commit; `dev` = `origin/dev` = `557e9f7`, which is that commit plus the dev-mode
-`index.html`. The merge back into `dev` is done. Tree clean, nothing stashed, nothing
-running.
+commit. The merge back into `dev` is done. Tree clean, nothing stashed, nothing running.
+
+**`dev` is AHEAD of `origin/dev` by two docs commits and they are NOT pushed** — `557e9f7`
+(the dev-mode `index.html` after the deploy) is what the remote has; on top of it sit
+`b055a49`, the CV rule in the Release section, and this status update. Nothing in either
+touches `src/`, so the deployed bundle is unaffected; push them with the next batch or on
+their own, as you prefer.
 
 **Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of
 the three mirrors — 47 data files, `index.html`, both manifests, the bundle and the
@@ -4073,6 +4077,31 @@ caught by reading a clean run's output.
 - **The largest casts scroll on the smallest phone**, unchanged: a 9- or 10-member classic
   cast is 26-30px over on an iPhone 13 mini, fits an iPhone 15 by 1-5px. Yuhan's call —
   three identity columns gives back 47px, dropping the page header 36.
+
+#### After the release: the CV rule, and the CV itself
+
+**Every release now updates the CV in `docs/.resume/`, written into the Release section
+above.** The reasoning is that this project is the main piece of technical evidence on a CV
+aimed at master thesis positions and entry-level applied LLM-agent roles, so a release that
+lands a measured number and leaves the CV naming the previous version has thrown that
+evidence away.
+
+- **`docs/.resume/` is gitignored and nothing in it has ever been tracked** (`git log --all --
+  'docs/.resume*'` is empty, so there is no history to purge). It holds personal
+  job-application material rather than project documentation. **No CV content belongs in a
+  tracked file, a commit message or the README** — which is why nothing below names any of it.
+- **`v1.4.2.tex` exists and Yuhan has it compiling as one tight page.** What the revision added
+  over the previous one is the material no earlier CV mentioned: RAG over the JSON document
+  library, schema-validated structured output, and a whole bullet on the evaluation machinery —
+  mutation-verified assertions, golden-file prompt snapshots, the graders that turned out to be
+  wrong 9 times in 13, the A/B reported inconclusive, and CI. A `LLM Evaluation` skills line
+  replaced `Performance`.
+- **One page is a hard constraint and bold costs width.** The skills section bolds ten terms and
+  paid for them by dropping 33 characters of plain text, including the one duplicated figure on
+  the page. If a later revision spills, the file's own header comment names what to cut first.
+
+**Nothing here is a code change**, so no gate applies beyond the suite still being green: smoke
+**1721 passed / 0 failed**, and `src/` was not touched.
 
 #### Open, in rough order of value
 
