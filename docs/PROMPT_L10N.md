@@ -1,6 +1,6 @@
 # Prompt localization — the prose rules are English and the prose is not
 
-**Status: Tier 1 PLUMBING IS BUILT and uncommitted. Tier 1 CONTENT is Yuhan's to write.**
+**Status: Tier 1 PLUMBING IS BUILT and committed (`9e82d09`). Tier 1 CONTENT is Yuhan's to write.**
 **Tier 2 is not started.**
 
 The wiring is in and renders byte-identically: all eight rules now come from
@@ -348,10 +348,83 @@ catches `style` is a guard pinned to one instance of the class it is about.
 **8/8 clean, 0 issues, 0 static-prompt drifts across 8 rounds, 2 collapses with 0 ledger prefix
 breaks, 89.6% cache, `direct` parse 8/8, median 6,186ms, 662-904 characters per story.**
 
-**The prose read well** — natural literary Chinese, each member's `habit` staged rather than
+**The prose read well TO ME — and that verdict is withdrawn; see the next section.** Natural literary Chinese, each member's `habit` staged rather than
 stated, and a genuine callback three paragraphs after its setup (`你后来才想起来，练习室楼层根本没有
 饮水机`). So the reported degradation **did not reproduce on this provider**, and the next thing to
 establish is which model served the rounds that read badly: the app's default provider is the
 Aliyun free route, which walks 28 models of very different sizes, and a prompt that grew 37% in
 one release is exactly the change that costs a small model its instruction-following first. The
 usage panel in Settings names the served model, and `?debug=1` logs it per call.
+
+---
+
+## Second investigation, 2026-10-01 — the report reproduced, and my reading was wrong
+
+**Yuhan's report, with her exact setup:** DeepSeek Official, `deepseek-flash`, classic Red Velvet
+door, `kpop_idol`, custom identity (*Irene's ex-girlfriend and the new chairwoman of SM*), story mode
+free, Time Speed **slow**, Deep Thinking off — the same setup she played v1.3.9 with. Rounds 2 and 3,
+the player waiting outside the practice room late at night, produced lines no Chinese author writes:
+
+| v1.4.2 wrote | why it is wrong | what a native writer writes |
+| --- | --- | --- |
+| `话出口的一瞬间你就知道了——错了。不是话错，是"欧尼"这两个字错。现在站在这里的是一个刚接手SM的会长……` | `不是X，是Y` and `站在这里的是` are English sentence frames | `话一出口你就意识到，你已经没有叫她欧尼的身份了，更没有给她暖手的立场，现在你是新任SM会长，她是女团的队长……` |
+| `那些影子在玻璃后面一遍一遍地碎开、又拼起来` | a shadow does not 碎开; that is a mirror | `练习室的灯光下她练习的影子在玻璃上舞动，又慢下来` |
+| `声控的，没有人走动它就自己睡了……像黑水里浮着的一块亮` | a light does not sleep; the simile needs explaining | `十二点十七分，大楼不再有人走动的声音，走廊的最后一盏声控灯也灭了` |
+
+**It reproduces, and it is the PROMPT, not the model.** A harness (scratchpad `ab.mjs` / `ab2.mjs`)
+exported `v1.3.9`'s `src/` and data with `git archive`, built each version's messages through its
+**own** `executeRound`, and sent every condition through one request template — so the only thing
+that varied was the prompt. Round 2 was generated from an **identical, fixed round-1 history** and the
+choice `去练习室外面等她练完`, three samples each. **Yuhan read them: v1.3.9's are much more natural,
+without the rigid description.** Same model, same day, and the same `system_fingerprint`
+(`aeb56401...`) on every call — so the model-drift hypothesis I raised first is refuted, and because
+the history was fixed, the cause is in what v1.4.2 sends: the static prompt or the tail.
+
+**I read the same six stories and could not see the difference.** I quoted figurative lines from the
+v1.3.9 arm as evidence that both versions wrote alike. That is the failure this project's config warns
+about — *some classes of defect are only findable by hand-playing the thing* — and register is the
+first of them. **A non-native reading is not an instrument here, and that includes mine.** The
+"prose read well" in the section above was the same mistake one run earlier.
+
+**Three automated instruments were tried and none can see it** — recorded so nobody reaches for them:
+
+- **Simile density** (`像/仿佛/似的` per 1k chars): differences inside the noise at n=3-4.
+- **Dialogue share**: v1.4.2 12.3% vs v1.3.9 17.7% on the run Yuhan read — and **13.5% vs 10.3%,
+  reversed**, on the next run of identical conditions. Noise.
+- **An LLM judge** (`deepseek-v4-pro`, temperature 0, pairwise, both orders, rubric built from the
+  three examples above and Yuhan's rewrites): on the run she read it preferred v1.3.9 in **6 of 18**
+  judgements — the opposite of her verdict — and **changed its answer when the order was swapped in
+  6 of 9 pairs.** Discarded as uncalibrated. A grader that reverses itself on order is guessing.
+
+**Found along the way, real, and separate from the register:**
+
+- **THE OPENING is identity-blind.** `world.scenario` (`走廊的灯只剩一半亮着……你和她因为某件小事被留了
+  下来。这是你们第一次……说话`) is written for a player who practises in that room and has never spoken
+  to the member. In 4 of 4 v1.4.2 round-1 samples the run opened in that late-night corridor (0 of 4
+  for v1.3.9, which chose a board meeting, an office visit, a schedule check, a run-in in the rain), and
+  in two of them **the new chairwoman was dancing in the practice room herself** — a ROLE CONTRACT
+  violation the prompt itself induces, and a contradiction of an ex-girlfriend identity.
+- **DeepSeek exposes no pinned build.** `GET /models` lists only the alias `deepseek-flash`
+  ("DeepSeek-V4.1-Flash"). Every response carries a `system_fingerprint`, and **nothing in this repo
+  has ever recorded it** — so a future "the model changed" cannot be confirmed or ruled out. Recording
+  it per call is the fix, and is the *record what actually served the request* rule applied.
+
+**Where the bisection stands.** The v1.4.2 additions that could plausibly push towards rigid
+description, all absent from v1.3.9:
+
+1. the free story mode's tail line, *"Focus on details and subtle tension"* — read last, every round,
+   beside `[Time Speed] slow — stay in this moment`; v1.3.9 sent no mode rule at all, because its
+   pace rules were dead code
+2. the schema order — v1.3.9 had the model write its casual Bubble/Kakao Chinese immediately before
+   `story`; v1.4.2 enters the story off two blocks of numbers
+3. section 11's place descriptions and THE OPENING, the only non-profile Chinese narration in the
+   prompt, written in an aphoristic register (`声音清楚而表情不清楚`, `开阔、公开、危险，但风很好`)
+4. `Habit:` lines, which ask the model to *stage* a physical behaviour (example 1's cold hands is
+   Irene's habit)
+5. the address-form scope rule, which makes `欧尼` itself salient enough that example 1 narrates
+   *about the word*
+
+Samples for (1) and (2) exist — `C_noMode` and `O_oldOrder` in `ab2-1790879094230.json` and
+`ab2-1790879171190.json`, with `O` verified to emit social-before-story 3 of 3. **The next step is
+Yuhan reading them blind against v1.4.2 and v1.3.9.** Nothing in the prompt is changed until that
+reading names a block.
