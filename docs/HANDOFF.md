@@ -81,22 +81,29 @@ check `git status` and the file.
 4. `npm run build && node test/smoke.mjs`.
 5. Commit on `dev` with your own attribution.
 
-**Task B — measure it, and this is the part that actually answers the bug.**
+**Task B — measure it. THIS CANNOT RUN IN THE CLOUD; hand it back.**
+
+The live arm is what actually answers the bug, and a cloud session cannot do it:
+
+- `.env.local` is gitignored, so the cloud checkout has **no `API_KEY`** — and one must never be put
+  into a cloud environment variable, which is visible to anyone using that environment.
+- `trusted_only` network access does not reach `api.deepseek.com`.
+
+So **if you are the cloud session, stop after Task A** and write in this file that the live arm is
+owed. Yuhan or the VS Code session runs it locally:
 
 ```bash
 node test/playthrough.mjs --lang zh --group red_velvet --identity 韩娱艺人 --subs 2 --mode free --rounds 8
 ```
 
-Needs `API_KEY` and `MODEL_ID` in `.env.local` (already configured for `deepseek-v4-flash`). It
-spends a small amount of credit — roughly $0.02 for 8 rounds. **Ask Yuhan before running it.**
-
-Then **read the eight stories**, from `report.results[0].rounds[i].transcript.story` in the newest
+It spends roughly $0.02 for 8 rounds. **Ask Yuhan before running it.** Then **read the eight
+stories**, from `report.results[0].rounds[i].transcript.story` in the newest
 `test/.out/playthrough-*.json`. The graders returned `8/8 clean · 0 issues` on prose that had not
 changed, so **the verdict line is not the instrument.** Report whether the Chinese reads as written
 by a Chinese author or as rendered by a translator, and quote lines either way.
 
 The pre-change arm is already recorded in `docs/PROMPT_L10N.md` under *What was measured* — 8/8
-clean, 89.6% cache, 662-904 chars per story — so you only need the post-change arm.
+clean, 89.6% cache, 662-904 chars per story — so only the post-change arm is owed.
 
 ---
 

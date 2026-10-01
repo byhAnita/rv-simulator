@@ -109,6 +109,19 @@ Approval for one instance is not approval for the next one. Committing locally i
 
 ---
 
+## If you are running in Claude Code Cloud
+
+- **There is no API key and there must never be one.** `.env.local` is gitignored and a cloud
+  environment variable is visible to anyone using that environment. Every live test
+  (`playthrough.mjs`, `smoke.mjs --live`, `--live-free`) is therefore **local-only** — hand those
+  back rather than trying to make them run.
+- **`node test/smoke.mjs` runs fully offline** and skips every live layer when no key is present.
+  That is your gate, together with `npm run build`.
+- **`vite` is a devDependency.** `NODE_ENV=production` makes npm omit it and the build then fails,
+  so the environment must not set that.
+- `scripts/verify-mirrors.mjs` fetches three public hosts and will fail without network access.
+  It is not part of the suite and is not yours to run.
+
 ## The handoff protocol
 
 1. **Read `docs/HANDOFF.md`.** It names the one task in flight and the exact next command.
