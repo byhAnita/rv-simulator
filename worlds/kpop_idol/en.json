@@ -48,7 +48,7 @@
     {
       "id": "练习生",
       "name": "Trainee",
-      "background": "[Identity: Trainee] You are a trainee junior of {name}, and naturally met through training at the company practice room. Typical events: Asking {name} for vocal and dance tips; {name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside {name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "background": "[Identity: Trainee] You are a trainee junior of {name}, and naturally met through training at the company practice room. Typical events: Asking {name} for vocal and dance tips; {name} casually fixing your hair when bumping into each other in the hallway; Late-night practice sessions where you two are the last ones left, opening up to each other; Being selected for a company variety show junior special alongside {name}. Advantage: Natural contact, shared training memories. Disadvantage: Strict company rules, senior-junior hierarchy. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님",
@@ -59,7 +59,7 @@
     {
       "id": "Staff",
       "name": "Staff",
-      "background": "[Identity: Staff] You are {name}'s new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after {name} backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching {name} off guard and feeling touched; Driving {name} home late at night after schedules, being there for her vulnerable moments; Checking in on {name} backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "background": "[Identity: Staff] You are {name}'s new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after {name} backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching {name} off guard and feeling touched; Driving {name} home late at night after schedules, being there for her vulnerable moments; Checking in on {name} backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "Manager-nim",
         "kr": "매니저님"
@@ -68,22 +68,22 @@
     {
       "id": "韩娱艺人",
       "name": "K-pop Artist",
-      "background": "[Identity: K-pop Artist] You are a K-pop idol from another company, with opportunities to collaborate with {name}. Typical events: Rehearsing a collaboration stage together in private, growing familiar and in sync; Performing together on Music Bank, your interactions getting screenshotted and wildly analyzed by CP fans; Your variety show appearances together being edited into romantic compilations that circulate widely. Advantage: Equal status, collaboration opportunities. Disadvantage: Extremely high public attention, any interaction dissected by CP fans and solo stans from both sides. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+      "background": "[Identity: K-pop Artist] You are a K-pop idol from another company, with opportunities to collaborate with {name}. Typical events: Rehearsing a collaboration stage together in private, growing familiar and in sync; Performing together on Music Bank, your interactions getting screenshotted and wildly analyzed by CP fans; Your variety show appearances together being edited into romantic compilations that circulate widely. Advantage: Equal status, collaboration opportunities. Disadvantage: Extremely high public attention, any interaction dissected by CP fans and solo stans from both sides. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "粉丝",
       "name": "Fan",
-      "background": "[Identity: Fan] You are {name}'s fan, and during fan events she seems to give you special treatment beyond what other fans receive. Typical events: You grab a front-row spot at a music show, and {name}'s gaze seems to linger on you a second longer; At a fansign, {name} notices and brings up your new hairstyle/outfit/style change; You post an ordinary message on {name}'s Bubble, and she picks up your topic to chat with the fans; During a fan event two-shot Polaroid, {name} leans in and puts her hand on your shoulder. Advantage: Deep knowledge of {name}. Disadvantage: Highly sensitive identity, exposure means fandom trial. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+      "background": "[Identity: Fan] You are {name}'s fan, and during fan events she seems to give you special treatment beyond what other fans receive. Typical events: You grab a front-row spot at a music show, and {name}'s gaze seems to linger on you a second longer; At a fansign, {name} notices and brings up your new hairstyle/outfit/style change; You post an ordinary message on {name}'s Bubble, and she picks up your topic to chat with the fans; During a fan event two-shot Polaroid, {name} leans in and puts her hand on your shoulder. Advantage: Deep knowledge of {name}. Disadvantage: Highly sensitive identity, exposure means fandom trial. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "留学生",
       "name": "Student",
-      "background": "[Identity: International Student] You are an international student in Korea who met {name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+      "background": "[Identity: International Student] You are an international student in Korea who met {name} through a shared passion for dance/singing/art during everyday activities. Advantage: Shared interests, naturally meeting through daily life. Disadvantage: Status gap, age difference. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "财阀",
       "name": "Chaebol",
-      "background": "[Identity: Chaebol] You are the new young female chairwoman of {name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with {name}'s group, where {name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around {name}; Feeling for {name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "background": "[Identity: Chaebol] You are the new young female chairwoman of {name}'s group's company, steering the group's career direction. Typical events: Holding a comeback planning meeting with {name}'s group, where {name} proposes ideas that impress you; Visiting rehearsals under the guise of checking on the members to create chances to be around {name}; Feeling for {name}'s hard work and having your secretary grant the entire group paid leave and bonuses. Advantage: Abundant funds and resources. Disadvantage: Status gap. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "Chairwoman-nim",
         "kr": "회장님"
@@ -142,7 +142,6 @@
       "id": "practice_room",
       "name": "Practice room",
       "emoji": "💃",
-      "desc": "Mirrored walls, taped floor, a door anyone can open.",
       "draws": [
         "dancer",
         "leader"
@@ -152,7 +151,6 @@
       "id": "recording_booth",
       "name": "Recording booth",
       "emoji": "🎙️",
-      "desc": "Glass between you: the voice is clear, the face is not.",
       "draws": [
         "main vocal",
         "producer"
@@ -162,14 +160,12 @@
       "id": "dorm",
       "name": "Dorm",
       "emoji": "🏠",
-      "desc": "The most private place she has, and the one with the least privacy.",
       "draws": []
     },
     {
       "id": "company_lobby",
       "name": "Company lobby",
       "emoji": "🏢",
-      "desc": "Everyone badges in, and who arrives together is seen.",
       "draws": [
         "staff",
         "manager"
@@ -179,7 +175,6 @@
       "id": "backstage",
       "name": "Music-show backstage",
       "emoji": "🎬",
-      "desc": "Crowded corridors, other groups, staff, cameras.",
       "draws": [
         "performer"
       ]
@@ -188,7 +183,6 @@
       "id": "hair_makeup",
       "name": "Hair & makeup room",
       "emoji": "💄",
-      "desc": "Too many mirrors, too little distance, low voices.",
       "draws": [
         "visual"
       ]
@@ -197,14 +191,12 @@
       "id": "rooftop",
       "name": "Rooftop",
       "emoji": "🌃",
-      "desc": "The one place with no camera on it, and the coldest.",
       "draws": []
     },
     {
       "id": "van",
       "name": "Company van",
       "emoji": "🚐",
-      "desc": "Back seat, earphones in, the manager up front.",
       "draws": [
         "manager"
       ]
@@ -213,18 +205,15 @@
       "id": "convenience_store",
       "name": "Convenience store",
       "emoji": "🏪",
-      "desc": "Two in the morning, mask and cap, the clerk never looks up.",
       "draws": []
     },
     {
       "id": "han_river",
       "name": "Han River park",
       "emoji": "🌊",
-      "desc": "Open, public, risky — and the air is good.",
       "draws": []
     }
   ],
-  "scenario": "Another night that ran long. Half the corridor lights are off, the others have drifted home, and some small thing has kept the two of you behind. It is the first time you have spoken anywhere nobody else is watching.",
   "npcArchetypes": [
     "manager",
     "assistant",

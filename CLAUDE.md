@@ -826,7 +826,7 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
 8. **Speaker contract + address protocol** — who "I" and "you" are, and what each character is allowed to call the others. See below.
 9. **What moves each stat in THIS world** — section 10 prints one line per stat from `world.statNotes`. The stat *keys* are permanent and their *labels* are i18n's; the world supplies only the prose saying what raises and lowers them, which is the half no other file holds a copy of.
-10. **Canon places and the opening** — section 11, from `world.places` and `world.scenario`. See *Where she is decides who is there*.
+10. **Canon places** — section 11, from `world.places`, names only. The opening scene and the place descriptions were deleted on 2026-10-01; see *Where she is decides who is there*.
 
 ### Who is speaking, and what she calls whom
 
@@ -3153,7 +3153,7 @@ reasoning.
 
 ### Where she is decides who is there
 
-Section 11 carries `world.places` — ten canon places, each `emoji name — desc` — with
+Section 11 carries `world.places` — ten canon places, each `emoji name` — with
 the rule *prefer this list; invent somewhere new only when the story genuinely needs a place this list
 does not have*, and the schema's `scene` rule points at it.
 
@@ -3169,7 +3169,21 @@ static part, rule pointing at the fact: the shape `[KKT Channels]` and `[Rounds 
 table for exactly the judgement §7.4 argues the model makes better than a table does — *who would be in
 the recording booth at midnight* is a reasoning question.
 
-**`world.scenario` is unconditional static text, and it cannot be anything else.** Sending it on
+**The place descriptions and `world.scenario` were DELETED on 2026-10-01, from all four worlds in
+all three languages, on Yuhan's call.** Investigating the report that v1.4.2's Chinese reads as machine
+translation, a diff of the rendered zh prompt against v1.3.9 found that section 11 was the only new
+Chinese *narration* v1.4.2 sends, and it was written in exactly the register the report quoted: the
+blurbs were aphoristic contrasts (`声音清楚而表情不清楚`, `最私密也最没有隐私的地方`) and the opening
+was `又一个练习到深夜的日子。走廊的灯只剩一半亮着…`. In-language text in a prompt is the strongest style
+example the model gets. The opening was also identity-blind: it put every player, a new chairwoman
+included, in a late-night practice corridor, which is the scene the report's bad rounds were set in.
+Round 1 now opens where the player's identity puts her, as it did in v1.3.9. Smoke asserts no world
+ships either field, reading the raw files for `scenario` because `parseWorld` no longer returns it.
+**Whether this fixes the register is measured by a blind read, not assumed** — see the pick-up block.
+
+The paragraph below is the history of the field while it existed.
+
+**`world.scenario` was unconditional static text, and it could not be anything else.** Sending it on
 round 1 and dropping it afterwards would make the static system prompt differ between round 1 and round
 2, invalidating the entire ~5,500-token cached prefix on round 2 — the most expensive mistake available
 here. It ships every round, framed as the story's *first scene*: round 1 opens here, and from round 2 it

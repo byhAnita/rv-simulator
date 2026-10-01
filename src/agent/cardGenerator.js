@@ -228,9 +228,8 @@ export async function generateCard({
  * IT NEEDS NO NEW WORLD FIELD, which is why §4.5's `world.setting` is still not
  * shipped. The world already carries what a world-scoped generation wants:
  * `castLife.theirs` answers *what do these people do all day*, `castLore.orgNoun`
- * names the kind of organisation, `scenario` is the opening scene and `places` is
- * the canon list. Generating from those costs ZERO world-file edits against twelve
- * documents - and because they are the same fields the ROLE CONTRACT and section 11
+ * names the kind of organisation and `places` is the canon list. Generating from
+ * those costs ZERO world-file edits against twelve documents - and because they are the same fields the ROLE CONTRACT and section 11
  * already render, the generated detail cannot contradict the rest of the prompt.
  *
  * HER EXISTING LINES GO IN AS THE SOURCE, not as an example to match. The job is a
@@ -318,7 +317,6 @@ function settingBlock(world) {
   return `THE SETTING
 - What these people do all day: ${world?.castLife?.theirs || ""}
 - The kind of organisation they belong to: ${world?.castLore?.orgNoun || ""}
-- Where the story opens: ${world?.scenario || ""}
 - Places that exist in it: ${places}`;
 }
 

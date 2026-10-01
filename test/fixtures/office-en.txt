@@ -150,7 +150,7 @@ Robin's identity: Team lead
 Main Member: Jihyo(Park Ji-hyo)
 Sub Members: Mina, Sana
 NPC Members: Nayeon, Jeongyeon, Momo, Dahyun, Chaeyoung, Tzuyu (non-romanceable, must appear in background)
-[Identity: Team Lead] You lead this team and Jihyo reports to you. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you tell the room it was your call; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, with whom, and for how long - which is the closest thing to looking after someone this building has. Disadvantage: You also decide her review, so anything she says to you might not be the thing she wanted to say. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and Jihyo have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.
+[Identity: Team Lead] You lead this team and Jihyo reports to you. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you tell the room it was your call; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, with whom, and for how long - which is the closest thing to looking after someone this building has. Disadvantage: You also decide her review, so anything she says to you might not be the thing she wanted to say. [First meeting] The story opens on the first time the two of you meet: before round 1, you and Jihyo have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -218,22 +218,20 @@ What moves them in THIS world:
 - 💫Mood: Driven by workload, deadlines and where the quarter is, and by how the last exchange with the target member ended.
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
-💻 Open-plan floor — The partitions stop at shoulder height; everyone sees who walks past whose desk.
-🗓️ Meeting room — Glass walls, and lowering the blind draws more attention than leaving it up.
-☕ Pantry — The six square metres the whole company's news moves through fastest.
-🛗 Lift — Fifteen seconds. Anything can be said before the doors open and nothing after.
-🌃 Rooftop — The only place with no camera on it, and the coldest place in the building.
-🍶 Company dinner — Smoke off the grill, a glass being refilled, and a whole table watching the two of you.
-🪜 Fire stairs — Nobody takes the stairs, so nothing said here is overheard.
-🗄️ Archive room — The light has to be switched on by hand, and the door locks from the inside.
-🚕 Late-night taxi — The back seat, street lights going past one at a time, the driver listening to the radio.
-🏪 Convenience store downstairs — Two in the morning, steam off the hot case, and the clerk does not look up.
+💻 Open-plan floor
+🗓️ Meeting room
+☕ Pantry
+🛗 Lift
+🌃 Rooftop
+🍶 Company dinner
+🪜 Fire stairs
+🗄️ Archive room
+🚕 Late-night taxi
+🏪 Convenience store downstairs
 WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: A night that ran until there were two of you left. Only your row of lights is still on across the whole floor and the air conditioning stopped hours ago. You were both only waiting on the same document, and neither of you left first.
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║

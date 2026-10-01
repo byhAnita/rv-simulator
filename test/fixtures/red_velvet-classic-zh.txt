@@ -142,7 +142,7 @@ Summer's identity: 韩娱艺人
 Main Member: Irene(裴珠泫)
 Sub Members: Seulgi, Wendy
 NPC Members: Joy, Yeri (non-romanceable, must appear in background)
-[身份背景] 你是其他公司的kpop女idol, 与Irene有合作机会。 典型事件：你和Irene两人私下排练合作舞台，逐渐熟悉和默契； 你和Irene在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析;  你和Irene的综艺同框被剪辑成暧昧视频广泛流传等。  优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次真正打交道开始：第一回合之前，你和Irene没有真正说过话，彼此只是听过名字、照过面。你是最近才站到这个位置上的——刚到任、刚入学、刚接手、或刚被引见。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合才一点点积累。
+[身份背景] 你是其他公司的kpop女idol, 与Irene有合作机会。 典型事件：你和Irene两人私下排练合作舞台，逐渐熟悉和默契； 你和Irene在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析;  你和Irene的综艺同框被剪辑成暧昧视频广泛流传等。  优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次见面开始：第一回合之前，你和Irene没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -212,22 +212,20 @@ What moves them in THIS world:
 - 💫Mood: Driven by schedule load, comeback pressure, and how the last interaction with the target member ended.
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
-💃 练习室 — 镜墙、地板胶、随时可能被推开的门。
-🎙️ 录音棚 — 隔音玻璃两侧，声音清楚而表情不清楚。
-🏠 宿舍 — 最私密也最没有隐私的地方，门永远虚掩着。
-🏢 公司大厅 — 进出都要刷卡，谁和谁一起来会被看见。
-🎬 打歌节目后台 — 走廊拥挤，别的团、工作人员和摄影机都在。
-💄 发型化妆间 — 镜子太多，距离太近，说话要压低声音。
-🌃 天台 — 唯一没有摄像头的地方，也是最冷的地方。
-🚐 保姆车 — 后座、耳机、经纪人在前排。
-🏪 便利店 — 凌晨两点，口罩和帽檐，收银员没有抬头。
-🌊 汉江公园 — 开阔、公开、危险，但风很好。
+💃 练习室
+🎙️ 录音棚
+🏠 宿舍
+🏢 公司大厅
+🎬 打歌节目后台
+💄 发型化妆间
+🌃 天台
+🚐 保姆车
+🏪 便利店
+🌊 汉江公园
 WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: 又一个练习到深夜的日子。走廊的灯只剩一半亮着，其他人陆续离开，而你和她因为某件小事被留了下来。这是你们第一次，在没有其他人看着的地方说话。
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║

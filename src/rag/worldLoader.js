@@ -163,7 +163,7 @@ export async function loadWorld(worldId = DEFAULT_WORLD_ID, language = "zh") {
 // reader — the `NPC_APPEARANCE_CHANCE` shape this project tracks four times.
 const REQUIRED = ["world", "country", "setting", "tone", "statNotes", "platforms",
   "castLore", "useGroupLore", "identities", "modes", "phases", "places",
-  "scenario", "npcArchetypes", "addressContext", "castLife"];
+  "npcArchetypes", "addressContext", "castLife"];
 
 export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", registers = null) {
   const where = `${worldId}/${language}`;
@@ -171,7 +171,7 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     if (config?.[key] === undefined) throw new Error(`world ${where}: missing "${key}"`);
   }
   const { world, country, setting, tone, statNotes, platforms, castLore, useGroupLore,
-    identities, modes, phases, places, scenario, npcArchetypes, addressContext, castLife } = config;
+    identities, modes, phases, places, npcArchetypes, addressContext, castLife } = config;
 
   for (const [key, value] of [["identities", identities],
     ["phases", phases], ["places", places]]) {
@@ -374,7 +374,6 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     modes,
     phases,
     places,
-    scenario,
     addressForms,
     npcArchetypes,
     addressContext,

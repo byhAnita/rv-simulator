@@ -533,13 +533,11 @@ What moves them in THIS world:
 ${statNoteLines}
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
 ${placeLines}
 WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: ${world.scenario}
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║

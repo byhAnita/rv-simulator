@@ -46,12 +46,12 @@
     {
       "id": "peer_colleague",
       "name": "Colleague",
-      "background": "[Identity: Colleague] You and {name} are on the same team at the same level, with one partition between your desks. Typical events: The same project keeps you both up rewriting a deck, on your third coffee from the convenience store by dawn; She takes the blame for something that was going to land on you; The company dinner breaks up and your routes home overlap, so you walk a long way; The year-end rankings come out and your names are next to each other. Advantage: Same level, same team - being together needs no reason at all. Disadvantage: And for exactly that reason the whole team is in one field of view, and any change is seen by the same people. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+      "background": "[Identity: Colleague] You and {name} are on the same team at the same level, with one partition between your desks. Typical events: The same project keeps you both up rewriting a deck, on your third coffee from the convenience store by dawn; She takes the blame for something that was going to land on you; The company dinner breaks up and your routes home overlap, so you walk a long way; The year-end rankings come out and your names are next to each other. Advantage: Same level, same team - being together needs no reason at all. Disadvantage: And for exactly that reason the whole team is in one field of view, and any change is seen by the same people. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "manager_of_cast",
       "name": "Team lead",
-      "background": "[Identity: Team Lead] You lead this team and {name} reports to you. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you tell the room it was your call; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, with whom, and for how long - which is the closest thing to looking after someone this building has. Disadvantage: You also decide her review, so anything she says to you might not be the thing she wanted to say. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "background": "[Identity: Team Lead] You lead this team and {name} reports to you. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you tell the room it was your call; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, with whom, and for how long - which is the closest thing to looking after someone this building has. Disadvantage: You also decide her review, so anything she says to you might not be the thing she wanted to say. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "Team-lead-nim",
         "kr": "팀장님"
@@ -60,7 +60,7 @@
     {
       "id": "report_to_cast",
       "name": "Direct report",
-      "background": "[Identity: Direct Report] {name} is your team lead and you report to her directly. Typical events: What you hand in comes back unrecognisable, with a line saying you will be able to do this yourself next time; She pulls you out of a meeting that was never going to reach a decision; You are still there late and the light over her desk is still on too; At your review she scores you higher than you expected and you do not dare ask why. Advantage: You have a reason to speak every day, and it is the most private kind of reason. Disadvantage: You cannot tell how much of her care is the job, and she cannot tell how much of your effort is something else. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "background": "[Identity: Direct Report] {name} is your team lead and you report to her directly. Typical events: What you hand in comes back unrecognisable, with a line saying you will be able to do this yourself next time; She pulls you out of a meeting that was never going to reach a decision; You are still there late and the light over her desk is still on too; At your review she scores you higher than you expected and you do not dare ask why. Advantage: You have a reason to speak every day, and it is the most private kind of reason. Disadvantage: You cannot tell how much of her care is the job, and she cannot tell how much of your effort is something else. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "Team-lead-nim",
         "kr": "팀장님",
@@ -71,7 +71,7 @@
     {
       "id": "new_hire",
       "name": "New hire",
-      "background": "[Identity: New Hire] You are the newest person on this team, and everyone here is your senior. Typical events: In your first week you book the meeting room for the wrong hour and she is the one who apologises; She shares her entire folder of templates with you; Someone keeps refilling your glass at the company dinner and she moves it out of reach; On the last day of your probation she says only that you should stay. Advantage: Asking a senior for help is the most natural way to get close, and nobody finds it strange. Disadvantage: You have no standing yet - her looking after you is her job, and anything you read into it is your problem. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.",
+      "background": "[Identity: New Hire] You are the newest person on this team, and everyone here is your senior. Typical events: In your first week you book the meeting room for the wrong hour and she is the one who apologises; She shares her entire folder of templates with you; Someone keeps refilling your glass at the company dinner and she moves it out of reach; On the last day of your probation she says only that you should stay. Advantage: Asking a senior for help is the most natural way to get close, and nobody finds it strange. Disadvantage: You have no standing yet - her looking after you is her job, and anything you read into it is your problem. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님",
@@ -82,12 +82,12 @@
     {
       "id": "contractor",
       "name": "Contractor",
-      "background": "[Identity: Contractor] You do not work for this company. You are the contact from a vendor, a consultancy or an outsourced team: you have a door pass and no employee number. Typical events: There is no chair for you at their meeting, so you stand beside the projector; At the end-of-project dinner someone asks which side you are on; She stops you in the lift and what she asks about is not work; A week before the contract ends, neither of you has mentioned the next one. Advantage: You are on nobody's reporting line, so the company's policy does not reach the two of you. Disadvantage: And for exactly that reason you can disappear at any time - when the contract ends it ends, and nobody owes you an explanation. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+      "background": "[Identity: Contractor] You do not work for this company. You are the contact from a vendor, a consultancy or an outsourced team: you have a door pass and no employee number. Typical events: There is no chair for you at their meeting, so you stand beside the projector; At the end-of-project dinner someone asks which side you are on; She stops you in the lift and what she asks about is not work; A week before the contract ends, neither of you has mentioned the next one. Advantage: You are on nobody's reporting line, so the company's policy does not reach the two of you. Disadvantage: And for exactly that reason you can disappear at any time - when the contract ends it ends, and nobody owes you an explanation. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "hr",
       "name": "HR",
-      "background": "[Identity: HR] You work in HR. Onboarding, reviews, complaints, resignations - every document about these people passes through you in the end. Typical events: You processed her joining file and you remember every line of it; Someone comes to complain about her team and you have to hear both sides out; The company issues a new policy on relationships between employees and you are the one who drafted it; She comes to ask you something on behalf of a friend and you both know that is not true. Advantage: You know better than anyone in this building who is what to whom - you wrote the rules. Disadvantage: You wrote the rules, so you also know better than anyone that if this is found, you are the first one who gets handled. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and {name} have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time."
+      "background": "[Identity: HR] You work in HR. Onboarding, reviews, complaints, resignations - every document about these people passes through you in the end. Typical events: You processed her joining file and you remember every line of it; Someone comes to complain about her team and you have to hear both sides out; The company issues a new policy on relationships between employees and you are the one who drafted it; She comes to ask you something on behalf of a friend and you both know that is not true. Advantage: You know better than anyone in this building who is what to whom - you wrote the rules. Disadvantage: You wrote the rules, so you also know better than anyone that if this is found, you are the first one who gets handled. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "主线成员前女友",
@@ -142,14 +142,12 @@
       "id": "open_floor",
       "name": "Open-plan floor",
       "emoji": "💻",
-      "desc": "The partitions stop at shoulder height; everyone sees who walks past whose desk.",
       "draws": []
     },
     {
       "id": "meeting_room",
       "name": "Meeting room",
       "emoji": "🗓️",
-      "desc": "Glass walls, and lowering the blind draws more attention than leaving it up.",
       "draws": [
         "organiser"
       ]
@@ -158,7 +156,6 @@
       "id": "pantry",
       "name": "Pantry",
       "emoji": "☕",
-      "desc": "The six square metres the whole company's news moves through fastest.",
       "draws": [
         "social"
       ]
@@ -167,14 +164,12 @@
       "id": "elevator",
       "name": "Lift",
       "emoji": "🛗",
-      "desc": "Fifteen seconds. Anything can be said before the doors open and nothing after.",
       "draws": []
     },
     {
       "id": "rooftop",
       "name": "Rooftop",
       "emoji": "🌃",
-      "desc": "The only place with no camera on it, and the coldest place in the building.",
       "draws": [
         "quiet"
       ]
@@ -183,7 +178,6 @@
       "id": "hoesik",
       "name": "Company dinner",
       "emoji": "🍶",
-      "desc": "Smoke off the grill, a glass being refilled, and a whole table watching the two of you.",
       "draws": [
         "social"
       ]
@@ -192,7 +186,6 @@
       "id": "stairwell",
       "name": "Fire stairs",
       "emoji": "🪜",
-      "desc": "Nobody takes the stairs, so nothing said here is overheard.",
       "draws": [
         "quiet"
       ]
@@ -201,7 +194,6 @@
       "id": "archive_room",
       "name": "Archive room",
       "emoji": "🗄️",
-      "desc": "The light has to be switched on by hand, and the door locks from the inside.",
       "draws": [
         "studious"
       ]
@@ -210,18 +202,15 @@
       "id": "taxi",
       "name": "Late-night taxi",
       "emoji": "🚕",
-      "desc": "The back seat, street lights going past one at a time, the driver listening to the radio.",
       "draws": []
     },
     {
       "id": "convenience_store",
       "name": "Convenience store downstairs",
       "emoji": "🏪",
-      "desc": "Two in the morning, steam off the hot case, and the clerk does not look up.",
       "draws": []
     }
   ],
-  "scenario": "A night that ran until there were two of you left. Only your row of lights is still on across the whole floor and the air conditioning stopped hours ago. You were both only waiting on the same document, and neither of you left first.",
   "npcArchetypes": [
     "team lead",
     "client",

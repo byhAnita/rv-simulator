@@ -4224,9 +4224,9 @@ async function layerI() {
       && langIndependent(worlds.en) === langIndependent(worlds.ko),
     "the three world files disagree on language-independent rule text");
   // ...and the localized half must actually BE localized, or a field was pasted
-  // into all three files and never translated. `setting` and `scenario` are prose
-  // the model reads as story material, like an identity's background.
-  for (const key of ["setting", "scenario"]) {
+  // into all three files and never translated. `setting` is prose the model reads
+  // as story material, like an identity's background.
+  for (const key of ["setting"]) {
     check(`"${key}" is authored per language, not triplicated`,
       new Set(["zh", "en", "ko"].map((l) => worlds[l][key])).size === 3,
       `${key} is the same string in at least two of the three world files`);
@@ -4273,8 +4273,8 @@ async function layerI() {
       collide.map((i) => i.name).join(", "));
   }
 
-  check("every place is named and described in the player's language",
-    ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name && p.desc)),
+  check("every place is named in the player's language",
+    ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name)),
     "a place with no name renders as a blank line in the canon list");
   check("place ids are unique within a world",
     new Set(worlds.zh.places.map((p) => p.id)).size === worlds.zh.places.length,
@@ -4324,7 +4324,20 @@ async function layerI() {
     check(`[${id}] the language-independent half is identical across zh/en/ko`,
       invariantHalf(w.zh) === invariantHalf(w.en) && invariantHalf(w.en) === invariantHalf(w.ko),
       `${id}'s three world files disagree on language-independent rule text`);
-    for (const key of ["setting", "scenario"]) {
+    // Yuhan, 2026-10-01: the place blurbs and the opening scene were Chinese a model
+    // had written, in the aphoristic register the translationese report quoted
+    // (`声音清楚而表情不清楚`, `走廊的灯只剩一半亮着`), and in-language text in a prompt
+    // is the strongest style example the model gets. Both were deleted from all four
+    // worlds in all three languages. This stops either coming back unread.
+    const reAuthored = ["zh", "en", "ko"].flatMap((l) => [
+      ...w[l].places.filter((pl) => "desc" in pl).map((pl) => `${l}:${pl.id}.desc`),
+      // Read from the FILE: parseWorld no longer returns `scenario`, so the parsed
+      // world cannot show a re-added one and this half would pass against it.
+      ...("scenario" in JSON.parse(readFileSync(join(ROOT, "public", "worlds", id, `${l}.json`), "utf8"))
+        ? [`${l}:scenario`] : [])]);
+    check(`[${id}] ships no place descriptions and no opening scene`,
+      reAuthored.length === 0, reAuthored.join(", "));
+    for (const key of ["setting"]) {
       check(`[${id}] "${key}" is authored per language, not triplicated`,
         new Set(["zh", "en", "ko"].map((l) => w[l][key])).size === 3,
         `${id}: ${key} is the same string in at least two of the three files`);
@@ -4497,10 +4510,10 @@ async function layerI() {
     check(`[${id}] declares at least one social platform`,
       Array.isArray(w.zh.platforms.social) && w.zh.platforms.social.length > 0,
       "an empty social list renders an empty schema object nothing can fill");
-    check(`[${id}] places are ten, uniquely identified, named and described in every language`,
+    check(`[${id}] places are ten, uniquely identified, named in every language`,
       w.zh.places.length === 10
         && new Set(w.zh.places.map((p) => p.id)).size === 10
-        && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name && p.desc)),
+        && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name)),
       `${w.zh.places.length} places`);
     check(`[${id}] covers all four round phases and the last one is open-ended`,
       w.zh.phases.length === 4 && w.zh.phases[3].to === null,
@@ -4801,12 +4814,12 @@ async function layerI() {
     const missing = worlds[lang].places.filter((pl) => !p.includes(pl.name));
     check(`[${lang}] every canon place the world declares reaches the prompt`,
       missing.length === 0, missing.map((pl) => pl.id).join(", "));
-    check(`[${lang}] ...with the one-line description that tells them apart`,
-      worlds[lang].places.every((pl) => p.includes(`${pl.name} \u2014 ${pl.desc}`)),
-      "a bare list of names says nothing about which place suits which scene");
-    check(`[${lang}] the opening scenario reaches the prompt`,
-      p.includes(worlds[lang].scenario),
-      "round 1 has nothing to open on");
+    // Deleted 2026-10-01 rather than reworded: it opened every identity in the same
+    // late-night practice corridor, a chairwoman included, and wrote it in the
+    // register the prose then copied. Round 1 opens where her identity puts her.
+    check(`[${lang}] the prompt sends no opening scene`,
+      !/THE OPENING/.test(p) && !/round 1 begins here/.test(p),
+      "an opening in section 11 is back; see the 2026-10-01 translationese entry");
     // Every note of every stat, because section 10 asks the model to move them and
     // said nothing anywhere about what moves them in THIS world.
     check(`[${lang}] all three stat notes reach section 10`,
@@ -4830,10 +4843,6 @@ async function layerI() {
   check("...and points that rule at [Rounds Absent] rather than restating it",
     /a member \[Rounds Absent\] shows has been away is a reason to put her there/.test(pEn),
     "the absence rule lives in section 3; duplicating it is how two rules disagree");
-  check("the opening is framed as the first scene, not as this round's brief",
-    /round 1 begins here/.test(pEn)
-      && /From round 2 on this has already happened and is never replayed/.test(pEn),
-    "at round 20 an unqualified opening reads as an instruction to open again");
   // It CANNOT be round-conditional - buildSystemPrompt takes no round - and that is
   // why it is safe in the cached prefix. What a future edit could still do is put
   // the place in the tail as well, which is the same fact twice and the second copy
@@ -4849,11 +4858,14 @@ async function layerI() {
   // Asserted as the WHOLE line rather than by hunting for a tag string: several
   // tags are ordinary words the prompt uses elsewhere (`manager` and `staff` are
   // npcArchetypes), so a substring search would fail for the wrong reason. A place
-  // line that renders exactly emoji + name + desc cannot be carrying anything else.
-  check("a place renders as emoji, name and description, and nothing else",
-    drawTags.length > 0 && worlds.en.places.every((pl) =>
-      pEn.includes(`\n${pl.emoji} ${pl.name} \u2014 ${pl.desc}\n`)),
-    "`draws` is the v1.4.2 affinity matrix input, not prose for the model");
+  // line that renders exactly emoji + name cannot be carrying anything else -
+  // neither `draws` nor a description, which was deleted on 2026-10-01.
+  for (const lang of ["zh", "en", "ko"]) {
+    const pl = prompt(form(), lang);
+    check(`[${lang}] a place renders as emoji and name, and nothing else`,
+      drawTags.length > 0 && worlds[lang].places.every((x) => pl.includes(`\n${x.emoji} ${x.name}\n`)),
+      worlds[lang].places.filter((x) => !pl.includes(`\n${x.emoji} ${x.name}\n`)).map((x) => x.id).join(", "));
+  }
 
   // The section numbers are load-bearing: the prompt refers to its own sections by
   // number in five places (`section 4 names`, `Section 6 SPEAKER CONTRACT`,
@@ -5289,7 +5301,7 @@ async function layerI() {
   const parseW = (cfg, reg = registers) => loader.parseWorld(cfg, "kpop_idol", "zh", reg);
 
   for (const key of ["country", "setting", "tone", "statNotes", "platforms", "castLore",
-    "useGroupLore", "identities", "modes", "phases", "places", "scenario",
+    "useGroupLore", "identities", "modes", "phases", "places",
     "npcArchetypes"]) {
     const broken = { ...good };
     delete broken[key];
@@ -6852,7 +6864,7 @@ async function layerI() {
     const dp = w ? cg.buildWorldDetailPrompt({ name: "Yeri", public_image: "the maknae" }, w, "en") : "";
     check("the restaging prompt is built from fields the world already carries",
       Boolean(w) && dp.includes(w.castLife.theirs) && dp.includes(w.castLore.orgNoun)
-        && dp.includes(w.scenario) && dp.includes(w.places[0].name),
+        && dp.includes(w.places[0].name),
       "a new prose field would be twelve world documents for something already there");
     check("...and hands her existing lines over as the source to restage",
       dp.includes("the maknae") && /KEEP WHO SHE IS/.test(dp),

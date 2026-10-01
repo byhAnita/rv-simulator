@@ -189,7 +189,7 @@ Alex's identity: Staff
 Main Member: Nayeon(Im Na-yeon)
 Sub Members: Jihyo, Tzuyu
 NPC Members: Jeongyeon, Momo, Sana, Mina, Dahyun, Chaeyoung (non-romanceable, must appear in background)
-[Identity: Staff] You are Nayeon's new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after Nayeon backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching Nayeon off guard and feeling touched; Driving Nayeon home late at night after schedules, being there for her vulnerable moments; Checking in on Nayeon backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and Nayeon have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.
+[Identity: Staff] You are Nayeon's new staff member (assistant + manager), responsible for the group's music show schedules, hair and makeup coordination, and looking after Nayeon backstage. Typical events: Bringing milk tea for the whole team during a practice room visit, catching Nayeon off guard and feeling touched; Driving Nayeon home late at night after schedules, being there for her vulnerable moments; Checking in on Nayeon backstage at music shows and making sure she eats. Advantage: Access to her real off-stage self. Disadvantage: Clear workplace boundaries, any ambiguity could be seen as misconduct. [First meeting] The story opens on the first time the two of you meet: before round 1, you and Nayeon have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -259,22 +259,20 @@ What moves them in THIS world:
 - 💫Mood: Driven by schedule load, comeback pressure, and how the last interaction with the target member ended.
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
-💃 Practice room — Mirrored walls, taped floor, a door anyone can open.
-🎙️ Recording booth — Glass between you: the voice is clear, the face is not.
-🏠 Dorm — The most private place she has, and the one with the least privacy.
-🏢 Company lobby — Everyone badges in, and who arrives together is seen.
-🎬 Music-show backstage — Crowded corridors, other groups, staff, cameras.
-💄 Hair & makeup room — Too many mirrors, too little distance, low voices.
-🌃 Rooftop — The one place with no camera on it, and the coldest.
-🚐 Company van — Back seat, earphones in, the manager up front.
-🏪 Convenience store — Two in the morning, mask and cap, the clerk never looks up.
-🌊 Han River park — Open, public, risky — and the air is good.
+💃 Practice room
+🎙️ Recording booth
+🏠 Dorm
+🏢 Company lobby
+🎬 Music-show backstage
+💄 Hair & makeup room
+🌃 Rooftop
+🚐 Company van
+🏪 Convenience store
+🌊 Han River park
 WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: Another night that ran long. Half the corridor lights are off, the others have drifted home, and some small thing has kept the two of you behind. It is the first time you have spoken anywhere nobody else is watching.
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
