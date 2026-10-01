@@ -5407,6 +5407,79 @@ async function layerI() {
   check("parseWorld accepts a null ya, which is a real value and not an absence",
     nullYa === null, nullYa || "");
 
+  // --- the per-language prose rules ---------------------------------------
+  //
+  // `prose` holds the rules that decide how the story SOUNDS, authored per
+  // language rather than described in English. The failure these guard against is
+  // the quiet one: a rule that goes missing in ONE language produces worse writing
+  // for that language only, with nothing in a diff to point at.
+  // A per-language "the file carries every key" check was WRITTEN HERE AND
+  // DELETED. Removing a key from any of the three files makes parseWorld throw on
+  // load, so the mutation crashed the suite instead of reddening the check — it
+  // duplicated the validator below and could not fail on its own. That is the
+  // third time this repo has deleted a check for that reason; the throw is the
+  // protection, and it names the key and the language.
+  //
+  // A MISSING KEY THROWS. It must not fall back to English: a prose rule that
+  // silently disappears is a prompt that stops asking for something, and the
+  // symptom is "the writing got worse" with nothing to bisect.
+  let noProse = null;
+  const { profileCritical, ...proseGap } = registers.prose;
+  try { parseW(good, { ...registers, prose: proseGap }); }
+  catch (e) { noProse = e.message; }
+  check("parseWorld rejects a register whose prose is missing a rule",
+    noProse !== null && noProse.includes("profileCritical"),
+    noProse || "parsed without complaint");
+  check("parseWorld resolves the prose block onto world.prose",
+    parseW(good).prose.style === registers.prose.style,
+    "the resolved prose is not the one the register ships");
+
+  // THE PROMPT MUST READ THE REGISTER, not a literal. Without this the whole
+  // block could sit on disk, validate, and reach nothing — the shape this repo
+  // tracks seven instances of, a feature complete on one side of a boundary and
+  // connected to nothing on the other. Mutating the VALUE must move the prompt.
+  //
+  // It asserts EVERY key reaches the prompt, with its own sentinel, rather than
+  // that one of them does. The first version set two sentinels and asked whether
+  // either appeared, so putting ONE rule back as a literal left it green — count
+  // the call sites, do not test presence.
+  {
+    const sentinels = Object.fromEntries(
+      loader.PROSE_KEYS.map((k) => [k, `ZZ${k}ZZ`]));
+    const w = parseW(good, { ...registers, prose: sentinels });
+    const p = buildSystemPrompt(
+      form(), members, "irene", ["yeri"], GROUP, "", "qwen", "zh", w);
+    const unused = loader.PROSE_KEYS.filter((k) => !p.includes(sentinels[k]));
+    check("every prose rule in the register reaches the rendered prompt",
+      unused.length === 0,
+      `these are declared but never rendered: ${unused.join(", ")}`);
+  }
+
+  // A TRANSLATED STRING MUST NOT CARRY A TAIL LABEL OR A JSON KEY. The static
+  // prompt points at `[Rounds Absent]` and names `story`/`summary` by key, and
+  // `buildDynamicTail` emits those labels in English — so a localized rule naming
+  // a translated label is a rule pointing at nothing, which is exactly what
+  // `[NPC Appearances]` was. This is the guard that protects future translations.
+  {
+    const LABELS = ["[Player Status]", "[Affections]", "[Stage Changes]",
+      "[Rounds Absent]", "[KKT Channels]", "[KKT Messages]", "[Time Speed]"];
+    const bad = [];
+    for (const l of ["zh", "en", "ko"]) {
+      const reg = JSON.parse(readFileSync(
+        join(ROOT, "public", "worlds", "_registers", `${l}.json`), "utf8"));
+      for (const k of loader.PROSE_KEYS) {
+        const v = reg.prose?.[k] || "";
+        // A label is legal ONLY in its exact English spelling. Any bracketed
+        // token that is not on the list is a translated one.
+        for (const m of v.match(/\[[^\]]+\]/g) || []) {
+          if (!LABELS.includes(m)) bad.push(`${l}.${k}: ${m}`);
+        }
+      }
+    }
+    check("no prose rule carries a tail label the dynamic tail does not emit",
+      bad.length === 0, bad.join(" | "));
+  }
+
   // --- the world index ----------------------------------------------------
   //
   // The index is the picker's lazy-load boundary. Both halves are checked, and
