@@ -4032,11 +4032,12 @@ dates, not the tense.**
 **v1.4.2 is live.** `main` = `origin/main` = **`376fba4`**, tagged `v1.4.2` on that deploy
 commit. The merge back into `dev` is done. Tree clean, nothing stashed, nothing running.
 
-**`dev` is AHEAD of `origin/dev` and NOT pushed.** The remote has `5daf039`; on top of it sit
-`b055a49` (the CV rule), `e929076` (that status update) and `9e82d09` (the prompt's prose rules
-moving to the per-language register document — see `docs/HANDOFF.md`). Only the last touches
-`src/`, and it renders byte-identically, so the deployed bundle is unaffected either way; push
-them with the next batch or on their own, as you prefer.
+**`dev` = `origin/dev` = `1333ed8`, pushed 2026-10-01.** It carries, on top of the release: the CV
+rule (`b055a49`), a status update (`e929076`), the prompt's prose rules moving to the per-language
+register document (`9e82d09`), and the agent-handoff docs (`16c764e`, `1333ed8`). Only `9e82d09`
+touches `src/`, and it renders byte-identically, so `main` and the deployed bundle are unaffected.
+**It was pushed so Claude Code Cloud can see it** — a cloud session works from the GitHub checkout,
+so an unpushed baton is an inert one.
 
 **Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of
 the three mirrors — 47 data files, `index.html`, both manifests, the bundle and the
@@ -4107,6 +4108,59 @@ evidence away.
 
 **Nothing here is a code change**, so no gate applies beyond the suite still being green: smoke
 **1721 passed / 0 failed**, and `src/` was not touched.
+
+#### The translation-quality bug, and more than one agent
+
+**Reported 2026-10-01: on the classic Red Velvet door, `kpop_idol`, free mode, DeepSeek V4.1 Flash
+— the same model and cast as v1.3.9 — the generated Chinese in rounds 1 and 2 reads like machine
+translation.** It did not in v1.3.9.
+
+**Measured on the rendered zh golden, `v1.3.9` against `v1.4.2`:** the static prompt grew **+37%**
+(~5,435 → ~7,259 tokens, 59 → 68 bullet rules) while the **Chinese share of its characters FELL
+from 18.4% to 16.2%** — ~4,000 of the ~5,900 new characters are English rules. Every rule governing
+how the prose *sounds* was an English sentence describing Chinese writing abstractly, and **no rule
+anywhere said what good Chinese prose is.** That is the condition that produces translationese, and
+it costs the weakest model in a route first.
+
+**Ruled out, with evidence — do not re-investigate:**
+
+- **Not the cast data.** `public/groups/red_velvet/zh.json` is byte-identical to `v1.3.9` apart from
+  five added `habit` lines and two deleted dead fields.
+- **Not the world-detail restaging.** Correctly skipped in `kpop_idol` (`castLore.useRole` is true),
+  and the feature plus **both** its gates landed in one commit (`a51dbc8`), so no build has ever
+  written a `kpop_idol`-stamped overlay. `applyWorldDetail` is gated on the stamp, not on `useRole`
+  — a latent hole if an overlay ever did exist, since the editor hides tab 2 there and nothing could
+  revert it. Not reachable today; recorded rather than fixed.
+- **Not prompt drift.** `backstorySeed` shipped in v1.3.9 and smoke builds each prompt twice across
+  8 identities x 3 languages. A live run measured **0 drifts across 8 rounds**.
+
+**NOT reproduced**, and that is stated rather than hidden: a live run on the exact configuration
+returned **8/8 clean, 89.6% cache, 662-904 chars per story**, and the prose read well. That is weak
+evidence — this repo has measured 0% vs 26.7% rule violation across two runs of *identical* code —
+so **the player's reading is the instrument, not the verdict line.**
+
+**Shipped in `9e82d09`: the plumbing only.** The eight prose rules now come from
+`public/worlds/_registers/<lang>.json` under `prose`, the same per-language document the address
+register lives in — these are facts about a **language**, not a setting, so four worlds must not
+carry four copies. All three files hold the English verbatim, so **all six goldens are unmoved**,
+which is the gate that says the wiring changed nothing but the wiring. Smoke **1721 → 1725**,
+**5 mutations 5 RED**. `renderProse` throws on an unknown placeholder **and on an empty value**,
+deliberately unlike `renderCastLore`, which drops a line — right for optional lore, wrong for a
+rule. **Three guards were written and deleted** for duplicating the validator (their mutation
+crashed the suite instead of reddening the check — third time), and **one was green against broken
+code** for testing presence rather than counting call sites.
+
+**Open, and it is content rather than code:** Yuhan writes the eight Chinese values; `prose.voice`
+(a rule that does not exist yet, saying what good Chinese prose *is*) and `prose.length` in
+characters rather than words are **design and belong to the main session**. `docs/PROMPT_L10N.md`
+carries the English source, the placements and the hard constraints.
+
+**More than one agent works on this repo now, one at a time.** `docs/AGENTS.md` holds the roles —
+the VS Code session designs and implements, Claude Code Cloud (and possibly GPT) stand in for **bug
+fixes only** — plus the rules restated rather than referenced, because a cloud or third-party agent
+never sees Yuhan's personal config. `docs/HANDOFF.md` is the baton: the one task in flight, what is
+**not** verified, and the exact next command. **Every live test is local-only** — a cloud session
+has no `API_KEY` and must never be given one.
 
 #### Open, in rough order of value
 

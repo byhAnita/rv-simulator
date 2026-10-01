@@ -14,9 +14,9 @@ contents rather than appending a log.
 ## Project state
 
 - **v1.4.2 is live.** `main` = `origin/main` = `376fba4`, tagged `v1.4.2`. Untouched by this work.
-- **Working branch is `dev`**, which is **3 commits ahead of `origin/dev` and NOT pushed**:
-  `b055a49`, `e929076` (both docs), and `9e82d09` (this task's plumbing).
-- **Pushing is a red line.** Leave them unpushed unless Yuhan says otherwise.
+- **Working branch is `dev`** = `origin/dev` = `1333ed8`, pushed 2026-10-01 so a cloud session can
+  see this baton at all. `main` is NOT to be touched.
+- **Pushing is a red line.** The push above was explicitly authorised; the next one needs its own ask.
 - Tree clean, nothing stashed. `npm run build` clean, `node test/smoke.mjs` **1725 passed / 0 failed**.
 
 ---
