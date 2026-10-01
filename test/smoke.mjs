@@ -28,6 +28,8 @@
 
 import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
+import { MIRRORED_TREES, MIRRORS, buildProbePlan, classifyResponse } from "../scripts/verify-mirrors.mjs";
+import { classifyWorktree, parseWorktreeList, auditWorktrees, classifyHotfixBranch } from "../scripts/worktree-hygiene.mjs";
 import { PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "../src/config/constants.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -966,15 +968,51 @@ async function layerG(mod, MODEL_CONFIGS) {
       && /could not be loaded"[^\n]*\);[\s\S]{0,40}return;/.test(loadSaveBody),
     "the failure path must return before the first setter");
 
-  // ── Setup fits on one 844px screen ───────────────────────────────────────
+  // ── the setup pages fit on one 844px screen ──────────────────────────────
   // The page ran past the frame and the Start button sat below the fold behind
   // half a row of identities, on the one screen whose whole job is to be
   // completed. The header was four stacked lines; it is one row now.
-  const setupHead = app.slice(app.indexOf("<style>{th.setupCss}</style>"),
-    app.indexOf("{/* The custom door already chose"));
-  check("Setup's header is one row rather than a stack",
-    !/<h2 /.test(setupHead) && (setupHead.match(/<div style=/g) || []).length === 1,
-    `${(setupHead.match(/<div style=/g) || []).length} boxes above the first field`);
+  //
+  // DERIVED OVER EVERY PAGE THAT CARRIES ONE, not pinned to Setup. §22.2 split
+  // this flow in two, and the old slice took `app.indexOf(setupCss)` - the FIRST
+  // match, which is now the player-info page - so one guard was silently reading
+  // a different screen than the one it was named after. A header that has to be
+  // one row on one page has to be one row on both.
+  // Bounded at the NEXT phase, or at the game screen for the last one: a slice
+  // running to EOF folds the game screen into the final phase, which would let a
+  // control rendered in game satisfy a check about a setup page. No control named
+  // below appears there today, which is exactly why this was worth fixing now -
+  // harmless-today is how a guard comes to pass against a real regression later.
+  const phaseBlock = (id) => {
+    const at = app.indexOf(`if (phase === "${id}") {`);
+    if (at < 0) return "";
+    const ends = [app.indexOf('if (phase === "', at + 10),
+      app.indexOf("// \u2500\u2500 Game Main Screen", at + 10)].filter((x) => x > 0);
+    return app.slice(at, ends.length ? Math.min(...ends) : app.length);
+  };
+  const SETUP_PAGES = ["playerInfo", "setup"];
+  const fatHeads = [];
+  for (const id of SETUP_PAGES) {
+    const block = phaseBlock(id);
+    const from = block.indexOf("<style>{th.setupCss}</style>");
+    if (from < 0) { fatHeads.push(`${id}: no setupCss, so this page is not the one`); continue; }
+    // To the first LABEL, which is what "above the first field" means on either
+    // page - Setup's first field is a cast picker and player info's is a name.
+    const to = block.indexOf('className="s-l"', from);
+    const head = block.slice(from, to < 0 ? block.length : to);
+    // COUNT THE SYMPTOM, not a proxy for it. The old check counted every
+    // `<div style=` in the slice, which is one on Setup and two on player info
+    // only because the latter's first label is nested in a caption row - a
+    // difference about markup, not about whether the header stacks. What stacked
+    // was a header ROW: a wrapping flex line of 10px muted text. There is one.
+    const rows = (head.match(/flexWrap: \"wrap\"[^>]*fontSize: 10/g) || []).length;
+    if (/<h2 /.test(head) || rows !== 1) fatHeads.push(`${id}: ${rows} header rows, h2=${/<h2 /.test(head)}`);
+  }
+  check("every setup page's header is one row rather than a stack",
+    fatHeads.length === 0, fatHeads.join(" | "));
+  const setupHead = phaseBlock("setup").slice(
+    phaseBlock("setup").indexOf("<style>{th.setupCss}</style>"),
+    phaseBlock("setup").indexOf("{/* The custom door already chose"));
   // Shortening a screen by deleting affordances is the easy wrong answer, so
   // both halves are asserted: the switch still reaches the key page, and a
   // MISSING key - the actionable state, unlike a configured one - still shouts.
@@ -984,16 +1022,54 @@ async function layerG(mod, MODEL_CONFIGS) {
     /\{!apiKey && <span style=\{\{ color: "#d07070" \}\}>/.test(setupHead));
 
   check("startNewGame records the roster it is starting",
-    /setRoster\(\(pendingRoster && \{ \.\.\.pendingRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app),
+    /\(customRoster && \{ \.\.\.customRoster, name: [\s\S]{0,80}\}\)\s*\r?\n?\s*\|\| buildClassicRoster\(/.test(app)
+      && /setRoster\(\w+\);/.test(app),
     "the builder's roster, named, or one composed from the form");
+  // ...and the ARGUMENT wins over the state, which is not a style choice: the
+  // picker's Start hands the roster straight in (22.6.2) and `setPendingRoster`
+  // has not flushed inside this closure, so reading the state would compose a
+  // classic roster out of whichever group was last selected.
+  check("...and the roster handed in beats the one in state",
+    /const customRoster = overrideRoster \|\| pendingRoster;/.test(app),
+    "the state is one render behind the call that started the game");
   // Two doors, and the builder's roster wins. Rebuilding it from the form would
   // throw away the NPC slots the player assigned and flatten a cross-group cast
   // into whichever single group happened to be selected. The order in that
   // expression IS the behaviour, so it is pinned rather than merely mentioned.
   check("a roster built by the builder is preferred over one composed from the form",
-    app.indexOf("setRoster((pendingRoster &&") > 0
-      && !/setRoster\(buildClassicRoster\([^)]*\) \|\| pendingRoster/.test(app),
+    app.indexOf("(customRoster && { ...customRoster") > 0
+      && !/buildClassicRoster\([^)]*\) \|\| customRoster/.test(app),
     "pendingRoster must come first");
+
+  // --- §22.5 commit 4b: the Start-boundary restaging sweep -------------------
+  //
+  // §22.1's defect is the DEFAULT path - 57 of 57 library members describe
+  // themselves through idol work - so the sweep runs for the whole cast on both
+  // doors rather than for whoever opened an editor. Written on the call, not on a
+  // flag: the `--provider` lesson is that a guard on the argument list passes while
+  // the value stays hardcoded one line below it.
+  check("the Start boundary restages the whole cast into the world it is starting in",
+    /generateCastDetail\(\{[\s\S]{0,120}members: cast, world,/.test(app),
+    "a fix that reaches only players who open an editor does not reach the defect");
+  // In the world the library was authored for, the prose is already about this
+  // world: restaging it would replace correct text with generated text and spend a
+  // call per member doing it.
+  check("...and only in a world the library was not written for",
+    /if \(world && !world\.castLore\?\.useRole\) \{[\s\S]{0,400}generateCastDetail\(/.test(app),
+    "kpop_idol needs no restaging and must not pay for one");
+  // THE EXPENSIVE HALF. The roster is what the save carries and what every later
+  // round re-resolves, so stamping only the roster would send un-restaged prose in
+  // round 1 and the restaged version from round 2 - a drift of the whole
+  // ~5,500-token cached prefix, which is the ex-girlfriend Math.random() defect
+  // with a network call in it.
+  check("...and round 1 is built from the restaged cast, not the cast before it",
+    /members: roundMembers,/.test(app)
+      && /roundMembers = cast\.map\(m => applyWorldDetail\(/.test(app),
+    "round 1 and round 2 must build the same static prompt");
+  check("...and the roster the save records is the stamped one",
+    /roundRoster = withCastDetail\(builtRoster, detailById, world\.id\)/.test(app)
+      && /setRoster\(roundRoster\);/.test(app),
+    "generated text must reach the save or buildSystemPrompt stops being a function of it");
   // The name is applied at START, not held in pendingRoster: the effect that
   // resolves that roster depends on it, so folding it in would re-resolve the
   // whole cast on every keystroke.
@@ -1021,13 +1097,118 @@ async function layerG(mod, MODEL_CONFIGS) {
     !/t\.cast\.castName\b/.test(appCode) && !/agencyFor\(/.test(appCode)
       && !/已加载组合/.test(appCode) && !/Group loaded/.test(appCode),
     "a literal noun here is right for kpop_idol and wrong for the other three");
-  // --- the world picker, v1.4.1 step 3 -------------------------------------
-  // It took the slot the pace picker vacated, which is WHY both cover doors get
-  // worlds without merging the entry pages: they both pass through Setup.
-  check("Setup carries a world picker fed by the world INDEX",
-    /loadWorldIndex\(\)\.then\(list => \{/.test(app) && /worldList\.map\(w =>/.test(app)
+  // --- the world picker, v1.4.1 step 3, folded in §22.10.3 ------------------
+  // Fed by the INDEX and not by a list in this file, which is what let step 7
+  // ship three more worlds as data. Since §22.10 it is a fold: one collapsed row
+  // naming the chosen world, opening to all four with their blurbs.
+  check("the world picker is fed by the world INDEX",
+    /loadWorldIndex\(\)\.then\(list => \{/.test(app) && /worldList\.map\(\(?w\)? =>/.test(app)
       && /setSelectedWorld\(w\.id\)/.test(app),
     "a hardcoded world list is what step 7 would then have to edit in code");
+  // ...and it is ONE definition used by both doors' first pages. Two world
+  // pickers is what `extractStoryText` is this repo's standing warning about -
+  // the copies drift, and the guard gets written against the one still correct.
+  check("...and one definition of it serves both doors",
+    (app.match(/const renderWorldFold = \(\) =>/g) || []).length === 1
+      && (app.match(/const renderIdentityGrid = \(\) =>/g) || []).length === 1
+      && (app.match(/renderPlayerFields\(\)/g) || []).length === 2
+      && (app.match(/renderIdentityGrid\(\)/g) || []).length === 2,
+    "one definition and one call site per door - the classic door's merged page "
+      + "and the custom door's player info");
+  // --- §22.11: the open list is a LAYER, and the page has ONE height ---------
+  //
+  // It used to render in the page flow, so the fold had two layouts: opening it
+  // pushed the identity grid and the buttons down by ~250px and shutting it
+  // pulled them back. A page with two heights can be laid out for neither, which
+  // is what made the folded state look wrong - everything packed against the top
+  // with the bottom third empty, because that is where the open state needed it.
+  const foldDef = app.slice(app.indexOf("const renderWorldFold = () =>"),
+    app.indexOf("const renderIdentityGrid = () =>"));
+  const listDef = app.slice(app.indexOf("const renderWorldList = () =>"),
+    app.indexOf("const renderIdentityGrid = () =>"));
+  const fieldsDef = app.slice(app.indexOf("const renderPlayerFields = () =>"),
+    app.indexOf('if (phase === "cover")'));
+  check("the open world list is a layer over the page, not a row in it",
+    /position: "absolute"/.test(listDef) && /zIndex: \d+/.test(listDef)
+      && /renderWorldList\(\)/.test(foldDef) && !/renderWorldList\(\)/.test(fieldsDef),
+    "in the flow it is a second layout, and the page is laid out for neither");
+  // ...which is the property, stated the way it is observed: what the fold does
+  // must not reach anything below it. Measured at 390px, folded and open: 651/651
+  // and 734/734 on the classic page, 527/527 on the custom one.
+  check("...and nothing below the fold moves when it opens",
+    !/renderWorldList\(\)/.test(fieldsDef)
+      && /\{renderWorldList\(\)\}[\s\S]{0,40}<\/div>/.test(foldDef),
+    "the list belongs to the control it hangs off, not to the page");
+  // A layer that covers the identity grid eats the first tap meant for a chip
+  // under it, so there has to be a way out that is not the toggle.
+  check("...and a tap anywhere else closes it",
+    /position: "fixed", inset: 0[^<]*?\}\} \/>/.test(listDef)
+      && /onClick=\{\(\) => setWorldOpen\(false\)\}/.test(listDef),
+    "with no backdrop the only way out is the toggle the list is covering");
+  // ...and it has to be OPAQUE. It shipped on `th.cardBg`, which is rgba at .03
+  // (dark) and .07 (light), so the identity grid read straight through the list
+  // that was covering it - two pages of text in one rectangle. Reported from a
+  // phone, 2026-10-01.
+  //
+  // DERIVED, not pinned to a token name: whatever the layer names is looked up in
+  // both themes and must be solid in both. A token that is opaque in dark and
+  // translucent in light is exactly the half-fix this would otherwise pass.
+  const listBgToken = (listDef.match(/background: th\.(\w+), boxShadow/) || [])[1];
+  const listBgValues = listBgToken
+    ? [...app.matchAll(new RegExp(`^\\s*${listBgToken}: "([^"]+)",`, "gm"))].map((m) => m[1])
+    : [];
+  const translucent = (v) => /transparent/.test(v)
+    || /rgba\([^)]*,\s*(?:0|0?\.\d+)\s*\)/.test(v);
+  check("...and it is opaque, so what it covers does not read through it",
+    listBgValues.length === 2 && !listBgValues.some(translucent),
+    `list background ${listBgToken || "(not a theme token)"} = `
+      + `[${listBgValues.join(", ")}]`);
+  // ...and it opens UPWARD when there is no room below. On the classic door the
+  // control sits two thirds down a page that already fills a small phone, so
+  // downward it opens under the card's edge. useLayoutEffect and not useEffect:
+  // a flip applied after paint is a list drawn once in the wrong place.
+  check("...and it opens upward when there is no room below",
+    /useLayoutEffect\(\(\) => \{\r?\n\s*if \(!worldOpen\)/.test(app)
+      && /setWorldUp\(below < list\.offsetHeight/.test(app)
+      && /\[worldUp \? "bottom" : "top"\]/.test(listDef),
+    "a layer that opens off the bottom of the card is a layer nobody can read");
+  // Session state, and it does not survive the page. The list covers the fields,
+  // so one left open by a Back covers the page it is reopened on.
+  check("...and the fold shuts on the way out of a page",
+    /useEffect\(\(\) => \{ setWorldOpen\(false\); \}, \[phase\]\)/.test(app),
+    "an open list that outlives its page opens over the next one");
+
+  // --- §22.11.3: the fields sit in the middle of a page with one height ------
+  //
+  // Both pages packed everything against the top and left the bottom third
+  // empty. The card is a column with ONE in-flow child carrying `margin: auto 0`,
+  // which centres it while it is shorter than the card and resolves to 0 the
+  // moment it is not - measured: gaps [65,65] when it fits and [0,-41] when it
+  // does not, so the top of a long page is still reachable.
+  //
+  // `justify-content: center` is the thing this must NOT be: it splits an
+  // overflow between both ends and only one of them can be scrolled to, which is
+  // the defect §22.6.1 measured one layer up.
+  const allCards = [...app.matchAll(/<div className="rv-card" style=\{\{([^}]*maxHeight: 844[^}]*)\}\}>/g)]
+    .filter((m) => /overflowY: "auto"/.test(m[1]));
+  // The two that ASK - derived by the stylesheet they carry rather than named, so
+  // a third page built out of these controls is covered the day it lands.
+  const scrollCards = allCards
+    .filter((m) => app.slice(m.index, m.index + 400).includes("th.setupCss")).map((m) => m[1]);
+  const uncentred = scrollCards.filter((st) => !/flexDirection: "column"/.test(st));
+  const splitOverflow = allCards.filter((m) => /justifyContent: "center"/.test(m[1]));
+  check("the setup pages centre their fields in a page of one height",
+    scrollCards.length === 2 && uncentred.length === 0
+      && (app.match(/margin: "auto 0"/g) || []).length === 2,
+    `${scrollCards.length} scrolling cards, ${uncentred.length} not a column`);
+  check("...and the top of one too long to fit is still reachable",
+    splitOverflow.length === 0,
+    "justify-content centres an overflow into two halves and hides one of them");
+  // One header, both doors, one definition - they are the same step of one flow.
+  check("...and both doors' first page is headed the same way",
+    (app.match(/const renderPageTitle = \(\) =>/g) || []).length === 1
+      && (app.match(/renderPageTitle\(\)/g) || []).length === 2,
+    "a page that opens straight into a form reads as a fragment of one");
   // Same correction the group index gets: a remembered id the index no longer
   // carries must not be left pointing at a world that cannot be fetched.
   check("...and a remembered world the index no longer lists falls back",
@@ -1053,7 +1234,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   // The classic door must still be able to start: leaving a builder roster in
   // place would make a group pick silently resolve to the previous custom cast.
   check("choosing the classic door clears any roster the builder left behind",
-    /setDoor\("classic"\); setPendingRoster\(null\);/.test(app),
+    /if \(door !== "custom"\) setPendingRoster\(null\);/.test(app),
     "otherwise startNewGame prefers a cast the player is no longer looking at");
   // Scoped to loadSave's own body: the same two calls appear in the builder's
   // onBack handler, so a whole-file match passed with the line deleted from
@@ -1065,15 +1246,114 @@ async function layerG(mod, MODEL_CONFIGS) {
 // --- the two doors --------------------------------------------------------
   // Both end at Setup holding a roster, which is what keeps "one engine, two
   // doors" true: nothing downstream of resolveRoster knows which was used.
+  // The cover opens the door and PLAYER INFO forwards to the builder, which is
+  // the 22.2 order: the generator reads the world, so the world is chosen first.
+  // It used to be read off Setup's "change cast" button, and that button went with
+  // the page - a guard that happens to find a string elsewhere is a guard about
+  // nothing.
+  // BOTH DOORS SURVIVE, and the custom one is a chip in the group row (§22.9).
+  // Yuhan cancelled §22.5's commit 5 - the unified door - so "the cover offers
+  // exactly one way in" is NOT the requirement and never was: what must hold is
+  // that a player can still reach the classic flow she has used since v1.3, and
+  // the authored-cast flow, from the same screen.
+  const coverBlock = app.slice(app.indexOf('if (phase === "cover")'),
+    app.indexOf("// ── Key Input Page ──"));
   check("the cover offers a second door into the roster builder",
-    /setDoor\("custom"\)/.test(app) && /setPhase\("roster"\)/.test(app));
+    /setDoor\(g\.to\)/.test(coverBlock)
+      && /to: "custom"/.test(coverBlock) && /to: "classic"/.test(coverBlock)
+      && /setPhase\("roster"\)/.test(phaseBlock("playerInfo")),
+    "the custom door reaches the builder, and only after player info");
+  // ...AND IT IS THE SAME CONTROL, not a second one under it. One map over the
+  // group list plus the custom entry, so the chip cannot drift into looking like
+  // a different kind of decision - which is what an outline button below New Game
+  // was. Asserted as ONE button definition in the row, because two would render
+  // identically today and diverge on the next restyle.
+  check("...and it is a chip in the group row, not a button under it",
+    (coverBlock.match(/<button key=\{g\.id\}/g) || []).length === 1
+      && /\[\.\.\.groupList\.map\(/.test(coverBlock)
+      && /id: CUSTOM_CAST_ID/.test(coverBlock)
+      && !/\{t\.cast\.customTitle\}\s*<\/button>/.test(coverBlock),
+    "both doors answer WHICH cast, so they belong in one control");
+  // The sentinel selects a DOOR. If it ever reached the group id, the group
+  // effect would fetch /groups/__custom__/zh.json and the cover's own picker
+  // would be the thing that broke the library.
+  check("...and the custom chip never becomes a group id",
+    /CUSTOM_CAST_ID = "__custom__"/.test(app)
+      && !/setSelectedGroup\(CUSTOM_CAST_ID\)/.test(app)
+      && /if \(g\.to === "classic"\) setSelectedGroup\(g\.id\)/.test(coverBlock),
+    "rv_sim_group has to keep holding something loadGroupConfig can fetch");
+  // ONE predicate behind the button's enabled state and its own handler. Two
+  // copies of "is a cast chosen" is how a button comes to look live and then
+  // refuse with nothing on screen left to fill - the year-wheel defect exactly.
+  check("...and New Game reads one predicate for both doors",
+    /const castChosen = door === "custom" \|\| Boolean\(selectedGroup\);/.test(coverBlock)
+      && (coverBlock.match(/castChosen/g) || []).length >= 4,
+    "an enabled button that refuses is worse than a disabled one");
+  // ...and the label the chip now carries exists in all three languages, with the
+  // one that described the deleted button gone. `customDesc` had NO reader in
+  // src/ at all - it was the subtitle of an outline button that never shipped
+  // with one - which is the pickMainHint failure, recorded here four times now.
+  check("...and the chip's label is in all three languages, the dead one deleted",
+    ["zh", "en", "ko"].every((lang) => {
+      const src = readFileSync(join(ROOT, "src", "i18n", lang + ".js"), "utf8");
+      return /customTitle: "[^"]+"/.test(src) && !/customDesc/.test(src);
+    }) && !/customDesc/.test(app),
+    "a chip named in one language and a dead string in another");
   // The builder's Generate button spends the player's key, so the key page has
   // to come first when there is none — §4.5 assumes the key already exists.
   check("the custom door routes through the key page when there is no key",
-    /setDoor\("custom"\);[\s\S]{0,300}if \(apiKey\?\.trim\(\)\) setPhase\("roster"\); else setPhase\("keyInput"\);/.test(app),
+    /if \(apiKey\?\.trim\(\)\) setPhase\(door === "custom" \? "playerInfo" : "setup"\);\s*\n?\s*else setPhase\("keyInput"\);/.test(coverBlock),
     "cardGenerator runs on the key the player already entered");
-  check("...and the key page then continues into the builder, not Setup",
-    /door === "custom"\) setPhase\("roster"\)/.test(app));
+
+  // ── THE BUILDER COMES AFTER THE WORLD IS CHOSEN - §22.2, NARROWED ────────
+  // `generateCard` reads `world` from App state, and the builder used to be
+  // entered straight from the cover - so it described a member "in this world"
+  // using the world LEFT IN localStorage BY THE LAST SESSION.
+  //
+  // §22.10 NARROWS this to the door it is true of, the way §22.1's interim rule
+  // narrowed: the card and detail generators live in the member editor, which
+  // only the builder reaches, so the CLASSIC door has no call that reads the
+  // world before the player has answered. Its merged page asks on the same
+  // screen it starts from, which is why the second half below is not optional -
+  // a classic door that jumped to a cast page WITHOUT the world on it would be
+  // the original defect with the generator swapped for the prompt.
+  const earlyJumps = [];
+  for (const id of ["cover", "keyInput"]) {
+    const block = phaseBlock(id);
+    if (!block) { earlyJumps.push(`${id}: block not found, so this proves nothing`); continue; }
+    if (block.includes('setPhase("roster")')) earlyJumps.push(`${id} -> roster`);
+    if (!block.includes('"playerInfo"')) earlyJumps.push(`${id} reaches no player-info page`);
+  }
+  check("the builder is never reached before the world is chosen",
+    earlyJumps.length === 0, earlyJumps.join(" | "));
+  // ...and the page the classic door DOES jump to asks for the world itself.
+  check("...and the classic door's page asks for the world it will start in",
+    /renderWorldFold\(\)|renderPlayerFields\(\)/.test(phaseBlock("setup"))
+      && /renderIdentityGrid\(\)/.test(phaseBlock("setup")),
+    "starting from a page with no world picker starts in whatever localStorage held");
+  // ...and it asks for EVERYTHING its Start button gates on. Derived from
+  // `canStart` itself rather than from a list beside it: a gate naming a field
+  // that no control on the page can fill is the year-wheel defect generalised -
+  // a button that refuses with nothing on screen left to answer.
+  const canStartLine = (phaseBlock("setup").match(/const canStart = [^\n]*/) || [""])[0];
+  const ASKED_BY = [
+    ["form.mainMember", /t\.setup\.mainMember\(/],
+    ["form.name", /renderPlayerFields\(\)/],
+    ["form.birthYear", /renderPlayerFields\(\)/],
+    ["form.identity", /renderIdentityGrid\(\)/],
+  ];
+  const unasked = ASKED_BY
+    .filter(([field, re]) => canStartLine.includes(field) && !re.test(phaseBlock("setup")))
+    .map(([field]) => field);
+  check("...and it asks for everything its Start button gates on",
+    canStartLine.length > 0 && unasked.length === 0,
+    canStartLine ? `no control for ${unasked.join(", ")}` : "canStart not found, so this proves nothing");
+  // ...and the page that asks for it will not move on without one, or the world
+  // is merely ASKED rather than settled - `world` is null for the width of a
+  // fetch, so a gate without it lets a Continue through mid-switch.
+  check("...and the player-info page will not continue until the world has loaded",
+    /const canContinue = [^\n]*\bworld\b/.test(phaseBlock("playerInfo")),
+    "an identity is a position inside a world, so the grid means nothing without one");
   // The door is session state. A remembered "custom" would drop a returning
   // player into a builder they never asked for.
   check("the door is not persisted",
@@ -1085,8 +1365,28 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("the group effect stands down while a builder roster is pending",
     /if \(pendingRoster\) \{[\s\S]{0,200}return;/.test(app),
     "otherwise loadGroupConfig overwrites the builder's cast at Setup");
-  check("the builder's roster is resolved so Setup sees the same members shape",
-    /resolveRoster\(pendingRoster, language, world\)/.test(app));
+  // THE RESOLVE MOVED INTO startNewGame (22.6.2). The effect that did it existed
+  // so the page between the picker and the game could read `members`; that page is
+  // gone, so an effect keyed on `pendingRoster` would have no reachable trigger.
+  // Both halves matter: it must resolve, and it must resolve BEFORE the first
+  // setter, because a resolve fetches and a half-applied start is a game assembled
+  // out of nothing.
+  const startBody = app.slice(app.indexOf("const startNewGame = async ("),
+    app.indexOf("const loadSave = async ("));
+  check("the builder's roster is resolved by the call that starts the game",
+    /resolveRoster\(overrideRoster, language, world\)/.test(startBody)
+      && !/useEffect\(\(\) => \{[\s\S]{0,200}resolveRoster\(pendingRoster/.test(app),
+    "an effect keyed on a value nothing sets before the game is dead code");
+  check("...and resolved before the first setter of any kind",
+    startBody.indexOf("resolveRoster(overrideRoster") > 0
+      && startBody.indexOf("resolveRoster(overrideRoster") < startBody.search(/\bset[A-Z]\w*\(/),
+    "a resolve can fail, so nothing may be written before it returns");
+  // ...and it fails the way loadSave fails: a notice, and no state written. Never
+  // a fall back to a cast the player did not choose - the v1.3.5 lesson.
+  check("...and a roster that cannot be resolved aborts with a notice",
+    /roster resolve failed/.test(startBody)
+      && /roster resolved to an empty cast/.test(startBody),
+    "never start a game on a cast nobody chose");
   // Counted, not tested for presence. Section 4's framing is the world's since
   // v1.4.1 step 4, so a call site that forgot the third argument does not render a
   // lecture hall as an agency - it throws - but a call site handed the WRONG world
@@ -1116,19 +1416,100 @@ async function layerG(mod, MODEL_CONFIGS) {
   check("...and the form's main and subs are derived from the roster's slots",
     /setForm\(f => \(\{ \.\.\.f, mainMember: r\.mainId, subMembers: r\.subIds \}\)\)/.test(app),
     "everything downstream reads the form, so the form has to agree with the builder");
-  // A roster that cannot be resolved must say so rather than fall back to a
-  // default cast: loadGroupIndex's catch returning a hardcoded Red Velvet entry
-  // is what hid the v1.3.5 path bug for a whole release.
-  check("a builder roster that cannot be resolved aborts to the cover with a notice",
-    /roster resolve failed/.test(app) && /setPendingRoster\(null\);\s*\n?\s*setPhase\("cover"\)/.test(app),
-    "never fall back to a cast the player did not choose");
-  // Setup asks only what the builder did not: identity, name, birth year, pace.
-  check("Setup hides the member pickers when the builder already chose the cast",
-    /\{pendingRoster \? \(/.test(app) && /t\.cast\.changeCast/.test(app),
-    "asking twice is what makes that page long");
-  check("...and Back from Setup returns to the builder, not the cover",
-    /setPhase\(pendingRoster \? "roster" : "cover"\)/.test(app),
-    "dropping the player at the cover discards a cast they spent time on");
+  // NO PAGE AFTER THE CAST PICKER. It showed the chosen cast back and asked for
+  // one more field, which is a page that repeats the previous page's answer -
+  // Yuhan, 2026-09-30. Setup is the CLASSIC door's page now and carries nothing
+  // about a builder roster at all.
+  check("no page after the cast picker repeats it",
+    !/\{pendingRoster \? \(/.test(phaseBlock("setup"))
+      && !/t\.cast\.changeCast/.test(app) && !/t\.cast\.castLabel/.test(app),
+    "the picker's own Start is the end of the custom door");
+  // Back is ONE step, and since §22.10 that step is the cover: the merged page
+  // holds every question the classic door asks, so there is no page between them.
+  check("...and Back from the classic page returns to the cover, its only predecessor",
+    /setPhase\("cover"\)/.test(phaseBlock("setup"))
+      && !/setPhase\("playerInfo"\)/.test(phaseBlock("setup"))
+      && !/setPhase\(pendingRoster \? "roster"/.test(app),
+    "back is ONE step, and there is only one step back now");
+  // The picker's Start is what replaced that page, so it is asserted on the CALL
+  // rather than on the button's label: a label check passes while onStart still
+  // routes to a page - which is exactly what it used to do.
+  check("the cast picker starts the game itself",
+    /onStart=\{\(r\) => startNewGame\(r\)\}/.test(app)
+      && !/onStart=\{\(r\) => \{ setPendingRoster\(r\); setPhase\("setup"\); \}\}/.test(app),
+    "Start belongs where the cast is");
+
+  // ── the cast library opens on the CUSTOM tab, and it sits first ──────────
+  // A player who came through the custom door came to use her own members, and
+  // that tab was the last of ten behind a horizontal scroll. Both halves, because
+  // either alone is half the fix: opening on it while it sits last means
+  // scrolling back to find it again, and listing it first while opening on Red
+  // Velvet means the door's own tab is never the one you land on.
+  const pickerSrc = readFileSync(join(ROOT, "src/platforms/MemberPicker.jsx"), "utf8");
+  const tabsDecl = (pickerSrc.match(/const tabs = useMemo\(\(\) => \[([\s\S]*?)\]/) || [, ""])[1];
+  check("the cast library lists the player's own members first",
+    tabsDecl.indexOf("CUSTOM_TAB") >= 0
+      && tabsDecl.indexOf("CUSTOM_TAB") < tabsDecl.indexOf("groups.map("),
+    "the tab this door exists for was the last of ten behind a scroll");
+  check("...and opens on it",
+    /useState\(CUSTOM_TAB\)/.test(pickerSrc),
+    "landing on a library group means scrolling to find your own cast");
+
+  // ── ONE definition of the Start label, and it is localized ───────────────
+  // It was the literal `Start with ${name}` in App.jsx - untranslated in a game
+  // that ships three languages - and the picker needed the same words. Counted
+  // against the call sites, because a helper can exist, be correct, and be used
+  // in one of two places.
+  const startWithSites = (app.match(/t\.cast\.startWith\(/g) || []).length
+    + (readFileSync(join(ROOT, "src/platforms/RosterBuilder.jsx"), "utf8")
+        .match(/c\.startWith\(/g) || []).length;
+  check("both Start buttons read their label from one localized definition",
+    startWithSites === 2 && !/`Start with \$\{/.test(app),
+    `${startWithSites} call sites - the cast picker and the classic Setup page`);
+
+  // ── the four player controls are DEFINED ONCE, wherever they are asked ─────
+  //
+  // §22.2 put them on their own page and asserted they were not on Setup. §22.10
+  // merges them back into Setup for the CLASSIC door, so "not on Setup" is no
+  // longer the requirement - what is, and always was, is that there is exactly
+  // ONE of each. Two copies of the wheel is the v1.4.1 year-wheel bug with a
+  // second way in: a wheel is only seeded on the page that was remembered.
+  const PLAYER_CONTROLS = [
+    ["the name field", /placeholder=\{language === "zh" \? "名字"/g],
+    ["the birth-year wheel", /<YearWheel value=\{form\.birthYear\}/g],
+    ["the world picker", /worldList\.map\(\(?w\)? =>/g],
+    ["the identity grid", /world\.identities\.map\(i =>/g],
+  ];
+  const duplicated = [];
+  for (const [what, re] of PLAYER_CONTROLS) {
+    const n = (app.match(re) || []).length;
+    if (n !== 1) duplicated.push(`${what}: ${n} copies`);
+  }
+  // ...and the org name is the one that is still door-shaped: a classic run IS
+  // one real group and already carries its real name, so the field would have
+  // nothing to write to. 22.6.2.
+  if (/t\.cast\.orgName\(world\.castLore\.orgNoun\)/.test(phaseBlock("setup"))) {
+    duplicated.push("the org name is on the classic door's page, which has no cast to name");
+  }
+  check("name, birth year, world and identity are each defined exactly once",
+    duplicated.length === 0, duplicated.join(" | "));
+  // A WHEEL ALWAYS DISPLAYS A VALUE, so the seed has to fire on EVERY page that
+  // mounts one - unseeded, it shows 2000 while form.birthYear is "" and Start
+  // refuses with nothing on screen left to fill.
+  //
+  // It used to name ONE phase, and that is exactly how this broke twice: §22.2
+  // moved the wheel to a new page, §22.10 moved the classic door off that page.
+  // So the guard DERIVES the set of phases that render a wheel and requires the
+  // seed's own list to cover it - a phase added without seeding fails here.
+  const seedList = (app.match(/const WHEEL_PHASES = \[([^\]]*)\]/) || [, ""])[1]
+    .split(",").map((x) => x.trim().replace(/^"|"$/g, "")).filter(Boolean);
+  const wheelPhases = ["cover", "keyInput", "playerInfo", "roster", "setup"]
+    .filter((id) => /renderPlayerFields\(\)/.test(phaseBlock(id)));
+  const unseededPhases = wheelPhases.filter((id) => !seedList.includes(id));
+  check("the birth year is seeded for every phase that renders the wheel",
+    seedList.length > 0 && wheelPhases.length > 0 && unseededPhases.length === 0
+      && /WHEEL_PHASES\.includes\(phase\) && !form\.birthYear/.test(app),
+    `seeded for [${seedList}], rendered on [${wheelPhases}]`);
   // NPC identity comes from the roster now. getNpcMembers stays in groupLoader
   // as the anchor smoke measures migration against, but App derives nothing.
   // A call or an import, not any mention: the comment explaining why the
@@ -1832,7 +2213,10 @@ function layerC() {
     }
     return out.sort();
   };
-  const MIRRORED_TREES = ["groups", "worlds"];
+  // MIRRORED_TREES is imported from scripts/verify-mirrors.mjs rather than
+  // written here. This guard proves the two trees MATCH offline; that script
+  // proves a live host can SERVE them. Two copies of the list is how the
+  // offline guard and the live verifier come to cover different trees.
   for (const tree of MIRRORED_TREES) {
     const rootTree = walkTree(tree);
     const pubTree = walkTree(`public/${tree}`);
@@ -1893,6 +2277,139 @@ function layerC() {
     !existsSync(join(ROOT, ".nojekyll"))
       || execFileSync("git", ["ls-files", "--", ".nojekyll"], { cwd: ROOT, encoding: "utf8" }).trim() !== "",
     "an untracked .nojekyll fixes nothing on Pages - git add it");
+
+  // --- the live verifier's two pure functions ---
+  //
+  // scripts/verify-mirrors.mjs is the instrument that WOULD have caught the
+  // Jekyll bug: it fetches every mirrored data file from all three hosts. It
+  // cannot run in this suite, because deploy.sh gates on smoke and a check
+  // needing three public hosts to answer would block a release on a bad
+  // connection. So its two decisions are pure, exported, and tested here -
+  // the addSaveSlot / membersNamedIn pattern, for the same reason: the
+  // alternative is a rule only a live run can exercise, and a harness nothing
+  // exercises is a harness that rots. playthrough.mjs was dead for four
+  // steps that way.
+  //
+  // Written from the requirement, not the implementation: what must hold is
+  // that a DATA file is probed and not only the bundle, which is precisely
+  // what the v1.4.1 post-deploy check got wrong.
+  const planned = buildProbePlan({
+    treeFiles: ["worlds/_registers/zh.json", "groups/index.json"],
+    assetRefs: ["assets/index-abc123.js", "assets/index-abc123.css"],
+  }).map((e) => e.path);
+  check("the live verifier probes data files, not just the bundle",
+    planned.includes("worlds/_registers/zh.json") && planned.includes("groups/index.json"),
+    `buildProbePlan dropped the data files: ${planned.join(", ")}`);
+  check("the live verifier probes the bundle and the page too",
+    planned.includes("assets/index-abc123.js") && planned.includes(""),
+    `buildProbePlan covers ${planned.join(", ")}`);
+
+  // A 200 is not proof the file is there. MEASURED 2026-09-30: Cloudflare
+  // Pages answers a missing data path with 200 text/html and the app's own
+  // index.html, byte for byte, so a status-only check calls a missing
+  // register SERVED. Pages 404s and Vercel 404s; the host that would hide
+  // this defect is one of the two that were right about the Jekyll one.
+  const spa = classifyResponse({ kind: "json", status: 200, body: "<!DOCTYPE html><html><head></head></html>" });
+  check("a 200 serving the SPA shell instead of JSON is a failure",
+    spa.ok === false && /not-json/.test(spa.reason),
+    `classifyResponse accepted the app shell as a JSON file: ${JSON.stringify(spa)}`);
+  // Note the 404 body is VALID JSON on purpose. The first version of this
+  // check passed body: "" - JSON.parse("") throws, so the not-json branch
+  // produced ok:false and covered for the status branch, and deleting the
+  // status check left this guard GREEN. Two enforcements of one rule is two
+  // neither of which can be shown to work; cropRect cost an hour to the same
+  // shape. A host serving a JSON error document is the real case.
+  const notFound = classifyResponse({ kind: "json", status: 404, body: '{"error":"not found"}' });
+  check("a non-200 fails on its status, whatever its body parses as",
+    notFound.ok === false && /HTTP 404/.test(notFound.reason)
+      && classifyResponse({ kind: "json", status: 200, body: '{"korea":{}}' }).ok === true,
+    `classifyResponse read a 404 carrying valid JSON as: ${JSON.stringify(notFound)}`);
+
+  // The host list is the verifier's, and exactly one mirror serves the
+  // committed tree. That asymmetry IS the diagnosis - when one mirror fails
+  // and two do not, the fault is in what makes that one different - so it is
+  // a field on the data rather than a sentence in a comment.
+  check("exactly one mirror serves the committed tree",
+    MIRRORS.filter((m) => m.servesCommittedTree).length === 1
+      && MIRRORS.find((m) => m.servesCommittedTree).id === "pages",
+    `servesCommittedTree: ${MIRRORS.filter((m) => m.servesCommittedTree).map((m) => m.id).join(", ") || "none"}`);
+
+  // --- hotfix worktree hygiene ---
+  //
+  // A hotfix off main is worked in a second checkout so dev's in-flight work
+  // is neither stashed nor one command away from deploy.sh. The v1.4.1 one was
+  // created in a SESSION-SCOPED TEMP DIRECTORY, and git's registration in
+  // .git/worktrees/ outlives the directory - so the repo keeps advertising a
+  // path that no longer exists, and because a worktree LOCKS its branch,
+  // `git branch -d` is refused by a checkout nobody can find.
+  //
+  // The rule lives in scripts/worktree-hygiene.mjs with two consumers - that
+  // script's report and these checks - rather than once in bash and once here.
+  const REPO_ROOT = "C:/Users/Yuhan/repo";
+  const wt = (path, extra = {}) => classifyWorktree({ path, branch: "hotfix/x", repoRoot: REPO_ROOT, ...extra });
+
+  check("a worktree in a temp directory is reported as wrong",
+    wt("C:/Users/Yuhan/AppData/Local/Temp/claude/abc/scratchpad/main-hotfix").ok === false,
+    "a temp-dir worktree outlives its own checkout and locks its branch - it must not pass");
+
+  check("a worktree inside the repo is reported as wrong",
+    wt("C:/Users/Yuhan/repo/worktrees/hotfix-x").ok === false,
+    "a nested worktree shows as untracked and every tree scan walks it");
+  // The path deliberately contains neither `temp` nor `scratchpad`: the first
+  // fixture here did, so the temp rule matched first and this check stayed
+  // green when the nested rule was deleted.
+
+  check("a worktree registered but gone from disk is reported as wrong",
+    wt("D:/elsewhere/repo-hotfix-x", { existsOnDisk: false }).ok === false,
+    "a pruned directory still locks its branch, which is the state that blocks cleanup");
+
+  // Pinned regression: the first version of this rule lived in bash and
+  // compared git's `C:/foo` against bash's `/c/foo`, so it classified the
+  // PRIMARY checkout as a stranger and its inside-the-repo branch was
+  // unreachable. Both spellings must read as the same directory.
+  check("the primary checkout is recognised whichever way its path is spelled",
+    classifyWorktree({ path: "C:/Users/Yuhan/repo", repoRoot: "/c/Users/Yuhan/repo" }).kind === "primary"
+      && classifyWorktree({ path: "/c/Users/Yuhan/repo", repoRoot: "C:\\Users\\Yuhan\\repo" }).kind === "primary",
+    "a path-style mismatch makes the primary checkout look like debris and kills the nested check");
+
+  check("a sibling worktree outside the repo is fine",
+    wt("C:/Users/Yuhan/repo-hotfix-registers-404").ok === true,
+    "the recommended location must not be reported as a problem");
+
+  const parsed = parseWorktreeList([
+    "worktree C:/a", "HEAD abc", "branch refs/heads/dev", "",
+    "worktree C:/b", "HEAD def", "detached", "",
+  ].join("\n"));
+  check("the porcelain parser reads every entry and its branch",
+    parsed.length === 2 && parsed[0].branch === "dev" && parsed[1].branch === null,
+    `parsed ${JSON.stringify(parsed)}`);
+
+  // LIVE, and deliberately narrow. Only a worktree INSIDE the repo fails the
+  // suite: it is untracked in a tree deploy.sh stages from, and the mirror and
+  // secret scans would walk a second copy of the app. A temp-dir worktree is
+  // untidy and harmless at deploy time, and removing it deletes files - so it
+  // is `hotfix-worktree.sh status`'s business, not a blocked release's.
+  const liveAudit = auditWorktrees(
+    execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: ROOT, encoding: "utf8" }), ROOT);
+  const nested = liveAudit.filter((w) => w.kind === "nested");
+  check("no git worktree is registered inside this repo",
+    nested.length === 0,
+    `${nested.map((w) => w.path).join(", ")} - move it beside the repo: scripts/hotfix-worktree.sh new <slug>`);
+
+  // A hotfix branch is temporary BY DESIGN - off main, one bug, merged, gone -
+  // and the only thing that makes the last step happen is someone noticing. So
+  // the report states what is true rather than issuing a verdict: `ahead` is
+  // commits not in main and does NOT mean unshipped. The v1.4.1 year-wheel fix
+  // reached main through dev while its abandoned hotfix branch still read 1
+  // ahead, because a reimplementation is a different commit - a tool that
+  // called that branch unfinished would be wrong, and one that called it
+  // merged would invite -D on work nobody had checked.
+  check("a hotfix branch contained in main is reported as safe to delete",
+    classifyHotfixBranch({ branch: "hotfix/x", ahead: 0, containedInMain: true }).state === "merged",
+    "a finished hotfix must be visibly finished, or it accumulates");
+  check("a hotfix branch NOT in main is never reported as merged",
+    classifyHotfixBranch({ branch: "hotfix/x", ahead: 1, containedInMain: false }).state === "open",
+    "reporting an unmerged branch as merged invites git branch -D on unreviewed work");
 
   // Referencing the manifest as "/manifest.json" makes Vite treat it as a
   // public-dir asset and rewrite it to "./manifest.json" for the relative base.
@@ -3259,6 +3776,88 @@ async function layerI() {
   check("the live harness serves every data tree src/ fetches from disk",
     unserved.length === 0,
     `playthrough.mjs does not serve ${unserved.join(", ")} — it will die on a relative URL before round 1`);
+  // --------------------------------- the harness reaches the code under test
+  //
+  // THE FIFTH INSTANCE of the shape this repo tracks, and the first that is not a
+  // pinned field: the §22.2 restaging sweep lives in startNewGame, the harness
+  // REBUILDS that boundary because it is React state, and generateCastDetail
+  // appeared in playthrough.mjs nowhere. So 4b's live gate was unreachable - a run
+  // would have graded the un-restaged prompt and reported a healthy row.
+  //
+  // Derived on BOTH sides: the entry list the harness bundles and the names its
+  // worker destructures are both read out of its source, so a name added to one and
+  // not the other fails here instead of at round 0 on a paid key. A missing export
+  // is undefined at runtime, which a build cannot see.
+  const ENTRY_MARK = 'export * from "./src/';
+  const entryList = [];
+  for (let i = harnessSrc.indexOf(ENTRY_MARK); i !== -1; i = harnessSrc.indexOf(ENTRY_MARK, i + 1)) {
+    const end = harnessSrc.indexOf(";", harnessSrc.indexOf(".js", i));
+    entryList.push(harnessSrc.slice(i, end + 1));
+  }
+  const dStart = harnessSrc.indexOf("const {", harnessSrc.indexOf("async function runWorker"));
+  const dEnd = harnessSrc.indexOf("} = mod;", dStart);
+  const destructured = harnessSrc.slice(dStart + 7, dEnd)
+    .split(/[^A-Za-z0-9_$]+/).filter(Boolean);
+  check("the harness's bundle entry list and worker destructure are both readable",
+    entryList.length >= 6 && destructured.length >= 10,
+    `parsed ${entryList.length} entries and ${destructured.length} names - a broken scan would pass the next check vacuously`);
+  const workerBundle = join(OUT, "harnessWorker.mjs");
+  await esbuild.build({
+    stdin: { contents: entryList.join(String.fromCharCode(10)), resolveDir: ROOT, loader: "js" },
+    bundle: true, format: "esm", platform: "neutral", outfile: workerBundle, logLevel: "silent",
+    define: { "import.meta.env.BASE_URL": JSON.stringify("/") },
+  });
+  const workerMod = await import("file://" + workerBundle.split(String.fromCharCode(92)).join("/") + "?t=" + Date.now());
+  const missingExports = destructured.filter((n) => workerMod[n] === undefined);
+  check("every symbol the harness worker destructures is exported by the bundle it builds",
+    missingExports.length === 0,
+    `${missingExports.join(", ")} would be undefined at runtime - the entry list does not re-export it`);
+  check("...including the restaging sweep, which is the whole of §22.2's live gate",
+    typeof workerMod.generateCastDetail === "function" && typeof workerMod.applyWorldDetail === "function",
+    "the harness cannot restage, so a live row says nothing about commit 4b");
+
+  // The harness must restage under the APP's condition, not one of its own. A sweep
+  // that ran in every world would grade a prompt the app never builds, in the one
+  // world all six goldens pin; one that ran in none is where this started.
+  const appSweepSrc = readFileSync(join(ROOT, "src", "App.jsx"), "utf8");
+  const USE_ROLE_GATE = "!world.castLore?.useRole";
+  check("the app restages only where the library's prose was not written for the world",
+    appSweepSrc.includes(USE_ROLE_GATE),
+    "App.jsx no longer gates the sweep on castLore.useRole");
+  check("...and the harness gates its sweep on the same condition",
+    harnessSrc.includes(USE_ROLE_GATE),
+    "playthrough.mjs restages on a condition of its own - it would grade a prompt no player gets");
+
+  // Round 1 must be built from the RESTAGED cast. Stamping a roster that round 2
+  // re-resolves while round 1 sends the original is a static-prompt drift of the
+  // whole ~5,500-token prefix. In the harness that reduces to one question: is the
+  // variable executeRound receives the variable the sweep wrote? The name is DERIVED
+  // so renaming it cannot quietly split the two apart.
+  const applyLine = harnessSrc.split(String.fromCharCode(10))
+    .find((ln) => ln.includes("applyWorldDetail(") && ln.includes(" = "));
+  const sweptVar = applyLine ? applyLine.trim().split(" = ")[0].trim() : null;
+  const rStart = harnessSrc.indexOf("await executeRound({");
+  const roundArgs = harnessSrc.slice(rStart, harnessSrc.indexOf("});", rStart));
+  check("the harness's sweep writes the cast variable, not a copy beside it",
+    sweptVar !== null && sweptVar.length > 0,
+    "no applyWorldDetail assignment found in playthrough.mjs");
+  check("...and round 1 is built from that same variable",
+    roundArgs.split(/[^A-Za-z0-9_$]+/).includes(sweptVar),
+    `executeRound does not receive ${sweptVar} - round 1 would send the un-restaged cast and round 2 the restaged one`);
+
+  // ON by default, because the app does it unconditionally. An opt-IN flag leaves
+  // the gate exactly as unreachable as it was, with a flag to point at.
+  check("the harness restages by default and takes a flag to opt OUT",
+    harnessSrc.includes('RESTAGE = !has("no-restage")'),
+    "an opt-in restage flag means a default run still grades a prompt no player gets");
+
+  // A scan that cannot run is not a scan that passed. The idol-word list is zh only
+  // - an en one would have to contain "stage", which occurs in "stage name" - so a
+  // non-zh run RECORDS itself skipped beside the two ROLE CONTRACT graders rather
+  // than reporting a clean 0 having scanned nothing.
+  check("a non-zh run records the idol-word scan as not run, rather than passing it",
+    harnessSrc.includes('gradersSkipped.push("restaged-prose-carries-idol-facts")'),
+    "an en or ko run would report 0 idol words having scanned nothing");
 
   // ------------------------------------------------------ save compatibility
   // A v1.3.5 save has no keepFull anywhere. It must collapse exactly as before.
@@ -3439,6 +4038,32 @@ async function layerI() {
   check("...and keeps one it does, so a shared route survives the switch",
     /!f\.identity \|\| f\.identity === CUSTOM_IDENTITY_ID\s*\r?\n?\s*\|\| world\.identities\.some/.test(setupSrc),
     "clearing unconditionally is what the ex-girlfriend's single id exists to avoid");
+  // ...and it is the ONLY thing a world switch clears. The palette effect - the
+  // one that loads a group's members and empties the main and sub picks - carried
+  // `world` in its dependency list, so changing the world on the classic door's
+  // merged page threw away the cast the player had just chosen one control above
+  // it. Reported from a phone, 2026-10-01.
+  //
+  // Read as DEPENDENCIES rather than as code shape: which cast she is choosing
+  // from is the group's fact, which identities exist is the world's, and the two
+  // effects now say so. `loadGroupConfig` takes no world argument at all.
+  const clearAt = setupSrc.indexOf("{ ...f, mainMember: null, subMembers: [] }");
+  const resolveAt = setupSrc.indexOf("resolveRoster(roster, language, world)");
+  const depsAfter = (i) => (setupSrc.slice(i).match(/\}, \[([^\]]*)\]\);/) || [, ""])[1];
+  const paletteDeps = clearAt < 0 ? "" : depsAfter(clearAt);
+  const resolveDeps = resolveAt < 0 ? "" : depsAfter(resolveAt);
+  check("...and a world switch keeps the cast she has already chosen",
+    clearAt > 0 && /selectedGroup/.test(paletteDeps) && !/\bworld\b/.test(paletteDeps),
+    `the effect that clears the picks depends on [${paletteDeps}]`);
+  // The other half, and either alone is vacuous: dropping `world` from both would
+  // pass the check above while leaving an in-game cast framed by the wrong world.
+  check("...while the in-game cast still re-resolves when the world does",
+    resolveAt > 0 && /\bworld\b/.test(resolveDeps),
+    `resolveRoster's effect depends on [${resolveDeps}]`);
+  // They are two effects rather than two branches of one, and that needs no check
+  // of its own: a merge forces ONE dependency list, which either carries `world`
+  // and reddens the palette check or does not and reddens the resolve check. A
+  // third check asserting the shape could not fail independently.
   // Counted, and counted against the number of call sites. This was four copies of
   // one expression, and the count is what found that the fourth had drifted: the
   // epilogue omitted the `"H"` branch, so a player who wrote her own identity
@@ -4030,6 +4655,105 @@ async function layerI() {
     }
     check("every world's prompt carries exactly the platforms that world declares",
       platformStrays.length === 0, platformStrays.join(" | "));
+  }
+  // --- docs/V140_PLAN.md 22.1: idol prose in a non-idol world ---------------
+  //
+  // `castLore.useRole` keeps the STRUCTURED `role` out of section 4, and step 7
+  // stopped there - so the prose one field over went on saying the same thing.
+  // 57 of 57 library members carry idol vocabulary in a world-agnostic prose
+  // field (80 instances, `public_image` 56 of them), which is why a chaebol
+  // heiress posted about a recording session and being the maknae from a family
+  // compound. The interim rule tells the model how to READ that prose; 22.2
+  // fixes the data - and NARROWS this rule rather than deleting it, because
+  // `generateCard` is an accelerator and never a gate, so a run can always hold a
+  // member whose texture was not translated. The narrowing is guarded below.
+  //
+  // Derived over every world rather than asserted about campus, which is the
+  // lesson the org-suffix scan and the platform loop above both had to learn: a
+  // guard pinned to one instance of the class it is about is a sample. Both
+  // directions are one comparison against `useRole`, so a fifth world is covered
+  // the day it lands - and the idol world must NOT be told that this story is
+  // not an idol story.
+  {
+    const TRAITS_RULE = /TRAITS, NEVER FOR FACTS/;
+    const wrongSide = [];
+    const noSubstitute = [];
+    const misplaced = [];
+    for (const [id, byLang] of Object.entries(allWorlds)) {
+      const w = byLang.en;
+      if (!w) continue;
+      const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+        members.map((m) => m.id));
+      const cast = await fromDisk(() => loader.resolveRoster(roster, "en", w));
+      const rendered = buildSystemPrompt(form({ identity: w.identities[0].id }), cast.members,
+        "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", w);
+      // Section 5 up to the first profile. Scoping matters for the substitute:
+      // `castLife.theirs` already renders in the ROLE CONTRACT, so an unscoped
+      // search would pass on the OTHER section's copy and prove nothing here.
+      const head = rendered.slice(rendered.indexOf("CRITICAL: \u2605"),
+        rendered.indexOf("\n  Age: "));
+      const wants = w.castLore.useRole === false;
+      if (TRAITS_RULE.test(rendered) !== wants) {
+        wrongSide.push(id + ": useRole=" + w.castLore.useRole + " and the rule is "
+          + (wants ? "missing" : "present"));
+      }
+      if (!wants) continue;
+      // The load-bearing half. A prohibition with no substitute gets routed
+      // around - CLAUDE.md records that twice, and the second time the model
+      // INVENTED a channel to escape a list of named ones. The substitute has to
+      // be THIS world's, so a hardcoded one fails here.
+      if (!head.includes(w.castLife.theirs)) {
+        noSubstitute.push(`${id}: the rule never names ${JSON.stringify(w.castLife.theirs)}`);
+      }
+      // A rule about how to read the prose is read too late if it follows it.
+      if (!TRAITS_RULE.test(head)) misplaced.push(id);
+    }
+    check("the traits-not-facts rule reaches every non-idol world and no idol one",
+      wrongSide.length === 0, wrongSide.join(" | "));
+    check("...and supplies that world's own life as the substitute, not a prohibition alone",
+      noSubstitute.length === 0, noSubstitute.join(" | "));
+    check("...and sits BEFORE the profiles it tells the model how to read",
+      misplaced.length === 0, misplaced.join(" | "));
+
+    // §22.2 NARROWS the rule to the members it is true of. Three states, and each
+    // one is a different promise: gone once everybody is translated, scoped and
+    // naming whom when it is a subset, and byte-identical to today when nobody is -
+    // which is what lets this land without moving a golden, since no fixture
+    // contains a translated member. Same technique step 6 used to exercise the
+    // platform trimming before any world on disk could.
+    const nonIdol = Object.values(allWorlds).map((b) => b.en)
+      .find((w) => w && w.castLore.useRole === false);
+    if (!nonIdol) {
+      check("a non-idol world exists to exercise the narrowed rule against", false,
+        "without one every check below would pass vacuously");
+    } else {
+      const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+        members.map((m) => m.id));
+      const cast = await fromDisk(() => loader.resolveRoster(roster, "en", nonIdol));
+      const render = (ms) => buildSystemPrompt(form({ identity: nonIdol.identities[0].id }),
+        ms, "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", nonIdol);
+      const done = (m) => ({ ...m, world_position: "restaged" });
+      const none = render(cast.members);
+      const all = render(cast.members.map(done));
+      const some = render(cast.members.map((m, i) => (i === 0 ? m : done(m))));
+      check("the traits-not-facts rule disappears once every member has been translated",
+        !TRAITS_RULE.test(all),
+        "a rule about data that is no longer sent is the append-only failure");
+      check("...and stays for a run where even one member has not been",
+        TRAITS_RULE.test(some) && TRAITS_RULE.test(none),
+        "generateCard is an accelerator and never a gate, so this state is reachable");
+      // Scoped to the CLAUSE. Searching the whole prompt for the translated
+      // member's name finds her sub-member line and fails on prose that is
+      // correct - the name is a claim about who still needs the rule only here.
+      const clauseIn = (pr) => (pr.match(/This applies to [^\n]*?are literal\./) || [""])[0];
+      check("...naming exactly her, and saying the others' lines are literal",
+        clauseIn(some).includes(cast.members[0].name)
+          && cast.members.slice(1).every((m) => !clauseIn(some).includes(m.name)),
+        JSON.stringify(clauseIn(some)));
+      check("...and says nothing about whom when nobody has been translated, so no golden moves",
+        !/and to no one else/.test(none) && !/are literal/.test(none),
+        "every fixture is in this state; a clause here would move three goldens");
+    }
   }
 
     // Direction, rendered. `prof_of_cast` points the title at the player and
@@ -5013,9 +5737,85 @@ async function layerI() {
   // ...and the field is still THERE. Stripping it at the loader would have taken an
   // idol position out of the idol world too, which is the half of Yuhan's
   // instruction a filter satisfies and a deletion does not.
+  // §22.2: THE FILTERED SLOT IS FILLED, by `world_position` - what she does in THIS
+  // world. Filtering the idol position left a non-idol world with nothing at all
+  // saying what she does, and that is the most world-specific fact there is.
+  //
+  // They are ALTERNATIVES IN ONE EXPRESSION, so both directions are asserted on the
+  // same cast: the idol world must render `role` and never the position, the non-idol
+  // world the reverse. A cross-group cast is used because a whole single group in an
+  // idol world takes its group lore verbatim and never reaches memberLine at all -
+  // so a check written on the classic cast would pass without exercising anything.
+  const POS = "SENTINEL-WORLD-POSITION";
+  const posCast = { ...roleCast, entries: roleCast.entries.map((e) => ({ ...e, override: { world_position: POS } })) };
+  const posIdol = await fromDisk(() => loader.resolveRoster(posCast, "zh", worlds.zh));
+  const posSans = await fromDisk(() =>
+    loader.resolveRoster(posCast, "zh", noRoleWorld || worlds.zh));
+  check("a world-scoped position fills the slot the idol position was filtered out of",
+    posSans.groupConfig.groupLore.includes(POS),
+    "a non-idol world had nothing at all saying what she does");
+  check("...and an idol world renders her idol position instead, never both",
+    !posIdol.groupConfig.groupLore.includes(POS)
+      && roleStrings.every((r) => posIdol.groupConfig.groupLore.includes(r)),
+    "two answers to *what does she do* is the failure this repo records five of");
   check("`role` still reaches the app from the group library",
     withRole.members.every((m) => typeof m.role === "string" && m.role.length > 0),
     "the cast picker and the member editor read it; only the PROMPT is filtered");
+
+  // §22.2 commit 4b: A RESTAGING IS AN OVERLAY STAMPED WITH ITS WORLD.
+  //
+  // Read off the RESOLVED MEMBER rather than off the builder or the stored roster:
+  // the whole promise is about what the prompt is handed, and a stored object can
+  // be perfectly shaped and never applied. The stale case uses a stamp naming a
+  // world this cast is not being resolved in, which is the state a player produces
+  // by changing the world after generating.
+  const RESTAGED = "SENTINEL-RESTAGED-IMAGE";
+  const stampedCast = (worldStamp) => ({ ...roleCast, entries: roleCast.entries.map((e) => ({
+    ...e,
+    override: { world_detail: { world: worldStamp, world_position: POS, public_image: RESTAGED } },
+  })) });
+  const freshRes = await fromDisk(() =>
+    loader.resolveRoster(stampedCast(worlds.zh.id), "zh", worlds.zh));
+  const staleRes = await fromDisk(() =>
+    loader.resolveRoster(stampedCast("some-other-world"), "zh", worlds.zh));
+  const libImages = withRole.members.map((m) => m.public_image);
+  check("a restaging is applied in the world it was generated for",
+    freshRes.members.every((m) => m.public_image === RESTAGED && m.world_position === POS),
+    JSON.stringify(freshRes.members.map((m) => m.public_image)));
+  // The proposal was a field per line plus a stamp beside them, and this is the
+  // check it could not have passed: writing public_image in place destroys her own
+  // sentence, and a CUSTOM member has no library record to restore it from.
+  check("...and a stamp naming another world leaves her own lines exactly as they were",
+    staleRes.members.every((m, i) => m.public_image === libImages[i] && !m.world_position),
+    JSON.stringify(staleRes.members.map((m) => m.public_image)));
+  // The overlay itself is not a prompt field. Section 5 and memberLine read named
+  // fields, so it would render nothing either way - deleting it says so on purpose.
+  check("...and the stamped object itself reaches no member the prompt is built from",
+    freshRes.members.every((m) => !("world_detail" in m))
+      && !freshRes.groupConfig.groupLore.includes("world_detail"),
+    JSON.stringify(Object.keys(freshRes.members[0])));
+  // The same rule isUsableDetail states and withCastDetail stores by. A detail with
+  // prose and no position would count as restaged while rendering nothing at all in
+  // the slot useRole empties - worse than the idol prose the interim rule covers.
+  const noPos = await fromDisk(() => loader.resolveRoster({ ...roleCast, entries: roleCast.entries.map((e) => ({
+    ...e, override: { world_detail: { world: worlds.zh.id, public_image: RESTAGED } } })) }, "zh", worlds.zh));
+  check("...and a restaging with no world position is not applied at all",
+    noPos.members.every((m, i) => m.public_image === libImages[i]),
+    "world_position is the one marker, on every path that writes one");
+  // Per-field lossy by design: parseWorldDetail keeps whatever arrived, so a blank
+  // overriding a sentence is the one direction that loses text.
+  const blankOne = await fromDisk(() => loader.resolveRoster({ ...roleCast, entries: roleCast.entries.map((e) => ({
+    ...e, override: { world_detail: { world: worlds.zh.id, world_position: POS, public_image: "   " } } })) }, "zh", worlds.zh));
+  check("...and a field the restaging left blank keeps her own line",
+    blankOne.members.every((m, i) => m.public_image === libImages[i] && m.world_position === POS),
+    JSON.stringify(blankOne.members.map((m) => m.public_image)));
+  // The position the overlay carries has to reach memberLine, or the slot useRole
+  // empties is filled in the data and empty in the prompt.
+  const overlaidLore = await fromDisk(() =>
+    loader.resolveRoster(stampedCast(worlds.zh.id), "zh", noRoleWorld || worlds.zh));
+  check("...and an applied restaging fills the slot in the prompt, not only on the member",
+    overlaidLore.groupConfig.groupLore.includes(POS),
+    "a stamped position nothing renders is a field with no reader");
 
   // The world is REQUIRED, the same rule buildSystemPrompt follows. A default would
   // be a second copy of every string in public/worlds/, and a missing-wiring bug
@@ -5730,6 +6530,7 @@ async function layerI() {
   // blank form so a dead provider, an exhausted free route or a missing key
   // cannot block character creation. That is the whole contract, and it is the
   // one thing a live test would exercise least often.
+  const cgSrc = readFileSync(join(ROOT, "src/agent/cardGenerator.js"), "utf8");
   const cardBundle = join(OUT, "cardGen.mjs");
   await esbuild.build({
     stdin: {
@@ -5923,9 +6724,352 @@ async function layerI() {
     shortDesc.ok === false && shortDesc.reason === "no_description" && called === 0,
     `fetch called ${called} times`);
 
+  // --- §22.5 commit 4: restaging a member into the world she is cast in --------
+  //
+  // §22.1's defect is the library's prose, not its structured fields: 57 of 57 members
+  // describe themselves through idol work in a world-agnostic field. The interim rule
+  // tells the MODEL to read that prose for traits; this does it once at setup instead,
+  // where it can be reviewed and costs nothing per round.
+  const DETAIL = {
+    world_position: "the family's in-house counsel",
+    public_image: "line one\nline two",
+    queer_texture: "  padded  ",
+    nonsense: "not a field",
+  };
+  const parsedDetail = cg.parseWorldDetail(JSON.stringify(DETAIL));
+  check("a world detail keeps only the fields it declares, one line each",
+    parsedDetail.public_image === "line one line two"
+      && parsedDetail.queer_texture === "padded"
+      && !("nonsense" in parsedDetail),
+    JSON.stringify(parsedDetail));
+  check("...and is recovered from a fenced response the way a card is",
+    cg.parseWorldDetail("```json\n" + JSON.stringify(DETAIL) + "\n```").world_position
+      === DETAIL.world_position,
+    "a model that fences its JSON must not cost the player the call");
+  // ONE recovery, not two copies. `extractStoryText` is this repo's standing warning:
+  // two copies drifted and the guard had been written against the one still correct.
+  // THREE parsers now: a card, one member's restaging, and a whole cast's. One
+  // declaration and three call sites - counted, because a helper can exist, be
+  // correct, and be used in two of three places.
+  check("...through the SAME JSON recovery the other parsers use, not a copy each",
+    cgSrc.split("parseJsonish(").length - 1 === 4
+      && cgSrc.split("const fenced = ").length - 1 === 1,
+    (cgSrc.split("parseJsonish(").length - 1) + " references to one recovery");
+  // Same argument one field over: the restaging LAW and the five-field schema are
+  // one rule each, rendered by both prompts. Two copies of one rule is what
+  // extractStoryText is this repo's standing warning about.
+  check("...and both prompts render ONE copy of the restaging law and the schema",
+    cgSrc.split("${restageLaw(lang)}").length - 1 === 2
+      && cgSrc.split("${DETAIL_SCHEMA}").length - 1 === 2
+      && cgSrc.split("no comeback").length - 1 === 1,
+    "a second copy of the forbidden list is a second list to forget to update");
+  // The MARKER the prompt reads. A detail with prose and no position would count as
+  // translated while rendering nothing in the slot `useRole` emptied - a member with
+  // no statement of what she does at all, which is worse than the idol prose.
+  check("a detail is usable only when it says what she does in this world",
+    cg.isUsableDetail(parsedDetail) === true
+      && cg.isUsableDetail({ public_image: "x", queer_texture: "y" }) === false
+      && cg.isUsableDetail({ world_position: "   " }) === false,
+    "world_position is the one field the narrowed interim rule keys on");
+  // No new world field, which is why §4.5's `world.setting` is still not shipped: the
+  // world already answers what a restaging needs, and reusing the fields the ROLE
+  // CONTRACT and section 11 render is what stops the detail contradicting them.
+  {
+    const w = Object.values(allWorlds).map((b) => b.en).find((x) => x && x.castLore.useRole === false);
+    const dp = w ? cg.buildWorldDetailPrompt({ name: "Yeri", public_image: "the maknae" }, w, "en") : "";
+    check("the restaging prompt is built from fields the world already carries",
+      Boolean(w) && dp.includes(w.castLife.theirs) && dp.includes(w.castLore.orgNoun)
+        && dp.includes(w.scenario) && dp.includes(w.places[0].name),
+      "a new prose field would be twelve world documents for something already there");
+    check("...and hands her existing lines over as the source to restage",
+      dp.includes("the maknae") && /KEEP WHO SHE IS/.test(dp),
+      "a restaging with nothing to restage invents a stranger");
+    // DERIVED, not sampled. The two rules are one rule - the restaging removes the
+    // idol facts and the interim rule tells the model to read past whatever the
+    // restaging did not reach - so a rank named in one and not the other is a rank
+    // one of them treats as unconstrained. That is not hypothetical: the live run
+    // of 2026-09-30 wrote Joy as 门面担当 in a family compound, and the enumeration
+    // said "leader, main vocal or maknae" with the VISUAL missing from both.
+    const ranksIn = (src) => (src.match(/performing group such as ([^.]+)\./) || [, ""])[1]
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/\s+/g, " ").split(/,| or /).map((x) => x.trim()).filter(Boolean).sort().join("|");
+    const agentSrc = readFileSync(join(ROOT, "src", "agent", "mainAgent.js"), "utf8");
+    check("...and forbids the idol facts the interim rule forbids at read time",
+      /no stage/.test(dp) && /no comeback/.test(dp) && /maknae/.test(dp)
+        && ranksIn(cgSrc) !== "" && ranksIn(cgSrc) === ranksIn(agentSrc),
+      "the two must forbid the same list or they are two rules about one thing: "
+        + ranksIn(cgSrc) + " vs " + ranksIn(agentSrc));
+    check("...including the VISUAL, which the enumeration omitted and a live run leaked",
+      ranksIn(cgSrc).includes("visual"),
+      "when a contract enumerates, the model treats what it omits as unconstrained");
+    // The game writes zh, en and ko, so a rule naming the rank in English only is one
+    // the model can follow and still break - it is copying a token out of Chinese
+    // prose. Both lists are checked, because the equality above is satisfied by two
+    // lists that are equally wrong.
+    // EACH LIST ON ITS OWN, never their concatenation: joined, either one alone
+    // satisfies the check and the other is free to be wrong - two rules covering for
+    // each other, which is what cropRect's double clamp cost an hour to find.
+    // zh ONLY, and that is a measurement rather than an omission: a live ko run came
+    // back with the Korean word for the youngest sitting in campus register, where it
+    // is the ordinary word for it and has no neutral substitute. See cardGenerator.js.
+    const transliterated = ["\u961f\u957f", "\u4e3b\u5531", "\u95e8\u9762", "\u5fd9\u5185"];
+    const missing = [["the restaging law", ranksIn(cgSrc)], ["the interim rule", ranksIn(agentSrc)]]
+      .flatMap(([where, list]) => transliterated.filter((w) => !list.includes(w))
+        .map((w) => where + ": " + w));
+    check("...and names each rank in the scripts the game actually writes in",
+      missing.length === 0,
+      "an English-only list is followed and still broken: " + missing.join(" "));
+  }
+  // ---------------------------------------- the cast block, and why it exists
+  //
+  // FOUND BY THE FIRST LIVE RUN OF THE SWEEP, 2026-09-30, and by reading its
+  // output rather than its counters: five members restaged concurrently from five
+  // prompts that each showed ONE member produced Irene as 本家次女 and Seulgi as
+  // 次女 - two second daughters of one family - plus a hierarchy nobody assigned.
+  // Zero idol words, four clean rounds, and a cast that cannot all be true.
+  //
+  // The model was not ignoring a rule. The prompt never said she was one of
+  // several, so no rule about collision was applicable - the [Rounds Absent]
+  // lesson exactly: carry the fact, keep the rule beside it, point one at the
+  // other. What makes the fix work under CONCURRENCY is that the ladder is
+  // derived from birth years fixed at setup, so five calls that never see each
+  // other still agree on the order and disagree about which row is theirs.
+  {
+    const w = Object.values(allWorlds).map((b) => b.en).find((x) => x && x.castLore.useRole === false);
+    const cast = [
+      { id: "seulgi", name: "Seulgi", birthday: "1994-02-10" },
+      { id: "irene", name: "Irene", birthday: "1991-03-29" },
+      { id: "yeri", name: "Yeri", birthday: "1999-03-05" },
+    ];
+    const ladder = cg.seniorityLadder(cast);
+    check("the seniority ladder runs oldest first, on the axis the honorifics use",
+      ladder.map((r) => r.name).join(",") === "Irene,Seulgi,Yeri",
+      JSON.stringify(ladder.map((r) => r.name)));
+
+    // A custom member may carry only name, birthday and private_personality - and
+    // birthday is optional among those in practice. She cannot be placed on a
+    // ladder built from a fact she does not have, and inventing a year for her
+    // would be a fabricated age. Last, and stable, so the order stays derived.
+    const withUnknown = cg.seniorityLadder([{ id: "x", name: "X" }, ...cast, { id: "z", name: "Z" }]);
+    check("...and a member with no birth year sorts last, keeping her input order",
+      withUnknown.map((r) => r.name).join(",") === "Irene,Seulgi,Yeri,X,Z",
+      JSON.stringify(withUnknown.map((r) => r.name)));
+
+    // THE PROPERTY THE WHOLE FIX RESTS ON. Five concurrent calls never see each
+    // other's output, so the only thing that can make their positions differ is
+    // agreeing on one order and disagreeing about which row is theirs. If the
+    // ladder were built per-call from anything call-specific, this is the check
+    // that fails - and the collision comes straight back.
+    const prompts = cast.map((m) => cg.buildWorldDetailPrompt(m, w, "en", cast));
+    const orders = prompts.map((t) => (t.match(/1\. \w+[\s\S]*?3\. \w+/) || [""])[0]
+      .split(String.fromCharCode(10)).map((ln) => ln.replace(/ +<- .*/, "")).join("|"));
+    check("every member's prompt carries the SAME ladder, which is what lets them differ",
+      new Set(orders).size === 1 && orders[0].includes("Irene"),
+      JSON.stringify(orders));
+    check("...and each one marks a different row as the member being written",
+      new Set(prompts.map((t) => t.indexOf("<- the one you are writing"))).size === 3,
+      "two calls told to write the same row is the collision with extra steps");
+    check("...and states the rule the ladder exists to make applicable",
+      prompts.every((t) => /must be DISTINCT/.test(t) && /older member is/.test(t)),
+      "a fact with no rule beside it is a fact the model has no reason to use");
+
+    // The editor restages ONE member, from a screen where the roster may not exist
+    // yet, so it passes no cast. A block naming nobody would be a rule about an
+    // empty list - and a one-member cast has nothing to collide with.
+    check("a restaging with no cast to place her in carries no cast block at all",
+      !/THE REST OF THE CAST/.test(cg.buildWorldDetailPrompt(cast[0], w, "en"))
+        && !/THE REST OF THE CAST/.test(cg.buildWorldDetailPrompt(cast[0], w, "en", [cast[0]])),
+      "the editor cannot know the cast; the Start sweep is where distinctness is enforced");
+  }
+
+  // The sweep decision A costs the player a wait for, so: concurrent, per-member
+  // fallback, and it SKIPS anyone already translated - which is what stops it
+  // re-paying for the editor's work and overwriting a line the player corrected.
+  {
+    let swept = null, threw = null;
+    try {
+      swept = await cg.generateCastDetail({
+        members: [{ id: "a", name: "A" }, { id: "b", name: "B", world_position: "already" }],
+        world: { castLife: { theirs: "x" }, castLore: { orgNoun: "y" }, scenario: "z", places: [] },
+        apiKey: "", modelId: "deepseek",
+      });
+    } catch (e) { threw = e?.kind || "throw"; }
+    check("the cast sweep asks only for members who have not been restaged yet",
+      swept?.asked === 1,
+      "re-asking overwrites a line the player reviewed and charges her for it");
+    check("...and a failed member leaves the run startable rather than throwing",
+      threw === null && swept?.failed === 1 && Object.keys(swept?.detailById || {}).length === 0,
+      threw ? "it threw " + threw : "an accelerator, never a gate - creation cannot block on a provider");
+  }
+
+  // ---------------------------------------- ONE call places the whole cast
+  //
+  // The birth-year ladder lets each of N concurrent calls INFER what the others
+  // will avoid, and inference is not agreement: measured live, it took the
+  // collision from two of five to one of five and stopped there. Positions can
+  // only be held apart by something that sees them together, so pass 1 is ONE
+  // call carrying every member. Measured, that is a smaller bill (3.3x fewer
+  // characters sent at five members, 4.2x at nine) and a LONGER wait (5.2s
+  // against 2.2s), because one response writes five answers in series where
+  // five calls write in parallel. The round-trip count is what this counts.
+  {
+    const w = Object.values(allWorlds).map((b) => b.en).find((x) => x && x.castLore.useRole === false);
+    const cast = [
+      { id: "seulgi", name: "Seulgi", birthday: "1994-02-10", public_image: "the maknae" },
+      { id: "irene", name: "Irene", birthday: "1991-03-29", private_personality: "reserved" },
+      { id: "yeri", name: "Yeri", birthday: "1999-03-05", habit: "taps the table" },
+      { id: "wendy", name: "Wendy", birthday: "1994-02-21", world_position: "the in-house counsel" },
+    ];
+    const targets = ["irene", "seulgi", "yeri"];
+    const cp = cg.buildCastDetailPrompt(cast, w, "en", targets);
+
+    // A member the editor already restaged is asked for in NEITHER pass - that is
+    // what stops the Start boundary re-paying for her and overwriting a line the
+    // player corrected. Her position is still exactly what the new ones must not
+    // collide with, so it is printed rather than left implicit.
+    check("the whole-cast prompt lists every member, and asks for only the ones still missing",
+      cast.every((m) => cp.includes(m.name))
+        && cp.includes("already placed as: the in-house counsel")
+        && (cp.split("WRITE HER").length - 1) === targets.length
+        && !cp.includes("[3] Wendy"),
+      "a cast she is not shown is a cast she can collide with");
+
+    // KEYED BY LADDER POSITION, never by member id. A custom member's id is a
+    // timestamp, so keying on ids asks the model to echo a 13-digit number per
+    // member - a transcription task beside a writing one, and the one place a
+    // single wrong digit hands one member's profile to another.
+    check("...and names the keys it wants, which are the positions it printed",
+      cp.includes("and no others: 1, 2, 4") && cp.includes('key "1"'),
+      "a key the model has to invent is a key it can get wrong");
+
+    // THE ROUND TRIP the whole design rests on: key N must come back to ladder
+    // row N. If the two ever disagree, every member silently wears somebody
+    // else's life and nothing anywhere throws.
+    const good = cg.parseCastDetail(JSON.stringify({
+      "1": { world_position: "the eldest daughter" },
+      "2": { world_position: "the second daughter", public_image: "two\nlines" },
+      "4": { world_position: "the youngest" },
+    }), cast, targets);
+    check("a position key comes back to the member that position belongs to",
+      good.irene?.world_position === "the eldest daughter"
+        && good.seulgi?.world_position === "the second daughter"
+        && good.yeri?.world_position === "the youngest"
+        && good.seulgi?.public_image === "two lines",
+      JSON.stringify(good));
+
+    // A RETURNED KEY IS UNTRUSTED TEXT. Tolerant, then strict: a position in
+    // range, an id, or a name - and then only a member this call asked for.
+    // Anything else is dropped rather than guessed at, because pass 2 covers
+    // whoever is left, so discarding costs one small call and misattributing
+    // costs the player a member wearing another member's life.
+    const messy = cg.parseCastDetail(JSON.stringify({
+      "Yeri": { world_position: "by name" },
+      "irene": { world_position: "by id" },
+      "99": { world_position: "out of range" },
+      "3": { world_position: "a member nobody asked for" },
+      "who": { world_position: "nobody at all" },
+    }), cast, targets);
+    check("...and a key that names nobody this call asked for is dropped, not guessed at",
+      messy.yeri?.world_position === "by name"
+        && messy.irene?.world_position === "by id"
+        && messy.wendy === undefined && Object.keys(messy).length === 2,
+      JSON.stringify(messy));
+
+    // world_position is the ONE marker the narrowed §22.1 rule keys on, so a
+    // member who came back with prose and no position is NOT placed - she falls
+    // through to pass 2 instead of being left with nothing in the slot useRole
+    // emptied.
+    check("...and a member who came back without a position is not counted as placed",
+      Object.keys(cg.parseCastDetail(JSON.stringify({
+        "1": { public_image: "prose but no position" },
+        "2": { world_position: "placed" },
+      }), cast, targets)).join() === "seulgi",
+      "a partial detail renders nothing in the slot the world emptied");
+  }
+
+  // ---------------------------------------- the two passes, counted
+  //
+  // PASS 1 is one call for everyone; PASS 2 is the per-member concurrent sweep
+  // for whoever pass 1 left out. Each member therefore gets TWO chances, which
+  // is what keeps `an accelerator, never a gate` true of a provider that answers
+  // badly rather than not at all. Counted through the transport, because the
+  // number of round-trips IS the claim: one where there used to be N.
+  {
+    const w = { castLife: { theirs: "x" }, castLore: { orgNoun: "y" }, scenario: "z", places: [] };
+    const cast = [
+      { id: "a", name: "A", birthday: "1991-01-01" },
+      { id: "b", name: "B", birthday: "1994-01-01" },
+      { id: "c", name: "C", birthday: "1999-01-01" },
+    ];
+    const answer = (bodies, reply) => async (u, i) => {
+      bodies.push(JSON.parse(i.body));
+      return { ok: true, status: 200,
+        json: async () => ({ choices: [{ message: { content: reply(bodies.length) } }] }) };
+    };
+    const real = globalThis.fetch;
+
+    // A complete answer: one round-trip for the whole cast, and pass 2 never runs.
+    const whole = [];
+    globalThis.fetch = answer(whole, () => JSON.stringify({
+      "1": { world_position: "p1" }, "2": { world_position: "p2" }, "3": { world_position: "p3" },
+    }));
+    let swept;
+    try {
+      swept = await cg.generateCastDetail({ members: cast, world: w, apiKey: "k", modelId: "deepseek" });
+    } finally { globalThis.fetch = real; }
+    check("a cast of three is restaged in ONE round-trip, not three",
+      whole.length === 1 && swept?.fromCastCall === 3 && swept?.failed === 0
+        && Object.keys(swept?.detailById || {}).length === 3,
+      whole.length + " calls, " + swept?.fromCastCall + " placed by the cast call");
+
+    // A PARTIAL answer is kept and topped up rather than retried. validateContent
+    // fires bad_response when it returns false, so demanding the full set would
+    // spend two retries on a response that is mostly right and then fall back for
+    // everybody - where accepting one member costs one small call for the rest.
+    const partial = [];
+    globalThis.fetch = answer(partial, (n) => (n === 1
+      ? JSON.stringify({ "1": { world_position: "p1" } })
+      : JSON.stringify({ world_position: "fallback" })));
+    let topped;
+    try {
+      topped = await cg.generateCastDetail({ members: cast, world: w, apiKey: "k", modelId: "deepseek" });
+    } finally { globalThis.fetch = real; }
+    check("...and a member the one call omitted is picked up by the per-member pass",
+      partial.length === 3 && topped?.fromCastCall === 1 && topped?.failed === 0
+        && topped?.detailById.b?.world_position === "fallback"
+        && topped?.detailById.a?.world_position === "p1",
+      partial.length + " calls for a response covering one of three");
+
+    // ...and the fallback is told what pass 1 already took. Without this the
+    // member being re-asked guesses against a board she cannot see, which is the
+    // collision coming back through the second pass.
+    check("...and that pass is told which positions the first one already took",
+      partial.slice(1).every((b) => b.messages.at(-1).content.includes("already placed as: p1")),
+      "a fallback that cannot see pass 1's answers re-opens the collision");
+
+    // BOTH passes dead is the state §22.1's narrowed interim rule still covers:
+    // the member keeps her own idol prose and the run starts. An accelerator,
+    // never a gate - character creation cannot block on a provider.
+    let dead = null, deadThrew = null;
+    try {
+      dead = await cg.generateCastDetail({
+        members: cast, world: w, apiKey: "", modelId: "deepseek",
+      });
+    } catch (e) { deadThrew = e?.kind || "throw"; }
+    check("...and a provider that answers neither pass leaves the run startable",
+      deadThrew === null && dead?.asked === 3 && dead?.failed === 3 && dead?.castCall === "auth"
+        && Object.keys(dead?.detailById || {}).length === 0,
+      deadThrew ? "it threw " + deadThrew
+        : JSON.stringify({ asked: dead?.asked, failed: dead?.failed, castCall: dead?.castCall }));
+  }
+
   check("the generator asks for no field that reaches no prompt",
     !cg.CARD_FIELDS.includes("mbti") && !cg.CARD_FIELDS.includes("role")
       && !cg.CARD_FIELDS.includes("emoji") && !cg.CARD_FIELDS.includes("tags")
+      // animal_plastic left in v1.4.1 §22.2 for a DIFFERENT reason from those
+      // four: it is rendered, and what it lost is the editor's box. A field the
+      // model fills and the player cannot correct fails the next check below.
+      && !cg.CARD_FIELDS.includes("animal_plastic")
       && cg.CARD_FIELDS.includes("habit"),
     JSON.stringify(cg.CARD_FIELDS));
 
@@ -5980,11 +7124,158 @@ async function layerI() {
 
   // EVERY field the generator can fill must be editable, or the model writes
   // something the player has no way to correct.
-  const stepFields = [...editorSrc.matchAll(/^\s*\["([^\]]+)\],?$/gm)]
-    .flatMap((m) => m[1].split(",").map((s) => s.trim().replace(/^"|"$/g, "")));
+  const parseArrays = (block) => [...block.matchAll(/\[([^\]]+)\]/g)]
+    .map((m) => m[1].split(",").map((x) => x.trim().replace(/^"|"$/g, "")));
+  const stepArrays = parseArrays((editorSrc.match(/STEP_FIELDS = \[([\s\S]*?)\n\];/) || [, ""])[1]);
+  const stepFields = stepArrays.flat();
   const uneditable = cg.CARD_FIELDS.filter((f) => !stepFields.includes(f));
   check("every field the card generator fills is editable in the editor",
     uneditable.length === 0, `not editable: ${uneditable.join(", ")}`);
+  // Tab 1 renders its fields as the resume blocks' arguments, so the declaration
+  // above is documentation unless something ties the two together. The wheel
+  // collects a YEAR and stores a DATE, which is why that one name differs.
+  const tab1Block = editorSrc.slice(editorSrc.indexOf("{/* TAB 1 */}"),
+    editorSrc.indexOf("{/* TAB 2 */}"));
+  // Two ways a field reaches tab 1 - inside the resume block's list, or as a
+  // direct renderCompact call for the one control that is a palette rather than
+  // a box - so both are collected, or the invariant below reads five where the
+  // tab renders six.
+  const rendered = [...parseArrays(tab1Block).flat(),
+    ...[...tab1Block.matchAll(/renderCompact\("(\w+)"\)/g)].map((m) => m[1])]
+    .map((f) => (f === "birthYear" ? "birthday" : f));
+  // THE LAYOUT ITSELF (docs/V140_PLAN.md 22.6.3). Nine stacked full-width boxes
+  // was one and a half screens of scrolling to answer three required fields. The
+  // third clause is the one that matters: tab 1 must not fall back to the
+  // full-width renderer for any of its fields, because one box that does undoes
+  // the row it sits in.
+  const imageCol = Number((editorSrc
+    .match(/const IMAGE_COL = "(\d+)%"/) || [])[1]);
+  check("tab 1 is ONE resume block, an image column beside the fields",
+    (tab1Block.match(/resumeBlock\(/g) || []).length === 1
+      && imageCol > 0 && imageCol < 50
+      && !/renderField\(/.test(tab1Block),
+    "two rows each pay for their own mismatch; one row pays it once");
+  // ...AND THE WALLPAPER'S COLUMN IS THE NARROWER ONE (22.7.2). At the photo's
+  // share its 2:3 ratio makes it 213px tall against three fields that need 168,
+  // so the row is sized by the picture rather than by the form - which is the
+  // gap between the two photos that was reported. The ratio is NOT the thing to
+  // change: the tile is a preview of the crop the player chose, so both aspect
+  // ratios are asserted here too and narrowing is the only lever left.
+  const colAt = (needle) => tab1Block.indexOf(needle, tab1Block.indexOf("resumeBlock("));
+  const iPhoto = colAt('photoTile("photo"'), iWall = colAt('photoTile("wall"');
+  const iEmoji = colAt('renderCompact("emoji")');
+  check("...and the image column is photo, wallpaper, emoji, top to bottom",
+    iPhoto > 0 && iWall > iPhoto && iEmoji > iWall
+      && /aspectRatio: kind === "wall" \? "2 \/ 3" : "1 \/ 1"/.test(editorSrc),
+    "the wallpaper sits directly under the photo, and neither tile's ratio moves");
+  // The right column's ORDER is the requirement, not an accident of the loop -
+  // Yuhan asked for MBTI above habit, and the three required fields lead.
+  check("...and the fields beside it read name, year, personality, MBTI, habit",
+    /\["name", "birthYear", "private_personality", "mbti", "habit"\]/.test(tab1Block),
+    "the order the player reads them in is the design");
+  // THE TWO TABS ARE ONE SIZE (22.8.3), and it is made true by construction
+  // rather than by a pinned height: both panes sit in the same grid cell, so the
+  // row is as tall as the taller of them whatever either one holds. The last
+  // clause is the load-bearing one - a pane rendered conditionally is a pane out
+  // of the layout, which is exactly what made the panel resize under the thumb.
+  check("the two tabs are one size, because both panes share a grid cell",
+    /overflowY: "auto", flex: 1, display: "grid"/.test(editorSrc)
+      && /gridArea: "1 \/ 1"/.test(editorSrc)
+      && /visibility: i === step \? "visible" : "hidden"/.test(editorSrc)
+      && !/\{step === [01] && \(/.test(editorSrc),
+    "a pane taken out of the layout cannot hold the panel's height open");
+  // ...and the generate pair is on THIS tab, not split across two. Tab 2 keeps the
+  // way back, because a generation with no way to a different answer gets routed
+  // around exactly as a prohibition with no substitute does.
+  const tab2Block = editorSrc.slice(editorSrc.indexOf("{/* TAB 2 */}"),
+    editorSrc.indexOf("{/* footer:"));
+  // AN ICON-ONLY CONTROL STILL HAS TO BE ANNOUNCEABLE (22.8.2). The label moved
+  // off the face of the button so Generate could have the width; it did not stop
+  // existing, and the same i18n string is what a screen reader now reads.
+  check("...and the retry button is an icon that still carries its label",
+    /aria-label=\{c\.detailRetry\} title=\{c\.detailRetry\}/.test(tab1Block)
+      && !/>\s*\{c\.detailRetry\}/.test(tab1Block),
+    "an icon with no accessible name is a control a screen reader cannot announce");
+  check("...and tab 2 carries the way back, not a second generate button",
+    !/runGenerate\(/.test(tab2Block) && /dropDetail/.test(tab2Block)
+      && (tab1Block.match(/runGenerate\(/g) || []).length === 2,
+    "two generate buttons on two tabs is what made the fast path cross a tab");
+  // TAB 2 IS NAMED FOR THE WORLD (22.7.3), and the status block it replaces is
+  // GONE rather than shrunk - 69px of a 602px tab, saying in a paragraph what a
+  // tab label says for free. Both halves are asserted, because either alone is
+  // half a fix: a renamed tab beside the block it makes redundant is the block
+  // still costing the height, and a deleted block with no rename leaves nothing
+  // on screen saying which world the text was written for.
+  check("tab 2 is named for the world it is about",
+    /c\.stepWorld\(world\.name\)/.test(editorSrc) && /tabLabels\.map/.test(editorSrc)
+      && !/detailTitle|detailFor|detailNone/.test(editorSrc),
+    "the tab still says \"in this world\" while a block underneath names it");
+  // ...and the string is gone from every language, not only from the component.
+  // A label for a control that no longer exists is the pickMainHint failure, and
+  // this repo has now recorded it three times.
+  check("...and its label exists in all three languages, with the dead ones deleted",
+    ["zh", "en", "ko"].every((lang) => {
+      const src = readFileSync(join(ROOT, "src", "i18n", lang + ".js"), "utf8");
+      return /stepWorld:\s*\(w\)\s*=>/.test(src)
+        && !/detailTitle|detailFor|detailNone/.test(src);
+    }),
+    "a world-named tab in one language and a dead string in another");
+  check("...and tab 1 renders exactly the fields it declares",
+    rendered.length > 0 && JSON.stringify(rendered.slice().sort())
+      === JSON.stringify(stepArrays[0].slice().sort()),
+    `renders [${rendered}] and declares [${stepArrays[0]}]`);
+  // TWO generations now, and the same invariant covers both: the restaging writes
+  // five fields and the player must be able to correct every one of them. Derived
+  // from WORLD_FIELDS, so a sixth field added to the restaging fails this until it
+  // has a box.
+  const unrestageable = loader.WORLD_FIELDS.filter((f) => !stepFields.includes(f));
+  check("...and so is every field the restaging fills",
+    unrestageable.length === 0, `not editable: ${unrestageable.join(", ")}`);
+  // ONE BOX whose FIELD the world picks, mirroring memberLine's own expression.
+  // Taking it away instead - which is what §22.3.2 reads as - would leave a custom
+  // member in an idol world with no way to say what she does.
+  check("the position box writes whichever field the prompt will read",
+    /positionField = world\?\.castLore\?\.useRole \? "role" : "world_position"/.test(editorSrc)
+      && /renderField\(positionField\)/.test(editorSrc),
+    "role and world_position are alternatives in the editor exactly as in memberLine");
+  // An edit goes where the text she is looking at came from. Asserted on the boxes,
+  // because a renderField still reading `profile[f]` would silently write a base
+  // field while displaying an overlaid one - the edit would vanish on save.
+  check("a tab-2 box reads and writes the copy it is showing",
+    /value=\{valueOf\(f\)\}/.test(editorSrc) && /onChange=\{\(e\) => setField\(f, e\.target\.value\)\}/.test(editorSrc)
+      && !/value=\{profile\[f\] \|\| ""\}/.test(editorSrc),
+    "a box that displays the overlay and writes the base loses the edit on save");
+  // world_position has no home in the base profile - a base copy would apply in
+  // every world - so typing one creates the overlay, stamped for this world.
+  check("...and typing a position creates the stamped overlay rather than a loose field",
+    /WORLD_FIELDS\.includes\(f\) && \(detailActive \|\| f === "world_position"\)/.test(editorSrc)
+      && /keep = had && had\.world === worldId \? had : \{ world: worldId \}/.test(editorSrc),
+    "a position stored outside the stamp leaks one world into every other");
+  // Restaging a restaging compounds: the second pass describes a chaebol heiress as
+  // if she had been one, and her own lines are gone from the input.
+  check("a regeneration restages from her own lines, not from the previous restaging",
+    /const base = \{ \.\.\.next \}; delete base\[WORLD_DETAIL_KEY\];/.test(editorSrc)
+      && /member: base, world,/.test(editorSrc)
+      && /delete o\[WORLD_DETAIL_KEY\]; return o; \}/.test(editorSrc),
+    "the input has to be her own text or each retry drifts further from her");
+  // A control that provably does nothing is worse than no control - the same
+  // argument that hides tab 1's generate box for a library member.
+  check("the restaging block is hidden in the world the library was written for",
+    /restageable = Boolean\(world && !world\?\.castLore\?\.useRole\)/.test(editorSrc)
+      && /\{restageable && /.test(tab2Block),
+    "kpop_idol has nothing to restage");
+  // Once per editor, from a ref. Without it every render of the tab fires a call,
+  // which is the player's money and her rate limit.
+  check("one control runs BOTH generations, and it is on the tab that asks",
+    /const runGenerate = async \(force = false\) =>/.test(editorSrc)
+      && /const wantDetail = restageable && \(force \|\| !detailActive\);/.test(editorSrc)
+      && (editorSrc.match(/runGenerate\(/g) || []).length === 2,
+    "the card and the restaging were two buttons on two tabs, so the fast path crossed one");
+  // The overlay never overwrote anything, so dropping it IS the revert. Clearing
+  // the boxes instead would delete her own text to undo a generation.
+  check("...and reverting drops the overlay rather than clearing her own fields",
+    /const dropDetail = \(\) => setProfile\(\(p\) => \{[\s\S]{0,120}delete o\[WORLD_DETAIL_KEY\]/.test(editorSrc),
+    "a generation with no way back gets routed around");
 
   // A `const Field = ...` declared in the render body is a new component TYPE on
   // every render, so React remounts the input on each keystroke and the field
@@ -6082,7 +7373,7 @@ async function layerI() {
   // A generated value must never overwrite something the player typed, or
   // pressing Generate twice destroys their edits.
   check("generated fields merge under what the player already typed",
-    /\{ \.\.\.res\.profile, \.\.\.p \}/.test(editorSrc),
+    /\{ \.\.\.res\.profile, \.\.\.profile \}/.test(editorSrc),
     "player values must win the spread");
 
   // The editor owns no storage: it hands a profile to onSave so the palette can
@@ -6102,8 +7393,11 @@ async function layerI() {
   for (const lang of ["zh", "en", "ko"]) {
     const { default: pack } = await import(`../src/i18n/${lang}.js`);
     castKeys[lang] = pack.cast;
-    check(`t.cast exists in ${lang} with the editor's step labels`,
-      Array.isArray(pack.cast?.steps) && pack.cast.steps.length === 3,
+    // DERIVED from the tabs the editor actually renders, not pinned to a count:
+    // the three-step editor became two tabs in §22.2's commit 4b, and a hardcoded 3
+    // is a guard that fails the change instead of the defect.
+    check(`t.cast exists in ${lang} with one label per editor tab`,
+      Array.isArray(pack.cast?.steps) && pack.cast.steps.length === stepArrays.length,
       JSON.stringify(pack.cast?.steps));
   }
   const keyShape = (o) => JSON.stringify(Object.keys(o).sort());
@@ -6311,6 +7605,208 @@ async function layerI() {
     Object.keys(store.assignSlot({}, IRENE, "lead")).length === 0,
     "SLOTS is the whitelist; a typo must not create a fourth role");
 
+  // --- §22.5 commit 3: ONE profile editor, and a library edit is a DIFF -----
+  //
+  // resolveRoster has honoured `entry.override` since v1.4.0; what commit 3 adds is
+  // a way for a player to produce one. A SNAPSHOT would pass every structural check
+  // here while silently giving up §4.2's by-reference rule - a corrected library
+  // profile reaching a game in progress - so these go through resolveRoster and read
+  // the resolved member rather than asserting on the builder's markup.
+  //
+  // Slices a named function out of the component by finding where the NEXT top-level
+  // declaration starts, rather than by a hand-counted length: a source regex over the
+  // whole file cannot tell the library path from the custom one four lines below it.
+  const fnAfter = (src, marker) => {
+    const at = src.indexOf(marker);
+    if (at < 0) return "";
+    const rest = src.slice(at + marker.length);
+    const m = rest.match(/\r?\n {2}(?:const|function|\/\*\*) /);
+    return marker + (m ? rest.slice(0, m.index) : rest);
+  };
+
+  const LIB_BASE = { id: "irene", name: "Irene", public_image: "AUTHORED", mbti: "ISFP" };
+  const changed = (edits) => store.overrideFrom(LIB_BASE, { ...LIB_BASE, ...edits });
+  check("an override records only what changed, so an untouched field still arrives by reference",
+    JSON.stringify(changed({ public_image: "REWRITTEN" })) === JSON.stringify({ public_image: "REWRITTEN" }),
+    JSON.stringify(changed({ public_image: "REWRITTEN" })));
+  // THE GATE for this commit. It may not move a golden, and this is the property
+  // that says so: a cast nobody edited must produce the entry it produced before the
+  // editor existed - not the same entry carrying an empty override.
+  check("...and a member nobody edited yields no override key at all",
+    Object.keys(changed({})).length === 0
+      && !("override" in store.rosterFromPicks({
+        irene: { slot: "main", src: "library", groupId: "red_velvet" } }).entries[0]),
+    "an empty override is still a key the entry did not carry before");
+  // Diffing against the ALREADY-OVERRIDDEN copy compounds: a field changed and then
+  // typed back would keep an entry saying it equals itself, so the entry would never
+  // return to what an unedited cast produces.
+  check("...and typing a field back to the library's own words removes it again",
+    Object.keys(changed({ public_image: "AUTHORED" })).length === 0,
+    "an override diffed against an overridden copy never shrinks");
+  // Object.assign cannot DELETE, so a dropped key means the library's sentence comes
+  // back and the edit is discarded. "" is how a clear is expressed, and it renders as
+  // nothing because the profile block tests every optional field for CONTENT.
+  check("a field the player CLEARED is recorded as empty rather than dropped",
+    store.overrideFrom(LIB_BASE, { id: "irene", name: "Irene" }).public_image === "",
+    "a dropped key restores the library's text and throws the edit away");
+
+  const editedRoster = store.rosterFromPicks({
+    irene: { slot: "main", src: "library", groupId: "red_velvet",
+      override: { public_image: "REWRITTEN BY THE PLAYER" } },
+    yeri: { slot: "sub", src: "library", groupId: "red_velvet" },
+  });
+  check("a library edit reaches the roster as an override and never as a snapshot",
+    editedRoster.entries[0].override?.public_image === "REWRITTEN BY THE PLAYER"
+      && editedRoster.entries[0].profile === undefined
+      && !("override" in editedRoster.entries[1]),
+    JSON.stringify(editedRoster.entries));
+  const editedResolved = await fromDisk(
+    () => loader.resolveRoster(editedRoster, "zh", worldFor.zh));
+  const editedIrene = editedResolved.members.find((m) => m.id === "irene");
+  check("...and resolves to the edited words while every untouched field stays the library's",
+    editedIrene.public_image === "REWRITTEN BY THE PLAYER"
+      && Boolean(editedIrene.private_personality) && Boolean(editedIrene.birthday)
+      && Boolean(editedIrene.name_kr),
+    JSON.stringify({ pub: editedIrene.public_image, kr: editedIrene.name_kr }));
+
+  // --- §22.5 commit 4b: where a swept restaging is STORED ---------------------
+  //
+  // Each source keeps its own rule, unchanged: a custom member is snapshotted so
+  // her detail goes in `profile`; a library member is by reference so hers goes in
+  // `override`, beside whatever the editor already put there.
+  const SWEEP_ROSTER = store.rosterFromPicks({
+    irene: { slot: "main", src: "library", groupId: "red_velvet", override: { mbti: "EDITED" } },
+    c_9: { slot: "sub", src: "custom", profile: { id: "c_9", name: "Nine" } },
+    yeri: { slot: "npc", src: "library", groupId: "red_velvet" },
+  });
+  const swept = store.withCastDetail(SWEEP_ROSTER, {
+    irene: { world_position: "in-house counsel", public_image: "A" },
+    c_9: { world_position: "the driver" },
+  }, "chaebol");
+  const sweptOf = (id) => swept.entries.find((e) => e.memberId === id);
+  check("a swept restaging lands where that member's own rule puts her",
+    sweptOf("irene").override?.world_detail?.world_position === "in-house counsel"
+      && sweptOf("irene").override?.mbti === "EDITED"
+      && sweptOf("c_9").profile?.world_detail?.world_position === "the driver"
+      && sweptOf("c_9").override === undefined,
+    JSON.stringify(swept.entries));
+  check("...and every stored restaging carries the world it was generated for",
+    [sweptOf("irene")?.override?.world_detail, sweptOf("c_9")?.profile?.world_detail]
+      .every((d) => d?.world === "chaebol"),
+    "an unstamped detail applies in every world, which is the leak the stamp stops");
+  // A failed generation must leave her in the state §22.1's narrowed rule covers,
+  // and an empty stamp would say she had been restaged.
+  check("...and a member the generation failed for is left byte-identical",
+    sweptOf("yeri") === SWEEP_ROSTER.entries.find((e) => e.memberId === "yeri"),
+    JSON.stringify(sweptOf("yeri")));
+  // The palette's own boundary. A detail with no stamp would apply everywhere; one
+  // with no position is the state applyWorldDetail declines to apply.
+  check("the palette stores a stamped restaging and refuses an unstamped one",
+    store.sanitizeProfile({ name: "N", world_detail: { world: "campus", world_position: "a junior" } })
+      .world_detail?.world_position === "a junior"
+      && !("world_detail" in store.sanitizeProfile({ name: "N", world_detail: { world_position: "a junior" } }))
+      && !("world_detail" in store.sanitizeProfile({ name: "N", world_detail: { world: "campus" } })),
+    JSON.stringify(store.sanitizeProfile({ name: "N", world_detail: { world: "campus" } })));
+  // THE GATE, for the object the diff now has to see. String(obj) flattens every
+  // detail to the same "[object Object]", so a generation would diff to nothing and
+  // never reach the roster - and an unedited one must still diff to nothing, or the
+  // entry stops being what a cast nobody touched produces.
+  const DET = { world: "chaebol", world_position: "in-house counsel" };
+  const DET2 = { world: "chaebol", world_position: "the family driver" };
+  check("a restaging is recorded by the diff rather than flattened out of it",
+    store.overrideFrom({ ...LIB_BASE, world_detail: DET }, { ...LIB_BASE, world_detail: DET2 })
+      .world_detail?.world_position === DET2.world_position,
+    "two details that compare equal make a retry the player paid for vanish");
+  // The editor builds `{ world, ...detail }` and a stored one comes back in
+  // WORLD_FIELDS order, so the SAME content arrives with its keys in two orders.
+  // Comparing the raw objects reads that as an edit, and then a cast nobody touched
+  // carries an override - which is the no-golden-moves gate, one commit on.
+  check("...and one that has not changed still yields no override key, whatever its key order",
+    Object.keys(store.overrideFrom({ ...LIB_BASE, world_detail: DET },
+      { ...LIB_BASE, world_detail: { world_position: DET.world_position, world: DET.world } })).length === 0,
+    "key order is not an edit");
+
+  // ONE editor, TWO save paths, and the branch reads a FORWARDED value rather than
+  // inferring which state opened it. Inference is how one of two call sites comes
+  // to be wrong, which this repo has now recorded three times.
+  check("the editor forwards which copy it was editing",
+    /onSave\?\.\(\{[\s\S]{0,200}src: member\?\.src \|\| "custom"/.test(editorSrc),
+    "the caller must not have to work out which state opened this");
+  check("...and the builder branches on it before it can reach the palette",
+    /entry\.src === "library"/.test(builderSrc)
+      && builderSrc.indexOf('entry.src === "library"')
+        < builderSrc.indexOf("upsertMember(cast, entry)"),
+    "a library member copied into the palette is a second Irene with the same id");
+  const libEditFn = fnAfter(builderSrc, "const saveLibraryEdit = (");
+  check("a library edit writes nothing to the authored-member palette",
+    libEditFn.length > 120 && !/upsertMember|saveCustomCast|setCast\(/.test(libEditFn),
+    libEditFn ? "saveLibraryEdit reaches the palette" : "saveLibraryEdit not found, so this proves nothing");
+  const libBaseFn = fnAfter(builderSrc, "const libraryBase = (");
+  check("...and diffs against her library record rather than the overridden copy",
+    /overrideFrom\(base, entry\.profile\)/.test(libEditFn)
+      && libBaseFn.length > 80 && !/picks/.test(libBaseFn),
+    "libraryBase reading picks would hand the diff the copy it is diffing");
+
+  // HER FACE IS THE WAY IN (§22.2). Counting the call sites rather than testing that
+  // the helper exists: the main-member card and the sub/NPC chip are two surfaces,
+  // and a helper can exist, be correct, and be wired to one of them.
+  const editTaps = (builderSrc.match(/editChosen\((?:id|ids\[0\])\)/g) || []).length;
+  check("tapping a chosen member's face opens her profile, in both sections",
+    editTaps >= 2, editTaps + " call sites");
+  const PALETTE_ENTRY = { id: "c_1", lang: "ko", profile: { name: "Lin Xia" } };
+  const LIB_PICK = { slot: "main", src: "library", groupId: "red_velvet" };
+  check("...and it opens for a prebuilt member as well as an authored one",
+    store.editorTargetFor("irene", LIB_PICK, { libraryBase: LIB_BASE })?.src === "library"
+      && store.editorTargetFor("c_1", { slot: "sub", src: "custom" },
+        { paletteEntry: PALETTE_ENTRY })?.src === "custom",
+    "one editor for both doors is what §22.2 asks for");
+  // Her library record with THIS RUN's override laid on top: editing her a second
+  // time has to start from what the last edit produced, or the box shows the
+  // library's words and saving writes them back over her own.
+  // Dereferenced with ?. throughout: a mutation that returns null here would
+  // otherwise throw, and a stack trace where a verdict belongs reads exactly like a
+  // guard that cannot fail. Third time this repo has paid for that.
+  const editedTarget = store.editorTargetFor("irene",
+    { ...LIB_PICK, override: { public_image: "MINE" } }, { libraryBase: LIB_BASE });
+  check("...and hands a prebuilt member her library record with this run's edits on top",
+    editedTarget?.profile?.public_image === "MINE"
+      && editedTarget?.profile?.mbti === "ISFP",
+    JSON.stringify(editedTarget));
+  // Group configs are fetched per tab, so a base we cannot see is a real state. An
+  // empty profile would read as data loss AND would diff every field as a change,
+  // which snapshots her by the back door.
+  check("...and refuses rather than opening over an empty profile it would then snapshot",
+    store.editorTargetFor("irene", LIB_PICK, {}) === null
+      && store.editorTargetFor("irene", null, { libraryBase: LIB_BASE }) === null,
+    "a null base must not become an override recording every field");
+  // A custom pick can outlive its palette entry - deleted, or applied from a saved
+  // roster, which snapshots her. The roster's copy is then the only one left and is
+  // also the one the run will use.
+  check("...and edits a custom member's own snapshot when her palette entry is gone",
+    store.editorTargetFor("c_9",
+      { slot: "sub", src: "custom", lang: "en", profile: { name: "Gone" } },
+      {})?.profile?.name === "Gone",
+    "a deleted palette entry must not empty the cast she is still in");
+  check("...and the builder delegates that decision rather than branching itself",
+    /editorTargetFor\(id, pick, \{/.test(fnAfter(builderSrc, "const editChosen = (")),
+    "a source regex can see a branch written and not a branch reached");
+  check("applying a saved cast brings its edits back with it",
+    /e\.override/.test(fnAfter(builderSrc, "const applyRoster = (")),
+    "the override is in the saved data and the reconstruction has to read it");
+
+  // §22.3.3, BOTH halves, because either one alone is the wrong change: dropping the
+  // field moves every golden for all 57 library members, and keeping the box
+  // contradicts §22.2's tab 1. Comments are stripped, because this file explains the
+  // decision by naming the field - the third guard here to pass against its own prose.
+  check("animal_plastic has no box in the editor any more",
+    !/animal_plastic/.test(editorSrc.replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")),
+    "§22.2 drops the box; cardGenerator drops it from CARD_FIELDS in the same commit");
+  check("...and it is still stored and still reaches the prompt",
+    store.PROFILE_FIELDS.includes("animal_plastic")
+      && rosterSrc.includes("animal_plastic"),
+    "removing the field itself would move every golden for all 57 library members");
+
   // --- the slot control, rebuilt role-first ----------------------------------
   // Two generations of this control are now recorded, because the SECOND one is
   // the interesting lesson. It began as tap-to-cycle on symbols, which nobody
@@ -6474,6 +7970,48 @@ async function layerI() {
       && ct.scaleFont(8, 1.25) === Math.round(ct.CAST_MIN_FONT * 1.25),
     `floor ${ct.CAST_MIN_FONT}: an 8px line is raised before the scale, not after`);
 
+  // ── A MODAL OPENED FROM INSIDE A SHEET HAS TO OUTRANK IT (22.8.5) ──────────
+  //
+  // Reported from a phone, 2026-09-30: `+ create member` is a control INSIDE the
+  // member picker, and it opened the profile editor UNDERNEATH it - the editor
+  // sat at 110 and the picker at 115. Both are siblings rendered by the builder,
+  // so nothing about the markup ordered them; five literals in five files did,
+  // with nothing anywhere saying which was meant to be on top.
+  //
+  // The relation is the requirement, so the relation is what is asserted. A
+  // number pinned here would pass against the bug the moment someone renumbered
+  // the sheet instead.
+  const zOrder = [];
+  if (!(ct.Z?.editor > ct.Z?.sheet)) zOrder.push("editor is not above the picker");
+  if (!(ct.Z?.editor > ct.Z?.imageSheet)) zOrder.push("editor is not above the image sheet");
+  if (!(ct.Z?.cropper > ct.Z?.editor)) zOrder.push("cropper is not above the editor");
+  check("a modal opened from inside a sheet is drawn above it",
+    zOrder.length === 0, zOrder.join(" | "));
+  // ...and the ladder is the only place those levels are written. Derived over
+  // the whole directory, so a sixth layer is covered the day it lands: every key
+  // is claimed by exactly one root, no two keys share a number - a tie is decided
+  // by DOM order, which is the thing that was never stated - and a file that
+  // reads the ladder must not also carry a literal beside it.
+  const zKeys = Object.keys(ct.Z || {});
+  const zBad = [];
+  if (new Set(Object.values(ct.Z || {})).size !== zKeys.length) zBad.push("two layers share a level");
+  const zUse = Object.fromEntries(zKeys.map((key) => [key, 0]));
+  for (const rel of readdirSync(join(ROOT, "src/platforms")).filter((f) => f.endsWith(".jsx"))) {
+    const src = readFileSync(join(ROOT, "src/platforms", rel), "utf8")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    for (const m of src.matchAll(/zIndex: Z\.(\w+)/g)) {
+      if (!(m[1] in zUse)) zBad.push(`${rel}: Z.${m[1]} is not on the ladder`);
+      else zUse[m[1]] += 1;
+    }
+    if (/zIndex: Z\./.test(src) && /zIndex: \d/.test(src)) zBad.push(`${rel}: a literal beside the ladder`);
+  }
+  for (const [key, n] of Object.entries(zUse)) {
+    if (n !== 1) zBad.push(`Z.${key} claimed by ${n} roots`);
+  }
+  check("...and every layer on that ladder is claimed by exactly one root",
+    zBad.length === 0, zBad.slice(0, 4).join(" | "));
+
   // One palette across the three screens the player walks through in one sitting.
   // It was three copies of the same fifteen literals; `extractStoryText` is the
   // precedent — two copies of one definition had drifted, and the guard had been
@@ -6555,7 +8093,7 @@ async function layerI() {
   // before anything is saved — so the CALLER mints the id. Minting it at submit
   // time instead would store the image under one id and the member under another.
   check("the builder mints the member id before opening the editor",
-    /setEditing\(\{ id: newMemberId\(\), profile: \{\}, isNew: true \}\)/.test(builderSrc),
+    /setEditing\(\{[^}]*\bid: newMemberId\(\)/.test(builderSrc),
     "otherwise a photo added on step 1 is orphaned the moment the member is saved");
   check("...and the editor never mints one of its own",
     !/newMemberId/.test(editorSrc),
@@ -6670,6 +8208,122 @@ async function layerI() {
   check("the picker grid gains no image control of its own",
     !/imageStore|CastImageSheet|onPickPhoto/.test(pickerSrc),
     "uploads belong on the members already chosen, not on 57 assign targets");
+
+  // --- the fifth phone pass: the top of a page was unreachable --------------
+  // docs/V140_PLAN.md §22.6.1. `100vh` on iOS is the viewport with the browser
+  // chrome HIDDEN, so a page sized with it is TALLER than what is on screen: the
+  // document scrolls, a nested `overflowY: auto` panel then swallows the upward
+  // gesture that would bring the header back, and the top of the page is not
+  // merely cut off but unreachable. Reported from a phone, 2026-09-30.
+  //
+  // DERIVED over src/, not written about the two pages that were reported. Every
+  // screen in this app has the same shape, so a guard naming playerInfo and setup
+  // would be a sample - the org-suffix lesson, three screens over.
+  const vhSized = [];
+  const cardsNotPages = [];
+  const unpaidFixed = [];
+  const clobberedPad = [];
+  (function scanViewportUnits(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { scanViewportUnits(p); continue; }
+      if (!/\.(jsx?|css)$/.test(e.name)) continue;
+      const rel = p.replace(join(ROOT, "src"), "").replace(/\\/g, "/").replace(/^\//, "");
+      const src = readFileSync(p, "utf8");
+      // COMMENTS STRIPPED. Three guards in this repo have now passed against
+      // their own documentation, and the prose right beside this fix names the
+      // unit it removes.
+      const code = src
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      // An inline `height`/`maxHeight` in a viewport unit. Every panel in this
+      // app lives inside a `position: fixed; inset: 0` parent or IS the page, so
+      // a percentage is exact everywhere a viewport unit was being used - and a
+      // percentage cannot re-import this defect one layer down.
+      if (/(?:height|maxHeight):\s*"\d+(?:\.\d+)?[dsl]?vh"/.test(code)) vhSized.push(rel);
+      // ...and every phone-sized card takes its height from the class, which is
+      // the only place the `100%` / `100dvh` pair can be written at all.
+      for (const m of code.matchAll(/<\w+([^>]*?)maxHeight:\s*844/g)) {
+        if (!/className="rv-card"/.test(m[1])) cardsNotPages.push(rel);
+      }
+      // ...and every FULL-SCREEN FIXED LAYER pays the safe-area insets. This is
+      // the mechanism 22.6.1 missed and 22.7.1 measured: in a Home-Screen launch
+      // iOS does not inset the web content for the status bar, so a `fixed;
+      // inset: 0` box IS the whole screen, notch included. Derived over src/
+      // because a guard naming the two screens that were reported is a sample.
+      for (const m of code.matchAll(/<\w+([^<]*?position: "fixed", inset: 0[^<]*?)\}\}/g)) {
+        if (!/className="rv-fixed"/.test(m[1])) unpaidFixed.push(rel);
+        // An inline `padding` shorthand overrides the class's padding ENTIRELY,
+        // so a root with its own breathing room has to COMPOSE the two. This is
+        // the half that fails silently: the class is present and does nothing.
+        if (/padding:(?!\s*safeInset\()/.test(m[1])) clobberedPad.push(rel);
+      }
+    }
+  })(join(ROOT, "src"));
+  check("no screen is sized in viewport units",
+    vhSized.length === 0,
+    `${[...new Set(vhSized)].join(", ")} still size a box against a viewport unit`);
+  check("...and every phone-sized card takes its height from .rv-card",
+    cardsNotPages.length === 0,
+    `${[...new Set(cardsNotPages)].join(", ")} sizes the 844px card without the class`);
+  check("...and every full-screen fixed layer pays the safe-area insets",
+    unpaidFixed.length === 0,
+    `${[...new Set(unpaidFixed)].join(", ")} covers the notch without .rv-fixed`);
+  check("...and none of them clobbers that padding with an inline one",
+    clobberedPad.length === 0,
+    `${[...new Set(clobberedPad)].join(", ")} overrides .rv-fixed's padding - compose it with safeInset()`);
+
+  // The class itself, and the fallback PAIR - `100%` tracks the visible viewport
+  // where `100vh` does not, and `100dvh` is the modern spelling that wins where
+  // it is understood. Either alone is half a fix: without `100%` an older iOS
+  // gets no height at all, and without `100dvh` a browser that shrinks its chrome
+  // leaves a gap. They cannot be expressed in a JS style object, which is the
+  // whole reason this is a stylesheet rule.
+  const appCss = readFileSync(join(ROOT, "src", "index.css"), "utf8");
+  const rvPage = (appCss.match(/\.rv-page\s*\{([^}]*)\}/) || [, ""])[1];
+  check("the page class carries BOTH heights, in the order that makes it a fallback",
+    /height:\s*100%\s*;[\s\S]*height:\s*100dvh\s*;/.test(rvPage),
+    "one of the two heights is missing, so half the browsers get no fix");
+  // The other half: the DOCUMENT must not scroll at all. With the body scrollable
+  // the page can still be pushed up under the chrome, whatever the card is sized
+  // to - and `overscroll-behavior` is what stops a panel at its own limit handing
+  // the gesture on.
+  check("...and the document itself cannot scroll",
+    /@media screen\s*\{[\s\S]*?\bbody\s*\{[^}]*overflow:\s*hidden[\s\S]*?\}\s*\}/.test(appCss)
+    && /overscroll-behavior:\s*contain/.test(rvPage),
+    "the body still scrolls, or a panel still chains its overscroll outward");
+  // THE INSETS THEMSELVES, and the box-sizing without which they are added to
+  // the height instead of taken out of it. Measured in Chrome at a 932px screen:
+  // content-box makes `max-height: 844px` cap the CONTENT box, so the card's own
+  // 52px of padding sits on top and the card is 896px tall - centred, its top is
+  // at 18px, which is 44px behind a 62px status bar.
+  const safeRule = (appCss.match(/\.rv-page,\s*\.rv-fixed\s*\{([^}]*)\}/) || [, ""])[1];
+  check("a full-screen layer reserves the notch, and out of its own height",
+    /env\(safe-area-inset-top/.test(safeRule) && /env\(safe-area-inset-bottom/.test(safeRule)
+      && /box-sizing:\s*border-box/.test(safeRule),
+    "the page still draws under the status bar, or pays for it by growing");
+  // The card is the OTHER half: it sizes from the padded parent, not from the
+  // viewport, so it can never exceed the box it is centred in - and a centring
+  // flex splits an overflow between both ends, of which only one is reachable.
+  const rvCard = (appCss.match(/\.rv-card\s*\{([^}]*)\}/) || [, ""])[1];
+  check("...and the phone card sizes from that padded box, not from the viewport",
+    /height:\s*100%/.test(rvCard) && !/dvh|vh/.test(rvCard)
+      && /box-sizing:\s*border-box/.test(rvCard),
+    "the card takes the UNPADDED height again, so its top goes back under the clock");
+  // A percentage height resolves against a DEFINITE parent. Without this the
+  // class is inert and every check above passes.
+  check("...and #root has a definite height for it to resolve against",
+    /#root\s*\{[^}]*height:\s*100%/.test(appCss),
+    "`.rv-page`'s 100% falls back to auto");
+
+  // A Home-Screen launch is the second mechanism and it is one word: a
+  // translucent status bar draws the page UNDER the clock and the notch, and
+  // nothing in this repo pays for that with env(safe-area-inset-top).
+  check("a Home-Screen launch does not draw under the status bar",
+    !/apple-mobile-web-app-status-bar-style"\s+content="black-translucent"/
+      .test(readFileSync(join(ROOT, "index.html"), "utf8")),
+    "black-translucent puts the first ~47px of every page behind the clock");
 
   // --- step 8, second pass: the four hand-test bugs -------------------------
   // Every one of these is a defect no assertion written in advance reached, and
@@ -6849,7 +8503,7 @@ async function layerI() {
   // The panel's content area scrolls, which is what lets the list grow a
   // release at a time without a layout change.
   check("...and the panel's content area scrolls",
-    /flex: 1, overflowY: "auto"/.test(helpSrc) && /maxHeight: "86vh"/.test(helpSrc),
+    /flex: 1, overflowY: "auto"/.test(helpSrc) && /maxHeight: "\d+%"/.test(helpSrc),
     "a fixed-height panel would cut the oldest releases off");
   // Renaming a tab and leaving prose pointing at the old name is the
   // `pickMainHint` failure: a control described in three languages that had
@@ -6893,7 +8547,7 @@ async function layerI() {
   // the caller supplies the two — the editor owns no storage.
   const wallInEditor = [
     [/\bwall, onWallChange,/, "the editor does not take the wallpaper and a way to change it"],
-    [/ask\("wall"\)/, "nothing on the form asks for a wallpaper"],
+    [/photoTile\("wall",/, "nothing on the form asks for a wallpaper"],
     [/onWallChange\?\.\(dataUrl\)/, "the framed wallpaper is not handed back"],
   ].filter(([re]) => !re.test(editorCode)).map(([, why]) => why);
   check("an authored member can be given a wallpaper where she is authored",
@@ -6928,11 +8582,18 @@ async function layerI() {
   // holds them must therefore contain exactly the field and the wheel, and
   // centre them — the selected year is the wheel box's own centre, since the
   // band sits at the middle row by construction.
+  // §22.10 puts the world fold under the name field, so the left column now
+  // holds two controls and the row aligns to flex-start rather than centring
+  // two boxes. What must still hold is the thing the defect was: the field and
+  // the wheel are ONE row, and the wheel's own column carries no caption above
+  // it - a caption there offsets the wheel by its own height, which is what put
+  // the field and the selected year on two different lines.
   const setupYearRow = appForCast.slice(0, appForCast.indexOf("<YearWheel"));
   const nameRow = setupYearRow.slice(setupYearRow.lastIndexOf('<div style={{ display: "flex"'));
-  check("...and in Setup the wheel's year sits on the name field's line",
-    /alignItems: "center"/.test(nameRow) && /className="s-in"/.test(nameRow)
-      && !/fontSize: 9/.test(nameRow),
+  const wheelCol = nameRow.slice(nameRow.indexOf("flex: 1, minWidth: 88"));
+  check("...and the wheel's year sits on the name field's line",
+    /className="s-in"/.test(nameRow) && /flex: 1, minWidth: 88/.test(nameRow)
+      && !/className="s-l"/.test(wheelCol),
     "a caption inside the wheel's column offsets it by the caption's own height");
 
   // ONE WALLPAPER, ONE JOB. Weverse used it as a post card's banner while the
@@ -7755,6 +9416,64 @@ async function layerL() {
       && none(g.realAgencyNames("他用KOZY的杯子喝水。")),
     JSON.stringify([g.realAgencyNames("She sent an SMS and smiled."),
                     g.realAgencyNames("他用KOZY的杯子喝水。")]));
+
+  // ---------------------------------------- the restaging's own idol-word scan
+  //
+  // §22.2 regenerates a member's texture for the world she is cast in, and the one
+  // half of "is the generated text any good" an assertion can reach is whether it
+  // still carries the idol facts the restaging exists to remove. §22.1 measured the
+  // same list over the library: 57 of 57 members, 80 field instances.
+  const RF = ["world_position", "public_image", "queer_texture"];
+  const clean = { world_position: "家族法务部的内部律师",
+                  public_image: "在董事会上冷静而弘强，说话很慢",
+                  queer_texture: "只在深夜的车里对你收起防备" };
+  check("a restaging that still calls her a maknae is flagged, naming the field",
+    (() => {
+      const h = g.scanIdolWords({ ...clean, public_image: "队里的忙内，爱擒人" }, RF);
+      return h.length === 1 && h[0].field === "public_image" && h[0].word === "忙内";
+    })(),
+    JSON.stringify(g.scanIdolWords({ ...clean, public_image: "队里的忙内，爱擒人" }, RF)));
+  check("...and a restaging with no idol facts left in it is not",
+    g.scanIdolWords(clean, RF).length === 0,
+    JSON.stringify(g.scanIdolWords(clean, RF)));
+
+  // INSTANCES, not members and not fields. §22.1's number is 80 instances across 57
+  // members, so a scan that stopped at the first hit per field would report a
+  // different quantity under the same name - which is the [Stage Changes] defect,
+  // two labels for one scale. A sentence built on 舞台 twice is worse than one that
+  // mentions it once, and the count has to say so.
+  // NARROWED ON A MEASUREMENT, not on a preference. Bare 门面 is an ordinary
+  // Chinese noun - a shopfront, a family's public face - and the first live run of
+  // the whole-cast call flagged 像家族门面一样滴水不漏 as an idol fact, which is good
+  // prose. Measured over the zh library before narrowing it: 门面 occurs ONCE, as
+  // 门面主唱, which 主唱 catches anyway - so this cost 1 raw instance of 155 and 0
+  // of 57 members. A grader that cries wolf is the one that gets tuned away.
+  check("the scan reads 门面担当 as a group position and 家族门面 as an ordinary noun",
+    g.scanIdolWords({ ...clean, public_image: "充满生命力的门面担当" }, RF).length === 1
+      && g.scanIdolWords({ ...clean, public_image: "像家族门面一样滴水不漏" }, RF).length === 0
+      && g.scanIdolWords({ ...clean, public_image: "公认的门面主唱" }, RF).length === 1,
+    "the one library instance is 门面主唱, still caught through 主唱");
+
+  const twice = g.scanIdolWords(
+    { ...clean, public_image: "舞台上很亮，下了舞台却很安静" }, RF);
+  check("every occurrence is counted, not only the first in a field",
+    twice.length === 2, JSON.stringify(twice));
+  const spread = g.scanIdolWords(
+    { world_position: "练习生", public_image: "出道三年", queer_texture: "对粉丝很温柔" }, RF);
+  check("...and across every field it was asked for",
+    spread.length === 3 && new Set(spread.map((h) => h.field)).size === 3,
+    JSON.stringify(spread));
+
+  // It scans the fields it is GIVEN. The restaging writes five; a member also
+  // carries `role`, which in a non-idol world is filtered out of the prompt
+  // entirely and legitimately still says 忙内 - scanning it would report the defect
+  // the sweep routes around as one the sweep created.
+  check("a field outside the list is not scanned",
+    g.scanIdolWords({ ...clean, role: "副rapper·忙内" }, RF).length === 0,
+    "role is filtered from a non-idol prompt by useRole and is not the restaging's output");
+  check("an absent or empty field is not a hit",
+    g.scanIdolWords({ world_position: "", public_image: null }, RF).length === 0,
+    "a member the generation partly failed for must not read as clean-by-crash");
 
   // The harness must actually call them, or the layer tests dead code.
   const harness = readFileSync(join(ROOT, "test", "playthrough.mjs"), "utf8");

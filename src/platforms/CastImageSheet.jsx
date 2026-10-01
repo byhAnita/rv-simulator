@@ -21,7 +21,7 @@
 import React, { useRef, useState } from "react";
 import MemberFace from "./memberFace";
 import ImageCropper from "./ImageCropper";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, Z } from "./castTheme";
 import {
   PHOTO_MAX_COUNT, WALL_MAX_COUNT, photoBytes,
 } from "../utils/imageStore";
@@ -85,13 +85,13 @@ export default function CastImageSheet({
   );
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
+    <div className="rv-fixed"
+      style={{ position: "fixed", inset: 0, zIndex: Z.imageSheet, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 390, maxHeight: "88vh", background: k.panelBg, borderRadius: "18px 18px 0 0", border: `1px solid ${k.border}`, borderBottom: "none", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 -12px 40px rgba(0,0,0,.45)" }}
+        style={{ width: "100%", maxWidth: 390, maxHeight: "88%", background: k.panelBg, borderRadius: "18px 18px 0 0", border: `1px solid ${k.border}`, borderBottom: "none", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 -12px 40px rgba(0,0,0,.45)" }}
       >
         <div style={{ padding: "12px 13px 9px", borderBottom: `1px solid ${k.border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

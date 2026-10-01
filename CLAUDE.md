@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.4.1** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.2** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -42,6 +42,9 @@ node scripts/analyze-prose.mjs        # writing quality from the newest playthro
 npm run bump 1.3.3                    # rewrite all 15 version strings (note the `--` for --dry)
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
+node scripts/verify-mirrors.mjs       # AFTER a deploy: fetch the bundle AND every data file from all three mirrors
+scripts/hotfix-worktree.sh new <slug> # a clean checkout of main to fix one player-reported bug in
+scripts/hotfix-worktree.sh status     # what worktrees and hotfix branches exist, and which are debris
 ```
 
 `npm run deploy` refuses to run unless it is on `main`, the staged paths are clean, `main` is level with `origin/main`, **and the smoke suite passes** — see Branch & Deploy Workflow.
@@ -468,7 +471,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.4.1)
+## Add-on Features (v1.4.2)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -1700,14 +1703,18 @@ Cover Page
 Key Input Page
   -> Enter API key + choose provider (Aliyun: Free credits auto-route | Paid model list + cost guide)
       |
-Setup Page
-  -> Main member + Sub members + Name/Birth year + World + Identity
-     (the pace picker was here until v1.4.1 step 2; step 3 put the WORLD
-      picker in the slot it vacated, which is how BOTH cover doors get
-      worlds - they both pass through this page. Identity follows the world
-      because an identity is a position INSIDE one: the grid is that world's
-      own `identities` plus `H`, and a world change clears an id the new
-      world does not declare)
+Player Info Page          <- BOTH doors, and it comes BEFORE the cast (§22.2)
+  -> Name + Birth year + World + Identity
+     (Identity follows the world because an identity is a position INSIDE
+      one: the grid is that world's own `identities` plus `H`, and a world
+      change clears an id the new world does not declare. The pace picker
+      was on Setup until v1.4.1 step 2 and step 3 put the world picker in
+      the slot it vacated; §22.2 moved all four onto their own page)
+      |
+      +-- classic door --> Setup Page: Main member + Sub members
+      |                       |
+      +-- custom door ----> Roster Builder -> Setup Page: the chosen cast
+                                               + the organisation's name
       |
 Game Page (loop)
   -> Read story -> Choose A/B/C/D, Custom, or 📍 a place -> Next round
@@ -1716,6 +1723,1259 @@ Game Page (loop)
 ```
 
 "New Game" is disabled (dimmed + toast) until a group is selected.
+
+### The player is asked before the cast, because the generator reads the world
+
+**The four player-info controls used to live on Setup, which is AFTER both doors'
+cast screens.** `generateCard` reads `world` from `App` state, and the custom door went
+cover -> builder directly - so the button offering to describe a member *in this world*
+described her in **the world the last session left in `rv_sim_world`**. A player who
+played campus on Monday and opened the builder on Tuesday to author a chaebol heiress
+got a campus card, and nothing on screen said so.
+
+**Same defect class as the save's `worldId`** - *A copy taken BEFORE the fact is decided* -
+and the same remedy: ask first, so the generator's input is correct **by construction**
+rather than by a guard. There is no new state and no new plumbing; the page order is the
+fix. `docs/V140_PLAN.md` §22.5 is the plan, and this is its commit 2.
+
+**It is one page for BOTH doors**, which is what stops the fix being door-shaped. The
+classic door asked these four on Setup and the custom door did not ask them at all until
+after the builder; now neither reaches a cast screen without them.
+
+**§15's unified-entry sketch had the order the other way round** - the cast picker first,
+*the following page* asking name, birth year and world - and that is precisely the defect.
+It is corrected in place in the plan and points at §22.5. **Two sections of one document
+disagreeing about an order is the `a prompt is not append-only` failure applied to a plan.**
+
+**No prompt change, and all six goldens are byte-identical** - `update-golden.mjs` reported
+six unchanged and was not asked to write anything. That is the commit's gate: a reorder that
+moved a golden would be a reorder that changed what the model is told.
+
+Four things the guards had to learn, and three of them are lessons this file already carries:
+
+- **The header check was reading the wrong screen.** It sliced from
+  `app.indexOf("<style>{th.setupCss}</style>")` - the FIRST match, which after the split is
+  the player-info page - so a guard named for Setup silently measured a different screen. It
+  is derived over **every** page that carries a setup header now.
+- **...and it counted a proxy rather than the symptom.** `<div style=` count is one on Setup
+  and two on player info for a reason about markup (the latter's first label is nested in a
+  caption row), not about stacking. What stacked was a header **row**: a wrapping flex line
+  of 10px muted text. It counts those.
+- **The phase slice ran to EOF for the last phase**, folding the whole game screen into it.
+  No control the guard names renders there today, which is exactly why it was worth fixing
+  before it mattered: *harmless today* is how a guard comes to pass against a real regression.
+- **A wheel is seeded for a PHASE, and the phase moved.** The v1.4.1 year-wheel bug was Setup
+  showing 2000 while `form.birthYear` was `""`; the existing derived scan proves some screen
+  writes `DEFAULT_YEAR`, which stays true when the seed fires for a page the wheel is no
+  longer on. The new guard ties the seeded phase to the phase that renders the wheel.
+
+**One guard was REPLACED rather than repointed.** *"...and the key page then continues into
+the builder, not Setup"* named a destination that no longer exists as a first stop. What
+replaced it is stronger and derived: **neither door reaches a cast screen before the world is
+chosen** - it slices the cover and key-page blocks and fails on any `setPhase("roster")` or
+`setPhase("setup")` in either, so a third entry point cannot reintroduce the defect. A guard
+pinned to one door is a sample, which is the org-suffix lesson.
+
+**9 mutations, 9 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, restored byte-identical. One reported
+GREEN on the first run and the **mutation** was at fault, not the guard: it anchored on
+`{t.setup.world}` to plant a duplicate world picker on the cast page, and that anchor had
+*moved to the player-info page*, so it planted the duplicate where the control already
+belongs. **A mutation written against the pre-change layout tests the pre-change layout.**
+
+### The filtered slot is FILLED, and the interim rule narrows to whoever still needs it
+
+**`castLore.useRole` took the idol position out of a non-idol world's prompt and left
+nothing in its place** - so a chaebol prompt said what her MBTI is and never what she
+*does*, which is the most world-specific fact there is and the whole reason `castLife`
+exists. §22.2's answer is `world_position`: what she does in THIS world, written once at
+setup rather than reasoned about every round.
+
+**It is ONE expression and never two fields.** `memberLine` renders
+`useRole ? m.role : m.world_position` - alternatives, so an idol world renders her idol
+position and never the other, a non-idol world the reverse. A second field on its own line
+would be two answers to *what does she do*, which is the failure this file records five
+instances of. `kpop_idol` is byte-identical because `useRole` is true there.
+
+**§22.1's interim rule NARROWS rather than being deleted, and the comment in
+`mainAgent.js` that promised deletion was wrong.** `generateCard`'s law is *an accelerator,
+never a gate*, so every failure leaves a member un-translated and for her the prose is
+still idol prose; deleting the rule while that data is still being sent is a silent
+regression. **A rule scoped to the members it is true of is not two answers to one
+question** - the *append-only* instances here are two rules contradicting each other about
+the same subject, and a condition naming whom it applies to has one subject and one answer.
+
+Three states, each a different promise, and all three guarded:
+
+| the run holds | the rule |
+| --- | --- |
+| nobody translated | renders exactly as it did before this commit, with no clause about whom |
+| some translated | renders, **names the un-translated members**, and says the others' lines are literal |
+| everybody translated | gone |
+
+**The middle row's second half is load-bearing.** Without *"every other member's three
+fields were rewritten for this world and are literal"*, the model is told to read the whole
+cast's prose figuratively - including the lines that were restaged precisely so they could
+be read straight.
+
+**NO GOLDEN MOVED, which §22.5 predicted wrong.** The plan said commit 4 moves all six; it
+moves none, because no fixture contains a translated member, so the subset clause is empty
+and `world_position` is absent. That is the better outcome and it is the same technique step
+6 used for the platform trimming: **the narrowed branch is exercised against a synthetic
+translated member** rather than waiting for data on disk to reach it.
+
+**The restaging prompt needs no new world field**, which is why §4.5's `world.setting` is
+still not shipped after three releases of being named. The world already carries what a
+restaging wants - `castLife.theirs` (*what do these people do all day*), `castLore.orgNoun`,
+`scenario`, `places` - so this cost **zero** world-file edits against twelve documents, and
+because those are the same fields the ROLE CONTRACT and section 11 already render, the
+generated detail cannot contradict the rest of the prompt.
+
+**Her existing lines go in as the SOURCE, not as an example.** The call is a restaging: keep
+who she is, change the circumstances it is described through - which is exactly what the
+interim rule asks the model to do at read time, done once at setup where it can be reviewed
+and costs nothing per round. The two forbid the same list of idol facts, and a guard asserts
+that, because two rules about one thing is how they come to disagree.
+
+**`isUsableDetail` requires `world_position` and not merely a non-empty object**, unlike
+`isUsableCard`. It is the ONE marker the prompt reads to decide whether a member still needs
+the interim rule, so a partial detail carrying two prose fields and no position would count
+as translated while rendering nothing in the slot `useRole` emptied - a member with no
+statement of what she does at all, which is worse than the idol prose the rule exists for.
+
+**`name_kr` is a tab-2 field on screen and is NOT generated.** A Korean name is her name in a
+lecture hall as much as on a stage, so generating it per world would re-roll a fixed fact,
+and the prebuilt cast already carries it - §22.3.1 has the twelve-plus readers that would
+break.
+
+**The sweep is concurrent, skips anyone already restaged, and never fails the run.**
+Concurrent because that wait is what decision A costs the player: in series, nine members is
+nine round-trips in front of a Start button. Skipping is what stops it re-paying for the
+editor's work and overwriting a line the player corrected. Per-member fallback because a
+dead provider must not block character creation, and a member who fails is simply absent
+from the map - which is the state the narrowed rule still covers.
+
+**One JSON recovery, not two.** `parseCard`'s body became `parseJsonish` and both parsers
+call it. A second copy is what `extractStoryText` is this repo's standing warning about, where
+two copies drifted and the guard had been written against the one that was still correct. The
+guard counts the references.
+
+**14 mutations, 14 RED, and one WRONG verdict found a VACUOUS check of my own.** *"...and a
+cast nobody translated renders exactly what it did before the field existed"* compared one
+resolution of a roster against a fresh resolution of the **same** roster in the same world -
+equal by construction - and its other half tested a cast that *is* translated. Neither half
+was about the case it was named for. It is **deleted** rather than repaired: the
+dangling-separator guard four lines above it runs on exactly that cast, and the mutation
+reddens it by name along with the three non-idol goldens. A check that duplicates a guard and
+cannot fail is decoration.
+
+---
+
+### A restaging is an OVERLAY stamped with the world it was written for
+
+**The profile editor has two tabs since §22.2's commit 4b: *who she is* and *in this
+world*.** Tab 1 is true of the person - photo, name, birth year, private personality, MBTI,
+habit, emoji. Tab 2 is true of the person *in a world* - her position here, public image,
+queer texture, speech style, hidden conflict - and it is what the restaging generates. The
+test for which tab a field is in is §22.2's own: *would this sentence still be true if she
+were cast in a different world?*
+
+**The generated detail is ONE field, `world_detail`, and it is an overlay rather than a
+rewrite.** It carries the world id it was generated for plus the five fields above;
+`applyWorldDetail` in `rosterResolver.js` lays it over the member when that id is this
+world's, and deletes it on the way out so the nested object reaches no renderer.
+
+§22.2's storage rule was *only tab 1 is persisted*, and it is **corrected**: an unpersisted
+tab-2 field cannot survive `upsertMember`, so the text the player reviewed would be thrown
+away and the Start sweep would regenerate it - which makes the retry button in §22.2's own
+sketch meaningless. The stamp delivers what that rule was protecting, and delivers it
+better:
+
+- **A stale detail is not applied and is not deleted, so staleness is unexpressible** rather
+  than merely unwritten. Changing the world mid-setup needs no cleanup pass, and there is no
+  state in which a lecture hall reaches a family compound.
+- **Nothing the player wrote is ever overwritten.** The field-per-field shape the proposal
+  described could not promise that: writing `public_image` in place destroys her own line,
+  and a CUSTOM member has no library record to restore it from - so *drop a stale detail*
+  was not expressible for exactly the member whose prose is most hers. Cast her in a second
+  world and she falls back to her own lines instead of to a hole.
+
+**The sweep runs only when `castLore.useRole` is FALSE.** In `kpop_idol` the library's prose
+is already about this world, so restaging it would replace correct text with generated text
+and spend five to nine calls per new game doing it. §22.1's measurement - 57 of 57 members -
+is taken over the worlds where `useRole` is false; the idol world is the one the library was
+authored for.
+
+**ROUND 1 MUST SEND THE SWEPT CAST, and that is the expensive half of the wiring.** The
+sweep stamps the roster, but `startNewGame` hands `executeRound` the `members` it already
+has - so stamping the roster alone would send un-restaged prose in round 1 and the restaged
+version from round 2, once the in-game effect re-resolves the saved roster. **That is a
+static-prompt drift of the whole ~5,500-token prefix**, which is the ex-girlfriend
+`Math.random()` defect's shape with a network call in it. The same `applyWorldDetail` is
+applied to the members round 1 is built from, which is what makes the two rounds
+byte-identical.
+
+**The position box is ONE box and the world picks which field it writes** -
+`useRole ? role : world_position`, mirroring `memberLine`. §22.3.2 says `role` stops being a
+field a player edits, and taking the box away outright would leave a custom member in an
+idol world with no way to say what she does: **the filtered-slot-left-empty defect commit 4
+exists to close, one door over.**
+
+**An edit in tab 2 goes where the text she is looking at came from.** With no overlay for
+this world the boxes show her own lines and an edit lands on them - a library member's edit
+is still a diff on `override`, commit 3 unchanged; once a generation exists the boxes show
+it and an edit lands on the overlay. One rule and no world branch. *Use her own lines again*
+is what makes a generation the player dislikes reversible: a control with no way back gets
+routed around exactly as a prohibition with no substitute does.
+
+**Tab 2 auto-generates ONCE when it is opened with nothing for this world**, and only when
+the world needs restaging, she has a name, and a key is configured. The alternative is a tab
+that opens empty beside a retry button with nothing to retry - and it is not extra spend,
+because the Start sweep skips whoever the editor already restaged.
+
+**No golden moved, for the third commit running.** No fixture carries an overlay, so
+`applyWorldDetail` is the identity function over all six - which is why the overlay path is
+exercised against a synthetic stamped roster instead, the technique step 6 used for the
+platform trimming.
+
+**What it does that no previous commit could: 26 mutations, 26 RED - and the probe is where
+the payoff is visible.** A chaebol prompt built from a fully restaged cast contains **none**
+of 忙内 / 队长 / 出道 and **drops the interim rule entirely**; restage one of two members and
+the rule stays, naming the other one and no one else. §22.1's defect is closed rather than
+ruled around, and that is the first time it has been observable.
+
+**Two of this commit's own guards could not fail, and both tested a case where a broken
+implementation happens to give the right answer.** The diff's object branch was checked by
+ADDING a restaging to a member who had none - which compares `""` against
+`"[object Object]"`, so the key is recorded even with the branch deleted. The case that loses
+text is a RETRY: two details both flatten to the same string, so the second generation reads
+as no change and is discarded. Its twin asserted that two EQUAL details yield no key, which
+holds in any implementation; what `sanitizeWorldDetail` is actually for there is **key
+order**, because the editor builds `{ world, ...detail }` and a stored one comes back in
+`WORLD_FIELDS` order. **Ask what a guard would look like if the behaviour were wrong in the
+way that costs something**, not in the way that is easiest to write.
+
+**A crash where a verdict belongs, for the second commit running.** A mutation that
+snapshotted a library member's restaging failed its guard and then threw out of the NEXT
+one, which dereferenced a field the mutation had made undefined - and a stack trace is
+indistinguishable from a guard that cannot fail. Every dereference in the follow-up is `?.`
+now. The recurrence is the lesson: **a check that reads the result of the thing the previous
+check just proved broken needs optional chaining, always.**
+
+**And `git checkout <file>` ate part of this commit, for the second commit running.** A
+manual mutation probe was cleaned up with `git checkout src/rag/customCast.js`, which
+reverted the whole of 4b's work in that file - the change was unstaged, so the index had
+nothing of it. Smoke found it one command later (`store.withCastDetail is not a function`)
+and the patch script re-applied it. **While a commit is unstaged, a probe is restored from a
+copy of the file and never from git.**
+
+---
+
+### Five independent restagings produce two second daughters
+
+**The first live run of the sweep, 2026-09-30, `chaebol` / `rival_heiress` / zh /
+`deepseek-flash`.** 5 of 5 members restaged, **0 idol-word instances**, 4 of 4 clean
+rounds, 92.1% cache, 0 static-prompt drifts. §22.1's defect is closed in live prose and
+not only in a probe.
+
+**And the cast could not all be true at once, which no counter on that row can see.**
+Reading the five generated positions: Irene was `本家次女` and Seulgi `次女` - two second
+daughters of one family - Wendy was `董事总经理兼实际主事人`, the head of the business, above two
+members holding a plain `董事`, and Joy and Yeri were a third generation nobody had placed
+them in. A hierarchy assigned by no one, in a world whose whole premise is one.
+
+**The model was not ignoring a rule; there was no rule it could apply.**
+`buildWorldDetailPrompt` showed it one member and the world, and nothing else - so the
+prompt never said she was one of five, and two calls had no way to know they had both
+reached for the same place. **This is `[Rounds Absent]` one layer down**: a rule about
+not colliding is inert while nothing states who else exists.
+
+**The fix is a ladder, and it is what keeps the sweep CONCURRENT.** Every call now
+carries the whole cast, oldest first, with her own row marked - and the order is derived
+from **birth year**, which is data fixed at setup. So five calls that never see each
+other still agree on the order and disagree about which row is theirs, without waiting
+on one another. Serialising instead would be nine round-trips in front of a Start
+button, which is the cost decision A was taken to avoid.
+
+**Birth year is the axis because it is already the axis.** The address protocol decides
+every honorific in the game by birth-year boundary, so a restaged position derived from
+the same order cannot contradict the honorifics the same prompt sends. Any other
+ordering would be a second seniority axis, which is the thing this prompt spends the
+most words keeping singular. **A member with no birthday sorts last and keeps her input
+order** - a custom member may carry only three fields, and inventing a year for her
+would be a fabricated claim about her age.
+
+**It reduced the defect and did not close it - measured, same command, same model.**
+The hierarchy became coherent (`会长长女` / `家族次女` / `本家三小姐` / ... / `第三代中最小的`), and
+the collision went from two of five to **one** of five: Joy, fourth on the ladder, still
+claimed `本家次女`. **Independent sampling cannot guarantee distinctness** - the ladder lets
+a call infer what the others will avoid, and inference is not agreement.
+
+**What closes it is ONE call for the whole cast, and it is SHIPPED** - in its own commit,
+with its own measurement, rather than riding along with the instrument that found the
+defect. One part of the reasoning above did not survive that measurement: *one
+round-trip instead of N* is a smaller bill and a **longer** wait, not a shorter one.
+Keeping the per-member path as the fallback does give each member two chances rather
+than one, which is *an accelerator, never a gate* holding. See *One call places the
+whole cast*, below.
+
+**The grader for this is the one an assertion cannot write.** The idol-word scan measures
+the half that is a word list; *are these five people one plausible family* is a reading,
+and reading the five positions is a ten-second act that a green row actively discourages.
+**A run is not validated by its verdict line.**
+
+---
+
+### One call places the whole cast, and the per-member sweep catches what it drops
+
+**A ladder lets a call INFER what the others will avoid. Only one call can AGREE.**
+That is the whole distinction, and it is why the birth-year ladder reduced the
+collision two-of-five to one-of-five and could not close it: five independent samples
+from five prompts are five independent samples however well each one is briefed.
+`generateCastDetail` now makes **one call carrying the whole cast** and asks for every
+member in a single response, where distinctness is something the model can actually
+hold - the positions are in one context, next to each other.
+
+**It costs LESS TO SEND and MORE TO WAIT FOR, and I got that backwards before
+measuring it.** The setting, the ladder and the restaging law go once instead of N
+times - **3,741 characters for a five-member cast against 12,179** for five separate
+prompts, and **4.2x** at nine. But the five answers are written one after another
+inside a single response, where N calls write in parallel, so the wall clock moved
+the other way: **5.2s against 2.2s**, same cast, same world, same model, back to
+back (n=1 each, `deepseek-flash`). It scales the wrong way with cast size.
+
+**So this is a trade, not a free win, and decision A's cost argument is the thing it
+trades against.** A few seconds at a one-time boundary, in front of a Start button
+that already shows a restaging toast, against a cast whose members can all be true
+at once. That is the right way round for a fact the player then lives with for the
+whole run - but it is **Yuhan's to overrule**, because the wait is the half only a
+phone shows honestly.
+
+**The per-member path is KEPT, as the second pass.** Whoever is missing from the
+response - a member the model skipped, a member whose object carried no
+`world_position`, or every member if the call failed outright - is swept concurrently
+exactly as before. So each member gets **two** chances rather than one, and *an
+accelerator, never a gate* survives a provider that dies halfway: a member who fails
+both passes is simply absent from the map, which is the state §22.1's narrowed rule
+still covers.
+
+**The response is keyed by LADDER POSITION, not by member id, and that is not
+cosmetic.** A custom member's id is `Date.now()`, so keying on ids asks the model to
+echo a 13-digit number back per member - a transcription task next to a writing task,
+and the one place a single wrong digit silently reassigns a member's whole profile to
+someone else. The ladder numbers them 1..N and the numbers are already printed in the
+prompt, so the key is something the model reads rather than copies.
+
+**A returned key is untrusted text, so resolution is tolerant and then strict.** A key
+resolves if it is a position in range, a member id, or a member name - and then only
+to a member the call actually asked for. A key that resolves to nobody, or to a member
+who was not a target, is dropped rather than guessed at: the fallback pass covers
+whoever is left, so discarding is cheap and misattributing is not.
+
+**The validator accepts a PARTIAL response rather than retrying it.** `callLLM`'s
+`validateContent` callback fires `bad_response` and retries when it returns false, so
+the bar is *at least one member parsed*, not *all of them*. Demanding all would spend
+two retries on a response that is mostly right and then fall back for everyone; at one,
+a response covering four of five members is kept and the fifth costs one small call.
+
+**Members the editor already restaged appear in the ladder as TAKEN, not as targets.**
+They are skipped by the sweep - that is what stops it re-paying for the editor's work
+and overwriting a line the player corrected - but their positions are exactly what the
+new ones must not collide with, so the prompt prints each one and says so.
+
+**The two prompts share their rules rather than carrying a copy each.** The restaging
+law (keep the trait, drop every idol fact, do not invent a real organisation) and the
+five-field schema are single constants that both the whole-cast prompt and the
+single-member one render. `extractStoryText` is this repo's standing warning about the
+alternative: two copies drifted, and the guard had been written against the one that
+was still correct. The guard here **counts the call sites**.
+
+**MEASURED LIVE, twice, same command as the run that found the defect** (`--world
+chaebol --identity rival_heiress --lang zh --rounds 4`, `deepseek-flash`): **5 of 5
+members placed by the one call**, both times, so the per-member pass never ran at
+all. 0 byte-identical collisions, 4/4 clean rounds, 0 static-prompt drifts, 0 ledger
+prefix breaks, 89.7-91.7% cache.
+
+**And reading the five, which is the half that matters:** `会长长女` / `副会长次女` /
+`首席运营官` / `影视公司创意总监` / `最年轻的董事`. Five distinct posts, ordered on the
+ladder - and the two daughters are told apart by **whose** they are, which is the
+exact thing two independent calls could not do. The cast that produced `本家次女`
+beside `次女` is gone.
+
+**It is evidence and not proof, and the failure profile is why.** Three whole-cast
+runs, fifteen members, no collision - against a defect that is *universal and
+intermittent*, where no amount of clean play establishes that a path is clean. The
+controlled probe makes the point against itself: run back to back on one cast, the
+**per-member ladder path also came back with five coherent positions that time**. One
+call is the better mechanism because the positions are in one context together, not
+because three runs came out right.
+
+#### Run 1 found two more, and only one of them was the model's
+
+The first live run flagged **2 idol-word instances** where the previous runs had zero,
+and they are not the same kind of thing - the ninth and tenth time in this project that
+a live flag turned out to be a hypothesis about the grader first:
+
+- **Joy came back as `充满生命力的门面担当`**, the K-pop term verbatim, in a family compound.
+  **Real, and the cause is an enumeration.** The restaging law forbade *"no rank in a
+  performing group such as leader, main vocal or maknae"* - and the **visual** is not on
+  that list. *When a contract enumerates, the model treats what it omits as
+  unconstrained*, which this file records as a lesson and then paid for again. Both the
+  generator's law and §22.1's interim rule now name it, because they are one list; the
+  three non-idol goldens moved by that one word and the diff was read.
+- **Irene came back as `像家族门面一样滞水不漏`**, which is good prose. `门面` on its own is an
+  ordinary Chinese noun - a shopfront, a family's public face - and the scan was reading
+  it as a group position. **Narrowed to `门面担当` on a measurement, not a preference:
+  across the zh library `门面` occurs exactly ONCE, as `门面主唱`, which `主唱` catches
+  anyway** - so the narrowing costs 1 raw instance of 155 and **0 of 57 members**, and
+  §22.1's measurement is unmoved. A grader that cries wolf is the one that gets tuned
+  away.
+
+**Run 2, after both fixes: 0 idol-word instances and 0 collisions.**
+
+**The collision grader is exact-match and therefore UNDERCOUNTS, which it says.** Two
+members holding the byte-identical `二小姐` is something an assertion can see; `本家次女`
+beside `次女` is the same family position in two spellings and no string comparison
+reaches it. So the harness reports the exact duplicates **and prints every position**,
+because the half that matters is still a reading - *are these people one plausible
+family* - and a green row is what discourages taking it. **A run is not validated by
+its verdict line.**
+
+---
+
+### A rule written in English about a word the model is copying in Chinese
+
+**Found by the live gate before v1.4.2, 2026-10-01**, which is the run that exists to be read rather
+than passed. `--world chaebol --identity rival_heiress --lang zh --rounds 4`: 4/4 clean, 5/5
+restaged, 0 drifts — and **one idol word survived the restaging**, `yeri: 忙内 in public_image`.
+
+It is not a grader bug, which is the first thing this file requires checking. The generated line
+reads `...和谁都能迅速打成一片的忙内`, and her library line — the source the call was handed — opens
+`忙内，古灵精怪的社交小能手，和谁都能迅速打成一片`. **The model restaged the second half and carried
+the first half's noun over verbatim.**
+
+**The restaging law named the ranks in English: *leader, main vocal, visual or maknae*.** The prose
+it restages is Chinese, the output is Chinese, and the token the model was copying is 忙内. The rule
+and the word are the same fact in two scripts and nothing said so, so the model followed the rule
+and still broke it. **This is the address table's lesson in a new place** — that table bans 姐 and
+the other native substitutes *by name*, because a generic "keep it Korean" is not enough when the
+wrong word is the one the model reaches for by default.
+
+**Measured over the zh library, and the measurement is what makes it a defect rather than taste:**
+across the three fields a restaging replaces, 忙内 occurs 6 times, and **exactly one** of those is a
+field where no other scanned idol word sits beside it — Yeri's `public_image`, the one that leaked.
+The scan caught her and nobody else because she is the only member it *could* catch.
+
+The law and §22.1's interim rule now both name `队长, 主唱, 门面, 忙内`, and smoke compares the two
+enumerations as it already did. **Re-run live: 0 idol-word instances**, with Yeri placed as
+`家族中最年幼的女儿` — the plain words the rule asks for instead.
+
+**Then the same rule, extended to Korean, was wrong — and only a live run in a language nobody here
+reads could show it.** The first version also named `리더, 메인보컬, 비주얼, 막내`. A campus run in
+ko came back with `엉뚱한 막내` sitting beside `선배`, `세미나` and `술자리` — campus register
+throughout, with 막내 in its ordinary sense: **the youngest of any group, which is what the word
+means in Korean, with no neutral substitute.** Chinese has an everyday word for the same idea
+(最年幼), which is exactly what makes the loanword refusable there and not here.
+
+**So the Korean forms came back out, and the comment says why.** Generalised: *a rule about a
+borrowed word holds only where the target language has its own word for the thing* — the same
+distinction `呀` already forced in the address table, where zh keeps the Korean form only in the one
+use the two languages share.
+
+**That run was CLEAN, and the defect was in its output.** The idol-word scan is zh-only and
+reported itself skipped; the three rounds graded fine. It was found by reading the five generated
+positions, which takes ten seconds and which a green verdict line actively discourages. **A grader
+that cannot run is not a grader that passed**, and a run is not validated by its verdict.
+
+**6 mutations, 6 RED**, including the law dropping the list, the law keeping one word of four, the
+interim rule keeping the old English-only list, the two lists disagreeing in each direction, and the
+visual going back out. The three non-idol goldens moved by exactly this clause and the diff was read;
+the three idol goldens did not move, because `useRole` is true there and the rule renders empty.
+
+---
+
+### A layer you can read through, and a dependency list that was a claim about the wrong effect
+
+**Yuhan's report, 2026-10-01**, on the layer §22.11 had just shipped. Two bugs, unrelated to each
+other, one line each.
+
+**The dropdown was translucent.** It shipped on `th.cardBg` - `rgba(255,255,255,.03)` dark,
+`rgba(100,70,20,.07)` light - so the identity grid it was covering read straight through it: two
+pages of Chinese in one rectangle, the four world blurbs interleaved with 练习生 / 助理 / 粉丝.
+
+**In the page flow that colour was right**, which is why the batch that made the list a layer left it
+alone. It is a faint tint over the card, the same one every other control on these pages uses. **A
+layer is the one place it cannot be used**, because the whole point of a layer is that there is
+something underneath it that it is covering. It is `th.panelBg` now - the floating-surface token
+every overlay panel in this app is already drawn on, solid in both themes. Measured in a real
+browser: computed `rgb(17, 8, 32)` and `rgb(224, 210, 184)`, no alpha at all, with the page height
+unmoved at 651 folded and 651 open.
+
+The guard is **derived, not pinned to the token name**: whatever the layer names is looked up in
+both theme objects and must be opaque in both. A token that is solid in dark and translucent in
+light is exactly the half-fix a name check would pass - mutation-verified with `th.statsBg`, which
+is precisely that.
+
+---
+
+**And switching the world on the classic door emptied the cast she had just chosen.** The cause is
+one identifier in a dependency array:
+
+```js
+}, [selectedGroup, language, pendingRoster, world]);
+```
+
+That effect did two jobs. In game it re-resolves the roster, and `world` genuinely belongs there -
+section 4's cast framing is the world's since v1.4.1 step 4. Before the game it loads a group as a
+**palette** and clears `form.mainMember` / `form.subMembers`, and `loadGroupConfig` takes no world
+argument at all. **A dependency list belongs to the whole effect, not to the branch that reads the
+value**, so a world switch re-ran the clear.
+
+**The defect is older than the page that made it visible.** Until §22.10 merged the classic door
+onto one page, the clearing fired on a screen the player had not reached yet, where there was
+nothing to lose. Putting the two controls on one page is what turned a harmless re-run into a
+reported bug.
+
+They are two effects now, each keyed on what it reads - the in-game resolve on `[selectedGroup,
+language, world]`, the palette on `[selectedGroup, language, pendingRoster]`. **The two facts are
+independent and the code now says so:** which cast she is choosing from is the group's, which
+identities exist is the world's. Only the second is cleared by a switch, by the effect that has
+done exactly that since step 3, and only when the new world does not declare the id she holds.
+
+**The custom door is left exactly as it is**, on Yuhan's instruction and because it is a different
+mechanism: its cast lives in `RosterBuilder`'s own state and the world is chosen on the page before
+it, so going back to change the world unmounts the builder and takes the cast with it.
+
+**Two guards, because either alone is vacuous**: dropping `world` from both effects would pass *"a
+world switch keeps the cast"* while leaving an in-game cast framed by the wrong world. A third -
+*they are two effects rather than two branches of one* - was written and **deleted**: a merge forces
+one dependency list, which must redden one of the other two, so it could not fail on its own.
+
+**And the behaviour was measured rather than only the source.** Both guards read a dependency array,
+and three guards in this repo have passed while the app was broken. The browser harness picks a main
+member and a sub, switches the world, and reads the `NPC:` line back: unchanged on the fixed code,
+and `NPC: 裴珠泫, 姜涩琪, 孙胜完, 朴秀荣, 金艺琳` - the whole cast, nobody chosen - on the unfixed
+one, which is Yuhan's screenshot.
+
+---
+
+### A fold with two layouts is a page laid out for neither
+
+**Yuhan's report, 2026-10-01**, on the world fold §22.10 had just shipped: *"what I mean for the
+foldable list menu of world setting is a downside list menu on top of the page [...] we need a fixed
+placement for this page whether folded or not, then to make all fields like in the center height of
+the page [...] Currently, all fields packed on the upper side because of the world setting options
+take the space when unfolded, but this makes the page looks ugly when folded."*
+
+**The open list rendered in the page flow**, full width, under the two columns. So the page had two
+heights about 250px apart, and everything below the fold moved when it opened. **A page with two
+heights can be laid out for neither** - and what it was implicitly laid out for was the taller one,
+which is the whole complaint: the folded state, the state the page is in almost all of the time, had
+its content packed against the top with the bottom third empty, reserving room for a list nobody had
+opened.
+
+**The list is a LAYER now**, absolutely positioned under the control it hangs off and as wide as
+that control's column, so the row it replaces and the list that replaces it are the same width and
+nothing under it moves. Measured at 390px, folded against open: **651/651** and **734/734** on the
+classic page, **527/527** on the custom one, with the block's own position unchanged to the pixel.
+
+**Which is what makes centring possible at all** - it is not two changes that happen to ship
+together. A block can only sit in the middle of a page whose height does not depend on what the
+player has just tapped.
+
+Three things the layer needs that the row did not:
+
+- **A way out that is not the toggle.** It covers the identity grid while it is open, so without a
+  backdrop the first tap on a covered chip lands on the list - a layer that eats the tap meant for
+  what it is hiding. The backdrop is a transparent full-screen `fixed` box and takes `.rv-fixed`
+  like every other one in this app.
+- **A decision about which way it opens.** On the classic door the control sits two thirds of the
+  way down a page that already fills a small phone: measured, 38px of the list fell below the card
+  on a 9-member cast at 812pt and 121px on a 10-member one in English. It opens **upward** when the
+  room below is less than its height and there is more above.
+- **`useLayoutEffect`, not `useEffect`.** A flip applied after paint is a list drawn once in the
+  wrong place and then moved.
+
+**Scrolling it into view was the first attempt, and it is the wrong mechanism.** An absolutely
+positioned layer is not part of its scroller's own overflow, so the card has room to scroll only
+when its *content* happens to be long enough - and on the page that needed it, it had **0 of the
+41px** required. Which way the list opens is decided by which side has the room, and needs nothing
+from anyone. After the flip every measured combination lands inside the card, worst clearance 25px.
+
+**The fields sit in the middle of that one height, and the mechanism is the one that does not hide
+the top.** The card is a flex column with ONE in-flow child carrying `margin: auto 0`: auto margins
+centre the child while it is shorter than the card and resolve to **0** the moment it is not -
+measured, gaps `[65,65]` when it fits and `[0,-41]` when it does not. **`justify-content: center`
+is what this must never be**: it splits an overflow between *both* ends and only one of them can be
+scrolled to, which is precisely the defect §22.6.1 measured one layer up. It is one child rather
+than the card centring its children directly because **a flex container does not collapse its
+items' margins**, and every label on these pages is spaced by one.
+
+**The identity grid goes back to two columns**, reversing §22.10.5 on Yuhan's call. Three bought
+43px and the labels paid for it: they are world data, the longest wraps to two lines at a third of
+370px, and a wrapped label is harder to read than a longer page is to scroll.
+
+**And both doors' first page is headed.** They opened straight into a form with the model strip as
+their only top line, which reads as a fragment of a page rather than the start of one. One
+definition, two call sites, because they are the same step of one flow.
+
+#### The harness had been measuring a different app for three batches
+
+**`src/index.css` sets `:root { font: 18px/145% ... }`, and the measurement harness did not load
+it.** A line-height inherited by every line of text on the screen is not a detail - it is about 8%
+of every page. So **every layout number in §22.7, §22.8 and §22.10 was optimistic**, including the
+"585px against a 676px budget" this file records for the classic door. Re-measured on the honest
+basis, that page was **583px against 676** before this batch and is **651 against 704** after it.
+
+The second harness bug is the one this batch would have hit anyway: **`scrollHeight` is floored by
+the scroller's own height**, so it measures the *card* whenever the content is shorter - and a
+centred block is always shorter than what it is centred in. It is read by letting the card size to
+its content instead.
+
+**The general rule: a harness that renders the component without the styles the app serves it with
+is measuring a different component.** A green render proves the module graph resolves; it says
+nothing about a cascade that was never applied.
+
+**What the batch costs, measured, and it is stated because it is a real loss.** +68px on both
+pages - about 47 for the two-column grid and 36 for the header, less 12 the card's padding gives
+back. A 5-member cast fits every device (46-55px spare on an iPhone 13 mini); a **9- or 10-member
+cast now scrolls by 26-30px on a 13 mini** where it had 9-13px spare, and fits everything larger.
+The 10-member English roster scrolls on all three. The levers, if that matters more than the
+design: three columns gives back 47px, the header 36.
+
+**13 mutations, 13 RED**, including the list put back in the flow, the backdrop removed and the
+backdrop left in place doing nothing, the flip dropped and the flip moved after paint, the cards
+stripped of their column, and `justify-content: center` put back. All six goldens byte-identical.
+
+---
+
+### The classic door is one page again, and §22.2's rule narrows to the door it is about
+
+**Yuhan's design, 2026-09-30**, the counterpart to keeping both doors: *"as for classic group
+entry to start a new game, pack pick main/sub picker + player info into 1 page — this change only
+for classic entry [...] this provides the old player who wants a default and quick start as
+previous game version build, but allows them to change world settings."* And, a message later:
+*"try to pack them in a one page height without need to scroll."*
+
+**§22.2 split those four controls onto their own page BEFORE the cast screens, and that was a bug
+fix rather than a layout preference.** `generateCard` reads `world` out of App state, and the
+custom door went cover -> builder directly, so *"describe her in this world"* described her in
+**whichever world the last session left in `rv_sim_world`**.
+
+**The classic door has no generator on it.** `generateCard` and `generateWorldDetail` are called
+from `MemberEditor`, reached only from the builder; `generateCastDetail` runs at Start, after every
+answer on the page. So there is no call on this door that reads the world before the player has
+answered, and no *before* to protect. **The rule narrows to the door it is true of** — the same
+move §22.1's interim prompt rule made — and the guard is rewritten to say *the builder is never
+reached before the world is chosen*, with a second guard asserting the page the classic door
+**does** jump to asks for the world itself. Either half alone permits the original defect.
+
+**The world picker folds.** One collapsed row reading `韩娱偶像 v`; opening it lists all four
+**with their blurbs**, which §22.2 refused as *"a wall of text under a control"* when they were
+always on screen. Inside a fold the player has just opened they are the thing she opened it for,
+and the alternative — a blurb under the collapsed row — is the height the fold exists to save. It
+is **one definition serving both doors**, and the guard counts the call sites.
+
+**The birth-year seed is the defect this merge could have reintroduced.** A wheel always displays a
+value, so an unseeded one shows `2000` while `form.birthYear` is `""` and Start refuses with
+nothing on screen left to fill. The seed named **one phase**, and that is precisely how this broke
+twice: §22.2 moved the wheel to a new page, §22.10 moved the classic door off that page. It is
+`WHEEL_PHASES` now, and the guard **derives** the set of phases that render a wheel and requires
+the seed's list to cover it.
+
+**One page means measured, not estimated.** The page is bundled from `App.jsx`, rendered in
+headless Chrome at 390px with the group index served off disk, driven to the merged screen by
+clicking the cover's own New Game button.
+
+| | |
+| --- | --- |
+| first render | **707px** against a 676px budget on an 812pt phone |
+| after | **585px** for a 5-member cast, **668px** for a 9- or 10-member one |
+
+**The single biggest cut was the identity grid going from two columns to three** — nine cells were
+five rows, and are now three: **-43px**. Two labels for one thing (`玩家信息` above `角色信息`)
+were another 30. The nine- and ten-member casts clear the smallest phone by **8px**, which is
+honest rather than comfortable; the five-member casts, which is what this door is mostly used for,
+have 91px. Measured in all three languages.
+
+**What still scrolls, deliberately: the world fold open** (830px). That is a list the player opened
+to read, not a page she is completing.
+
+**10 mutations, 10 RED**, including both halves of the seed, the page losing the controls it starts
+from, the cover jumping into the builder, and a caption put back inside the wheel's own column. All
+six goldens byte-identical.
+
+---
+
+### The custom door is a chip in the group row, and the unified door is cancelled
+
+**Yuhan's design, 2026-09-30**, and it reverses a plan item rather than fixing a defect: *"move
+`✨自定义卡司` entry button besides the groups [...] Red Velvet, TWICE, aespa, IVE, ITZY,
+BLACKPINK, … 自定义 with same type of look [...] cancel the merge to custom entry policy we
+claimed before, change to keep both and make the custom entry button same as a custom group — more
+intuitive and also friendly for old players familiar with the fast classic group entry."*
+
+**The cover asked one question twice, in two shapes.** A row of group chips, and then an outline
+button under New Game. Both answer *which cast*, and a player reads a different shape as a
+different **kind** of decision - so the authored-cast flow looked like a mode rather than like
+another cast, and the classic path every player has used since v1.3 sat one extra decision away
+from the button that starts it.
+
+**The chip row IS the door selector now.** It renders the group list plus one entry through the
+same markup, tapping any chip sets `door`, and New Game does exactly one thing. The guard asserts
+**one button definition** in that row, because a second one would render identically today and
+diverge at the next restyle - which is what the outline button was.
+
+- **`castChosen` is one predicate**, read by the button's enabled state *and* by its own handler.
+  Two copies of *is a cast chosen* is how a button comes to look live and then refuse with nothing
+  on screen left to fill: the year-wheel defect, one screen over.
+- **The sentinel is a DOOR, not a group id.** `CUSTOM_CAST_ID` is a chip identity and a React key;
+  it never reaches `setSelectedGroup`, `rv_sim_group` or `loadGroupConfig`, so `selectedGroup`
+  keeps naming a real group - which is what the builder loads as its opening palette. Guarded,
+  because the alternative is the cover's own picker fetching `/groups/__custom__/zh.json`.
+- **Measured in a real browser at 390px, in all three languages: 10 chips on exactly 2 lines, 5
+  and 5**, with the card at 469-480px against its 844 cap and no scroll. The chips gave up 1px of
+  gap, 1px of horizontal padding and 1px of emoji size, which is what the second line costs.
+
+**§22.5's commit 5 - the unified door - is CANCELLED**, and the reasoning is worth keeping because
+it cuts against this file's usual direction. **Two doors is not duplication here**: one engine has
+served both since v1.4.0 (`resolveRoster`), so the second door costs a chip rather than a second
+code path. What it buys is that the fastest flow in the app stays one tap for a player who wants
+Red Velvet as shipped, while the builder stays for a player who wants a cast. Unifying them would
+have made every player walk the builder to express *"Red Velvet, unchanged"*.
+
+**`customDesc` is deleted from all three languages** - it described the subtitle of an outline
+button that never shipped with one, and had **no reader in `src/` at all**. That is the
+`pickMainHint` failure, now recorded four times. `customTitle` survives as the chip's label,
+shortened to `自定义` / `Custom` / `커스텀` so it reads beside a group name rather than above one.
+
+**7 mutations, 7 RED**, including the chip removed, the chip brought back as a button under New
+Game, the sentinel written into the group id, and the predicate split back into two copies.
+
+---
+
+### One image column, and two tabs that cannot disagree about their size
+
+**Yuhan's report, 2026-09-30**, on the tab 1 that §22.7.2 had just shortened: *"here's a large
+space between photo and wallpaper [...] left column will be from up to down: profile photo,
+wallpaper, emoji to pick from. [...] right column [...] name, birth year, private personality,
+MBTI, habit [...] make the profile editor window size for tab 1 & 2 uniform."*
+
+**§22.7.2 measured the right thing and fixed half of it.** The wallpaper tile really was 213px
+tall at the photo's 44% against three fields needing 168, and narrowing its column really did take
+tab 1 from 702px to 603px. What it left alone is the **shape**: two rows, each as tall as the
+taller of its two columns, means **every row pays for its own mismatch** - and the slack shows up
+under the shorter side, which is the gap between the two photos, reported twice.
+
+**One row, with one image column.** Photo, wallpaper and the emoji palette stacked on the left;
+name, birth year, private personality, MBTI and habit on the right. The mismatch is now paid once
+for the whole tab, and the wallpaper sits directly under the photo - which is what the report asks
+for and is only expressible in this arrangement.
+
+**The column share is measured, and it trades two heights against each other.** The wallpaper is
+2:3, so a **wider** column is a taller tile; the palette wraps, so a **narrower** column is a
+taller palette. They move in opposite directions, so the sweep is not monotonic - 18% renders
+taller than 20%, and 26% taller than 30% - and no amount of reasoning gets to that. Measured at
+the real panel width in headless Chrome: **30%**, at which tab 1 is **537px** against 603.
+
+| | before this batch | after |
+| --- | --- | --- |
+| tab 1 content | 603px | **537px** |
+| tab 2 content | 512px | 512px |
+| the panel's height | **two different heights** | **one, 555px including its padding** |
+
+**"Uniform" is a property, so it is made true by construction rather than by a number.** A pinned
+panel height would be re-measured every time a field moved and wrong by a little on every phone -
+the hand-maintained list this file keeps recording, wearing a pixel's clothes. **Both panes sit in
+the same grid cell** (`gridArea: 1 / 1`), so the row is as tall as the taller of them whatever
+either one holds, and the inactive pane is `visibility: hidden`.
+
+- **`display: none` would not do it.** It takes the pane out of the layout, which is the whole
+  point of keeping it there. The guard's load-bearing clause is that neither pane is rendered
+  conditionally any more, because a conditional pane is a pane out of the layout by another route.
+- **`opacity: 0` would not either** - it leaves the hidden pane sitting clickable on top of the
+  visible one. `visibility: hidden` also takes it out of the tab order and the accessibility tree,
+  which is why the panes need no other guard against a stray focus.
+- What it costs is that both tabs are always mounted. The editor fetches nothing and holds no
+  subscription, so that is a few hundred DOM nodes and no request.
+
+**The retry becomes an icon, and keeps the name it stops printing.** `生成她在此世界的设定` and
+`重新生成` split the row in half, so the label carrying the control's whole meaning was the one
+being truncated; `↺` is the glyph the story panel already uses for this act. `aria-label` and
+`title` carry the same `detailRetry` string, because **an icon-only control with no accessible name
+is one a screen reader cannot announce** - and the string already exists in all three languages.
+
+**At `fontScale: 1.25` it still scrolls, and by less: 630px against a 593px budget** on the
+smallest phone, where the previous layout was 692 against 624. Deliberate, and unchanged as a
+decision: a player who asks for 25% larger type is asking for more vertical space.
+
+**`🐞` is out of `EMOJI_PALETTE`** on Yuhan's ask. The palette is **also the default glyph source**
+- `withDefaults` assigns `palette[index % palette.length]` - so removing an entry shifts the
+default for a custom member at a later index who never chose one. A cosmetic change to an unchosen
+value, on the screen carrying the palette that produced it; not worth a migration, and worth
+stating.
+
+**14 mutations, 14 RED**, including both halves of the grid fix separately and the emoji palette
+removed from the column while its declaration still stands. All six goldens byte-identical.
+
+---
+
+### A modal opened from inside a sheet has to outrank it
+
+**Reported from the same phone pass, 2026-09-30:** *"after click `+ 创建成员` the cast library menu
+below stays on the top of a new character editor."*
+
+`+ 创建成员` is a control **inside** the member picker, so the profile editor it opens is the
+picker's child modal. `MemberEditor` was `zIndex: 110` and `MemberPicker` `115`, and both are
+rendered by `RosterBuilder` as **siblings** - so nothing about the markup ordered them either. Two
+numbers in two files were the entire decision, and they were the wrong way round.
+
+**Five literals in five files, with nothing anywhere saying which was meant to be on top.** That is
+the shape this file keeps recording: a list a human has to remember to update. `castTheme.js` now
+carries `Z`, one map naming each layer for what it *is* - `sheet`, `imageSheet`, `dialog`,
+`confirm`, `editor`, `cropper` - with the editor above every sheet it can be opened from and the
+cropper above the editor.
+
+**The guard asserts the RELATION and not the numbers.** `Z.editor > Z.sheet`, `Z.editor >
+Z.imageSheet`, `Z.cropper > Z.editor`: a pinned pair would pass against this bug the moment someone
+renumbered the sheet instead. Beside it, a scan **derived over the whole directory** - every key is
+claimed by exactly one root, no two layers share a level (a tie is decided by DOM order, which is
+the thing that was never stated), and a file that reads the ladder may not carry a literal beside
+it. A sixth layer is covered the day it lands.
+
+**Why raising the cropper could never have found this**, which is worth knowing before touching any
+of these numbers: each root is `position: fixed` with a `z-index`, so each one **creates a stacking
+context**. `ImageCropper`'s 130 was only ever compared against the editor's own children - the
+whole editor subtree competed with the picker at the editor's 110. **Raising a child does nothing
+when the parent is the layer that is too low.**
+
+---
+
+### Both editor tabs fit on one screen, and the tab name is what let the block go
+
+**Yuhan's report, 2026-09-30:** *"use tighter placement for profile editor to make each tab in 1
+page, no scroll required [...] we have space between two photos, while the describe in one line and
+auto generation button exceed 1 page a little bit."*
+
+**This is the first layout change in this repo that was MEASURED rather than estimated.** The editor
+is bundled with esbuild and rendered in headless Chrome at the real panel width; the scroll body's
+content height is read off the layout, and the per-block breakdown says where the pixels are. Tab 1
+was **702px**, tab 2 **602px**, against a budget of 590-698px depending on the phone. Everything
+below is against those numbers.
+
+| | before | after |
+| --- | --- | --- |
+| tab 1 content | 702px | **603px** |
+| tab 2 content | 602px | **512px** |
+| panel header + footer + padding | 138px | **122px** |
+
+**The gap between the two photos was the wallpaper tile sizing the row.** It is 2:3, so at the
+photo's 44% column it is **213px tall against three fields that need 168** - the row is sized by the
+picture rather than by the form, and the slack shows up under the shorter of the two. **Its ratio is
+not the thing to change**: the tile is a preview of the crop the player chose, and *the frame is the
+shape the image will be seen in* is the rule three fixes were spent learning. **Narrowing is the
+only way to shorten a tile whose ratio is fixed**, so the column share became an argument and the
+wallpaper takes 32% where the photo keeps 44%. The guard asserts the *relation* - wall < photo - and
+both aspect ratios beside it, so squaring the tile off fails it too.
+
+**The emoji palette went from three rows to two**, at 22px per swatch. A half-width column is the
+one place a 26px grid wraps badly.
+
+**The panel's own chrome is BUDGET, not content.** Every pixel taken off the header, the footer or
+the body's padding is a pixel the body gets, which is why they are tightened in the same change as
+the fields - 16px of the 99.
+
+**Tab 2 is named for the world, and that is what deleted the status block.** The block was 69px of a
+602px tab saying which setting the text was written for; a tab reading `在校园世界` says the same
+thing in the place the player is already looking, for nothing. It renders `world.name`, the string
+section 6 of the prompt prints, and falls back to the neutral label while the world is null - a tab
+with no name is worse than a tab that does not name the world.
+
+**What did NOT go with it is the way back.** `detailRevert` is what makes a generation the player
+dislikes reversible, and *a generation with no way to a different answer gets routed around exactly
+as a prohibition with no substitute does*. It survives as one right-aligned line, rendered **only
+when there is a restaging to revert** - which is also the only time it means anything. The empty
+state needs no words now that the tab is named. `detailTitle`, `detailFor` and `detailNone` are
+deleted from all three languages: **a string for a control that no longer exists is the
+`pickMainHint` failure**, and this file has now recorded it three times.
+
+**`stepWorld` is particle-free by construction in ko.** `에서` has no vowel/consonant pair, unlike
+the `은/는`, `이/가` and `을/를` this repo resolves elsewhere - and a tab label is the wrong place to
+run `resolveKoreanParticles`, so the form chosen is the one that never needs it.
+
+**Measured, in a real browser, three member/world combinations across both tabs** - new custom in
+campus, a library member in campus, and a custom member in the idol world where `useRole` is true.
+All six render clean and all six fit, from an 812px phone upward.
+
+**At the larger text setting it still scrolls, and that is stated rather than hidden: tab 1 is
+692px at `fontScale: 1.25` against a 624px budget.** A player who asks for 25% larger type is asking
+for more vertical space, and the alternative is shrinking the type she just enlarged.
+
+**10 mutations, 10 RED**, including both halves of the tab-name fix separately - a renamed tab beside
+the block it makes redundant, and a deleted block with no rename - because either alone is half a
+fix. All six goldens byte-identical.
+
+---
+
+### The header was under the clock, and `100vh` was only half of it
+
+**Reported from a phone for the SECOND time, 2026-09-30:** *"the upper part of current player set
+up page is blocked."* The previous batch fixed a real mechanism - `100vh` is not the visible
+viewport - and it was not this one.
+
+**The screenshot is what settles it.** The red band across the top is `theme-color`, painted by iOS
+behind the status bar; the model row is cut horizontally *through the middle of its text*; and the
+rest of the page, down to the Back and Continue buttons, is fully in view with slack space below
+them. **A page that is merely scrolled has no slack at the bottom.** The page is not scrolled. Its
+top is underneath the clock.
+
+Two mechanisms, and this repo had both. Neither is `100vh`.
+
+**1. In a Home-Screen launch iOS does not inset the web content for the status bar.** The web view
+is the whole screen, `apple-mobile-web-app-status-bar-style` no longer changes that on current iOS -
+so setting it to `default` last batch bought nothing - and the only thing that reserves the space is
+`env(safe-area-inset-top)`, which this repo paid **nowhere**.
+
+**2. The phone card was sized `content-box`, so `maxHeight: 844` was not the card's height.**
+`height` and `max-height` cap the CONTENT box unless `box-sizing` says otherwise, and the card
+carries `padding: 12px 10px 40px`. **Measured in headless Chrome at a 932px screen: the card is
+896px tall, centred with its top at 18px - 44px of it behind a 62px status bar.** With `border-box`
+alone it is 844px at 18px from the top, so each fix alone leaves some of the header hidden; both
+together clear it.
+
+**Centring is what turns an unpaid inset into an unreachable top.** A flex `align-items: center`
+splits an overflow equally between the two ends, and only one of them can be scrolled to. That is
+also why *how much* was hidden read as arbitrary: it is half the difference between two heights
+neither of which was on screen.
+
+- **`.rv-page, .rv-fixed`** pay the insets on all four sides with `box-sizing: border-box`. They are
+  `0px` on a device with no notch, so nothing else moves. `env(..., 0px)` carries its fallback
+  because a browser that knows neither the function nor the variable drops the whole declaration.
+- **`.rv-card` is new, and the phone card sizes from its PARENT.** It carried `.rv-page`, which made
+  it `100dvh` tall - the *unpadded* height - inside a container whose content box is now smaller. It
+  is `height: 100%` of the padded box, so it can never exceed the space it is centred in whatever
+  the insets turn out to be.
+- **Every `position: fixed; inset: 0` layer takes `.rv-fixed`**, all sixteen of them, because on iOS
+  that rectangle IS the whole screen, notch included. The editor's panel then takes `maxHeight:
+  100%` of the padded box rather than 88% of the screen - correct, and ~100px more room.
+- **An inline `padding` shorthand overrides a class's padding entirely**, so the three roots that
+  set their own breathing room COMPOSE the two through `safeInset(px)` rather than layering them.
+  This is the half that fails silently: the class is present and does nothing.
+
+**The guards are derived over `src/` with comments stripped**, as the `100vh` ones are: every
+full-screen fixed layer carries the class, none of them clobbers its padding, every `maxHeight: 844`
+card carries `.rv-card`, and the two classes carry the insets, the box-sizing and no viewport unit.
+**One of them failed on its first run and found a real miss** - `ImageCropper` was the one overlay
+the class never reached - and the clobber guard failed on a **backtracking bug of its own**:
+`padding:\s*(?!safeInset\()` lets `\s*` match zero characters and then asserts against
+`" safeInset("`, which is not `"safeInset("`, so every composed padding was reported as a clobbered
+one. The lookahead has to span the gap: `padding:(?!\s*safeInset\()`.
+
+**7 mutations, 7 RED**, including both halves of each class separately - the insets and the
+box-sizing, the height and the box-sizing - because either alone leaves part of the header hidden
+and a single check asserting "the rule is present" would pass against either.
+
+**Still not reproducible on this machine, and that is unchanged.** What is measured here is the
+geometry, in a real browser, and that the rules are present. Whether the page now starts where it
+should is the phone.
+
+---
+
+### The profile editor is a résumé, and one control runs both generations
+
+**Yuhan's design, 2026-09-30:** *"use multiple column design to make profile edit page tight. The
+photo on the left with a larger square, several fields on the right line by line — makes the
+profile look like a funny résumé's style."* And the reading rule that goes with it: **a comma in
+that design means one line, half each; only a line break starts a new row.**
+
+Tab 1 was nine stacked full-width boxes — one and a half screens of scrolling to answer three
+required fields. It is two blocks now, each an image at half width on the left and its three
+fields on the right, one per line:
+
+```
++-----------+  Name*                  +-----------+  Habit
+|           |  Birth year*            | wallpaper |  MBTI
+|  photo    |  Private personality*   |           |  Animal emoji
++-----------+                         +-----------+
+```
+
+`alignItems: flex-start`, not `stretch`: a stretched square stops being a square, and the right
+column is the taller of the two because the birth year is a **wheel** rather than a box.
+
+**Her photo is the tile's own background, never a child for something else to clip.** Three fixes
+were spent learning that, and `photoFill` is the one definition of it — the editor is its fourth
+consumer, and the derived scan counts them. The tiles are real `<button>`s, not styled `<label>`s,
+because the iOS file-input failure is what made the only uploader for an authored member
+untappable on the one device this app is built for.
+
+**ONE control now runs BOTH generations, and it is on the tab that asks.** His label —
+*生成她在世界观下的设定详细设定* — describes her card *and* her restaging, which were two buttons on
+two tabs: the fast path crossed a tab boundary, and tab 2 auto-ran a call the player had not asked
+for. The pair is Generate and Regenerate, one line, half each, and **it is not one button twice**:
+
+- **Generate** fills what is blank and never overwrites a word the player typed, which is what
+  makes it safe to press again.
+- **Regenerate** drops the current restaging first, which is the only way to get a different
+  answer once one exists. *A generation with no way to a different answer gets routed around
+  exactly as a prohibition with no substitute does.*
+
+**The merged card is threaded through a LOCAL, not read back off state.** `setProfile` has not
+flushed when the restaging call is built, and that call takes her name and her own lines as its
+**source** — a brand-new member has neither until that moment. The same local, minus the overlay,
+is what the restaging reads, because restaging a restaging compounds.
+
+**The auto-run on opening tab 2 is gone with the move**, and that is a deletion rather than a
+regression: it existed because the tab could otherwise be reached empty beside a retry button with
+nothing to retry. With the generation on the tab the player asks from, an unasked-for call is no
+longer the only way to fill the other one. Tab 2 keeps the status line — a generated paragraph is
+only reviewable if the player can see which world it was written for — and the way back.
+
+**Tab 2 keeps FIVE boxes and not the four the design lists.** `world_position` is the fifth, and
+it is not optional: it is the box that fills the slot `castLore.useRole` empties, so removing it
+would leave a custom member in a non-idol world with nothing saying what she does — the
+filtered-slot-left-empty defect commit 4 exists to close. `name_kr` also stays where it was;
+Yuhan's design names it on neither tab, and it has twelve-plus readers including `membersNamedIn`,
+so it is left alone rather than moved on a guess.
+
+**`STEP_FIELDS` is now TIED to what tab 1 renders, not kept in step with it by hand.** The
+"every generated field is editable" invariant reads that declaration, so a resume block that
+stopped rendering a field would leave that check passing against a field with no box — the
+invariant inverted. A second check compares the rendered list against the declared one. The old
+scrape also had to go: it matched *any* line that was an array of quoted strings, and the two
+resume blocks pass their fields exactly that way, so it read four tabs where the editor has two.
+
+**A green build says the module graph resolves, not that any of it runs**, so the reworked
+component was **rendered for real** — three member/world combinations (new custom, library,
+custom in the idol world) across **both tabs**, via an esbuild `onLoad` hook that flips the
+initial step, since the tab is internal state and a server render otherwise only ever reaches the
+first one. All six rendered clean.
+
+**10 mutations, 10 RED**, including both halves of the generate pair separately and the
+`flex: 0 0 44%` that is the layout itself. All six goldens byte-identical.
+
+---
+
+### The cast picker starts the game, and the page after it is gone
+
+**Yuhan's design, 2026-09-30, and the correction is to §22.5's reading of it rather than to the
+code it produced:** the agency name belongs on the player-info page, and Start belongs at the
+bottom of the cast picker, half-width, with Save cast on its left. The page in between — the one
+that showed the chosen cast back and asked for one more field — is **deleted**.
+
+**A page that repeats the previous page's answer and adds one field is a page nobody needs.**
+That screen existed for a structural reason and not a design one, which is why it survived
+review: `startNewGame` reads `form.mainMember`, `members` and `groupConfig` out of state, and all
+three were filled by an **effect** keyed on `pendingRoster`. The page was the gap in which that
+effect ran. So the flow had a screen in it whose whole job was to let a `useEffect` finish.
+
+So the custom door is `cover -> playerInfo -> roster -> game`, and `setup` is **unreachable from
+it**. Setup stays for the classic door, which still has to name a main and subs out of one group
+and has nowhere else to ask.
+
+**The resolve moved into `startNewGame`, and it happens before any setter runs.** It fetches, so
+it can fail; a half-applied start would leave the player in a game assembled out of nothing,
+which is the rule `loadSave` already follows. On a failure it writes nothing and says so — never
+a fall back to a cast the player did not choose, the v1.3.5 lesson where `loadGroupIndex`'s catch
+returning a hardcoded Red Velvet entry hid a path bug for a release.
+
+Three things about that function are load-bearing and each is guarded:
+
+- **The roster handed IN beats the roster in state.** `setPendingRoster` has not flushed inside
+  the closure that called it, so reading the state would compose a *classic* roster out of
+  whichever group was last selected. Everything the rest of the function reads — the cast, the
+  group config, the main and sub ids — is a local, for the same reason.
+- **`phaseRef.current` is pinned to `"game"` before `setPendingRoster`**, the same trick
+  `loadSave` uses, so the group effect does not clear the cast that was just resolved.
+- **The effect that used to resolve the roster is DELETED, not left with nothing to fire on.** An
+  effect keyed on a value nothing sets before the game is dead code, which is the shape this file
+  already tracks seven instances of.
+
+**The agency name sits beside the world because it is the world that names it.** `castLore.orgNoun`
+decides whether the label says agency, university, company or family business, and `orgSuffix` and
+`orgHint` move with it — so the field belongs on the page where the world is chosen, not two
+screens later. Custom door only: a classic run *is* one real group and already carries its real
+name, so the field would have nothing to write to.
+
+**The cast library opens on the player's own members, and that tab sits first.** It was the last
+of ten behind a horizontal scroll, on the door that exists for authoring members. Both halves are
+guarded, because either alone is half a fix: opening on it while it sits last means scrolling back
+to find it again, and listing it first while opening on Red Velvet means the door's own tab is
+never the one you land on.
+
+**`nextStep`, `changeCast` and `castLabel` are deleted from all three languages.** A label for a
+control that no longer exists is the `pickMainHint` failure — a hint describing a control deleted
+two redesigns earlier, in three languages. **And `Start with ${name}` was an English literal in
+`App.jsx`** in a game that ships three: it is `t.cast.startWith` now, one definition with its call
+sites counted, and it is particle-free by construction in ko because a button label is the wrong
+place to resolve 와/과.
+
+**All six goldens are byte-identical, and that is the commit's gate.** Nothing here touches
+`buildSystemPrompt`, the roster shape or the world; the cast name still reaches `startNewGame` the
+same way and is still applied once, at the same moment. A golden that moved would mean a reorder
+had changed what the model is told.
+
+**12 mutations, 12 RED** — including both halves of the tab fix separately, the resolve reading
+state instead of its argument, and the resolve moved *after* the first setter, which is the one
+that turns a failed fetch into a half-built game.
+
+---
+
+### The top of a page was unreachable, because `100vh` is not the visible viewport
+
+**Reported from a phone, 2026-09-30:** *"player set up page & decide agency name page doesn't
+present all page, the upper part of that page is blocked."* Not cut off - **unreachable**, and
+the difference is the diagnosis.
+
+Every screen in this app was `height: 100vh` inside a `height: 100vh` centring flex. On iOS
+`100vh` is the viewport with the browser chrome **hidden**, so each page container was taller
+than what is on screen and the **document** scrolled. The two pages named are the only two that
+lay content at `y = 0` and also scroll *inside* themselves - so once the document had scrolled
+down, the nested `overflowY: auto` panel consumed every upward gesture that would have brought
+the header back. A page whose top can be scrolled away and not scrolled back reads exactly like
+a page whose top is missing.
+
+**A second mechanism produces the identical symptom and this repo had that too.**
+`apple-mobile-web-app-status-bar-style: black-translucent` makes a Home-Screen launch draw
+*under* the status bar and the notch, and nothing anywhere paid for it with
+`env(safe-area-inset-top)` - so the first ~47px of every page sat behind the clock. It is one
+word, and edge-to-edge is worth nothing to a 390px card with rounded corners and a drop shadow.
+
+**The fix is that the DOCUMENT never scrolls.** The app is one fixed-size card; only its inner
+panels move.
+
+- `html, body { height: 100%; overflow: hidden; overscroll-behavior: none }`, inside
+  `@media screen` so the print path is untouched - a clipped, unscrollable body is precisely
+  what a multi-page PDF must not have.
+- Page containers take **`.rv-page`**, which is `height: 100%` followed by `height: 100dvh`.
+  `100%` tracks the *visible* viewport where `100vh` does not, and `100dvh` is the modern
+  spelling that wins where it is understood. **The pair cannot be written in a JS style object**,
+  which is the whole reason this is a stylesheet rule and not an inline style - and `#root`
+  needs a definite `height: 100%` of its own or the percentage silently falls back to `auto`
+  and the entire fix is inert.
+- `overscroll-behavior: contain` on the page class is the other half: a panel at its own scroll
+  limit must keep the gesture rather than hand it outward.
+
+**Every viewport unit in `src/` is gone, not only the two pages that were reported.** Ten
+overlays sized themselves `80vh` / `86vh` / `88vh` inside a `position: fixed; inset: 0` parent -
+which *is* the visible viewport, so a percentage is exact there and a viewport unit is the same
+defect one layer down waiting for a taller phone. They are percentages now.
+
+**The guards are derived over `src/`, with comments stripped.** No inline `height`/`maxHeight`
+in a viewport unit anywhere; every phone-sized card (`maxHeight: 844`) carries the class; the
+class carries **both** heights *in fallback order*; the body cannot scroll; `#root` has the
+definite height the percentage resolves against. A guard naming playerInfo and Setup would have
+been a sample - the org-suffix lesson, three screens over - and three guards in this repo have
+now passed against their own documentation, which is why the scan reads code rather than prose.
+
+**9 mutations, 9 RED**, including both arms of the fallback pair separately: deleting `100%`
+and deleting `100dvh` each break a different half of the fix, so a single check asserting "a
+height is present" would pass against either.
+
+**NOT verified, and this is the honest part: neither mechanism is reproducible on this machine.**
+Both are iOS layout behaviours. What is measured is that the units are gone and the rules are
+present; whether the page now starts where it should is **Yuhan's phone**, and that is the
+measurement.
+
+---
+
+### One profile editor, and an edit to a prebuilt member is a DIFF
+
+**Tapping a chosen member's face opens her profile, whichever door she came through**
+(§22.2, and this is §22.5's commit 3). The editor was reachable for an authored member
+only, from the picker sheet's palette tab - so the 57 library members were the ones a
+player could not touch, which is the population §22.1 measures the defect over.
+
+**An edit to a library member lands on `entry.override` and is never a snapshot.**
+`resolveRoster` has honoured that field since v1.4.0 (`rosterResolver.js:266`); what this
+commit adds is a way for a player to produce one. The difference is not cosmetic:
+snapshotting her would give up §4.2's by-reference rule - *a fixed profile reaches games
+in progress* - for every field the player did not touch, and it would pass every
+structural check, which is why the guards for it go through `resolveRoster` and read the
+resolved member.
+
+`overrideFrom(base, edited)` in `customCast.js` is the one function that computes it, and
+three of its rules are each a defect avoided:
+
+- **An empty diff is `{}` and the caller stores no `override` key at all.** That is the
+  commit's gate rather than a tidiness rule: a cast nobody edited has to produce the
+  entry it produced before the editor existed, or every saved roster and every golden
+  moves for a cast the player never touched. All six goldens are byte-identical.
+- **A field the player CLEARED is recorded as `""`, not dropped.** `Object.assign` cannot
+  delete, so a dropped key means the library's sentence comes back and the edit is
+  silently discarded. `""` renders as nothing, because the profile block tests every
+  optional field for **content** rather than presence and `memberLine` uses
+  `filter(Boolean)` - so an emptied field is expressible, which is what clearing means.
+- **The base is her LIBRARY record, never the already-overridden copy.** Diffing against
+  the overridden one compounds: a field changed and then typed back to its original text
+  would keep an entry saying it equals itself, so the entry could never return to what an
+  unedited cast produces. `libraryBase` in the builder reads the fetched config and not
+  `picks`, and the guard asserts exactly that.
+
+**`editorTargetFor` is a pure function for a reason a mutation had to teach.** The first
+version of *"...and it opens for a prebuilt member as well as an authored one"* was a
+source regex over the component, and a mutation that made the library branch **dead code**
+left it GREEN - the branch was still written, so the strings it looked for were still
+there. **A source regex can see that a branch is written and not that it is reachable.**
+So the decision moved into `customCast.js` beside `assignSlot` and `savedRosterEntry`, and
+the four checks are behavioural: a library pick yields `src: "library"` with the override
+laid over the library record, a custom pick with no palette entry is edited as her own
+snapshot (she was deleted, or the cast came from a saved roster), and a missing library
+record returns **null** rather than an empty profile - which would read as data loss *and*
+would diff every field as a change, snapshotting her by the back door.
+
+**`animal_plastic` left the EDITOR and also left `CARD_FIELDS`** - §22.3.3 stopped at the
+first half, and stopping there breaks an invariant one guard already holds: *the player
+must be able to correct anything the model wrote*. A generated field with no box is worse
+than no generated field. The field itself stays on `PROFILE_FIELDS`, in all 30 group files
+and in the profile block for all 57 library members, which is what keeps the goldens
+fixed; a custom member simply has none, and an absent optional field renders nothing. Both
+halves are guarded, because either alone is the wrong change.
+
+**The generate box is hidden for a library member**, which is removing a control that
+provably does nothing rather than a design preference. `runGenerate` merges **under** what
+is already filled - deliberately, so a generated value can never overwrite the player's
+own words - and a library member arrives with every field filled, so the button would
+spend a call and change nothing. §22.5's commit 4 gives her the generation that is about
+her: the world-scoped tab 2.
+
+**The sub/NPC chip is two targets now, not one.** It was a single button whose whole area
+unassigned, with the x as a label; her face has to be the way into her profile, and a
+nested button is not expressible - so it takes the shape the saved-roster chips one
+section above already had. The comment explaining the old shape moved with it.
+
+**`applyRoster` carries the override back**, or a saved cast loses every edit the moment it
+is applied - the value would be in the saved data with nothing reading it, which is the
+shape this screen has already had once.
+
+**Known, contained, and NOT fixed here: section 4 keeps the group file's own copy of an
+edited member's prose.** A whole single group in a world with `useGroupLore: true` takes
+its `groupLore` verbatim, and that block duplicates the three texture fields section 5
+renders per member. So editing Irene's `public_image` through the custom door in
+`kpop_idol` leaves the old sentence in section 4 and the new one in section 5 - **two
+sections disagreeing about one member.** It needs the custom door, a cast that is exactly
+one whole group, an idol world, and an edit to one of three fields. The fix is either to
+stop duplicating the prose in single-group lore or to compose lore for an edited cast, and
+both move goldens - so neither belongs in a commit whose gate is that none does. See
+`docs/V140_PLAN.md` §22.5 and Known Inconsistencies.
+
+**21 mutations, 21 RED, and getting there cost three findings about the harness rather than
+about the code.** One reported GREEN with the **guard** at fault - the reachability entry
+above. One **crashed** the suite instead of failing, because the check after the failing one
+dereferenced a result the mutation had made null, and a stack trace where a verdict belongs
+reads exactly like a guard that cannot fail; every dereference of that function's result is
+`?.` now. And one mutation was **my** bug, not the code's: it assigned to a `const`.
+
+**Two mutation runs must never overlap, and one left a mutation on disk.** A run was
+backgrounded, appeared to produce nothing, and was restarted in the foreground while it was
+still alive - so two harnesses interleaved writes on the same five source files, and the
+second one's *pristine* snapshot was taken while the first had a mutation applied. Its
+`finally` then faithfully restored **the mutation**. Both runs' verdicts were garbage
+(GREEN, WRONG and CRASHED scattered across guards that are fine), and the stranded line sat
+in `libraryBase`. **What found it was one of this batch's own guards**, which is the best
+outcome available: *...and diffs against her library record rather than the overridden copy*
+failed on the next clean run and named the function. The rule this earns is stronger than
+*verify the tree after an interrupted run*: **a mutation harness is not safe to background
+at all**, because nothing distinguishes a slow run from a dead one, and the recovery for
+guessing wrong is a tree nobody can trust.
 
 ---
 
@@ -1842,9 +3102,49 @@ time**, which is `docs/V140_PLAN.md` §22 — and §22 is also where a defect Yu
 independently turns out to be the same one: `generateCard` reads `world` from state on
 a screen the player reaches BEFORE picking a world.
 
-**Not fixed here.** §22.1 carries the interim prompt rule (read the texture for traits,
-never for facts, with `castLife.theirs` as the substitute) and the reason it needs its
-own commit: it moves the three non-idol goldens.
+**The interim rule is TAKEN, and it is the one line section 5 gains when `castLore.useRole`
+is false.** Yuhan's call, 2026-09-29 - *"interim prompt rule now and totally clean it when we
+do section 22"*. It sits immediately after the `CRITICAL: ★` line and **before** the profiles,
+because a rule about how to read the prose has to reach the model before the prose does:
+
+> READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a
+> performing-idol setting and this story is not one. [...] here she has no stage, no debut, no
+> comeback, no fandom, and no rank in a performing group such as leader, main vocal or maknae.
+> What she has instead is `${world.castLife.theirs}`. Where a line describes her through idol
+> work, keep the trait and restage it there.
+
+**The substitute is the load-bearing half, not the prohibition.** *A prohibition with no
+substitute gets routed around* is recorded twice in this file already, and the second time the
+model escaped a list of named channels by **inventing** one - `通过公司内部系统发来的消息`. So
+this rule does not say *do not mention her stage*; it says read the line for the trait and
+restage it in `castLife.theirs`, which is the field that already answers *what do these people
+do all day* for each world.
+
+**It renders identically in all three languages**, because `castLife.theirs` is
+language-invariant English exactly as the ROLE CONTRACT already renders it - so what moved is
+one block per non-idol world, not per (world, language) pair.
+
+**`kpop_idol` is byte-identical and the three idol goldens did not move**, which is what says
+this is a filter rather than a rewrite: the caveat is the empty string when `useRole` is true,
+appended to the `CRITICAL` line rather than placed on a line of its own, so no newline moves
+either. The three non-idol goldens moved by exactly this block and the diff was read.
+
+**It is INTERIM and the comment in `mainAgent.js` says so.** It tells the model how to read
+data that is wrong for the world; §22.2 fixes the data.
+
+**It becomes CONDITIONAL rather than deleted, and that is a correction to what this section
+used to promise.** It said *delete it in the same commit that lands the generated per-world
+texture*. Reading the code to plan §22.2 found why that is wrong: `generateCard`'s own law is
+*an accelerator, never a gate*, so every failure returns a blank profile and a run can always
+contain a member whose texture was NOT translated. For exactly those members the prose is still
+idol prose, so deleting the rule while that data is still being sent is a silent regression.
+
+**A rule scoped to the members it is true of is not two answers to one question.** That is the
+distinction the *a prompt is not append-only* failure turns on: the five instances this file
+records are two rules making contradictory claims about the SAME subject. A condition that
+names which members it applies to has one subject and one answer. So §22.2 narrows this rule
+to the un-translated members instead of removing it, and `docs/V140_PLAN.md` §22.5 carries the
+reasoning.
 
 ### Where she is decides who is there
 
@@ -2047,7 +3347,7 @@ Group JSON size directly drives the static-prompt token count (Red Velvet ~8KB, 
 | --- | --- |
 | `main` | Exactly what players are running. Served by GitHub Pages + Vercel. Tagged on every release. |
 | `dev` | Integration branch for feature work. Branched from `main` at v1.3.2. **Never deployed.** |
-| `hotfix/<slug>` | Off `main`, one bug, short-lived. Merged into `main`, then `main` into `dev`. |
+| `hotfix/<slug>` | Off `origin/main`, one bug, **temporary** - merged into `main`, then `main` into `dev`, then deleted. `scripts/hotfix-worktree.sh` creates and reports on these. |
 | `feat/<slug>` | Optional, off `dev`, for work risky enough to want to abandon cleanly. Not needed for routine changes. |
 | `dev-v12.0.0` | **Frozen**, last active 2026-07-31, 46 commits behind the v1.3.x line. Never merge it. Also reachable as tag `archive/dev-v12.0.0`. |
 
@@ -2126,11 +3426,96 @@ git checkout dev && git merge main && git push origin dev
 node scripts/dev-index.mjs
 ```
 
-Deleting the merged `hotfix/*` branch afterwards is your call — the merge commit and the tag both record it, so nothing is lost, but branch deletion is a red-line action and is never done automatically.
+**A hotfix branch is TEMPORARY, and the last step is the one that gets skipped.** Deleting it is
+still your call - branch deletion is a red-line action and is never done automatically - but it is
+no longer left to memory: `scripts/hotfix-worktree.sh status` lists every `hotfix/*` branch with
+whether its commits are contained in `main`, and prints the exact removal commands. Nothing is
+lost by deleting a merged one: the merge commit and the tag both record it.
+
+**Read `ahead` as a fact, not a verdict.** A branch can be finished and still show commits not in
+`main`, because the fix reached players another way: the v1.4.1 year-wheel fix shipped through
+`dev`, so its abandoned hotfix branch still reads `1 commit not in main` while `main` carries the
+same behaviour by a different commit. That is why the report says *contained* or *not contained*
+and leaves the judgement to a human - and why the command it prints for that case is `-D`.
+
+#### Work a hotfix in a WORKTREE, not by switching this checkout
+
+```bash
+scripts/hotfix-worktree.sh new registers-404
+```
+
+A git worktree is a second working directory on the same repository, so `main` is checked out
+somewhere else and **`dev` is left exactly as it was** - nothing stashed, no rebuild of whatever
+was in flight, and `deploy.sh` is not one `git checkout` away from the wrong branch. The script
+starts the branch from **`origin/main`** after a fetch, because a local `main` can be behind and a
+hotfix has to sit on exactly what players are running.
+
+**The location is the whole lesson, and we got it wrong the first time.** The v1.4.1 hotfix
+worktree was created under `.../AppData/Local/Temp/claude/<session>/scratchpad/main-hotfix`, and a
+session-scoped temp directory is the one place it must never go:
+
+1. **Git's registration in `.git/worktrees/` outlives the directory.** Clean temp and the checkout
+   is gone while `git worktree list` still advertises the path.
+2. **A worktree LOCKS its branch.** `git branch -d hotfix/<slug>` is refused while any worktree
+   claims it - so the cleanup that should be one command needs `git worktree remove` first, by a
+   checkout nobody can find.
+3. **Nobody can read the path.** Three weeks later there is no way to tell live work from debris.
+
+So the path is a boring sibling of the repo - `../rv-simulator-v11-hotfix-<slug>` - and never
+inside the repo either, where it is untracked in a tree `deploy.sh` stages from and every tree
+scan walks a second copy of the app. **Smoke fails on a worktree inside the repo** and is
+deliberately silent about a temp one: nested breaks the suite's own scans, temp is untidy and
+harmless at deploy time, and only you can delete it - blocking a release on housekeeping nobody
+but Yuhan may action is the wrong trade.
+
+`node_modules` is the one wrinkle: a fresh worktree has none and `deploy.sh` runs a build. The
+script junctions this checkout's when `package.json` and `package-lock.json` are identical between
+the branches, and tells you to run `npm ci` when they are not - checked rather than assumed,
+because a junction writes through and `npm install` inside a linked worktree would rewrite this
+checkout's dependencies.
+
+**Deploy from the worktree** - it is the checkout that has `main`. Then merge back **here**, which
+is the step that keeps `dev` alive:
+
+```bash
+git fetch origin && git checkout dev && git merge origin/main && git push origin dev
+node scripts/dev-index.mjs
+```
+
+#### Two version rules the goal implies, and neither was written down
+
+**A planned version number is not reserved.** `docs/V140_PLAN.md` has called the next feature
+release v1.4.2 for weeks, and a hotfix on v1.4.1 wants the same number - which is what produced a
+version collision during the v1.4.1 release. The rule is that **the next number goes to whatever
+ships first**, and a plan's version label is a nickname rather than a claim on the digit: if a
+hotfix takes v1.4.2, the feature release becomes v1.4.3 and the plan document is edited. The
+alternative considered was 4-part hotfix versioning (`1.4.1.1`), and it was rejected: it needs
+three machinery edits - the `SEMVER` gate in `scripts/bump-version.mjs`, smoke's `package.json
+version is x.y.z`, and smoke's `What's New in v<version>` guard - and it lengthens every version
+string in the app for a case that arises once a release at most. **Deleting the reservation is
+cheaper than supporting it.**
+
+**A fix that changes no bundled file does NOT bump, tag, or open a README section.** The Pages
+`.nojekyll` fix is the case: it touched no file Vite bundles, and the rebuild reproduced
+`index-CiihP5yH.js`, the hash already deployed. There is nothing for a version to distinguish -
+every player's cached bundle was already correct and only a data fetch was failing - so bumping
+would have told players the code changed when it had not, and re-tagging would have moved a tag
+that still names the right source. It is recorded in Project Status instead.
+
+**The rule is measurable, which is the point:** build, and compare the hash against what `main`
+already serves. Same hash means no bump. This is also why `deploy.sh` only **warns** when
+`v<version>` is already a tag rather than aborting - re-deploying at the same version is a
+legitimate act, and this is the shape of it.
 
 **Always add a regression check to `test/smoke.mjs` as part of the fix**, and verify it fails against the unfixed code. This is already the convention in this repo — the Layer G key-page guards each encode a bug that reached a hand test. It also does double duty on the merge-back: if `dev` has rewritten the same area, the merge will conflict, and the guard is what proves the fix survived however you resolve it. Resolve in favour of `dev`'s structure, keep the fix's behaviour, and let the check confirm it.
 
-**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and adds a line to the current README "What's New" section rather than opening a new one.
+**Hotfixes bump the version too.** The cover screen's version string is how a player tells you what they are running, so a build in the wild should never be ambiguous. A hotfix bumps the patch digit and **opens its own README "What's New" section**, marked `(hotfix)`.
+
+**That sentence used to say the opposite** - *"adds a line to the current section rather than opening a new one"* - **and the suite forbids it.** Smoke asserts `README has a "What's New in v<package.json version>" section`, so a bump with no new section is a red suite and therefore a blocked deploy: the rule as written described a process that cannot complete. Two things make the section the right answer anyway - notes filed under the *previous* version's heading are notes a player cannot find, and `src/config/releaseNotes.js` needs its own entry for the new version regardless, because smoke ties `RELEASE_NOTES[0].version` to `package.json`.
+
+**Keep the new version string out of the section's BODY.** `bumpFile` skips any line containing `What's New in`, so the heading is free - but a body line naming the version is counted, and README's expected count is exactly 6. Found on an abandoned hotfix branch, where the count failed at 7 with a perfectly reasonable sentence in it.
+
+The correction was written on that same abandoned branch and therefore never shipped until now; a **version bump is not itself a hotfix**, so the Pages `.nojekyll` fix bumped nothing and opened no section - it changed no source at all.
 
 ### Version strings
 
@@ -2294,6 +3679,36 @@ not a code read. **After a release, fetch a file from each mirror, not just the 
 the on-device console, which would have shown the 404 and the `parseWorld` throw immediately.
 It is read before React mounts and is host-independent. Nothing needed adding; it needed
 remembering.
+
+**The check that would have caught this is an HTTP request, so it is now a script.**
+`node scripts/verify-mirrors.mjs` fetches, from each of the three mirrors, `index.html`, the
+bundle and stylesheet that file references, both `manifest.json` copies, and **every file in
+the mirrored data trees** - 47 data paths today, derived by walking `groups/` and `worlds/`
+rather than listed. `MIRRORED_TREES` and `MIRRORS` are exported from that script and
+**imported by smoke**, so the offline Jekyll guard and the live verifier cannot drift into
+covering different trees or a stale host list.
+
+It is **not in the smoke suite and must not be.** `deploy.sh` gates on smoke, so a check that
+needs three public hosts to answer would block a release on a bad connection - the same reason
+the `YearWheel` browser harness stays out. `deploy.sh` prints the command on completion
+instead, beside the merge-back it already prints.
+
+**A 200 does not mean the file is there, and on one of these three hosts it routinely does
+not.** Measured 2026-09-30, requesting `worlds/__nope__/zz.json` from each:
+
+| host | a missing data path answers |
+| --- | --- |
+| GitHub Pages | `404`, `text/html` |
+| Vercel | `404`, `text/plain` |
+| **Cloudflare Pages** | **`200`, `text/html`, 678 bytes - byte-for-byte the app's own `index.html`** |
+
+So a status-code check would have called a missing register **served** on Cloudflare. That is
+*a fallback that returns plausible data hides the failure that produced it* arriving at the
+host layer, and it inverts which mirror is the dangerous one: Pages failed loudly and was
+diagnosable in 47 curls, while the two hosts that happened to be right this time include the
+one that could hide the identical defect indefinitely. **The verifier therefore requires every
+`.json` path to PARSE as JSON**, and reports `200 not-json` as its own failure kind, naming the
+SPA shell when it recognises it.
 
 `dist/` is **not** tracked. It was, contradicting `.gitignore`, until Cloudflare stopped serving it statically; it carried a bundle hash that existed nowhere else in the repo.
 
@@ -2579,59 +3994,512 @@ fail — the harness now reports CRASHED. The other was a real guard weakness: t
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
 
-### Pick up here — v1.4.1 is released; the Pages mirror is fixed, 2026-09-30
+### Pick up here — v1.4.1 is released and VERIFIED on all three hosts, 2026-09-30
 
 **This block is the authority on what is open. Every block below it is history — read the
 dates, not the tense.**
 
-**v1.4.1 is live.** `main` = `origin/main` = `0e27d8b`, tagged `v1.4.1`; `dev` is that commit
-plus the dev-mode `index.html`. Verified: all three mirrors serve `index-CiihP5yH.js`, the
-served bytes match the local build after normalising line endings, and the suite was green on
-the merged tree.
+**v1.4.1 is live and the Pages hang is fixed.** `main` = `origin/main` = `d052226`; `dev` =
+`origin/dev` = `1e25191`, which is that commit plus the dev-mode `index.html` plus this batch.
+Tag `v1.4.1` still points at `0e27d8b`.
 
-**The Pages-only `Loading...` hang is fixed on `dev` and NOT yet deployed.** One commit:
-an empty `.nojekyll` plus two derived guards. Smoke **1562 → 1564**, **3 mutations, 3 RED, 0
-GREEN**, `npm run build` clean and reproducing `index-CiihP5yH.js` — no source changed, so the
-bundle is unchanged. **No version bump**, deliberately: the code players run is already
-correct, nothing distinguishes two builds, and `deploy.sh` blesses re-deploying at the same
-version with a warning rather than a stop. v1.4.2 stays available for §21/§22.2.
+**Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of the
+three mirrors — 47 data files, `index.html`, both manifests, the bundle and the stylesheet —
+and reported **51/51 served on all three, every JSON parsed, all three on
+`index-CiihP5yH.js`**. Yuhan confirmed the io page reaches Setup on a phone.
 
-**The exact next commands, every one of them a red line and none of them done:**
+**The tag is the one loose end and it is Yuhan's call.** `v1.4.1` = `0e27d8b`, which predates
+`.nojekyll`; the source there is identical, so it still names the right code, and moving a tag
+is a force-update. Leaving it is the recommendation.
 
-```bash
-git push origin dev
-git checkout main && git pull
-git merge dev --no-ff -m "fix: serve _registers on GitHub Pages (.nojekyll)"
-npm run deploy          # warns that v1.4.1 is already a tag; that is correct here
-git checkout -- index.html
-git checkout dev && git merge main && git push origin dev
-node scripts/dev-index.mjs
+#### What this batch added, and why
+
+**`scripts/verify-mirrors.mjs`** — the instrument the Jekyll bug proved was missing. Every
+offline mirror check compares `public/` against root, which is a statement about the *repo*; a
+static host may filter what it was handed, and only an HTTP request sees that. It is **out of
+smoke on purpose** (`deploy.sh` gates on smoke, and three public hosts are not a release
+dependency) and `deploy.sh` now prints it as the last step. See *Pages serves the root THROUGH
+Jekyll*.
+
+**It requires JSON to PARSE, not merely to return 200 — and that is not theoretical.** Measured:
+**Cloudflare Pages answers a missing data path with `200 text/html` and the app's own
+`index.html`, byte for byte.** A status-only check would have called a missing register served
+there. Verified end to end by pointing one mirror at a path that does not exist: **48 files
+reported `200 not-json (SPA shell)`, exit 1**. The host that would hide this defect is one of
+the two that were *right* about the Jekyll one.
+
+**`scripts/hotfix-worktree.sh` + `scripts/worktree-hygiene.mjs`** — the hotfix flow, made clean
+on Yuhan's ask. A worktree keeps `dev`'s in-flight work untouched; the v1.4.1 one was created in
+a session temp directory, which is the one place it must not go. See *Work a hotfix in a
+WORKTREE*.
+
+**Two version rules were missing and are now written down:** a planned version number is **not
+reserved** (which is what collided during the v1.4.1 release), and a fix that changes no bundled
+file **does not bump, tag, or open a README section** — measurable by rebuilding and comparing
+the hash. See *Two version rules the goal implies*.
+
+**The owed CLAUDE.md correction is made:** the Hotfix section said a hotfix *"adds a line to the
+current README 'What's New' section rather than opening a new one"*, which describes a
+guaranteed red suite, because smoke asserts a section exists for `package.json`'s version.
+
+**Numbers:** smoke **1564 → 1578**. **14 mutations, 14 RED, 0 GREEN, 0 WRONG, 0 CRASHED** — but
+**three assertions passed against broken code on the first attempt** and were rewritten, all
+three the same shape: two rules covering one fixture, so neither could be shown to work. A 404
+fixture with an empty body let `JSON.parse("")` cover for the status check; a nested-worktree
+fixture containing `/scratchpad/` let the temp rule cover for the nested rule. **`cropRect`'s
+double clamp, twice more.** No golden moved and no source under `src/` changed.
+
+#### §22.1's interim prompt rule is SHIPPED, 2026-09-30
+
+Section 5 gains one line when `castLore.useRole` is false: read the three ★ texture fields for
+**traits, never for facts** - no stage, no debut, no comeback, no fandom, no rank in a performing
+group - with `castLife.theirs` supplying what she does instead. See *`useRole` filters the FIELD
+and the prose says it anyway*.
+
+**The substitute is the load-bearing half**, not the prohibition. It sits **before** the profiles,
+because a rule about how to read the prose is read too late after it. `kpop_idol` is
+byte-identical - the caveat is the empty string when `useRole` is true, appended to the `CRITICAL`
+line so not even a newline moves - and **the three idol goldens did not move while the three
+non-idol ones moved by exactly one line each**, carrying their own world's `castLife.theirs`. The
+diff was read.
+
+**It is INTERIM, and §22.2 NARROWS it rather than deleting it.** It tells the model how to read
+data that is wrong for the world; §22.2 makes the data right - but only for the members whose
+texture a generation actually translated, because that call is an accelerator and never a gate.
+The rule therefore gains a condition naming those members. See the correction under *`useRole`
+filters the FIELD and the prose says it anyway*, and `docs/V140_PLAN.md` §22.5.
+
+**What it does NOT do:** the library is unchanged, so all 80 field instances are still sent, and
+**no claim is made about how often the rule works** - that needs live play in a non-idol world,
+and the failure profile is *universal and intermittent*, so a clean run would establish nothing.
+
+**Numbers:** smoke **1578 → 1581**. **5 mutations, 5 RED, 0 GREEN, 0 WRONG, 0 CRASHED** - the
+presence check verified in **both** directions (sent to every world, and to none), the substitute
+check against both a hardcoded substitute and none at all, and the placement check by moving the
+caveat after the profiles. Build clean at **423.34 kB / gzip 148.88**, `index-CdL8R8RE.js`.
+
+**This one DOES bump at release time** - unlike the `.nojekyll` fix, it changes a bundled file, so
+the hash moved. The bump is the last commit on `dev` before the release merge, not now.
+
+#### §22.2 is CONFIRMED and in progress, 2026-09-30
+
+**The plan is `docs/V140_PLAN.md` §22.5** and Yuhan confirmed it on 2026-09-30, with two
+decisions taken as recommended there: the world-scoped texture is generated **automatically for
+the whole cast** at the Start boundary rather than opt-in per member (§22.1's measurement is 57
+of 57 members, so a fix reaching only players who open an editor does not reach the defect), and
+the **unified door is out of scope** - it stays §22.5's commit 5 and nothing else depends on it.
+
+Five commits, each shippable, and the first four are the release:
+
+1. ✅ **docs** - §22.5 plus this block. `81ccbeb`.
+2. ✅ **Player info before the cast, on both doors.** `fcfb93d`. No prompt change; all six
+   goldens byte-identical, which was the gate. smoke **1581 → 1584**, 9 mutations 9 RED. See
+   *The player is asked before the cast, because the generator reads the world*.
+3. ✅ **One profile editor for custom AND prebuilt members**, reached by tapping a chosen
+   member's face. A library edit lands on `entry.override` as a **diff**, never a snapshot.
+   `animal_plastic` left the editor AND `CARD_FIELDS`; `name_kr` stays. **All six goldens
+   byte-identical**, which was the gate. smoke **1584 → 1603**, 21 mutations. See *One
+   profile editor, and an edit to a prebuilt member is a DIFF*.
+4. ◩ **The two tabs, the generated detail, and `world_position`** - split in two, because
+   the prompt half is complete and the UI half turned up a design gap.
+   - ✅ **4a, the prompt and the generator.** `memberLine`'s one expression, the §22.1 rule
+     narrowed to whoever still needs it, `generateWorldDetail` / `generateCastDetail`, and
+     `parseJsonish` factored out of `parseCard`. **No golden moved** - §22.5 predicted all
+     six and was wrong, because no fixture holds a translated member. smoke **1603 → 1618**,
+     14 mutations 14 RED. See *The filtered slot is FILLED*.
+   - ✅ **4b, the two tabs and the wiring.** `a51dbc8`. `world_detail`, one stamped overlay field;
+     `applyWorldDetail` in `resolveRoster` and at the Start boundary; the editor's two
+     tabs with the restaging block on tab 2; the whole-cast sweep on both doors. **All
+     six goldens byte-identical**, for the third commit running. smoke **1618 → 1642**,
+     26 mutations 26 RED. See *A restaging is an OVERLAY stamped with the world it was
+     written for*.
+
+**4b's storage decision was Yuhan's and it is TAKEN (2026-09-30): persist the restaging,
+stamped with the world it was generated for.** §22.2's *only tab 1 is persisted* is corrected
+in the plan rather than worked around: an unpersisted tab-2 field cannot survive
+`upsertMember`, so the text the player reviewed would be discarded and the sweep would
+regenerate it, which makes the `[retry]` button in §22.2's own sketch meaningless.
+
+**What shipped is ONE field and not the two the proposal named**, and the difference is a
+defect avoided. `world_position` + `world_detail_for` writes the generated text over tab 1's
+fields; that destroys what the player wrote, and a CUSTOM member has no library record to
+restore it from - so *drop a stale detail* was not expressible for exactly the member whose
+prose is most hers. `world_detail` is an overlay instead: applied for a matching stamp,
+ignored otherwise, and nothing is overwritten either way.
+
+**Also decided while writing 4a, and stated so it can be overruled:** generation runs
+**lazily when tab 2 is opened empty, PLUS an unconditional Start-boundary sweep** for
+everyone still missing detail. §22.5's decision A is *automatic for the whole cast at the
+Start boundary*, and A alone means tab 2 is empty for the whole of setup and its retry
+button has nothing to retry. The pair reaches the whole cast (which is why A was chosen)
+and keeps the text reviewable, without charging a player for browsing casts.
+5. ⬜ The unified door - **not in scope**, and nothing above depends on it.
+
+**NOT verified: NONE of the five §22.2 commits has been seen on a device, and no live round
+has been played against any of them.** Three of the five are UI on the screens four phone
+passes in a row have found something on, and 4b puts a network call on a path that had none
+AND spends one call per cast member at every Start in a non-idol world. Every claim here is
+offline: smoke, mutation, golden and one rendered-prompt probe. The branch alias needs no
+deploy once `dev` is pushed:
+
+```
+dev.idol-dating-sim.pages.dev
 ```
 
-**No new tag** — `v1.4.1` already points at `0e27d8b` and the source is unchanged.
+**Worth looking at specifically, in commit order:**
 
-**Then verify on the device**, which is the only thing that can:
-`byhanita.github.io/rv-simulator/worlds/_registers/zh.json` must return JSON rather than a 404,
-and the custom-cast door must reach Setup. `?debug=1` on that host opens the on-device console.
+- `fcfb93d` - that Continue is not refused with nothing left to fill (the year-wheel seed
+  now fires on the new page; the guard ties the two together, but the guard is
+  source-level), that Back from the builder lands on player info with the four answers
+  intact, and that switching worlds does not strand the page on `Loading...`.
+- `832878d` - that tapping a **prebuilt** member's face opens her profile filled in, that
+  Save on her writes no second copy into the authored palette, and that the sub/NPC chip's
+  two targets are both hittable at 390px. It was ONE button whose whole area unassigned,
+  and a chip that now needs its `x` is the kind of change a thumb finds and a guard does not.
+- `62df3ed` - nothing to see yet: `world_position` had no writer until 4b, so the only
+  observable change is that nothing changed. **That is the thing to confirm** - a
+  non-idol run must read exactly as it did before, because the prompt is byte-identical.
+- `a51dbc8` is the one to spend the most time on, and there are four things a guard cannot
+  see:
+  **the wait** at Start in a non-idol world, which is one concurrent call per cast member
+  and has no progress bar beyond one toast; **the auto-generation** firing when tab 2 is
+  opened, including whether it reads as the app spending her credits unasked; **whether the
+  generated Chinese is any good**, which is the whole point and no assertion reaches it; and
+  **the two tabs at 390px**, since tab 1 gained three boxes and tab 2 gained a block.
+
+**The live round is DONE, 2026-09-30, and the harness could not run it until it was
+fixed.** `generateCastDetail` appeared in `playthrough.mjs` nowhere - the sweep lives in
+`startNewGame`, which the harness rebuilds - so 4b's gate was **unreachable**, not merely
+unmet. See *The fifth was not a pinned field at all*.
+
+```bash
+node test/playthrough.mjs --world chaebol --identity rival_heiress --lang zh --rounds 4
+```
+
+**Measured, twice, `deepseek-flash`:** 5/5 members restaged, **0 idol-word instances** in
+the generated fields against §22.1's 80 across the library, 4/4 clean rounds, 90-92%
+cache, **0 static-prompt drifts**, 0 ledger prefix breaks. The pipeline runs and §22.1 is
+closed in live prose.
+
+**And reading the output found a defect the row cannot show: five independent restagings
+produced two second daughters of one family.** The birth-year ladder took it from two of
+five to one of five and could not close it - independent sampling cannot guarantee
+distinctness. See *Five independent restagings produce two second daughters*.
+
+**§22.2's remaining fix is DONE, 2026-09-30: one call places the whole cast**, with the
+per-member sweep kept as the second pass for whoever it leaves out. Two more live runs
+on the same command: **5/5 placed by the one call both times, 0 collisions, 0 idol-word
+instances after the two fixes run 1 found, 4/4 clean, 0 drifts.** See *One call places
+the whole cast*.
+
+**The one number that came out against expectation, and it is Yuhan's to weigh: the
+Start wait went UP.** Measured back to back on one cast - one whole-cast call **5.2s**
+against five concurrent per-member calls **2.2s** - because one response writes five
+answers in series where five calls write in parallel, and it scales the wrong way with
+cast size. What went down is what is *sent*: 3.3x fewer characters at five members,
+4.2x at nine. The trade is a few seconds at a one-time boundary for a cast that can all
+be true at once, and **the phone pass is where that wait is judged honestly.**
+
+**What the offline probe DID establish, because it is measurement and not reasoning:** a
+chaebol prompt built from a fully restaged cast carries **none** of 忙内 / 队长 / 出道 and
+**drops the interim rule entirely**; with one of two members restaged the rule stays and
+names the other. The prose in that probe was a sentinel string, not a model's - so this says
+the pipeline closes §22.1, and says nothing at all about the writing.
+
+#### The fifth phone pass — three commits, and none of them has been on a device
+
+**Yuhan's report, 2026-09-30, hand-testing `fcfb93d`..`f8b4a95`.** Plan in
+`docs/V140_PLAN.md` §22.6; three commits, each shippable on its own.
+
+1. ✅ **`98c38c7` — the top of a page was unreachable.** `100vh` is not the visible viewport on
+   iOS, so every page container was taller than the screen, the document scrolled, and a nested
+   panel then ate the gesture that would have scrolled it back. Every viewport unit in `src/` is
+   gone; the document cannot scroll; the translucent status bar is `default`. smoke **1675 →
+   1681**, 9 mutations 9 RED.
+2. ✅ **`7a5df12` — the cast picker starts the game.** The agency name moved to player info, Start
+   is at the bottom of the picker (half width, Save cast on its left), and the page between them
+   is deleted. The resolve moved from an effect into `startNewGame` and runs before any setter.
+   Custom tab is first in the library. smoke **1681 → 1687**, 12 mutations 12 RED.
+3. ✅ **`caa4a0b` — the profile editor is a résumé.** Two blocks, image at half width beside three
+   fields each; one control runs both generations, with Regenerate as its other half; the
+   auto-run on opening tab 2 is gone. smoke **1687 → 1690**, 10 mutations 10 RED.
+
+**All six goldens byte-identical across all three**, which was each commit's gate: none of this
+touches `buildSystemPrompt`, the roster shape or the world.
+
+**NOT VERIFIED, and this is the honest part.**
+
+- **Neither viewport mechanism is reproducible on this machine.** Both are iOS layout behaviours.
+  What is measured is that the units are gone and the rules are present; whether the page now
+  starts where it should is **the phone**, and that is the measurement.
+- **No live round has been played against any of the three.** The flow commit puts a network call
+  (`resolveRoster`, then the restaging sweep) on a path that used to have a page in front of it,
+  and the custom door's Start is the one that changed most.
+- **The editor was RENDERED, not used.** Three member/world combinations across both tabs, server
+  side, all clean — which catches an undefined identifier and says nothing about a thumb.
+
+**What to look at, in commit order:**
+
+- `98c38c7` — the top of the player-info page, on the phone *and* from the Home Screen if that is
+  how it gets opened. Then scroll each page to the bottom and back: the header must come back.
+- `7a5df12` — the custom door end to end. The agency name and its hint under the world picker;
+  Start at the bottom of the picker naming the main member; **the wait after Start**, which now
+  carries the resolve *and* the restaging sweep with only a toast in front of it; and that the
+  classic door still reaches Setup and starts from there.
+- `caa4a0b` — the two résumé rows at 390px, whether the wallpaper tile's 2:3 sits well beside
+  three fields, the emoji palette wrapping in a half-width column, and **whether Generate followed
+  by Regenerate actually produces different Chinese** — which is the half no assertion reaches.
+
+**Still owed from the previous batch and not addressed here:** the measured Start-wait regression
+(one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
+**Yuhan's to weigh**, and this batch put the resolve on the same path, so the two compound.
+
+#### The ninth phone pass - two UI bugs, and one of them was a dependency list
+
+**Yuhan's report, 2026-10-01, hand-testing `a8c54cd`** with three screenshots. The eighth pass's
+design is accepted - the list floats, the identity grid is two columns, the fields are centred - and
+two bugs came back with it, unrelated to each other and one line each. Plan in `docs/V140_PLAN.md`
+§22.12.
+
+1. **The open world list was see-through.** `th.cardBg` is rgba at .03 / .07, so the identity grid
+   it covers read through it. It is `th.panelBg` now, solid in both themes. **Measured in a
+   browser: `rgb(17, 8, 32)` and `rgb(224, 210, 184)`**, no alpha, with the page height unmoved at
+   651 folded / 651 open.
+2. **Switching the world on the classic door emptied the chosen cast.** One effect loaded the group
+   as a palette *and* re-resolved the in-game roster, and `world` - which only the second half reads
+   - was in the dependency list they shared. Two effects now, each keyed on what it reads. The
+   custom door is untouched on Yuhan's instruction: its cast lives in the builder's own state and
+   the world is chosen on the page before it.
+
+**Verified:** smoke **1717 → 1720** (three checks added, a fourth written and deleted as vacuous);
+**7 mutations, 7 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, tree restored byte-identical; **all six goldens
+byte-identical** (`update-golden.mjs` reported six unchanged and wrote nothing); build clean at
+**441.10 kB / gzip 154.45**.
+
+**And the second fix was verified BEHAVIOURALLY, not only in the source**, because both its guards
+read a dependency array and three guards in this repo have passed while the app was broken. The
+browser harness picks a main member and a sub, switches the world, and reads the `NPC:` line:
+unchanged on the fixed code, and the whole cast with nobody chosen on the unfixed code - Yuhan's
+screenshot, reproduced.
+
+**NOT VERIFIED.**
+
+- **Neither fix has been on a device.** The opacity is a computed colour in headless Chrome and the
+  cast fix is a React state transition in the same; whether the list reads well over the fields on a
+  real screen is the phone.
+- **No live round** has been played against this commit, which touches neither the prompt, the
+  roster shape nor the world.
+- **The largest casts still scroll on the smallest phone**, unchanged from the eighth pass: 26-30px
+  over on an iPhone 13 mini for a 9- or 10-member classic cast. Still Yuhan's call - three columns
+  gives back 47px, dropping the header 36.
+
+**What to look at:**
+
+- Open the world list on **both** doors: nothing underneath it should be legible through it.
+- On the classic door, choose a main member and a sub, **then** switch the world. The chips must
+  stay chosen and only the identity should clear - and only if the new world does not declare the
+  one you had. Switch back and forth twice.
+- Then start that run, to confirm the cast you kept is the cast the game opens with.
+- On the **custom** door, changing the world still clears the builder's cast. That is unchanged and
+  correct.
+
+**Still owed from five batches back:** the measured Start-wait regression (one whole-cast call 5.2s
+against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.
+
+#### The eighth phone pass — one commit, and a harness correction that reaches back three batches
+
+**Yuhan's report, 2026-10-01, hand-testing `2ee3f5b`** with four screenshots. The verdict on the
+merged classic door was *"you almost built what I want"*; what came back was one design correction
+with three parts, and they are one change rather than three:
+
+1. **The world list floats.** It rendered in the page flow, so the page had two heights ~250px
+   apart and was implicitly laid out for the open one — which is why the folded state, the state it
+   is in almost always, packed everything against the top. It is a layer now: absolutely
+   positioned, as wide as the control's column, with a backdrop that closes it and an upward flip
+   when there is no room below. **Measured: 651/651 and 734/734 folded against open.**
+2. **The identity grid is two columns again**, reversing §22.10.5.
+3. **The fields are centred**, by one `margin: auto 0` child of a flex-column card — which
+   top-aligns itself the moment the page is too long, so nothing becomes unreachable. Both pages
+   gained a header.
+
+**Verified:** smoke **1709 → 1717**; **13 mutations, 13 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, tree
+restored byte-identical; **all six goldens byte-identical** (`update-golden.mjs` reported six
+unchanged and wrote nothing); build clean at **441.05 kB / gzip 154.44**.
+
+**THE MEASUREMENTS IN §22.7, §22.8 AND §22.10 WERE OPTIMISTIC, and that is this batch's most
+important finding.** The harness rendered the page without `src/index.css`, whose `:root` carries
+`font: 18px/145%` — a line-height inherited by every line on the screen, worth about 8% of every
+page. Re-measured on the honest basis, the classic door was **583px against a 676px budget** before
+this batch, not the 585-against-676 recorded, and the editor numbers in §22.7 and §22.8 have the
+same bias and have **not** been re-taken. See *A fold with two layouts is a page laid out for
+neither*.
+
+**NOT VERIFIED.**
+
+- **Nothing here has been on a device.** The upward flip in particular is a measurement taken in
+  headless Chrome at three window sizes; whether the list lands where a thumb expects it is the
+  phone.
+- **No live round has been played against this commit**, which touches neither the prompt, the
+  roster nor the world.
+- **The largest casts now scroll on the smallest phone**, by 26-30px on an iPhone 13 mini where
+  they had 9-13px spare. They fit an iPhone 15 by 1-5px and a Pro Max by 78-82. The 10-member `x`
+  roster in English scrolls on all three (2px over on a Pro Max). This is the measured price of the
+  two-column grid (+47px) and the header (+36px); either one reversed puts a 9-member cast back on
+  one screen at 812pt, and that is **Yuhan's call**, not a defect to fix quietly.
+
+**What to look at:**
+
+- Open the world list on **both** doors. It must cover the fields rather than push them, close on a
+  tap anywhere outside, and open **upward** on the classic door if there is no room below — the
+  four blurbs are the reason to open it, so they have to be readable without scrolling.
+- **Fold and unfold it twice.** Nothing below it may move, and the page must not change height.
+- The fields should sit in the middle of the card on both doors rather than against the top. On a
+  9-member classic cast the page will scroll — check the **top** is still reachable when it does.
+- The identity grid at two columns: whether the longest labels now read cleanly.
+- The `开始新游戏` header on both pages, in all three languages.
+
+**Still owed from four batches back:** the measured Start-wait regression (one whole-cast call 5.2s
+against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.
+
+#### The seventh phone pass — one commit, and it answers two reports from the same sitting
+
+**Yuhan's report, 2026-09-30, hand-testing `b1d7e9f`.** The sixth pass's two fixes both passed:
+the header is clear of the clock and the world-named tab reads right. Plan in `docs/V140_PLAN.md`
+§22.8. What came back was a layout proposal and one bug:
+
+1. **Tab 1 is one resume block, and both tabs are one size.** Photo, wallpaper and the emoji
+   palette in one image column; name, birth year, private personality, MBTI and habit beside it.
+   Tab 1 **603 → 537px**, measured in a browser at the real panel width; the panel is now **one
+   height for both tabs**, because the two panes share a grid cell rather than a pinned number.
+   The retry is `↺` with its label moved to `aria-label`/`title`, so Generate has the width. `🐞`
+   is out of the palette.
+2. **The editor opened underneath the picker it was opened from.** `zIndex: 110` against the
+   picker's `115`, as siblings. `castTheme.js#Z` is now the one ladder and the guard asserts the
+   ordering relation, not the numbers.
+
+**One commit rather than two, and that is a deviation worth naming:** both changes land in
+`MemberEditor.jsx` and in one pass of the same screen, so splitting them would have meant
+reverting and re-applying a patch across six files to produce two commits nobody would bisect
+between. The two reports are recorded separately in `CLAUDE.md` and in §22.8.
+
+**Verified:** smoke **1697 → 1702**; **14 mutations, 14 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, tree
+restored byte-identical; **all six goldens byte-identical** (`update-golden.mjs` reported six
+unchanged and wrote nothing); build clean at **439.22 kB / gzip 153.92**. Measured in headless
+Chrome across three member/world combinations - new custom in campus, a library member in campus,
+a custom member in the idol world - **both panes identical in every one**, and every one fits from
+an 812pt phone upward.
+
+**NOT VERIFIED.**
+
+- **Nothing here has been on a device.** The stacking fix in particular is one number: it is
+  correct by the CSS spec and by the ladder's own guard, and whether the editor now lands on top is
+  the phone.
+- **The editor was rendered, not used.** A thumb on a 22px emoji swatch in a column that is now
+  30% of 334px is the thing no assertion reaches.
+- **No live round has been played against this commit**, which touches neither the prompt, the
+  roster nor the world.
+- **At `fontScale: 1.25` tab 1 still scrolls**, 630px against a 593px budget on the smallest phone
+  — better than the 692 against 624 it replaces, and still deliberate.
+
+**What to look at:**
+
+- Tab 1 at the default text size: photo, wallpaper and the emoji palette down the left, the five
+  fields down the right, and the describe box plus `生成她在此世界的设定 ↺` full width under both.
+  **Whether the tiles are still big enough** at 30% is the judgement call — the photo is ~100px and
+  the wallpaper ~100x150.
+- **Switch between the tabs.** The panel must not change height.
+- `+ 创建成员` from inside the picker, and `编辑` on a member there: the editor must cover the
+  sheet. Then a photo tap inside the editor — the cropper must cover the editor.
+
+**The cover page moved too, in this batch's second commit.** The custom
+door is a chip at the end of the group row rather than an outline button under New Game, and
+**§22.5's commit 5 - the unified door - is CANCELLED** on Yuhan's call. Measured at 390px in all
+three languages: **10 chips on exactly 2 lines, 5 and 5**, card 469-480px, no scroll. smoke
+**1702 → 1706**, 7 mutations 7 RED, goldens byte-identical. **Look at:** that a group chip and
+then New Game still reaches player info, that the 自定义 chip reaches the builder, that New Game is
+refused with no chip lit, and that the two lines do not become three on the actual phone.
+
+**And the classic door is one page again, in a third commit.** Cast picker and player info on one
+screen, with the world as a fold; the custom door is untouched and still asks first, because it is
+the one with a generator on it. **Measured at 390px in all three languages: 585px for a 5-member
+cast and 668px for a 9- or 10-member one, against a 676px budget on the smallest phone** — so a
+TWICE or X cast clears it by 8px, which is honest rather than comfortable. smoke **1706 → 1709**,
+10 mutations 10 RED, goldens byte-identical. **Look at:** that Red Velvet -> New Game lands on one
+page that asks everything and starts from it, that the world fold opens and picking a world closes
+it and moves the identity grid with it, that Back reaches the cover, and **whether a 9-member cast
+really does fit on your phone** — that is the 8px.
+
+**Still owed from three batches back:** the measured Start-wait regression (one whole-cast call
+5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.
+
+#### The sixth phone pass — two commits, and the first one is a second attempt
+
+**Yuhan's report, 2026-09-30, hand-testing `0d1aa11`** with three screenshots. Plan in
+`docs/V140_PLAN.md` §22.7. His verdict on the flow and the résumé was *"Good. That's exactly my
+design"*; what follows is what was still wrong.
+
+1. ✅ **`6dae9a4` — the header was under the clock.** The previous batch's `100vh` fix was a real
+   fix for a real mechanism and **not this one**. Two others: iOS does not inset a Home-Screen
+   launch for the status bar and nothing paid `env(safe-area-inset-top)`, and the phone card was
+   sized **content-box**, so `maxHeight: 844` capped the content box and the card's own 52px of
+   padding sat on top of it. **Measured in headless Chrome at a 932px screen: 896px of card,
+   centred, top at 18px — 44px behind a 62px status bar.** smoke **1694**, 7 mutations 7 RED.
+2. ✅ **`4cce7fd` — both editor tabs fit on one screen.** Tab 1 **702 → 603px**, tab 2
+   **602 → 512px**, panel chrome **138 → 122px**, all measured in a browser rather than estimated.
+   Tab 2 is named for the world, which is what deleted the status block; the way back survives as
+   one line. smoke **1697**, 10 mutations 10 RED.
+
+**All six goldens byte-identical across both**, which was each commit's gate.
+
+**NOT VERIFIED.**
+
+- **Neither iOS mechanism is reproducible on this machine**, and that has not changed. What is
+  measured is the geometry — in a real browser — and that the rules are present. Whether the page
+  now starts where it should is **the phone**.
+- **No live round has been played against either commit.** Neither touches the prompt, the roster
+  or the world, but the flow commit before them did.
+- **The editor was rendered, not used.** Three member/world combinations across both tabs, in
+  Chrome, all clean and all fitting — which says nothing about a thumb.
+- **At `fontScale: 1.25` tab 1 still scrolls**, 692px against a 624px budget. Deliberate: a player
+  who asks for 25% larger type is asking for more vertical space.
+
+**What to look at, in commit order:**
+
+- `6dae9a4` — the top of the player-info page, from the Home Screen *and* in Safari. The model row
+  and `切换模型` must be fully clear of the clock. Then the overlays, which all moved: the editor,
+  the picker, the image sheet, the cropper, Help, Save, the map and the four socials — none of them
+  should sit under the notch or under the home indicator, and the bottom sheets should still be
+  flush to the bottom rather than floating above it.
+- `4cce7fd` — the editor's two tabs at the default text size, **without scrolling**: tab 1 should
+  end at the hint line under Generate/Regenerate, and tab 2 at the fiction note. Then whether the
+  wallpaper tile at 32% is still big enough to judge a crop by, whether the 22px emoji swatches are
+  tappable, and whether `在校园世界` reads right as a tab — it is `在${world}世界` in zh,
+  `In ${world}` in en and `${world}에서` in ko.
+
+**Still owed from two batches back and not addressed here:** the measured Start-wait regression
+(one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
+**Yuhan's to weigh**.
+
+
+#### Still next in the feature queue
+
+2. §22.4's two undiagnosed items, which one prompt rule may close together: the saved cast whose
+   deleted custom member returns as name + emoji (**not reproduced**), and the round that names
+   nobody, only 她 — which also makes `membersNamedIn` record no one present, so `[Rounds Absent]`
+   then reports a false absence.
 
 **Offered and not taken:** make a failed world fetch *visible*. `loadWorld(...).catch(
 console.error)` in `App.jsx` means any data 404 renders as a permanent spinner with nothing a
 player can report — the swallow that `loadGroupIndex`'s Red Velvet fallback already cost this
-repo a release. It touches `App.jsx` + three i18n files, so it is a multi-file change wanting
-its own written plan, and it is worth nothing for *this* bug now that the 404 is gone.
+repo a release. It touches `App.jsx` + three i18n files, so it wants its own plan, and it is
+worth nothing for *that* bug now the 404 is gone.
 
-**Still next in the feature queue:** §22.1's interim prompt rule (DECIDED, moves the three
-non-idol goldens, own commit), then the written plan for §22.2.
-
-**Housekeeping, both Yuhan's because deletion is a red line:** the merged-and-redundant
-`hotfix/year-wheel-start-blocked` branch on the remote, and the worktree plus `node_modules`
-junction under `scratchpad/main-hotfix`.
-
-**One correction owed to this file:** the hotfix rule under *Hotfix* still says a hotfix *"adds
-a line to the current README "What's New" section rather than opening a new one"*. Smoke
-asserts a section for `package.json`'s version exists, so that sentence describes a guaranteed
-red suite and a blocked deploy. It was corrected on the abandoned hotfix branch and therefore
-never shipped.
+**Housekeeping, Yuhan's because deletion is a red line.** `scripts/hotfix-worktree.sh status`
+prints the exact commands. The worktree under the session temp path, and
+`hotfix/year-wheel-start-blocked` locally and on the remote. **It needs `-D`, not `-d`:** the
+branch is redundant **by content, not by merge** — `main` carries the same year-wheel fix by a
+different commit (7 `selfScroll` hits), so its one commit is not an ancestor of `main`. An
+earlier note in this file called it "merged"; that was wrong.
 
 ### Pick up here — v1.4.1 is prepared and NOT released, 2026-09-29 (historical)
 
@@ -3471,6 +5339,59 @@ feeds the clean/dirty verdict: this is a coverage statement, not a defect, and c
 would be the metric-that-fails-a-build that gets tuned away. **A grader that cannot run is not a
 grader that passed**, and nothing else on screen tells the two apart.
 
+#### The fifth was not a pinned field at all - it was a STEP the harness never had
+
+**Found before spending a credit on §22.2's owed live round, by grepping the harness for the
+function under test.** `generateCastDetail` appeared in it **nowhere**. The restaging sweep
+lives in `startNewGame`, and `playthrough.mjs` does not call `startNewGame` - it
+reimplements that boundary, because the boundary is React state. So the run would have graded
+the **un-restaged** prompt, reported a healthy row, and said nothing whatever about the commit
+it was run to validate.
+
+**The four before it were fields pinned to one value; this one is a step that does not exist**,
+and that is a harder thing to notice. A pinned field is visible in the `executeRound` call
+as a literal where a flag should be - `selectedModel: "qwen"` is right there to be read. A
+missing step is visible only as the absence of a name, and nothing draws the eye to a function
+that is not called. **The check is not reading the harness; it is grepping the harness for the
+symbol the commit added.** One command, and it is the cheapest gate in this repo:
+
+```bash
+grep -n generateCastDetail test/playthrough.mjs   # before trusting any live row about 4b
+```
+
+**Generalise it past this harness: every boundary the app owns and the harness REBUILDS is a
+place the two silently diverge.** `startNewGame` is one (the sweep, and `beginRun`'s
+clearing), `loadSave` is another, and each is code the harness cannot call and therefore
+has to reproduce. The sweep is the first one where reproducing it wrong made a live gate
+unreachable rather than merely narrow. The guard is written on the harness's own round call,
+not on a flag - the same rule `--provider` and `--mode` already follow.
+
+**The harness now mirrors the sweep exactly, including its condition** - restage when
+`castLore.useRole` is false, skip when it is true - so a run costs what a player's Start
+costs, which is the number `--restage` exists to let you *avoid* rather than to opt into.
+`--no-restage` plays the un-restaged prompt on purpose, which is the state §22.1's
+narrowed interim rule still covers and therefore still worth being able to grade.
+
+#### …and a restaging nobody reads is a restaging nobody can judge
+
+The sweep's whole purpose is that the generated prose carries no idol facts. That is the one
+half of *is the generated Chinese any good* an assertion can actually reach, and §22.1 already
+measured it over the library: **57 of 57 members, 80 field instances**, counting group
+positions (忙内, 队长, 主唱, 门面, rapper) and idol activities (出道, 打歌, 回归, 专辑, 舞台,
+练习生, 粉丝, 偶像, 女团, 组合, 综艺). So the harness scans the **generated fields** with that
+same list and reports the instances per member.
+
+**It is zh-only, deliberately, and says so rather than guessing.** The word list is the one that
+was measured; an en list would have to contain *stage*, which appears in *stage name* and in *at
+this stage*, and a grader that cries wolf gets tuned away - this file's standing rule. For `en`
+and `ko` the scan joins `gradersSkipped` and prints as a coverage line, beside the two ROLE
+CONTRACT graders that are silent in a new world. **A scan that cannot run is not a scan that
+passed.**
+
+What it still cannot see is everything else: register, whether the sentence is idiomatic, whether
+the restaged position is one this world would actually have. That needs a reader, and it is why
+the phone pass is still owed after a green run.
+
 ### `playthrough.mjs` had been dead since step 3, and that is the second time
 
 Its `fetch` stub served `/groups/` and nothing else. Step 3 added `/worlds/`, so every world fetch
@@ -3825,6 +5746,17 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
    `npcAppearances`, bubble `photoDesc`, cast photos — a field complete on one side of a boundary
    and connected to nothing on the other, except that this one never had a reader at all. Either
    delete the constant or give it one; `docs/V140_PLAN.md` §18 carries the decision.
+
+3. **Section 4 keeps the group file's own copy of an edited member's prose.** A whole single
+   group in a world with `useGroupLore: true` renders its `groupLore` **verbatim**, and that
+   block duplicates the three texture fields section 5 renders per member. So an edit to
+   Irene's `public_image` through the custom door in `kpop_idol` leaves the old sentence in
+   section 4 and the new one in section 5 - two sections disagreeing about one member, which
+   is the failure this file spends the most words on. It needs all four of: the custom door, a
+   cast that is exactly one whole group, a world with `useGroupLore: true`, and an edit to one
+   of those three fields. The fix is either to stop duplicating the prose in single-group lore
+   or to compose lore for an edited cast, and **both move goldens** - see `docs/V140_PLAN.md`
+   §22.5.
 
 ### Cost strings must track README
 

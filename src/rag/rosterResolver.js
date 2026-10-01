@@ -19,6 +19,75 @@ import { loadGroupConfig } from "./groupLoader";
 export const SLOTS = ["main", "sub", "npc"];
 
 /**
+ * The fields a world-scoped restaging writes (docs/V140_PLAN.md §22.2).
+ *
+ * ONE LIST, and it lives here rather than in cardGenerator.js because the
+ * generator ASKS for these and this module APPLIES them - two hand-kept copies
+ * would let a generated field be silently dropped by the overlay, which renders
+ * as a member the model was told nothing about. cardGenerator imports it.
+ *
+ * `world_position` leads because it is the marker: it is what memberLine renders in
+ * the slot `useRole` empties, and what isUsableDetail tests for.
+ *
+ * `name_kr` is NOT here. It is a tab-2 field on SCREEN and world-INDEPENDENT in
+ * fact - a Korean name is her name in a lecture hall as much as on a stage - so
+ * generating it per world would re-roll a fixed fact (§22.3.1).
+ */
+export const WORLD_FIELDS = [
+  "world_position", "public_image", "queer_texture", "speech_style", "hidden_conflict",
+];
+
+/** The key a stamped restaging is stored under, on a profile or an override. */
+export const WORLD_DETAIL_KEY = "world_detail";
+
+/**
+ * Lay a stamped restaging over a member, but only for the world it was written
+ * for.
+ *
+ * AN OVERLAY, NEVER A REWRITE, and that is what makes staleness UNEXPRESSIBLE
+ * rather than merely unwritten. The proposal was a field per line plus a stamp
+ * beside them; writing `public_image` in place destroys what the player wrote, and a
+ * CUSTOM member has no library record to restore it from - so *drop a stale
+ * detail* could not be expressed for exactly the member whose prose is most hers.
+ * Here a mismatched stamp is simply not applied: cast her in a second world and
+ * she falls back to her own lines rather than to a hole, and changing the world
+ * mid-setup needs no cleanup pass at all.
+ *
+ * THE OVERLAY IS DELETED ON THE WAY OUT, so the nested object reaches no
+ * renderer. Section 5 and memberLine read named fields, so it would render
+ * nothing either way - deleting it says that on purpose instead of by luck.
+ *
+ * Pure, and the ONE place this happens: resolveRoster applies it for every round
+ * after the first, and startNewGame applies it to the members round 1 is built
+ * from. Two copies of *what this member IS in this world* would be the
+ * extractStoryText failure with a ~5,500-token cached prefix behind it.
+ */
+export function applyWorldDetail(member, worldId) {
+  if (!member) return member;
+  const detail = member[WORLD_DETAIL_KEY];
+  const out = { ...member };
+  delete out[WORLD_DETAIL_KEY];
+  // A detail with no `world_position` is NOT APPLIED, which is the same rule
+  // isUsableDetail states and withCastDetail stores by: it is the one marker the
+  // prompt reads to decide whether a member still needs §22.1+s rule, so a detail
+  // without it would count as restaged while rendering nothing in the slot useRole
+  // empties. Saying it here is what makes the sweep+s two write paths - the roster,
+  // and the members round 1 is built from - agree BY CONSTRUCTION rather than by
+  // both remembering to check.
+  if (!detail || !worldId || detail.world !== worldId) return out;
+  if (!String(detail.world_position ?? "").trim()) return out;
+  for (const f of WORLD_FIELDS) {
+    const v = String(detail[f] ?? "").trim();
+    // A field the restaging did not fill leaves her own line standing. The
+    // generation is per-field lossy by design (parseWorldDetail keeps what
+    // arrived), and a blank overriding a sentence would be the one direction
+    // that loses text.
+    if (v) out[f] = v;
+  }
+  return out;
+}
+
+/**
  * The classic path expressed as a roster: one group, one main, some subs, and
  * everyone else an NPC.
  *
@@ -105,10 +174,25 @@ export const orgNameFor = (castName, suffix) =>
  * `parseGroupConfig`'s whitelist, in all 30 group files, and on every cast screen
  * — stripping it at the loader would take an idol position out of the idol world
  * too. `mbti` and `animal_plastic` are world-neutral and are not filtered.
+ *
+ * SINCE v1.4.1 §22.2 THE FILTERED SLOT IS FILLED RATHER THAN LEFT EMPTY, by
+ * `world_position` — what she does in THIS world, generated at setup. Filtering the
+ * idol position left a non-idol world with nothing at all saying what she does, and
+ * *what these five people do all day* is the most world-specific fact there is,
+ * which is the whole reason `castLife` exists (§22.3.2).
+ *
+ * IT IS ONE EXPRESSION AND NEVER TWO FIELDS. They are alternatives: an idol world
+ * renders `role` and never `world_position`, a non-idol world the reverse. Rendering
+ * both, or putting the new one on its own line, would be two answers to *what does
+ * she do* — the failure this repo records five instances of. `kpop_idol` is
+ * byte-identical because `useRole` is true there, and a non-idol world whose cast has
+ * not been translated is byte-identical too, because the field is simply absent and
+ * `filter(Boolean)` drops it.
  */
 function memberLine(m, useRole) {
   const kr = m.name_kr ? `(${m.name_kr})` : "";
-  const facts = [useRole ? m.role : null, m.mbti, m.animal_plastic].filter(Boolean).join(", ");
+  const facts = [useRole ? m.role : m.world_position, m.mbti, m.animal_plastic]
+    .filter(Boolean).join(", ");
   return `${m.emoji ? `${m.emoji} ` : ""}${m.name}${kr}${facts ? ` - ${facts}` : ""}`;
 }
 
@@ -264,6 +348,12 @@ export async function resolveRoster(roster, language = "zh", world) {
     }
     if (!base) continue;
     if (e.override) Object.assign(base, e.override);
+    // The restaging last, because it is the narrowest statement about her: tab 1
+    // is who she is, the override is this run's edits, and the overlay is what
+    // either of those means in THIS world. It is applied only for a matching
+    // stamp, so a cast built in one world and started in another carries no trace
+    // of the first.
+    base = applyWorldDetail(base, world.id);
     members.push(base);
     slotOf.set(base.id, e.slot);
   }

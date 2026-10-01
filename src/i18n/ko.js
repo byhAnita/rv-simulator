@@ -1,7 +1,7 @@
 const ko = {
   cover: {
     subtitle: "아이돌 데이트 시뮬레이터",
-    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.1",
+    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.2",
     newGame: "✨ 새 게임",
     continue: "💾 이어하기 (불러오기)",
     apiKey: "🔑 API 키 / 모델",
@@ -43,7 +43,8 @@ const ko = {
   cast: {
     editorNew: "새 멤버",
     editorEdit: "멤버 편집",
-    steps: ["그녀는 누구", "그녀의 결", "세부"],
+    steps: ["그녀는 누구", "이 세계에서"],
+    stepWorld: (w) => `${w}에서`,
     next: "다음",
     back: "이전",
     save: "멤버 저장",
@@ -55,6 +56,14 @@ const ko = {
     generateHint: "선택 사항. 생성 후에도 모든 항목을 수정할 수 있습니다.",
     generateFailed: "생성 실패 — 직접 입력해주세요.",
     generateEmpty: "먼저 한 문장을 적어주세요.",
+    detailGenerate: "이 세계의 설정 생성",
+    detailGenerating: "생성 중…",
+    detailRetry: "다시 생성",
+    detailRevert: "원래 설정 사용",
+    detailHint: "이번 플레이에만 적용됩니다. 모든 칸을 직접 고칠 수 있고, 언제든 원래 설정으로 돌아감 수 있습니다.",
+    detailFailed: "생성 실패 — 다시 시도하거나 직접 작성하세요.",
+    detailNeedName: "이름을 먼지 적어주세요.",
+    restaging: (n) => `멤버 ${n}인을 이 세계로 욨기는 중…`,
     required: "필수",
     optional: "선택",
     fields: {
@@ -71,9 +80,11 @@ const ko = {
       mbti: "MBTI",
       role: "팀 내 포지션",
       animal_plastic: "동물 비유",
+      world_position: "이 세계에서의 위치",
       hidden_conflict: "숨긴 갈등",
     },
     hints: {
+      world_position: "이 세계에서 그녀가 하는 일 — 직위, 학년, 업무.",
       emoji: "사진이 없을 때 상단 바와 상태 상자에 나타나는 그녀의 얼굴입니다.",
       birthday: "연도가 존댓말의 방향을 결정합니다. 필수입니다.",
       habit: "구체적이고 반복 가능한 신체 동작 — 감정이 아니라 연출할 수 있는 것.",
@@ -109,13 +120,18 @@ const ko = {
     noCustomYet: "커스텀 멤버가 없습니다. 먼저 만들어주세요.",
     loadingMembers: "불러오는 중…",
     editShort: "편집",
+    editRunOnly: "수정은 이번 게임에만 적용됩니다. 라이브러리는 그대로이며, 건드리지 않은 항목은 여전히 라이브러리에서 가져옵니다.",
     deleteShort: "삭제",
     saveRoster: "구성 저장",
     rosterSaved: "구성이 저장되었습니다",
     savedRosters: "저장된 구성",
     start: "시작",
     needMain: "먼저 메인 멤버를 선택해주세요",
-    nextStep: "다음: 내 캐릭터",
+    // ONE definition, two call sites: the cast picker and the classic Setup
+    // page. Particle-free by construction in ko - the word in front of a Korean
+    // particle is a variable here, which is the whole reason resolveKoreanParticles
+    // exists, and a button label is the wrong place to resolve one.
+    startWith: (name) => `시작 · ${name}`,
     castCount: (n, max) => `${n} / ${max}`,
     pickFor: {
       main: "메인 멤버 선택",
@@ -132,10 +148,7 @@ const ko = {
     composedHint: "이 멤버들은 한 그룹으로 데뷔합니다. 다음 화면에서 그룹 이름을 정할 수 있습니다.",
     classicTitle: "🎤 클래식",
     classicDesc: "그룹을 골라 시작",
-    customTitle: "✨ 커스텀 캐스트",
-    customDesc: "어떤 멤버든, 어떤 조합이든",
-    changeCast: "캐스트 변경",
-    castLabel: "캐스트",
+    customTitle: "커스텀",
     roles: { main: "메인", sub: "서브", npc: "NPC" },
     roleHints: {
       main: "핵심 로맨스 라인 — 한 명만",

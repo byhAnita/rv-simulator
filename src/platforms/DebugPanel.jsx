@@ -77,7 +77,7 @@ export default function DebugPanel({ theme = "dark", onClose, extra }) {
   });
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: bg, display: "flex", flexDirection: "column", fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" }}>
+    <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 9999, background: bg, display: "flex", flexDirection: "column", fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" }}>
       <div style={{ padding: "10px 12px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: colorOf("log") }}>

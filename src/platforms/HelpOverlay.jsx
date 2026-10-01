@@ -617,11 +617,11 @@ export default function HelpOverlay({ language = "en", theme = "dark", onClose }
 
   return (
     <HT.Provider value={c}>
-      <div
+      <div className="rv-fixed"
         style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: c.overlay, backdropFilter: "blur(8px)" }}
         onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       >
-        <div style={{ width: "92%", maxWidth: 368, maxHeight: "86vh", background: c.panelBg, border: `1px solid ${c.panelBorder}`, borderRadius: 20, boxShadow: "0 24px 64px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ width: "92%", maxWidth: 368, maxHeight: "86%", background: c.panelBg, border: `1px solid ${c.panelBorder}`, borderRadius: 20, boxShadow: "0 24px 64px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 18px 11px", borderBottom: `1px solid ${c.headerBorder}`, flexShrink: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: c.title }}>📖 {TITLES[lang]}</div>

@@ -1,7 +1,7 @@
 const zh = {
   cover: {
     subtitle: "嫂嫂模拟器",
-    desc: "LLM文游·女女恋爱养成·v1.4.1",
+    desc: "LLM文游·女女恋爱养成·v1.4.2",
     newGame: "✨ 开始新游戏",
     continue: "💾 继续游戏 (读档)",
     apiKey: "🔑 修改API Key/切换模型",
@@ -43,7 +43,8 @@ const zh = {
   cast: {
     editorNew: "新成员",
     editorEdit: "编辑成员",
-    steps: ["她是谁", "她的质感", "细节"],
+    steps: ["她是谁", "在这个世界里"],
+    stepWorld: (w) => `在${w}世界`,
     next: "下一步",
     back: "上一步",
     save: "保存成员",
@@ -55,6 +56,14 @@ const zh = {
     generateHint: "可选。生成后所有字段都能改。",
     generateFailed: "生成失败，请手动填写。",
     generateEmpty: "先写一句描述。",
+    detailGenerate: "生成她在此世界的设定",
+    detailGenerating: "生成中…",
+    detailRetry: "重新生成",
+    detailRevert: "用回原设定",
+    detailHint: "只影响本局。每一条都可以手改，也可以随时用回她原本的设定。",
+    detailFailed: "生成失败 — 可以重试，或者手写这几条。",
+    detailNeedName: "先填她的名字。",
+    restaging: (n) => `正在把 ${n} 位成员写进这个世界…`,
     required: "必填",
     optional: "可选",
     fields: {
@@ -71,9 +80,11 @@ const zh = {
       mbti: "MBTI",
       role: "队内定位",
       animal_plastic: "动物比喻",
+      world_position: "在此世界的身份",
       hidden_conflict: "隐藏矛盾",
     },
     hints: {
+      world_position: "她在这个世界里做什么 — 位置、年级或职位。",
       emoji: "没有照片时，顶栏和状态框里就用这个符号代表她。",
       birthday: "年份决定敬语方向，必填。",
       habit: "一个具体、可重复的身体动作 —— 能演出来的，不是感受。",
@@ -109,13 +120,18 @@ const zh = {
     noCustomYet: "还没有自定义成员。先创建一位。",
     loadingMembers: "加载中…",
     editShort: "编辑",
+    editRunOnly: "修改只属于本局游戏，不会改写角色库；你没动过的字段仍由角色库提供。",
     deleteShort: "删除",
     saveRoster: "保存阵容",
     rosterSaved: "阵容已保存",
     savedRosters: "已保存的阵容",
     start: "开始",
     needMain: "请先选一位主线成员",
-    nextStep: "下一步：你的角色",
+    // ONE definition, two call sites: the cast picker and the classic Setup
+    // page. Particle-free by construction in ko - the word in front of a Korean
+    // particle is a variable here, which is the whole reason resolveKoreanParticles
+    // exists, and a button label is the wrong place to resolve one.
+    startWith: (name) => `开始 · ${name}`,
     castCount: (n, max) => `${n} / ${max}`,
     pickFor: {
       main: "选择主线成员",
@@ -132,10 +148,7 @@ const zh = {
     composedHint: "这些成员将作为一个组合出道，下一步可以给组合命名。",
     classicTitle: "🎤 经典模式",
     classicDesc: "选一个团体开始",
-    customTitle: "✨ 自定义卡司",
-    customDesc: "任意成员，任意组合",
-    changeCast: "更换卡司",
-    castLabel: "卡司",
+    customTitle: "自定义",
     roles: { main: "主线", sub: "支线", npc: "NPC" },
     roleHints: {
       main: "核心恋爱线，只能选一位",

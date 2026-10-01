@@ -1,7 +1,7 @@
 const en = {
   cover: {
     subtitle: "Idol Dating Simulator",
-    desc: "LLM Text Adventure · Yuri Dating Sim · v1.4.1",
+    desc: "LLM Text Adventure · Yuri Dating Sim · v1.4.2",
     newGame: "✨ New Game",
     continue: "💾 Continue (Load Save)",
     apiKey: "🔑 API Key / Model",
@@ -43,7 +43,8 @@ const en = {
   cast: {
     editorNew: "New member",
     editorEdit: "Edit member",
-    steps: ["Who she is", "How she reads", "Details"],
+    steps: ["Who she is", "In this world"],
+    stepWorld: (w) => `In ${w}`,
     next: "Next",
     back: "Back",
     save: "Save member",
@@ -55,6 +56,14 @@ const en = {
     generateHint: "Optional. Every field stays editable afterwards.",
     generateFailed: "Generation failed — fill the card in by hand.",
     generateEmpty: "Write a line of description first.",
+    detailGenerate: "Generate her detail here",
+    detailGenerating: "Generating…",
+    detailRetry: "Generate again",
+    detailRevert: "Use her own lines",
+    detailHint: "This run only. Every line stays editable, and you can go back to her own at any time.",
+    detailFailed: "Generation failed — retry, or write these lines yourself.",
+    detailNeedName: "Give her a name first.",
+    restaging: (n) => `Writing ${n} members into this world…`,
     required: "required",
     optional: "optional",
     fields: {
@@ -71,9 +80,11 @@ const en = {
       mbti: "MBTI",
       role: "Role in the group",
       animal_plastic: "Animal comparison",
+      world_position: "What she does here",
       hidden_conflict: "Hidden conflict",
     },
     hints: {
+      world_position: "Her place in THIS world — a position, a year, a job.",
       emoji: "With no photo, this is her face in the top bar and the stats box.",
       birthday: "The year sets which way honorifics point. Required.",
       habit: "One concrete, repeatable physical action — something stageable, not a feeling.",
@@ -114,13 +125,18 @@ const en = {
     noCustomYet: "No custom members yet. Create one first.",
     loadingMembers: "Loading…",
     editShort: "Edit",
+    editRunOnly: "Changes belong to this run only. The library is untouched, and every field you leave alone still comes from it.",
     deleteShort: "Delete",
     saveRoster: "Save roster",
     rosterSaved: "Roster saved",
     savedRosters: "Saved rosters",
     start: "Start",
     needMain: "Pick a main member first",
-    nextStep: "Next: your character",
+    // ONE definition, two call sites: the cast picker and the classic Setup
+    // page. Particle-free by construction in ko - the word in front of a Korean
+    // particle is a variable here, which is the whole reason resolveKoreanParticles
+    // exists, and a button label is the wrong place to resolve one.
+    startWith: (name) => `Start with ${name}`,
     castCount: (n, max) => `${n} / ${max}`,
     pickFor: {
       main: "Choose a main member",
@@ -137,10 +153,7 @@ const en = {
     composedHint: "These members debut as one group — you can name it on the next screen.",
     classicTitle: "🎤 Classic",
     classicDesc: "Pick a group and play",
-    customTitle: "✨ Custom cast",
-    customDesc: "Any members, any mix",
-    changeCast: "Change cast",
-    castLabel: "Cast",
+    customTitle: "Custom",
     roles: { main: "Main", sub: "Sub", npc: "NPC" },
     roleHints: {
       main: "the core romance line — exactly one",

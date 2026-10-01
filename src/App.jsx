@@ -1,10 +1,15 @@
 import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial } from "./agent/mainAgent";
 import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
 import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
-import { resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor } from "./rag/rosterResolver";
+import {
+  resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor,
+  applyWorldDetail, WORLD_DETAIL_KEY,
+} from "./rag/rosterResolver";
+import { withCastDetail } from "./rag/customCast";
+import { generateCastDetail } from "./agent/cardGenerator";
 import { migrateSave, correctBirthYear } from "./rag/saveMigrator";
 import { createEmptyMemory, isLegacyMemory } from "./agent/memoryPool";
 import { getTopMember } from "./agent/memoryPool";
@@ -66,6 +71,20 @@ const STAR_LEVELS = ["资深粉丝", "普通韩娱瓜众", "纯路人", "已脱�
 const seededStoryMode = (legacyPace) =>
   resolveStoryMode(loadFromStorage("rv_sim_story_mode"), legacyPace);
 
+// The custom door's chip in the cover's group row. Deliberately not a group id:
+// it selects a DOOR, and rv_sim_group must keep holding something loadGroupConfig
+// can fetch.
+const CUSTOM_CAST_ID = "__custom__";
+
+// EVERY PHASE THAT MOUNTS THE BIRTH-YEAR WHEEL (§22.10.4). A wheel always
+// displays a value, so the field behind it has to hold one from the first frame
+// or Start refuses with nothing on screen left to fill - the v1.4.1 defect. The
+// seed used to name ONE phase, and §22.10 moved the classic door off it, which
+// is how that bug happened the first time: a seed keyed on a phase the wheel is
+// no longer on. Both doors' pages are listed here and the guard derives the same
+// set from what actually renders a wheel.
+const WHEEL_PHASES = ["playerInfo", "setup"];
+
 const THEMES = {
   dark: {
     pageBg: "linear-gradient(135deg,#0a0410,#1e0718,#0a0420)",
@@ -111,7 +130,7 @@ const THEMES = {
     subModelCardBg: "rgba(255,255,255,.03)",
     subModelCardColor: "#bbb",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(232,120,176,.2)}`,
-    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#c886a8;margin-bottom:3px;margin-top:4px;font-weight:600}.s-c{background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#e887b0;background:rgba(232,135,176,.12)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(232,120,176,.18);color:#f5e6ef;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(232,120,176,.18);cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(232,135,176,.2);border-color:#e887b0;color:#f8c8d8}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "rgba(255,59,92,.1)",
     notifBarBorder: "rgba(255,59,92,.2)",
     notifBarText: "#ff6b8a",
@@ -205,7 +224,7 @@ const THEMES = {
     subModelCardBg: "rgba(100,65,20,.05)",
     subModelCardColor: "#7a5030",
     scrollCss: `::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(100,65,20,.25)}`,
-    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:4px;margin-top:10px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
+    setupCss: `.s-l{font-size:11px;color:#8b6914;margin-bottom:3px;margin-top:4px;font-weight:600}.s-c{background:rgba(100,65,20,.06);border:1px solid #a08060;border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:5px;user-select:none}.s-c.sel{border-color:#a08060;background:rgba(139,105,20,.15)}.s-in{width:100%;padding:9px 11px;border-radius:8px;background:rgba(100,65,20,.07);border:1px solid #a08060;color:#2c1f0e;font-size:12px;outline:none;box-sizing:border-box;font-family:inherit}.s-ch{display:inline-block;padding:6px 11px;border-radius:15px;background:rgba(100,65,20,.06);border:1px solid #a08060;cursor:pointer;fontSize:11px;margin:2px;user-select:none}.s-ch.sel{background:rgba(139,105,20,.18);border-color:#a08060;color:#3a2a0e}.s-g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}`,
     notifBarBg: "linear-gradient(135deg,#c8a84b,#a0522d)",
     notifBarBorder: "#a08060",
     notifBarText: "#fff",
@@ -395,6 +414,38 @@ export default function App() {
   const [confirmDest, setConfirmDest] = useState(null);
   const [keyJustSaved, setKeyJustSaved] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // The world picker folds (§22.10.3). Session state and never persisted: it
+  // opens shut every time, because the collapsed row already names the world and
+  // a remembered-open list is a list nobody asked to see.
+  const [worldOpen, setWorldOpen] = useState(false);
+  // ...and it shuts on the way out. The list is a LAYER over the fields now, so
+  // one left open by a Back would cover the page it is reopened on.
+  useEffect(() => { setWorldOpen(false); }, [phase]);
+  // ...AND IT OPENS UPWARD WHEN THERE IS NO ROOM BELOW. The list hangs off its
+  // control, and on the classic door that control sits two thirds of the way
+  // down a page that already fills a small phone - so downward it opens partly
+  // under the card edge, on the one screen whose whole job is to be read.
+  //
+  // Scrolling it into view was the first attempt and it is the wrong mechanism:
+  // an absolutely positioned layer is not part of the scroller own overflow, so
+  // the card has room to scroll only when its CONTENT happens to be long enough,
+  // and measured, it was not - 0 of 41px on the page that needed it. Which way it
+  // opens is decided by which side has the room, which needs nothing from anyone.
+  //
+  // useLayoutEffect, not useEffect: the flip must land before the browser paints,
+  // or the list is drawn once in the wrong place and jumps.
+  const worldListRef = useRef(null);
+  const worldFoldRef = useRef(null);
+  const [worldUp, setWorldUp] = useState(false);
+  useLayoutEffect(() => {
+    if (!worldOpen) { setWorldUp(false); return; }
+    const list = worldListRef.current, anchor = worldFoldRef.current;
+    const box = anchor && anchor.closest(".rv-card");
+    if (!list || !box) return;
+    const a = anchor.getBoundingClientRect(), c = box.getBoundingClientRect();
+    const below = c.bottom - a.bottom - 4, above = a.top - c.top - 4;
+    setWorldUp(below < list.offsetHeight && above > below);
+  }, [worldOpen]);
   // The on-device console. Enabled by ?debug=1 and then persisted, so a PWA
   // launched from the home screen - which has no address bar to retype a query
   // string into - keeps it across reloads. Read once: it must not flip
@@ -458,7 +509,7 @@ export default function App() {
   // The member editor was given exactly this treatment in v1.4.0 step 8 and Setup
   // was not. Same control, same lie, one screen over.
   useEffect(() => {
-    if (phase === "setup" && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
+    if (WHEEL_PHASES.includes(phase) && !form.birthYear) setBirthYear(String(DEFAULT_YEAR));
   }, [phase, form.birthYear]);
 
   // The correction, mid-run, for a save whose birth year was never stated —
@@ -547,23 +598,42 @@ export default function App() {
   // express. Language is what changes underneath either, so both paths re-fetch
   // rather than leaving the cast in the previous language.
   //
-  // `roster` is deliberately not a dependency. It is set in the same batch as
-  // `selectedGroup` when a save is loaded, so this already sees it; adding it
-  // would additionally re-resolve on every new game, for a cast startNewGame
-  // has in hand.
-  // `world` is a dependency because section 4's cast framing is the world's since
-  // v1.4.1 step 4 - `castLore`, `useGroupLore` and `useRole` all decide what the
-  // resolved `groupConfig.groupLore` says. It can be null for the width of a world
-  // fetch, and resolving against a missing world would throw rather than compose.
+  // THEY ARE TWO EFFECTS, because they do not read the same things - see the
+  // second one for what a shared dependency list cost.
+  //
+  // IN GAME: the roster is authoritative, and it is the half the world reaches.
+  // `roster` is deliberately not a dependency of it. It is set in the same batch
+  // as `selectedGroup` when a save is loaded, so this already sees it; adding it
+  // would additionally re-resolve on every new game, for a cast startNewGame has
+  // in hand. `world` IS one, because section 4's cast framing is the world's
+  // since v1.4.1 step 4 - `castLore`, `useGroupLore` and `useRole` all decide what
+  // the resolved `groupConfig.groupLore` says. It can be null for the width of a
+  // world fetch, and resolving against a missing world would throw rather than
+  // compose.
   useEffect(() => {
     if (!world) return;
-    if (phaseRef.current === "game" && roster) {
-      resolveRoster(roster, language, world).then(r => {
-        setGroupConfig(r.groupConfig);
-        setMembers(r.members);
-      }).catch(console.error);
-      return;
-    }
+    if (phaseRef.current !== "game" || !roster) return;
+    resolveRoster(roster, language, world).then(r => {
+      setGroupConfig(r.groupConfig);
+      setMembers(r.members);
+    }).catch(console.error);
+  }, [selectedGroup, language, world]);
+
+  // BEFORE THE GAME: the group is a PALETTE to choose from, and this is keyed on
+  // the group and the language because that is all `loadGroupConfig` reads.
+  //
+  // IT CARRIED `world` IN THAT LIST TOO, and the clear below therefore fired on a
+  // WORLD switch: changing the world on the classic door's merged page emptied the
+  // main and sub picks the player had just made one control above it. Reported
+  // from a phone, 2026-10-01.
+  //
+  // The two facts are independent. WHICH CAST she is choosing from is the group's;
+  // WHICH IDENTITIES exist is the world's. Only the second is cleared by a switch,
+  // by the effect above - and only when the new world does not declare the one she
+  // holds. These are two effects rather than two branches of one for exactly that
+  // reason: a shared dependency list re-ran a branch on a value it does not read.
+  useEffect(() => {
+    if (phaseRef.current === "game" && roster) return;
     // The custom door owns `members` before the game starts, and this effect
     // would otherwise overwrite the builder's cast with whichever group happens
     // to still be selected from a previous classic run. The group id is kept
@@ -581,29 +651,15 @@ export default function App() {
       }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
-  }, [selectedGroup, language, pendingRoster, world]);
+  }, [selectedGroup, language, pendingRoster]);
 
-  // The custom door, resolved once so Setup sees exactly the `members` shape the
-  // classic door gets from a group load. Deriving form.mainMember/subMembers from
-  // the roster's own slots is what lets everything downstream — mainMember,
-  // allTargetMembers, createInitialStats, the stats bar — stay untouched: they
-  // read the form, and the form now agrees with the builder.
-  useEffect(() => {
-    if (!pendingRoster || phaseRef.current === "game" || !world) return;
-    resolveRoster(pendingRoster, language, world).then(r => {
-      setGroupConfig(r.groupConfig);
-      setMembers(r.members);
-      setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
-    }).catch(e => {
-      // A roster that cannot be resolved must say so rather than fall back to a
-      // default cast — the v1.3.5 lesson, where loadGroupIndex's catch returning
-      // a hardcoded Red Velvet entry hid a path bug for a whole release.
-      console.error("roster resolve failed:", e);
-      setPendingRoster(null);
-      setPhase("cover");
-      showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
-    });
-  }, [pendingRoster, language, world]);
+  // The effect that used to resolve `pendingRoster` here is GONE, and it is gone
+  // rather than left with nothing to fire on. It existed so the page BETWEEN the
+  // cast picker and the game could read `members`, `groupConfig` and
+  // `form.mainMember` before anything downstream did - and docs/V140_PLAN.md 22.6.2
+  // deletes that page, so the resolve moved into `startNewGame`, which is the only
+  // caller that ever needed it. An effect with no reachable trigger is the shape
+  // this file already tracks seven instances of.
 
   useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -829,11 +885,47 @@ export default function App() {
     preRoundSnapshotRef.current = null;
   };
 
-  const startNewGame = async () => {
+  // `overrideRoster` is the custom door's cast, handed straight in by the picker's
+  // own Start button (docs/V140_PLAN.md 22.6.2). Start used to live one page later,
+  // and that page existed so an effect could resolve the roster into `members`,
+  // `groupConfig` and `form.mainMember` before anything read them. With the page
+  // gone the resolve happens here - and it happens BEFORE any setter runs, because
+  // it fetches and can therefore fail. A half-applied start would leave the player
+  // in a game assembled out of nothing, which is the rule `loadSave` already
+  // follows for exactly this reason.
+  const startNewGame = async (overrideRoster = null) => {
     if (!apiKey?.trim()) { showNotif("Please set API Key", "error"); return; }
-    if (!form.mainMember) { showNotif("Please select main member", "error"); return; }
-    const mainId = form.mainMember;
-    const subIds = form.subMembers || [];
+    // The locals below are what the rest of this function reads. On the classic
+    // door they are today's state; on the custom door they are the freshly
+    // resolved cast, because the state setters have not flushed yet and will not
+    // before round 1 is built.
+    let cast = members, cfg = groupConfig;
+    let mainId = form.mainMember, subIds = form.subMembers || [];
+    if (overrideRoster) {
+      if (!world) { showNotif(t.common.startFailed, "error"); return; }
+      try {
+        const r = await resolveRoster(overrideRoster, language, world);
+        if (!r.members.length) throw new Error("roster resolved to an empty cast");
+        cast = r.members; cfg = r.groupConfig; mainId = r.mainId; subIds = r.subIds;
+        // Pinned BEFORE setPendingRoster, the same trick loadSave uses on the group
+        // effect: that effect reads phaseRef to decide whether to clear the chosen
+        // members, and the effect mirroring `phase` into it has not run yet.
+        phaseRef.current = "game";
+        setPendingRoster(overrideRoster);
+        setGroupConfig(r.groupConfig);
+        setMembers(r.members);
+        setForm(f => ({ ...f, mainMember: r.mainId, subMembers: r.subIds }));
+      } catch (e) {
+        // A roster that cannot be resolved must SAY SO rather than fall back to a
+        // cast the player did not choose - the v1.3.5 lesson, where
+        // loadGroupIndex's catch returning a hardcoded Red Velvet entry hid a path
+        // bug for a whole release. Nothing has been written at this point.
+        console.error("roster resolve failed:", e);
+        showNotif(t.common.startFailed + " " + (e?.message || ""), "error");
+        return;
+      }
+    }
+    if (!mainId) { showNotif("Please select main member", "error"); return; }
     // Two doors, one roster. The custom door already built one and it is
     // authoritative — rebuilding it from the form would throw away the NPC slots
     // the player assigned and flatten a cross-group cast into a single group.
@@ -843,8 +935,9 @@ export default function App() {
     // Built rather than resolved, because `members` is already the answer
     // resolveRoster would fetch, and smoke asserts the two doors agree byte for
     // byte.
-    setRoster((pendingRoster && { ...pendingRoster, name: castName.trim() || DEFAULT_CAST_NAME })
-      || buildClassicRoster(selectedGroup, mainId, subIds, members.map(m => m.id)));
+    const customRoster = overrideRoster || pendingRoster;
+    const builtRoster = (customRoster && { ...customRoster, name: castName.trim() || DEFAULT_CAST_NAME })
+      || buildClassicRoster(selectedGroup, mainId, subIds, cast.map(m => m.id));
     setMessages([]); setCurrentOptions([]);
     // A new game states its birth year at Setup, so nothing here is an estimate.
     setBirthYearEstimated(false);
@@ -852,6 +945,40 @@ export default function App() {
     statsRef.current = null;
     memoryRef.current = createEmptyMemory();
     setPhase("game"); setLoading(true);
+
+    // ── the restaging sweep (docs/V140_PLAN.md §22.5 commit 4b) ───────────────
+    //
+    // WHOLE CAST, BOTH DOORS, at this boundary and nowhere later. §22.1's defect is
+    // the default path — 57 of 57 library members describe themselves through idol
+    // work — so a fix that only reaches players who open an editor does not reach
+    // the defect. Concurrent, so nine members cost roughly one call's wait; failures
+    // are simply absent, which is the state §22.1's narrowed prompt rule covers.
+    //
+    // ONLY WHEN `useRole` IS FALSE. In the world the library was authored for the
+    // prose is already about this world, so restaging it would replace correct text
+    // with generated text and spend five to nine calls doing it.
+    //
+    // IT IS APPLIED TO THE MEMBERS ROUND 1 IS BUILT FROM, not only to the roster.
+    // The roster is what the save carries and what every later round re-resolves; if
+    // only that were stamped, round 1 would send her un-restaged prose and round 2
+    // the restaged version — a static-prompt drift of the whole ~5,500-token prefix,
+    // which is the ex-girlfriend `Math.random()` defect with a network call in it.
+    // Both paths go through `applyWorldDetail`, so the two rounds are byte-identical.
+    let roundRoster = builtRoster;
+    let roundMembers = cast;
+    if (world && !world.castLore?.useRole) {
+      showNotif(t.cast.restaging(cast.length));
+      const { detailById } = await generateCastDetail({
+        members: cast, world, language, apiKey, modelId: selectedModel, aliyun: aliyunOptions(),
+      });
+      roundRoster = withCastDetail(builtRoster, detailById, world.id);
+      roundMembers = cast.map(m => applyWorldDetail(detailById[m.id]
+        ? { ...m, [WORLD_DETAIL_KEY]: { world: world.id, ...detailById[m.id] } }
+        : m, world.id));
+      setMembers(roundMembers);
+    }
+    setRoster(roundRoster);
+
     const initialStats = createInitialStats(mainId, subIds);
     statsRef.current = initialStats;
     setStats({ ...initialStats });
@@ -860,16 +987,22 @@ export default function App() {
     mem.affections = { [mainId]: initialStats.affection, ...initialStats.multiAff };
     memoryRef.current = mem;
     const initFeeds = {};
-    allTargetMembers.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
+    // Derived from the resolved cast rather than from `allTargetMembers`, which is
+    // computed off `form` - and on the custom door `form` is one render behind.
+    const roundTargets = [mainId, ...subIds].map(id => cast.find(m => m.id === id)).filter(Boolean);
+    roundTargets.forEach(m => { initFeeds[m.id] = { bubble: [], instagram: null, weverse: null, timestamp: Date.now(), lastUpdate: Date.now() }; });
     // A new game has no previous round, so every feed starts empty and nothing
     // is popped. See beginRun.
-    beginRun({ socialFeeds: initFeeds, topMember: mainMember });
+    beginRun({ socialFeeds: initFeeds, topMember: cast.find(m => m.id === mainId) });
     try {
       preRoundSnapshotRef.current = { stats: { ...initialStats }, memory: JSON.parse(JSON.stringify(mem)), kktUnlocked: {}, kktMessages: {}, triggeredAchievements: new Set(), playerChoice: "Game start" };
       const result = await executeRound({
         playerChoice: "Game start", stats: initialStats, memory: mem,
         form: formForRound(),
-        members, mainId, subIds, groupConfig, world, apiKey, selectedModel, kktUnlocked: {}, language,
+        // `roundMembers`, not `members`: see the sweep above. The state setter has
+        // not flushed yet, and the round after this one resolves the same stamped
+        // roster, so this is the copy that makes the two prompts agree.
+        members: roundMembers, mainId, subIds, groupConfig: cfg, world, apiKey, selectedModel, kktUnlocked: {}, language,
         aliyun: aliyunOptions(), timeSpeed, storyMode,
       });
       statsRef.current = result.newStats;
@@ -878,7 +1011,7 @@ export default function App() {
       setKktMessages(p => ({ ...p, ...Object.fromEntries(Object.entries(result.kktUpdate || {}).map(([k, v]) => [k, [...(p[k] || []), ...(Array.isArray(v) ? v : [])].slice(-20)])) }));
       setKktUnlocked(result.newKktUnlocked);
       setTopMember(result.topMember);
-      const statsBox = buildStatsBox(result.newStats, members, mainId, subIds, t);
+      const statsBox = buildStatsBox(result.newStats, cast, mainId, subIds, t);
       setCurrentOptions(result.options);
       setMessages(p => [...p, { role: "assistant", content: statsBox + "\n\n" + result.storyContent }]);
     } catch (e) {
@@ -1214,35 +1347,192 @@ export default function App() {
   );
 
   // ── Cover Page ──
+  // ── THE WORLD FOLD AND THE IDENTITY GRID: ONE DEFINITION, TWO PAGES ────────
+  //
+  // Both doors ask these two and, since §22.10, they ask on different screens -
+  // the classic door on its merged setup page, the custom door on player info.
+  // Two copies of one control is what `extractStoryText` is this repo's standing
+  // warning about: they drift, and the guard ends up written against the copy
+  // that is still correct. The guard here counts the call sites.
+  const worldNameOf = (w) => w?.name?.[language] || w?.name?.zh || w?.id;
+  // ONE HEADER, ON BOTH DOORS FIRST PAGE. Added on Yuhan ask, 2026-09-30:
+  // both screens opened straight into a form with the model strip as their only
+  // top line, which reads as a fragment of a page rather than the start of one.
+  // It is one definition because the two pages are one step of one flow.
+  const renderPageTitle = () => (
+    <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, color: th.textHeading, letterSpacing: 1, paddingBottom: 6, marginBottom: 6, borderBottom: `1px solid ${th.groupBtnBorder}` }}>
+      {language === "zh" ? "开始新游戏" : language === "ko" ? "새 게임" : "New Game"}
+    </div>
+  );
+  // COLLAPSED IT IS ONE ROW. A 2x2 grid plus the selected world's blurb is ~70px
+  // on a page that has just absorbed two member grids, and three of the four are
+  // worlds this player has never opened.
+  const renderWorldFold = () => {
+    const cur = worldList.find((w) => w.id === selectedWorld);
+    return (
+      <>
+        <div className="s-l">{t.setup.world}</div>
+        {/* THE OPEN LIST HANGS OFF THIS ROW AND IS NOT IN THE PAGE (22.11.1).
+            It used to render in the flow, so opening the fold pushed the identity
+            grid and the buttons down by ~250px and shutting it pulled them back:
+            the page had TWO heights, and a page with two heights can be laid out
+            for neither. On its own layer it has one, which is the whole reason the
+            fields below can be centred at all. */}
+        <div ref={worldFoldRef} style={{ position: "relative" }}>
+          <button onClick={() => setWorldOpen((o) => !o)} aria-expanded={worldOpen}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "7px 10px", borderRadius: 10, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            <span>{cur?.emoji} {worldNameOf(cur)}</span>
+            <span style={{ fontSize: 9, opacity: 0.7 }}>{worldOpen ? "\u25B2" : "\u25BC"}</span>
+          </button>
+          {renderWorldList()}
+        </div>
+      </>
+    );
+  };
+  // The dropdown is sized to the CONTROL it hangs off, not to the page - the
+  // column the fold sits in, so the row it replaces and the list that replaces it
+  // are the same width and nothing under it moves.
+  //
+  // EVERY WORLD'S BLURB STILL RENDERS, which 22.2 refused when the blurbs were
+  // always on screen ("a wall of text under a control"). Inside a fold the player
+  // has just opened they are the thing she opened it for - and on a layer of its
+  // own that wall costs the page no height whatever.
+  const renderWorldList = () => worldOpen && (
+    <>
+      {/* A TAP ANYWHERE ELSE CLOSES IT. The list covers the identity grid while
+          it is open, so without this the first tap on a covered chip lands on the
+          list instead - a layer that eats the tap meant for what it is hiding. */}
+      <div className="rv-fixed" onClick={() => setWorldOpen(false)}
+        style={{ position: "fixed", inset: 0, zIndex: 60, background: "transparent" }} />
+      {/* OPAQUE, and `th.cardBg` is not: it is rgba at .03 / .07, so the identity
+          grid read straight through the list covering it - two pages of text in
+          one rectangle. `panelBg` is this app's floating-surface token and is
+          solid in both themes; every overlay panel is already drawn on it. */}
+      <div ref={worldListRef} style={{ position: "absolute", [worldUp ? "bottom" : "top"]: "calc(100% + 4px)", left: 0, right: 0, zIndex: 61, display: "grid", gap: 4, padding: 4, borderRadius: 12, border: `1px solid ${th.notifBarBorder}`, background: th.panelBg, boxShadow: "0 12px 30px rgba(0,0,0,.35)" }}>
+        {worldList.map((w) => (
+          <div key={w.id} onClick={() => { setSelectedWorld(w.id); setWorldOpen(false); }}
+            style={{ padding: "6px 9px", borderRadius: 10, border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+            <div>{w.emoji} {worldNameOf(w)}</div>
+            <div style={{ fontSize: 9, color: th.textFaint, marginTop: 1, lineHeight: 1.4 }}>
+              {w.blurb?.[language] || w.blurb?.zh || ""}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+  // The world's own identities, plus the custom escape hatch. Not a list in this
+  // file: `world.identities` is where they are declared, and the copy that used to
+  // live here read as an id-to-label mapping that was an identity function. The
+  // label is the world's `name`, the same string section 6 of the prompt prints.
+  const renderIdentityGrid = () => (
+    <>
+      <div className="s-l">{t.setup.identity}</div>
+      {/* TWO COLUMNS - Yuhan call, 2026-09-30, reversing 22.10.5. Three of them
+          fit the page by costing the labels: they are world data, the longest of
+          them wraps to two lines at a third of 370px, and a wrapped label is
+          harder to read than a longer page is to scroll. What pays for the rows
+          this gives back is the world list no longer being in the page at all. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 4 }}>
+        {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
+          { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
+          <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
+            style={{ padding: "5px 9px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
+            {it.label}
+          </div>
+        ))}
+      </div>
+      {form.identity === CUSTOM_IDENTITY_ID && (
+        <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
+      )}
+    </>
+  );
+  // NAME AND BIRTH YEAR, two columns, because the wheel is the taller control.
+  // A 104px wheel above a 38px field wastes the field's row; beside it, the name
+  // and the world fold together come to about the wheel's height.
+  //
+  // THE CAPTIONS LIVE IN THE SECTION LABELS, not above their controls - second
+  // hand test, v1.4.0 step 8. A caption inside the wheel's own column pushes the
+  // wheel down by its own height, so the pair read as two rows of one control
+  // each. With them lifted out, `alignItems: flex-start` keeps both tops level
+  // and the wheel's middle row - which IS the selected year, by construction - is
+  // where the eye already is.
+  const renderPlayerFields = () => (
+    <>
+      <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
+        <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "玩家信息" : language === "ko" ? "플레이어 정보" : "Player info"}</div>
+        <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
+          {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "flex-start" }}>
+        <div style={{ flex: 2, minWidth: 0 }}>
+          <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ width: "100%", boxSizing: "border-box" }} />
+          {renderWorldFold()}
+        </div>
+        {/* A wheel, not a field - step 8. The year is one of 63 ordered values,
+            which is a picker; a text box invites a keyboard that on iOS covers
+            the box it is filling, and it can hold "19", which is a year the
+            address protocol must never see. */}
+        <div style={{ flex: 1, minWidth: 88 }}>
+          <YearWheel value={form.birthYear} onChange={setBirthYear}
+            min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
+            ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
+            colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
+        </div>
+      </div>
+    </>
+  );
+
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.1", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.1", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.1", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.2", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.2", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.2", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
+    // ONE predicate, read by the button's enabled state AND by its handler. Two
+    // copies of "is a cast chosen" is how a button comes to look live and then
+    // refuse - the year-wheel defect, one screen over.
+    const castChosen = door === "custom" || Boolean(selectedGroup);
     const titleGrad = theme === "dark"
       ? "linear-gradient(90deg,#f8c8d8,#e887b0,#c86dd0,#e887b0,#f8c8d8)"
       : "linear-gradient(90deg,#c8a84b,#8b6914,#a0522d,#8b6914,#c8a84b)";
 
     return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBg }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBg }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: 20, borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflow: "hidden" }}>
           <NotificationBar />
           <div style={{ fontSize: 44, marginBottom: 14 }}>💗</div>
           <h1 style={{ fontSize: "clamp(24px,6vw,44px)", fontWeight: 700, background: titleGrad, backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmerCover 4s linear infinite", marginBottom: 4 }}>Idol Dating</h1>
           <h2 style={{ fontSize: "clamp(13px,2.5vw,20px)", letterSpacing: ".3em", color: th.textSecondary, marginBottom: 4 }}>{ct.subtitle}</h2>
           <p style={{ fontSize: 10, color: th.textMuted, letterSpacing: ".1em", marginBottom: 16 }}>{ct.desc}</p>
 
-          {/* Group Selection */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center", marginBottom: 16 }}>
-            {groupList.map(g => (
-              <button key={g.id} onClick={() => setSelectedGroup(g.id)}
-                style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 12, border: `1px solid ${selectedGroup === g.id ? (g.color || th.accent) : th.groupBtnBorder}`, background: selectedGroup === g.id ? th.langBtnActiveBg : th.groupBtnBg, color: selectedGroup === g.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.groupBtnColor, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
-                <span style={{ fontSize: 12 }}>{g.emoji}</span>
-                <span style={{ fontWeight: selectedGroup === g.id ? 700 : 400 }}>{g.name}</span>
-              </button>
-            ))}
+          {/* THE CUSTOM DOOR IS A CHIP, NOT A SECOND BUTTON (§22.9).
+              Yuhan's call, 2026-09-30, and it CANCELS §22.5's commit 5: the two
+              doors are kept and the custom one is dressed as one more group.
+
+              Both doors answer the same question - WHICH cast - so they belong in
+              the same control. An outline button under New Game asked it twice, in
+              two shapes, and put the fast classic path one extra decision away from
+              the players who have used it since v1.3.
+
+              THE ROW IS THEREFORE THE DOOR SELECTOR, which is why door is set
+              here rather than at the button below. New Game then does one thing. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center", marginBottom: 14 }}>
+            {[...groupList.map((g) => ({ ...g, to: "classic" })),
+              { id: CUSTOM_CAST_ID, name: t.cast.customTitle, emoji: "✨", color: th.accent, to: "custom" },
+            ].map((g) => {
+              const on = g.to === "custom" ? door === "custom" : (door !== "custom" && selectedGroup === g.id);
+              return (
+                <button key={g.id}
+                  onClick={() => { setDoor(g.to); if (g.to === "classic") setSelectedGroup(g.id); }}
+                  style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 8px", borderRadius: 12, border: `1px solid ${on ? (g.color || th.accent) : th.groupBtnBorder}`, background: on ? th.langBtnActiveBg : th.groupBtnBg, color: on ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.groupBtnColor, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 11 }}>{g.emoji}</span>
+                  <span style={{ fontWeight: on ? 700 : 400 }}>{g.name}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Language + Theme row */}
@@ -1260,30 +1550,27 @@ export default function App() {
             </button>
           </div>
 
-          {/* Two doors, one engine (docs/V140_PLAN.md §14.1). Classic is exactly
-              today's flow and stays the primary button; the custom door leads to
-              the roster builder. Both end at Setup with a roster, so nothing
-              downstream knows which one was used. */}
+          {/* Two doors, one engine (docs/V140_PLAN.md §14.1 and §22.9). The chip
+              row above chose which one; this button opens it. Both end with a
+              roster, so nothing downstream knows which was used.
+
+              Player info comes first on BOTH doors (§22.2): the builder's Generate
+              spends the key, and that call reads the WORLD - which, before the
+              reorder, was whichever world the last session left in localStorage. */}
           <button
             onClick={() => {
-              if (!selectedGroup) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
+              if (!castChosen) { showNotif(language === "ko" ? "그룹을 선택해주세요" : language === "en" ? "Please select a group" : "请先选择团体", "error"); return; }
               // Leaving a builder roster in place would silently override the
               // group just picked, since startNewGame prefers it.
-              setDoor("classic"); setPendingRoster(null);
-              if (apiKey?.trim()) setPhase("setup"); else setPhase("keyInput");
+              if (door !== "custom") setPendingRoster(null);
+              // ONE first page per door (§22.10): the classic door's questions all
+              // live on its cast page now, and the custom door still answers them
+              // before the builder, because the builder can generate.
+              if (apiKey?.trim()) setPhase(door === "custom" ? "playerInfo" : "setup");
+              else setPhase("keyInput");
             }}
-            style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: selectedGroup ? "pointer" : "default", background: selectedGroup ? th.accentGrad : th.newGameDisabled, color: selectedGroup ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
+            style={{ padding: "14px 48px", borderRadius: 40, border: "none", cursor: castChosen ? "pointer" : "default", background: castChosen ? th.accentGrad : th.newGameDisabled, color: castChosen ? "#fff" : th.newGameDisabledColor, fontSize: 15, fontWeight: 700, marginBottom: 10 }}>
             {ct.newGame}
-          </button>
-          <button
-            onClick={() => {
-              setDoor("custom");
-              // The builder's Generate button spends the player's key, so the key
-              // page comes first when there is none — §4.5 assumes it exists.
-              if (apiKey?.trim()) setPhase("roster"); else setPhase("keyInput");
-            }}
-            style={{ padding: "11px 30px", borderRadius: 40, border: `1px solid ${th.coverContinueBorder}`, background: "transparent", color: th.coverContinueColor, fontSize: 13, cursor: "pointer", marginBottom: 10 }}>
-            {t.cast.customTitle}
           </button>
           {hasSaves() && (
             <button onClick={() => setOverlay({ type: "save" })}
@@ -1331,8 +1618,8 @@ export default function App() {
 
     return (
       <>
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflowY: "auto" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "20px 20px 30px", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)", overflowY: "auto" }}>
           <NotificationBar />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 2 }}>
             <div style={{ flex: 1 }} />
@@ -1484,7 +1771,7 @@ export default function App() {
                 {language === "zh" ? "✅ Key 已保存！选择下一步" : language === "ko" ? "✅ Key 저장 완료! 다음을 선택하세요" : "✅ Key saved! What's next?"}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => { setKeyJustSaved(false); if (door === "custom") setPhase("roster"); else if (!selectedGroup) setPhase("cover"); else setPhase("setup"); }}
+                <button onClick={() => { setKeyJustSaved(false); if (door !== "custom" && !selectedGroup) setPhase("cover"); else setPhase(door === "custom" ? "playerInfo" : "setup"); }}
                   style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: th.accentGrad, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   {language === "zh" ? "✨ 开始新游戏" : language === "ko" ? "✨ 새 게임" : "✨ New Game"}
                 </button>
@@ -1504,16 +1791,124 @@ export default function App() {
 
   // ── Setup Page ──
   // ── Roster Builder (the custom door) ──
+  // ── Player Info ──
+  //
+  // NAME, BIRTH YEAR, WORLD AND IDENTITY, AND IT COMES BEFORE THE CAST. That
+  // order is a bug fix rather than a preference, and it is docs/V140_PLAN.md
+  // §22.2: `generateCard` reads `world` from this component's state, and on the
+  // cast screens that was the world REMEMBERED FROM THE LAST SESSION - so the
+  // button offering to describe a member "in this world" described her in a world
+  // the player had not chosen. Asking first makes the generator's input correct by
+  // CONSTRUCTION instead of by a guard, which is the same remedy the save's
+  // `worldId` needed when it was stamped one screen before the world was picked.
+  //
+  // It is one page for BOTH doors, which is what stops the fix being door-shaped:
+  // the classic door used to ask these four on Setup and the custom door reached
+  // the builder without them. §22.5's commit 5 - the unified door - is CANCELLED
+  // (§22.9.2), so both doors are permanent and this page serves both.
+  //
+  // The cast is deliberately NOT described here - no org line, no member chips.
+  // What this page knows is the player; the next one knows the cast.
+  if (phase === "playerInfo") {
+    // `world` is in the gate because an identity is a position inside one and the
+    // grid below is that world's own list. It is nulled for the width of a world
+    // fetch, so this is a real state and not only the first paint.
+    const canContinue = form.name && validBirthYear(form.birthYear) && form.identity && world;
+    if (!world) return (
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+    );
+    return (
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px", overflowY: "auto", display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+          <NotificationBar />
+          <style>{th.setupCss}</style>
+          {/* ONE HEIGHT, AND THE FIELDS SIT IN THE MIDDLE OF IT (22.11.3). Both
+              pages packed everything against the top and left the bottom third
+              empty. The card is a column and this is its ONE in-flow child, so
+              `margin: auto 0` centres it while it is shorter than the card and
+              resolves to 0 the moment it is not - which is what keeps the top of a
+              long page reachable. `justify-content: center` does not: it splits an
+              overflow between both ends and only one of them can be scrolled to,
+              which is the defect 22.6.1 measured one layer up.
+
+              It is ONE child and not the card centring its children directly
+              because a flex container does not collapse its items margins, and
+              every label on these pages is spaced by one. */}
+          <div style={{ margin: "auto 0", width: "100%" }}>
+          {renderPageTitle()}
+          {/* ONE LINE, and only what is actionable. A MISSING key is the thing
+              worth shouting about; a present one needs no words. Same rule the
+              Setup header was cut down to in the first phone pass. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, padding: "2px 0 0", fontSize: 10, color: th.textMuted }}>
+            {!apiKey && <span style={{ color: "#d07070" }}>{language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>}
+            <span>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
+            <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
+          </div>
+
+
+          {renderPlayerFields()}
+          {renderIdentityGrid()}
+          {/* THE CAST BELONGS TO SOMETHING, and it is named HERE rather than on a
+              page after the picker (docs/V140_PLAN.md 22.6.2). It sits beside the
+              world for the same reason the identity does: WHAT this organisation is
+              comes from `castLore.orgNoun` - an agency, a university, a company, a
+              family business - so the label, the suffix and the sentence under it
+              all move when the world above it changes.
+
+              Naming it is also what stops the model inventing one. A cross-group
+              cast was once described as the main member own group, which is how a
+              BLACKPINK main produced "YG".
+
+              CUSTOM DOOR ONLY, and not because the classic door is a special case:
+              a classic run IS one real group and already carries its real name, so
+              the field would have nothing to write to. Optional - an empty one
+              falls back to DEFAULT_CAST_NAME at start, exactly as before. */}
+          {door === "custom" && (
+            <>
+              <div className="s-l">{t.cast.orgName(world.castLore.orgNoun)}</div>
+              <input className="s-in" value={castName} maxLength={24}
+                onChange={e => setCastName(e.target.value)}
+                placeholder={DEFAULT_CAST_NAME} style={{ marginBottom: 3 }} />
+              <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
+                {world.castLore.orgHint.replace("{org}",
+                  orgNameFor(castName.trim(), world.castLore.orgSuffix))}
+              </p>
+            </>
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button onClick={() => { setPendingRoster(null); setPhase("cover"); }}
+              style={{ padding: "12px 18px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
+              ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
+            </button>
+            {/* The forward button names the NEXT step rather than saying "next",
+                because this page has no cast on it and the one thing a player
+                needs to know is that choosing one is what follows. */}
+            <button onClick={() => setPhase("roster")} disabled={!canContinue}
+              style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canContinue ? "pointer" : "not-allowed", background: canContinue ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
+              {canContinue
+                ? (language === "zh" ? "选择角色阵容 →" : language === "ko" ? "캐스트 선택 →" : "Select your cast →")
+                : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
+            </button>
+          </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (phase === "roster") {
     return (
       <>
+        {/* Back is one step, and since §22.2 the step before the builder is player
+            info rather than the cover. The door is NOT reset: the player is still on
+            the custom door, she is amending what she told it. */}
         <RosterBuilder
           language={language} theme={theme} t={t} world={world}
           fontScale={fontScale}
           apiKey={apiKey} modelId={selectedModel}
           aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
-          onStart={(r) => { setPendingRoster(r); setPhase("setup"); }}
-          onBack={() => { setPendingRoster(null); setDoor("classic"); setPhase("cover"); }}
+          onStart={(r) => startNewGame(r)}
+          onBack={() => { setPendingRoster(null); setPhase("playerInfo"); }}
           notify={showNotif}
         />
         <NotificationBar />
@@ -1531,13 +1926,27 @@ export default function App() {
     // nulls it for the length of one fetch, so this is a real state and not only
     // the first paint.
     if (!world) return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt, color: th.textMuted, fontSize: 12 }}>Loading...</div>
     );
     return (
-      <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
-        <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px 40px", overflowY: "auto", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
+      <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.pageBgAlt }}>
+        <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, background: th.pageBgAlt, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, padding: "12px 10px", overflowY: "auto", display: "flex", flexDirection: "column", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.3)" }}>
           <NotificationBar />
           <style>{th.setupCss}</style>
+          {/* ONE HEIGHT, AND THE FIELDS SIT IN THE MIDDLE OF IT (22.11.3). Both
+              pages packed everything against the top and left the bottom third
+              empty. The card is a column and this is its ONE in-flow child, so
+              `margin: auto 0` centres it while it is shorter than the card and
+              resolves to 0 the moment it is not - which is what keeps the top of a
+              long page reachable. `justify-content: center` does not: it splits an
+              overflow between both ends and only one of them can be scrolled to,
+              which is the defect 22.6.1 measured one layer up.
+
+              It is ONE child and not the card centring its children directly
+              because a flex container does not collapse its items margins, and
+              every label on these pages is spaced by one. */}
+          <div style={{ margin: "auto 0", width: "100%" }}>
+          {renderPageTitle()}
           {/* ONE LINE, NOT FOUR - the page ran past 844px and the Start button sat
               below the fold behind half a row of identities, on the one screen
               whose whole job is to be completed. What went:
@@ -1553,65 +1962,29 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, padding: "2px 0 0", fontSize: 10, color: th.textMuted }}>
             {/* The noun is the world's too. This line said "Group loaded" in all
                 three languages, which is the cast's kind and not a fixed word. */}
-            <span>{t.cast.orgLoaded(world.castLore.orgNoun)}{pendingRoster ? (castName.trim() || DEFAULT_CAST_NAME) : (groupConfig?.group?.name || "Loading...")}</span>
+            <span>{t.cast.orgLoaded(world.castLore.orgNoun)}{groupConfig?.group?.name || "Loading..."}</span>
             {!apiKey && <span style={{ color: "#d07070" }}>{language === "zh" ? "密钥缺失" : language === "ko" ? "키 누락" : "Key missing"}</span>}
             <span>{MODEL_CONFIGS[selectedModel]?.emoji} {MODEL_CONFIGS[selectedModel]?.name}{selectedModel === "qwen" ? ` · ${aliyunMode === "free" ? t.aliyun.free.title : resolvePaidModel(aliyunPaidModel)}` : ""}</span>
             <button onClick={() => setPhase("keyInput")} style={{ background: "none", border: `1px solid ${th.border}`, borderRadius: 6, padding: "2px 6px", color: th.textSecondary, fontSize: 9, cursor: "pointer" }}>{language === "zh" ? "切换模型" : language === "ko" ? "모델 전환" : "Change Model"}</button>
           </div>
 
-          {/* The custom door already chose the cast AND the slots, so Setup shows
-              it rather than asking again. This is what keeps this page short on
-              that path: identity, name, birth year and pace, and nothing else. */}
-          {pendingRoster ? (
-            <>
-              <div className="s-l">{t.cast.castLabel}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6, alignItems: "center" }}>
-                {members.map(m => {
-                  const slot = m.id === form.mainMember ? "★"
-                    : (form.subMembers || []).includes(m.id) ? "●" : "○";
-                  return (
-                    <span key={m.id} style={{ display: "flex", alignItems: "center", gap: 3, padding: "5px 9px", borderRadius: 14, border: `1px solid ${th.groupBtnBorder}`, background: th.memberBtnBg, color: th.memberBtnColor, fontSize: 11, whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 14 }}>{m.emoji}</span>
-                      <span>{m.name}</span>
-                      <span style={{ color: th.textMuted, fontSize: 10 }}>{slot}</span>
-                    </span>
-                  );
-                })}
-                <button onClick={() => setPhase("roster")}
-                  style={{ padding: "5px 10px", borderRadius: 14, border: `1px dashed ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 10, cursor: "pointer" }}>
-                  {t.cast.changeCast}
-                </button>
-              </div>
-              {/* The cast belongs to something, so it needs a name — and naming the
-                  organisation after it is what stops the model inventing one. A
-                  cross-group cast was previously described as the main member's
-                  group, which is how a BLACKPINK main produced "YG".
+          {/* CLASSIC DOOR ONLY since docs/V140_PLAN.md 22.6.2. The custom door does
+              not pass through this page at all any more: its cast picker carries
+              Start, so the screen that showed the chosen cast back and asked for one
+              more field is gone. A page that repeats the previous page answer and
+              adds one field is a page nobody needs.
 
-                  WHAT that organisation is comes from the world, not from here:
-                  an idol agency, a university, a company, a family firm. The world
-                  supplies one noun and the sentence around it, because "they debut
-                  as one group" is a different claim from "they study here" rather
-                  than the same sentence with a different word in it. */}
-              <div className="s-l">{t.cast.orgName(world.castLore.orgNoun)}</div>
-              <input className="s-in" value={castName} maxLength={24}
-                onChange={e => setCastName(e.target.value)}
-                placeholder={DEFAULT_CAST_NAME} style={{ marginBottom: 3 }} />
-              <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-                {world.castLore.orgHint.replace("{org}",
-                  orgNameFor(castName.trim(), world.castLore.orgSuffix))}
-              </p>
-            </>
-          ) : (
-          <>
+              What is left is the one question the classic door has nowhere else to
+              ask - which of this group members is the main, and which are subs. */}
           <div className="s-l">{t.setup.mainMember(MAIN_INITIAL_AFFECTION)}</div>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", color: th.textMuted, padding: 20, fontSize: 12 }}>{t.setup.loading}</div>
           ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
               {members.map(m => (
                 <button key={m.id} onClick={() => setForm(f => ({ ...f, mainMember: m.id, subMembers: (f.subMembers || []).filter(id => id !== m.id) }))}
-                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 14, border: `1px solid ${form.mainMember === m.id ? m.accent : th.groupBtnBorder}`, background: form.mainMember === m.id ? m.accent + "18" : th.memberBtnBg, color: form.mainMember === m.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 8px", borderRadius: 14, border: `1px solid ${form.mainMember === m.id ? m.accent : th.groupBtnBorder}`, background: form.mainMember === m.id ? m.accent + "18" : th.memberBtnBg, color: form.mainMember === m.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 14 }}>{m.emoji}</span>
                   <span style={{ fontWeight: form.mainMember === m.id ? 700 : 400 }}>{m.name_kr}</span>
                 </button>
               ))}
@@ -1623,118 +1996,59 @@ export default function App() {
             <div style={{ textAlign: "center", color: th.textMuted, padding: 10, fontSize: 11 }}>Loading...</div>
           ) : (
             <>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
                 {members.filter(m => m.id !== form.mainMember).map(m => {
                   const sel = (form.subMembers || []).includes(m.id);
                   return (
                     <button key={m.id} onClick={() => setForm(f => ({ ...f, subMembers: sel ? f.subMembers.filter(x => x !== m.id) : [...(f.subMembers || []), m.id].slice(0, members.length - 1) }))}
-                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 14, border: `1px solid ${sel ? (m.accent || th.accent) : th.groupBtnBorder}`, background: sel ? (m.accent || th.accent) + "18" : th.memberBtnBg, color: sel ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 16 }}>{m.emoji}</span>
+                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 8px", borderRadius: 14, border: `1px solid ${sel ? (m.accent || th.accent) : th.groupBtnBorder}`, background: sel ? (m.accent || th.accent) + "18" : th.memberBtnBg, color: sel ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 14 }}>{m.emoji}</span>
                       <span style={{ fontWeight: sel ? 700 : 400 }}>{m.name_kr}</span>
                     </button>
                   );
                 })}
               </div>
               {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).length > 0 && (
-                <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 4 }}>NPC: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>
+                <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 2, lineHeight: 1.3 }}>NPC: {members.filter(m => m.id !== form.mainMember && !(form.subMembers || []).includes(m.id)).map(m => m.emoji + m.name_kr).join(", ")}</p>
               )}
             </>
           )}
-          </>
-          )}
 
-          {/* THE IDENTITY PICKER MOVED BELOW THE WORLD PICKER — v1.4.1 step 3.
-              An identity is a position inside a world, so the list means nothing
-              until the world is chosen: Setup now reads name / birth year / world
-              / identity. */}
+          {/* THE PLAYER'S HALF OF THE PAGE (§22.10). The classic door asks
+              everything here and starts from here - which is the v1.3 flow, for the
+              players §22.9 kept this door for.
 
-          {/* THE YEAR CAPTION LIVES IN THE SECTION LABEL, not above the wheel —
-              second hand test. A caption inside the wheel's own column pushes
-              the wheel down by its own height, so the name field and the
-              selected year sat on two different lines and the pair read as two
-              rows of one control each. With the captions lifted out, the row
-              below holds exactly two boxes and `alignItems: center` puts the
-              38px field's centre on the 104px wheel's centre — which is the
-              selected year, since the band sits at the middle row by
-              construction (`pad = ROW_H`). */}
-          <div style={{ display: "flex", gap: 5, alignItems: "baseline" }}>
-            <div className="s-l" style={{ flex: 2, marginBottom: 6 }}>{language === "zh" ? "角色信息" : language === "ko" ? "캐릭터 정보" : "Character Info"}</div>
-            <div className="s-l" style={{ flex: 1, minWidth: 88, marginBottom: 6, textAlign: "center", fontSize: 9.5 }}>
-              {language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
-            <input className="s-in" placeholder={language === "zh" ? "名字" : language === "ko" ? "이름" : "Name"} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 2 }} />
-            {/* A wheel, not a field — step 8. The year is one of 63 ordered
-                values, which is a picker; a text box invites a keyboard that on
-                iOS covers the box it is filling, and it can hold "19", which is
-                a year the address protocol must never see. The wheel cannot
-                produce a partial or out-of-range year at all. */}
-            <div style={{ flex: 1, minWidth: 88 }}>
-              <YearWheel value={form.birthYear} onChange={setBirthYear}
-                min={PLAYER_BIRTH_YEAR_MIN} max={PLAYER_BIRTH_YEAR_MAX} fontScale={fontScale}
-                ariaLabel={language === "zh" ? "出生年份" : language === "ko" ? "출생 연도" : "Birth year"}
-                colors={{ text: th.textPrimary, textDim: th.textMuted, accent: th.textHeading, tint: th.langBtnActiveBg, border: th.notifBarBorder, fieldBg: th.memberBtnBg }} />
-            </div>
-          </div>
+              §22.2 split these four onto their own page BEFORE the cast screens,
+              and that was a real fix: `generateCard` reads `world` out of App
+              state, so the custom door's "describe her in this world" described her
+              in whichever world the LAST SESSION left in localStorage. That door
+              still asks first. THIS one has no generator on it at all - the card
+              and detail generators live in the member editor, which only the
+              builder reaches - so there is no call here that reads the world before
+              the player has answered, and no "before" to protect. §22.2's rule
+              narrows to the door it is true of rather than being dropped.
 
-          {/* The pace picker used to sit here. v1.4.1 step 2 moved it into
-              Settings as the four-way story mode, because a choice frozen at
-              character setup cannot be a choice about how the story is driven -
-              and the tail is where a live one costs nothing. Step 3 put the
-              WORLD picker in this slot, which is why both cover doors get worlds
-              without the entry merge: they both pass through this page.
+              The subheader is not decoration: the page asks two different kinds of
+              question now - who is in the story, and who the player is - and a
+              screen that changes subject without saying so is the one a player
+              scrolls past. */}
+          {renderPlayerFields()}
+          {renderIdentityGrid()}
 
-              One row per world from `index.json`, so step 7 ships three worlds
-              as data. Only the SELECTED world's blurb renders: four blurbs at
-              390px is a wall of text under a control, and the blurb's job is to
-              say what the choice she has made means. */}
-          <div className="s-l">{t.setup.world}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 3 }}>
-            {worldList.map(w => (
-              <div key={w.id} onClick={() => setSelectedWorld(w.id)}
-                style={{ padding: "7px 8px", borderRadius: 10, textAlign: "center", border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {w.emoji} {w.name?.[language] || w.name?.zh || w.id}
-              </div>
-            ))}
-          </div>
-          <p style={{ fontSize: 9, color: th.textFaint, marginBottom: 6 }}>
-            {worldList.find(w => w.id === selectedWorld)?.blurb?.[language]
-              || worldList.find(w => w.id === selectedWorld)?.blurb?.zh || ""}
-          </p>
-
-          {/* The world's own identities, plus the custom escape hatch. Not a list
-              in this file: `world.identities` is where they are declared, and the
-              copy that used to live here read as an id-to-label mapping that was
-              an identity function. The label is the world's `name`, which is the
-              same string section 6 of the prompt prints — one copy, so the two
-              cannot disagree about what the player picked. */}
-          <div className="s-l">{t.setup.identity}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, marginBottom: 4 }}>
-            {[...world.identities.map(i => ({ id: i.id, label: i.name || i.id })),
-              { id: CUSTOM_IDENTITY_ID, label: t.setup.customIdentityOption }].map(it => (
-              <div key={it.id} onClick={() => setForm(f => ({ ...f, identity: it.id }))}
-                style={{ padding: "7px 10px", borderRadius: 10, textAlign: "center", border: `1px solid ${form.identity === it.id ? th.notifBarBorder : th.groupBtnBorder}`, background: form.identity === it.id ? th.langBtnActiveBg : th.memberBtnBg, color: form.identity === it.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
-                {it.label}
-              </div>
-            ))}
-          </div>
-          {form.identity === CUSTOM_IDENTITY_ID && (
-            <input className="s-in" placeholder={t.setup.customIdentity} value={form.customIdentity} onChange={e => setForm(f => ({ ...f, customIdentity: e.target.value }))} style={{ marginTop: 4, marginBottom: 6 }} />
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            {/* Back goes one step, not all the way out: on the custom door the
-                previous step is the builder, and dropping the player at the cover
-                would discard a cast they may have spent real time assembling. */}
-            <button onClick={() => setPhase(pendingRoster ? "roster" : "cover")}
-              style={{ padding: "13px 20px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            {/* Back is ONE step, and since §22.10 that step is the cover: this page
+                holds every question the classic door asks, so there is no page
+                between them any more. The custom door branch went with 22.6.2 -
+                that door starts the game from its own cast picker. */}
+            <button onClick={() => { setPendingRoster(null); setPhase("cover"); }}
+              style={{ padding: "12px 18px", borderRadius: 40, border: `1px solid ${th.groupBtnBorder}`, background: "transparent", color: th.textMuted, fontSize: 13, cursor: "pointer" }}>
               ← {language === "zh" ? "返回" : language === "ko" ? "뒤로" : "Back"}
             </button>
-            <button onClick={startNewGame} disabled={!canStart}
+            <button onClick={() => startNewGame()} disabled={!canStart}
               style={{ flex: 1, padding: "13px", borderRadius: 40, border: "none", cursor: canStart ? "pointer" : "not-allowed", background: canStart ? th.accentGrad : th.newGameDisabled, color: "#fff", fontSize: 14, fontWeight: 700 }}>
-              {canStart ? `Start with ${mainMember?.name || "..."}` : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
+              {canStart ? t.cast.startWith(mainMember?.name || "...") : (language === "zh" ? "请完成所有选项" : language === "ko" ? "모든 옵션을 선택해주세요" : "Please complete all options")}
             </button>
+          </div>
           </div>
         </div>
       </div>
@@ -1742,11 +2056,11 @@ export default function App() {
   }
 
   // ── Game Main Screen ──
-  if (!groupConfig || !members.length) return <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg, color: th.textPrimary }}>Loading...</div>;
+  if (!groupConfig || !members.length) return <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg, color: th.textPrimary }}>Loading...</div>;
 
   return (
-    <div style={{ height: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg }}>
-      <div style={{ width: "100%", maxWidth: 390, height: "100vh", maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
+    <div className="rv-page" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: th.outerBg }}>
+      <div className="rv-card" style={{ width: "100%", maxWidth: 390, maxHeight: 844, display: "flex", flexDirection: "column", background: th.gameBg, fontFamily: "'Georgia','Noto Serif SC',serif", color: th.textPrimary, position: "relative", overflow: "hidden", borderRadius: 20, boxShadow: "0 0 40px rgba(0,0,0,.4)" }}>
         <NotificationBar />
         <style>{`@media print{body *{visibility:hidden}#rv-story-panel,#rv-story-panel *{visibility:visible}#rv-story-panel{position:fixed;top:0;left:0;right:0;bottom:0;height:auto!important;overflow:visible!important;padding:24px!important;background:#fff!important}}`}</style>
         <style>{`${th.scrollCss}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}@keyframes slideUp{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}.stat-item{cursor:help;transition:all .15s;position:relative}.stat-item:hover{transform:scale(1.05)}.stat-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:${th.panelBg};border:1px solid ${th.borderAccent};border-radius:6px;padding:3px 8px;fontSize:9px;color:${th.textHeading};white-space:nowrap;pointer-events:none;z-index:999}.notification-dot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;animation:blink 1s infinite}`}</style>
@@ -1982,7 +2296,7 @@ export default function App() {
         {showSettings && (
           <div style={{ position: "absolute", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", background: th.modalOverlay, backdropFilter: "blur(6px)" }}
             onClick={e => { if (e.target === e.currentTarget) { setShowSettings(false); setConfirmDest(null); } }}>
-            <div style={{ width: "88%", maxWidth: 320, maxHeight: "88vh", overflowY: "auto", background: th.panelBg, border: `1px solid ${th.borderAccent}`, borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.4)" }}>
+            <div style={{ width: "88%", maxWidth: 320, maxHeight: "88%", overflowY: "auto", background: th.panelBg, border: `1px solid ${th.borderAccent}`, borderRadius: 18, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,.4)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: th.textHeading }}>{t.settings?.title}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2205,7 +2519,7 @@ export default function App() {
 
         {/* Achievement Modal */}
         {achievement && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
+          <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: th.achieveBg, border: `1px solid ${th.borderAccent}`, borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{achievement.icon}</div>
               <div style={{ color: th.textHeading, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{achievement.title}</div>
@@ -2219,7 +2533,7 @@ export default function App() {
 
         {/* Special Event Modal */}
         {specialEvent && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
+          <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: th.achieveOverlay, backdropFilter: "blur(8px)" }}>
             <div style={{ width: "90%", maxWidth: 340, background: th.achieveBg, border: `1px solid ${th.borderAccent}`, borderRadius: 20, padding: "28px 20px", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{specialEvent.icon || "💍"}</div>
               <div style={{ color: th.textHeading, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{specialEvent.title}</div>

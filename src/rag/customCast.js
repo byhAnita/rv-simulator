@@ -16,7 +16,7 @@
 import { STORAGE_KEYS, loadFromStorage, saveToStorage } from "../utils";
 // The slot order, from the one module that defines it. Re-declaring it here would
 // be a second source of truth for something the prompt's member order depends on.
-import { SLOTS } from "./rosterResolver";
+import { SLOTS, WORLD_FIELDS, WORLD_DETAIL_KEY } from "./rosterResolver";
 
 // docs/V140_PLAN.md §10 budgets 20 members at ~2 KB. The cap is a quota
 // guard, not a design opinion about how many characters a player may want.
@@ -50,7 +50,32 @@ export const PROFILE_FIELDS = [
   "emoji", "color", "accent", "tags",
   // derived at creation, read by the Instagram overlay
   "ig",
+  // Her world-scoped restaging (§22.2's tab 2), as ONE stamped object rather
+  // than five fields plus a stamp beside them: applyWorldDetail lays it over her
+  // only for the world it names, so nothing the player wrote is overwritten and a
+  // stale detail is not expressible. The only non-string value on this list.
+  WORLD_DETAIL_KEY,
 ];
+
+/**
+ * Strip a restaging to the documented shape: the stamp plus WORLD_FIELDS.
+ *
+ * It is DROPPED ENTIRELY unless it carries both a world and a `world_position`. A
+ * detail with no stamp would apply in every world, which is the leak the stamp
+ * exists to stop; one with no position is the state isUsableDetail rejects, and
+ * storing it would make a member count as restaged while rendering nothing in the
+ * slot `useRole` empties.
+ */
+export function sanitizeWorldDetail(detail) {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const world = String(detail.world ?? "").trim();
+  const out = { world };
+  for (const f of WORLD_FIELDS) {
+    const v = String(detail[f] ?? "").trim();
+    if (v) out[f] = v;
+  }
+  return world && out.world_position ? out : null;
+}
 
 // Auto-assigned so the player never has to pick one. The palette is small and
 // cycled by index rather than hashed: a hash collides invisibly and two members
@@ -61,7 +86,7 @@ export const PROFILE_FIELDS = [
 // second copy of ten glyphs in a component is the hand-maintained list this
 // repo keeps losing. It is the DEFAULT set, not the allowed set - the field
 // takes any glyph the player can type.
-export const EMOJI_PALETTE = ["🎻", "🐦", "🦌", "🐈", "🦢", "🦔", "🐝", "🦉", "🐞", "🦋"];
+export const EMOJI_PALETTE = ["🎻", "🐦", "🦌", "🐈", "🦢", "🦔", "🐝", "🦉", "🦋"];
 const COLOR_PALETTE = [
   ["#e887b0", "#f8c8d8"], ["#7fb5d5", "#c5e2f0"], ["#c9a86c", "#ecdcc0"],
   ["#9b8bc4", "#d8d0ec"], ["#7fc4a8", "#c8e8dc"], ["#d49080", "#f0d0c8"],
@@ -84,9 +109,59 @@ export function sanitizeProfile(profile = {}) {
   for (const f of PROFILE_FIELDS) {
     const v = profile[f];
     if (v === undefined || v === null) continue;
+    if (f === WORLD_DETAIL_KEY) {
+      const d = sanitizeWorldDetail(v);
+      if (d) out[f] = d;
+      continue;
+    }
     if (Array.isArray(v)) { if (v.length) out[f] = v.slice(); continue; }
     const s = String(v).trim();
     if (s) out[f] = s;
+  }
+  return out;
+}
+
+/**
+ * The fields an edited profile changes, against the library's own copy of her.
+ *
+ * A LIBRARY EDIT IS A DIFF, NEVER A SNAPSHOT (docs/V140_PLAN.md §22.3). resolveRoster
+ * applies `entry.override` over the member it fetched, so every field the player did
+ * not touch keeps arriving BY REFERENCE and a corrected library profile still reaches
+ * a game in progress - §4.2's rule. Snapshotting her would give that up for nothing.
+ *
+ * A field the player CLEARED is recorded as "", not dropped. Object.assign cannot
+ * delete, so a dropped key means the library's value comes back and the edit is
+ * silently discarded. "" works because the profile block tests every optional field
+ * for CONTENT rather than presence, and memberLine uses filter(Boolean) - so an
+ * emptied field renders nothing, which is what clearing it means.
+ *
+ * THE BASE MUST BE THE LIBRARY'S MEMBER, never an already-overridden copy: diffing
+ * against the overridden one compounds, and a field edited and then typed back to its
+ * original text would keep an entry saying it equals itself. That entry is the
+ * difference between a cast nobody edited and a byte-identical prompt.
+ *
+ * An EMPTY result is {} and the caller stores no override key at all, which is what
+ * makes "no golden moves if nothing is edited" a property of the data.
+ */
+export function overrideFrom(base = {}, edited = {}) {
+  const out = {};
+  // A restaging compares as its SANITIZED shape, in WORLD_FIELDS order, so the
+  // comparison is stable and an unedited one diffs to nothing. String(obj) would
+  // flatten every detail to the same "[object Object]" and record no change at
+  // all - a generation that never reached the roster.
+  const flat = (v) => {
+    if (Array.isArray(v)) return v.join(String.fromCharCode(0));
+    if (v && typeof v === "object") return JSON.stringify(sanitizeWorldDetail(v) || {});
+    return String(v ?? "").trim();
+  };
+  for (const f of PROFILE_FIELDS) {
+    // The id is authoritative and is not a field anyone may edit: every
+    // per-member map in the save is keyed by it.
+    if (f === "id") continue;
+    const was = flat(base[f]);
+    const now = flat(edited[f]);
+    if (was === now) continue;
+    out[f] = edited[f] === undefined || edited[f] === null ? "" : edited[f];
   }
   return out;
 }
@@ -215,6 +290,74 @@ export function upsertMember(cast, entry) {
   return { ok: true, cast: next };
 }
 
+/**
+ * What the profile editor is handed for a member who is already in the cast.
+ *
+ * ONE EDITOR, TWO SOURCES (docs/V140_PLAN.md §22.2), and they differ in both
+ * directions: a custom member is edited as her PALETTE entry and saved as a new
+ * snapshot, while a library member is edited as her library record with this run's
+ * override laid on top and saved as a diff. `src` travels on the object so the save
+ * path reads a value instead of inferring which state opened the editor.
+ *
+ * A custom pick can outlive its palette entry - she was deleted, or the cast came
+ * from a saved roster, which snapshots her. Then the roster's own copy is the only
+ * one left, and it is also the copy the run will use, so it is what gets edited.
+ *
+ * NULL means a library member whose group config has not arrived; group configs are
+ * fetched per tab. Returning null rather than an empty profile is what stops the
+ * editor opening over nothing, which would read as data loss and would diff every
+ * field as a change - snapshotting her by the back door.
+ *
+ * Pure and here rather than in the component for the reason assignSlot is: a source
+ * regex can see that a branch is WRITTEN and not that it is REACHABLE.
+ */
+export function editorTargetFor(id, pick, opts = {}) {
+  const { paletteEntry = null, libraryBase = null, language = "zh" } = opts;
+  if (!pick || !id) return null;
+  if (pick.src === "custom") {
+    return paletteEntry
+      ? { ...paletteEntry, id, src: "custom" }
+      : { id, src: "custom", lang: pick.lang || language, profile: pick.profile || {} };
+  }
+  if (!libraryBase) return null;
+  return {
+    id, src: "library", groupId: pick.groupId ?? null,
+    profile: { ...libraryBase, ...(pick.override || {}) },
+  };
+}
+
+/**
+ * Write a swept cast's restagings into a roster, stamped with the world.
+ *
+ * THE ROSTER IS WHERE IT HAS TO LAND, because the roster is what the save carries
+ * and buildSystemPrompt must stay a pure function of the save (§4.2). Generated
+ * text fixed at setup and stored satisfies that exactly as the ex-girlfriend
+ * backstory's seed does; text regenerated at round time would be that defect with
+ * a network call in it.
+ *
+ * Each source keeps its own rule, unchanged: a CUSTOM member is snapshotted, so her
+ * detail goes in `entry.profile`; a LIBRARY member is by reference, so hers goes in
+ * `entry.override` beside whatever the editor already put there (§4.2, §22.3).
+ *
+ * A member with no detail is left BYTE-IDENTICAL - not stamped with an empty one -
+ * because a failed generation must leave her in the state §22.1's narrowed rule
+ * still covers, and an empty stamp would say she had been restaged.
+ */
+export function withCastDetail(roster, detailById = {}, worldId = "") {
+  const entries = roster?.entries || [];
+  if (!worldId || !Object.keys(detailById).length) return roster;
+  return {
+    ...roster,
+    entries: entries.map((e) => {
+      const detail = sanitizeWorldDetail({ ...(detailById[e.memberId] || {}), world: worldId });
+      if (!detail) return e;
+      return e.src === "custom"
+        ? { ...e, profile: { ...(e.profile || {}), [WORLD_DETAIL_KEY]: detail } }
+        : { ...e, override: { ...(e.override || {}), [WORLD_DETAIL_KEY]: detail } };
+    }),
+  };
+}
+
 /** Remove one member. Safe unconditionally — see the palette note at the top. */
 export function removeMember(cast, id) {
   const list = Array.isArray(cast) ? cast : [];
@@ -324,6 +467,14 @@ export function rosterFromPicks(picks = {}) {
       .filter((p) => p.slot === slot)
       .map((p) => (p.src === "custom"
         ? toRosterEntry({ id: p.id, lang: p.lang, profile: p.profile }, slot)
-        : { src: "library", groupId: p.groupId, memberId: p.id, slot }))),
+        // The override is spread in CONDITIONALLY: an entry for a member
+        // nobody edited must be byte-identical to what it was before the
+        // editor existed, or every saved roster and every golden moves for a
+        // cast the player did not touch. A custom member needs none - her
+        // profile is snapshotted inline, so an edit is already in it.
+        : {
+          src: "library", groupId: p.groupId, memberId: p.id, slot,
+          ...(p.override && Object.keys(p.override).length ? { override: p.override } : {}),
+        }))),
   };
 }

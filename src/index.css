@@ -54,7 +54,73 @@ body {
   margin: 0;
 }
 
+/* THE DOCUMENT NEVER SCROLLS. The app is one fixed-size card and only its inner
+   panels move - and the reason this is a rule rather than a preference is that
+   `100vh` on iOS is the viewport with the browser chrome HIDDEN. Every page
+   container was therefore taller than what is on screen, the document scrolled,
+   and a nested `overflowY: auto` panel then swallowed the upward gesture that
+   would have brought the header back: the top of the player-info and Setup pages
+   was not merely cut off, it was unreachable. Reported from a phone, 2026-09-30.
+
+   `@media screen` because the PDF export prints this document and a clipped,
+   unscrollable body is exactly what a multi-page print must not have. */
+@media screen {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
+/* A FULL-SCREEN PAGE CONTAINER. `height: 100%` tracks the VISIBLE viewport,
+   which is the whole point - it grows and shrinks with the browser chrome where
+   `100vh` does not. `100dvh` after it is the modern spelling of the same thing
+   and wins where it is understood; the pair cannot be written in a JS style
+   object, which is why this is a class and not an inline style.
+
+   `overscroll-behavior: contain` is the other half: a panel that has hit its own
+   scroll limit must keep the gesture rather than hand it to whatever is behind. */
+/* ...AND IT PAYS FOR THE NOTCH, which is the half 22.6.1 missed. In a
+   Home-Screen launch iOS does not inset the web content for the status bar -
+   the web view is the whole screen and `apple-mobile-web-app-status-bar-style`
+   no longer changes that - so the only thing that reserves the space is
+   env(safe-area-inset-top). It is 0px on every device without a notch, so
+   nothing else moves. `box-sizing` is what makes the padding come out of the
+   height rather than be added to it. */
+.rv-page,
+.rv-fixed {
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+.rv-page {
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: contain;
+}
+
+/* THE PHONE-SIZED CARD, and it sizes from its PARENT rather than from the
+   viewport. It used to carry `.rv-page` too, which made it `100dvh` tall - the
+   UNPADDED height - inside a container whose content box is now smaller, so it
+   overflowed a centring flex and the overflow was split between the two ends.
+   Only one of those ends can be scrolled to.
+
+   `box-sizing` is load-bearing here and not tidiness. Measured in Chrome at a
+   932px screen: content-box makes `max-height: 844px` cap the CONTENT box, so
+   the card's own `padding: 12px 10px 40px` is added on top of it and the card
+   is 896px tall, centred with its top at 18px - 44px of it behind a 62px status
+   bar. With border-box it is 844px and the safe-area padding above does the
+   rest. */
+.rv-card {
+  height: 100%;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+}
+
 #root {
+  height: 100%;
   width: 1126px;
   max-width: 100%;
   margin: 0 auto;

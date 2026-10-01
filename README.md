@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.1
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.2
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.4.1-e887b0)
+![Version](https://img.shields.io/badge/version-1.4.2-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -66,7 +66,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.4.1)
+## 💰 API Cost & Performance (v1.4.2)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -177,6 +177,19 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.4.2
+
+Your cast belongs to the world you put them in — and setup is one screen again.
+
+* 🎭 **The cast is rewritten for the world they are cast in** — a member's public image, the way attraction surfaces in her, how she talks and what she *does* are regenerated for your setting the moment you press Start. Nobody is a group's maknae in a family compound any more, and nobody has a comeback in a lecture hall. It happens in one call for the whole cast, so the five of them agree with each other: one eldest daughter, one youngest, five different posts.
+* ✍️ **Every member has a profile you can open, including the prebuilt ones** — tap a chosen member's face. The editor is two tabs: *who she is* (photo, wallpaper, name, birth year, personality, MBTI, habit, emoji) and *in this world* (her position here, public image, queer texture, speech style, hidden conflict), and you can regenerate or revert the second one. Editing someone from the library keeps her as a library member — your change is a diff, so a fix to her card still reaches your saved cast.
+* 🚪 **The classic start is one page again** — group, main member, subs, your name, your birth year, the world and your identity, with Start at the bottom. No more walking three screens to begin a Red Velvet run.
+* ✨ **The custom cast is a chip beside the groups** — it answers the same question the group buttons do, so it looks like one of them instead of a separate mode.
+* 📱 **The top of the page is no longer under the clock** — on a phone the header was sitting behind the status bar and the top of some screens could be scrolled away and not scrolled back. Every page now starts where it should and the overlays sit clear of the notch and the home indicator.
+* 🌏 **The world picker folds** — it shows what you chose on one line and opens over the page to show all four with what each one is about, without moving anything underneath it.
+
+> 🔎 Honest about coverage: this release is mostly the screens around the game rather than the game itself — the prompt the model receives is byte-identical for an idol run, and the rewriting above only happens in the three non-idol worlds. The generated text is the model's, so if a member comes back with a position that does not suit her, regenerate it from her profile and the one you keep is the one that is sent.
 
 ## 🎉 What's New in v1.4.1
 
@@ -345,7 +358,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.4.1              | |
+|  |              LLM Text Adventure . v1.4.2              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -448,7 +461,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.4.1 - Architecture                     |
+|          Idol Dating Sim  v1.4.2 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -505,7 +518,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.4.1 Round Flow                            |
+|                    v1.4.2 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

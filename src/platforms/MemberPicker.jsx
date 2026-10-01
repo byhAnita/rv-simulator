@@ -27,7 +27,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { displayNameIn } from "../utils";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, Z } from "./castTheme";
 import { photoFill } from "./memberFace";
 import { CAST_MAX } from "../rag/customCast";
 
@@ -46,7 +46,10 @@ export default function MemberPicker({
   const fs = (px) => scaleFont(px, fontScale);
   const c = t?.cast || {};
 
-  const [tab, setTab] = useState(() => groups[0]?.id || CUSTOM_TAB);
+  // The CUSTOM tab opens first and SITS first, which is the whole point of this
+  // door: a player who came through it came to use her own members, and the tab
+  // she wants was the last of ten behind a horizontal scroll.
+  const [tab, setTab] = useState(CUSTOM_TAB);
 
   // The parent owns the group cache: it needs the same data to name a picked
   // member who is not on the visible tab, and a cache in here would be thrown
@@ -56,8 +59,8 @@ export default function MemberPicker({
   }, [tab, configs, onNeedGroup]);
 
   const tabs = useMemo(() => [
-    ...groups.map((g) => ({ id: g.id, label: g.name, emoji: g.emoji })),
     { id: CUSTOM_TAB, label: c.myCast || "", emoji: "✨" },
+    ...groups.map((g) => ({ id: g.id, label: g.name, emoji: g.emoji })),
   ], [groups, c.myCast]);
 
   const members = tab === CUSTOM_TAB
@@ -76,13 +79,13 @@ export default function MemberPicker({
   };
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 115, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
+    <div className="rv-fixed"
+      style={{ position: "fixed", inset: 0, zIndex: Z.sheet, display: "flex", alignItems: "flex-end", justifyContent: "center", background: k.scrim, backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 390, maxHeight: "86vh", background: k.panelBg, borderRadius: "18px 18px 0 0", border: `1px solid ${k.border}`, borderBottom: "none", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 -12px 40px rgba(0,0,0,.45)" }}
+        style={{ width: "100%", maxWidth: 390, maxHeight: "86%", background: k.panelBg, borderRadius: "18px 18px 0 0", border: `1px solid ${k.border}`, borderBottom: "none", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 -12px 40px rgba(0,0,0,.45)" }}
       >
         <div style={{ padding: "12px 13px 8px", borderBottom: `1px solid ${k.border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

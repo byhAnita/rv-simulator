@@ -40,8 +40,8 @@ export default function MapOverlay({ canon = [], discovered = [], t, theme, font
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.55)" : "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
-      <div style={{ width: "100%", maxWidth: 360, maxHeight: "75vh", background: isLight ? "#faf7f0" : "#1a0a20", border: `1px solid ${isLight ? "rgba(100,65,20,.25)" : "rgba(232,135,176,.3)"}`, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
+    <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: isLight ? "rgba(40,25,5,.55)" : "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
+      <div style={{ width: "100%", maxWidth: 360, maxHeight: "75%", background: isLight ? "#faf7f0" : "#1a0a20", border: `1px solid ${isLight ? "rgba(100,65,20,.25)" : "rgba(232,135,176,.3)"}`, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
         <div style={{ background: isLight ? "linear-gradient(135deg,#5c3820,#4a2e14)" : "linear-gradient(135deg,rgba(232,135,176,.15),rgba(200,109,208,.15))", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${isLight ? "rgba(100,65,20,.2)" : "rgba(232,135,176,.15)"}`, flexShrink: 0 }}>
           <span style={{ color: isLight ? "#f5e8d0" : "#f8c8d8", fontSize: f(14), fontWeight: 700 }}>{t.map.title}</span>
           <button onClick={onClose} style={{ background: "none", border: "none", color: isLight ? "#c8a870" : "#a07090", cursor: "pointer", fontSize: 16 }}>&#10005;</button>

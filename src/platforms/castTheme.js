@@ -52,3 +52,40 @@ export const CAST_MIN_FONT = 11;
 // all of them or none of them.
 export const scaleFont = (px, fontScale = 1) =>
   Math.round(Math.max(px, CAST_MIN_FONT) * fontScale);
+
+// THE FOUR SAFE-AREA INSETS, PLUS A MARGIN OF YOUR OWN.
+//
+// `.rv-fixed` pays the insets for every full-screen overlay, but an inline
+// `padding` shorthand overrides a class's padding ENTIRELY - so the handful of
+// roots that want their own breathing room have to COMPOSE the two rather than
+// layer them, or the class is silently defeated on exactly those screens.
+//
+// `env(..., 0px)` rather than a bare `env()`: a browser that knows the function
+// but not the variable resolves it to the fallback, and one that knows neither
+// drops the whole declaration - which would take the author's own margin with
+// it. The fallback is what makes this a no-op on a device with no notch.
+// ── THE CAST FLOW'S STACKING ORDER (22.8.5) ─────────────────────────────────
+//
+// A MODAL OPENED FROM ANOTHER MODAL HAS TO OUTRANK IT, and until now the numbers
+// that decide that were five literals in five files with nothing anywhere saying
+// which was meant to be on top. The profile editor sat at 110 and the member
+// picker at 115 - so `+ create member`, which is a control INSIDE the picker,
+// opened the editor UNDERNEATH the sheet it was tapped in. Reported from a phone,
+// 2026-09-30.
+//
+// One map, named for what each layer IS rather than for a number, so the relation
+// is something the suite can read. The gaps are room to insert a layer between
+// two without renumbering every file below it.
+export const Z = {
+  sheet: 115,       // MemberPicker - the roster's own bottom sheet
+  imageSheet: 120,  // CastImageSheet
+  dialog: 125,      // RosterBuilder: name this cast
+  confirm: 130,     // RosterBuilder: delete this cast
+  editor: 140,      // MemberEditor - openable from INSIDE the picker, so above it
+  cropper: 150,     // ImageCropper - openable from the editor and the image sheet
+};
+
+export const safeInset = (px = 0) =>
+  ["top", "right", "bottom", "left"]
+    .map((side) => `calc(env(safe-area-inset-${side}, 0px) + ${px}px)`)
+    .join(" ");

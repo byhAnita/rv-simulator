@@ -52,6 +52,12 @@
 //                                                   # long time, which is how a bug in
 //                                                   # 主线成员前女友's background block
 //                                                   # survived every live run ever made
+//   node test/playthrough.mjs --no-restage          # do NOT restage the cast into the world
+//                                                   # before round 1. The default MIRRORS the
+//                                                   # app: startNewGame restages the whole cast
+//                                                   # whenever castLore.useRole is false, so a
+//                                                   # run that skipped it graded a prompt no
+//                                                   # player gets. Costs one call per member
 //   node test/playthrough.mjs --mode pressure      # one of the 4 story modes:
 //                                                   #   free  romance  pressure  dramatic
 //                                                   # This was --pace, a setup field, until
@@ -98,6 +104,15 @@ const AGE = arg("age", null) != null ? Number(arg("age", null)) : null;
 // from it and the grader compares birth years, so the two must agree.
 const GAME_YEAR = 2026;
 const REASONING = has("reasoning");
+// The Start-boundary restaging sweep (docs/V140_PLAN.md §22.5 commit 4b). It is ON
+// by default because the APP does it unconditionally when castLore.useRole is
+// false — the harness reproduces startNewGame, and a boundary the harness rebuilds
+// is a place the two silently diverge. `generateCastDetail` appeared in this file
+// nowhere until now, so 4b's live gate was not merely unmet but unreachable: the
+// run would have graded the un-restaged prompt and reported a healthy row. The flag
+// exists to opt OUT (a cheap run, or grading §22.1's narrowed interim rule on
+// purpose), never to opt in.
+const RESTAGE = !has("no-restage");
 const ROUTE_MODE = has("route");
 // Identity ids are the Chinese literals from App.jsx's IDENTITIES, which is what
 // sits in form.identity in every save. They select a whole background block in
@@ -214,6 +229,11 @@ async function buildBundle() {
         'export * from "./src/rag/groupLoader.js";',
         'export * from "./src/rag/worldLoader.js";',
         'export * from "./src/rag/rosterResolver.js";',
+        // The restaging sweep. withCastDetail is not needed — the harness holds no
+        // save — but applyWorldDetail is, because round 1 must be built from the
+        // restaged cast exactly as startNewGame builds it.
+        'export * from "./src/rag/customCast.js";',
+        'export * from "./src/agent/cardGenerator.js";',
       ].join("\n"),
       resolveDir: ROOT, loader: "js",
     },
@@ -245,7 +265,7 @@ function languageOk(story, lang) {
 // header there. esc moved with them.
 import { esc, dialogueSpans, sinicizedHonorifics, selfNameErrors, narratedHonorifics, nameYaVocative,
          kktTranscribed, outsideCastNames, realAgencyNames, roleClaimedByMember,
-         playerGivenIdolLife } from "./graders.mjs";
+         playerGivenIdolLife, scanIdolWords } from "./graders.mjs";
 
 // The ROLE CONTRACT's two graders need to know what the player's identity gives
 // her, which nothing downstream of the world file can work out.
@@ -438,7 +458,8 @@ async function runWorker(model) {
   const cfgMod = await import("file://" + join(ROOT, "src/config/modelConfigs.js").replace(/\\/g, "/"));
   const { executeRound, createInitialStats, createEmptyMemory, buildHistoryLedger,
           collapseHistoryIfNeeded, loadGroupConfig, loadWorld, getNpcMembers, markModel, resetSessionSkips,
-          resetFreeRoute, getFreeRouteStatus, buildSystemPrompt, resolveRoster } = mod;
+          resetFreeRoute, getFreeRouteStatus, buildSystemPrompt, resolveRoster,
+          generateCastDetail, applyWorldDetail, WORLD_DETAIL_KEY } = mod;
   const { ALIYUN_FREE_ROUTE } = cfgMod;
   const PROVIDER = resolveProvider(PROVIDER_ARG, cfgMod.MODEL_CONFIGS);
   // Only Aliyun has a free route to walk or pin. Every other provider serves one
@@ -590,6 +611,73 @@ async function runWorker(model) {
       // 1 main + 0 subs; 1 main + 1 sub is the reference setting for cost strings.
       subIds = members.slice(1, 1 + SUBS).map(m => m.id);
       report.group = { id: GROUP, members: members.length, mainId, subIds };
+    }
+    // ── the Start-boundary restaging sweep (docs/V140_PLAN.md §22.5 commit 4b) ──
+    //
+    // This MIRRORS src/App.jsx#startNewGame, condition included: restage only where
+    // castLore.useRole is false, because in kpop_idol the library's prose is already
+    // about this world and restaging it would replace correct text with generated
+    // text. Reproducing the condition matters as much as reproducing the call — a
+    // harness that swept every world would grade a prompt the app never builds, in
+    // the one world every golden pins.
+    //
+    // `members` is REASSIGNED rather than a second variable, because round 1 must be
+    // built from the restaged cast: stamping something round 2 re-resolves while
+    // round 1 sends the original is a static-prompt drift of the whole ~5,500-token
+    // prefix, which is the ex-girlfriend Math.random() defect with a network call in
+    // it. The app pays the same price through setMembers + roundMembers.
+    report.restaging = null;
+    if (RESTAGE && !world.castLore?.useRole) {
+      const swept = await generateCastDetail({
+        members, world, language: LANG, apiKey: API_KEY, modelId: PROVIDER,
+        aliyun: ROUTED ? { mode: "free" } : null,
+      });
+      const detailById = swept.detailById;
+      members = members.map((m) => applyWorldDetail(detailById[m.id]
+        ? { ...m, [WORLD_DETAIL_KEY]: { world: world.id, ...detailById[m.id] } }
+        : m, world.id));
+      // What the model actually wrote, per member, so a run can be READ and not
+      // only counted. The idol-word scan runs over the generated fields only —
+      // the library's own prose is §22.1's measured 80 instances and scanning it
+      // would report the defect the sweep exists to route around as a new one.
+      const scanFields = ["world_position", "public_image", "queer_texture",
+                          "speech_style", "hidden_conflict"];
+      const idol = LANG === "zh"
+        ? Object.entries(detailById).map(([id, d]) => ({ id, hits: scanIdolWords(d, scanFields) }))
+            .filter((r) => r.hits.length)
+        : null;
+      if (idol === null) report.gradersSkipped.push("restaged-prose-carries-idol-facts");
+      // TWO members holding the byte-identical position is what an assertion can
+      // see. It UNDERCOUNTS, deliberately and by construction: the defect this
+      // pipeline was rebuilt for was 本家次女 beside 次女 - one family position in
+      // two spellings, which no string comparison reaches. So the duplicates are
+      // counted AND every position is printed, because the half that matters is
+      // still a reading. A run is not validated by its verdict line.
+      const posOf = Object.fromEntries(Object.entries(detailById)
+        .map(([id, d]) => [id, String(d?.world_position ?? "")]));
+      const seen = {};
+      for (const [id, pos] of Object.entries(posOf)) {
+        if (!pos) continue;
+        (seen[pos] = seen[pos] || []).push(id);
+      }
+      const dupes = Object.entries(seen).filter(([, ids]) => ids.length > 1)
+        .map(([pos, ids]) => ({ position: pos, ids }));
+      report.restaging = {
+        asked: swept.asked, failed: swept.failed, ok: Object.keys(detailById).length,
+        fromCastCall: swept.fromCastCall, castCall: swept.castCall,
+        duplicates: dupes,
+        positions: posOf,
+        detail: detailById,
+        idolWordRows: idol,
+        idolWordInstances: idol ? idol.reduce((n, r) => n + r.hits.length, 0) : null,
+      };
+      // A member the generation failed for keeps her own idol prose, which is the
+      // state §22.1's narrowed interim rule still covers — so it is reported, not
+      // graded. A dead provider must never fail a run here: the sweep is an
+      // accelerator and never a gate, the same law generateCard follows.
+      if (swept.failed) report.notes.push(`restage-failed:${swept.failed}/${swept.asked}`);
+      if (report.restaging.idolWordInstances) report.notes.push("restaged-prose-carries-idol-facts");
+      if (dupes.length) report.notes.push(`restaged-positions-collide:${dupes.length}`);
     }
     const memberIds = members.map(m => m.id);
 
@@ -948,6 +1036,47 @@ async function runParent() {
   if (skipped.length) {
     console.log(`\ngraders that did not run for this identity: ${skipped.join(", ")}` +
       `\n  (IDENTITY_ROLE has no entry for "${IDENTITY}", so a clean row is silent about the ROLE CONTRACT)`);
+  }
+
+  // The restaging, printed so a run can be READ. Whether the generated Chinese is
+  // any good is not gradeable; whether it still carries the idol facts the sweep
+  // exists to remove is, in zh, and the position is the field §22.2 added the whole
+  // pipeline for - so both go on screen rather than only into the JSON.
+  const nlx = String.fromCharCode(10);
+  for (const r of results.filter((x) => x.restaging)) {
+    const rs = r.restaging;
+    console.log(`${nlx}restaged for ${r.world}: ${rs.ok}/${rs.asked} members` +
+      (rs.failed ? `  ${C.y}${rs.failed} failed (they keep their own idol prose, which §22.1's rule still covers)${C.x}` : ""));
+    // WHICH PASS placed them. One whole-cast call is the cheap path and the only
+    // one that can hold positions apart; the per-member sweep behind it is what
+    // keeps a partial or dead response from costing the player a member.
+    if (rs.fromCastCall !== undefined) {
+      const fell = rs.ok - rs.fromCastCall;
+      console.log(`  ${C.d}one whole-cast call placed ${rs.fromCastCall}` +
+        `${fell > 0 ? `, per-member fallback placed ${fell}` : ""}` +
+        `${rs.castCall !== "ok" ? `  (cast call: ${rs.castCall})` : ""}${C.x}`);
+    }
+    for (const [id, pos] of Object.entries(rs.positions)) {
+      console.log(`  ${C.d}${id}${C.x} ${pos || C.y + "(no position)" + C.x}`);
+    }
+    if (rs.duplicates?.length) {
+      console.log(`  ${C.r}${rs.duplicates.length} position(s) held by more than one member${C.x}`);
+      for (const d of rs.duplicates) console.log(`    ${d.position} <- ${d.ids.join(", ")}`);
+    } else {
+      console.log(`  ${C.g}0 byte-identical positions${C.x}` +
+        `  ${C.d}(exact match only - read the list above for the ones it cannot see)${C.x}`);
+    }
+    if (rs.idolWordInstances === null) {
+      console.log(`  ${C.d}idol-word scan: not run (zh only)${C.x}`);
+    } else if (rs.idolWordInstances === 0) {
+      console.log(`  ${C.g}0 idol-word instances in the restaged fields${C.x}` +
+        `  ${C.d}(§22.1: 80 (member, field) pairs across all 57 library members)${C.x}`);
+    } else {
+      console.log(`  ${C.r}${rs.idolWordInstances} idol-word instance(s) SURVIVED the restaging${C.x}`);
+      for (const row of rs.idolWordRows) {
+        console.log(`    ${row.id}: ${row.hits.map((h) => `${h.word} in ${h.field}`).join(", ")}`);
+      }
+    }
   }
 
   const collapses = results.reduce((s, r) => s + (r.collapses || 0), 0);

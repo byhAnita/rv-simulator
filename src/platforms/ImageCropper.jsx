@@ -27,7 +27,7 @@ import {
   PHOTO_PX, PHOTO_QUALITY, WALL_W, WALL_H, WALL_QUALITY,
   coverScale, clampOffset, cropRect, loadImageFile, releaseImage, renderCrop,
 } from "../utils/imageStore";
-import { castTokens, scaleFont } from "./castTheme";
+import { castTokens, scaleFont, safeInset, Z } from "./castTheme";
 
 // How far in the player may go. Beyond ~4x a phone photo is visibly soft at
 // 256px, so a higher ceiling would only offer results she would reject.
@@ -144,7 +144,7 @@ export default function ImageCropper({
   const label = kind === "wall" ? c.wall : c.photo;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, backdropFilter: "blur(4px)", padding: 16 }}>
+    <div className="rv-fixed" style={{ position: "fixed", inset: 0, zIndex: Z.cropper, display: "flex", alignItems: "center", justifyContent: "center", background: k.scrim, backdropFilter: "blur(4px)", padding: safeInset(16) }}>
       <div style={{ width: "100%", maxWidth: 330, background: k.panelBg, border: `1px solid ${k.border}`, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,.6)" }}>
         <div style={{ padding: "11px 14px 8px", borderBottom: `1px solid ${k.border}` }}>
           <div style={{ fontSize: fs(12.5), fontWeight: 700, color: k.accent }}>{c.cropTitle?.(label) || label}</div>
