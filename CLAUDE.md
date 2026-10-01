@@ -3751,9 +3751,15 @@ Then:
 
 ---
 
-## Project Status (2026-09-30)
+## Project Status (2026-10-01)
 
-**v1.4.1 is the current release, deployed 2026-09-29**, tagged `v1.4.1` on deploy commit
+**v1.4.2 is the current release, deployed 2026-10-01**, tagged `v1.4.2` on deploy commit
+`376fba4`. All three mirrors serve `index-CNKn62wG.js`, verified by
+`scripts/verify-mirrors.mjs` at 51/51 paths each with every JSON parsed. It is §22 end
+to end — the cast restaged for the world it is cast in, and the setup flow rebuilt over
+nine phone passes. See the pick-up block above.
+
+**v1.4.1 was the release before it, deployed 2026-09-29**, tagged `v1.4.1` on deploy commit
 `0e27d8b`. All three mirrors serve `index-CiihP5yH.js`, byte-identical to the local build once
 line endings are normalised (the working tree is CRLF, the served file LF).
 
@@ -3993,6 +3999,95 @@ produces an empty failure list and is indistinguishable from a guard that cannot
 fail — the harness now reports CRASHED. The other was a real guard weakness: the
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
+
+### Pick up here — v1.4.2 is released and VERIFIED on all three hosts, 2026-10-01
+
+**This block is the authority on what is open. Every block below it is history — read the
+dates, not the tense.**
+
+**v1.4.2 is live.** `main` = `origin/main` = **`376fba4`**, tagged `v1.4.2` on that deploy
+commit; `dev` = `origin/dev` = `557e9f7`, which is that commit plus the dev-mode
+`index.html`. The merge back into `dev` is done. Tree clean, nothing stashed, nothing
+running.
+
+**Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of
+the three mirrors — 47 data files, `index.html`, both manifests, the bundle and the
+stylesheet — and reported **51/51 served on all three, every JSON parsed, all three on
+`index-CNKn62wG.js`**. Build clean at **442.31 kB / gzip 155.47**, smoke **1721 passed / 0
+failed**, all six goldens committed with the one clause that moved three of them.
+
+#### What v1.4.2 is
+
+**§22 end to end: the cast library was written for one world, and the setup flow asked in
+the wrong order.** 28 commits off `v1.4.1`. The prompt half is the world-scoped restaging —
+a member's position, public image, queer texture and speech style regenerated for the world
+she is cast in, in **one call for the whole cast** so five independent samples cannot
+produce two second daughters. The flow half is player info before the cast, one profile
+editor for prebuilt and authored members, the cast picker starting the game, the custom
+door as a chip, and the classic door merged back onto one page. Then **nine phone passes**
+of layout correction, §22.6 through §22.12.
+
+**The prompt is byte-identical for an idol run.** The six goldens did not move across the
+whole of §22 except for one clause in the final fix, which renders only where
+`castLore.useRole` is false.
+
+#### The live gate, and what it found
+
+12 rounds on `deepseek-flash`, three arms, before the bump: `chaebol`/zh, `kpop_idol`
+classic/zh, `campus`/ko. **4/4 clean in each, 0 static-prompt drifts across all 12, 0 ledger
+prefix breaks, 89.6–90.4% cache.**
+
+It found one defect and the fix for it was wrong in its first form — both recorded under *A
+rule written in English about a word the model is copying in Chinese*. The short version:
+the restaging law enumerated the forbidden ranks in English while the prose it restages and
+the output are Chinese, so the model kept 忙内; naming the zh forms fixed it, and naming the
+**ko** forms as well was an over-reach that banned the ordinary Korean word for *youngest*,
+caught by reading a clean run's output.
+
+#### NOT verified
+
+- **The released build has not been hand-played.** Yuhan's phone pass was at `1cac3ab`; the
+  release carries one prompt change on top of it (the rank enumeration) plus docs. That
+  change is live-tested in three arms but has not been seen on a device.
+- **No live round on the production mirrors** — the bundle is byte-identical to the one the
+  branch alias served, so this is a formality rather than a gap, and it has not been done.
+- **The largest casts scroll on the smallest phone**, unchanged: a 9- or 10-member classic
+  cast is 26-30px over on an iPhone 13 mini, fits an iPhone 15 by 1-5px. Yuhan's call —
+  three identity columns gives back 47px, dropping the page header 36.
+
+#### Open, in rough order of value
+
+1. **§22.4's two undiagnosed defects.** The saved cast whose deleted custom member returns
+   as name + emoji (**not reproduced**), and the round that names nobody, only 她 — which
+   also makes `membersNamedIn` record no one present, so `[Rounds Absent]` reports a false
+   absence. One prompt rule may close the second; it moves all six goldens.
+2. **`PROPOSALS.md` §6 — the ending precedence.** Two of five endings are effectively
+   unreachable and one common state reaches none. **This blocks §21** (endings and the
+   epilogue), because the epilogue's register is keyed on the ending id.
+3. **§18's two dead-field decisions:** `STAR_LEVELS` and `STORAGE_KEYS.FORM` (delete or
+   wire), `world.tone` and `country.name` (render or delete — rendering `tone` moves all six
+   goldens).
+4. **The Start-wait regression**, owed since the whole-cast call shipped: one call **5.2s**
+   against five concurrent **2.2s**, scaling the wrong way with cast size. Yuhan's to weigh.
+5. **Three of four providers have still never played a live round** — `--provider gemini`
+   and `--provider gpt4omini` are one command each, and open question 3 has been waiting on
+   exactly that.
+6. Longer-standing: `PROPOSALS.md` §7 (a truncated round rendered as raw JSON, and
+   `hasUsableStory` cannot fire on the worst case), §10's calculated storage budget, the
+   router fix from `56cc684` live-untested, the `[Rounds Absent]` A/B needing 3+ replicates.
+
+**Still unbuilt and scoped for the next feature release:** plot mode (§19), endings and the
+epilogue (§21), the affinity matrix (§7.3/7.4), player-side KKT/IG composers (§8),
+`WorldBuilder.jsx`. The unified door is **cancelled** (§22.9).
+
+**Housekeeping, Yuhan's because deletion is a red line** — `scripts/hotfix-worktree.sh
+status` prints the commands. The worktree under the session temp path, and
+`hotfix/year-wheel-start-blocked` locally and on the remote; it needs `-D`, not `-d`,
+because `main` carries the same fix by a different commit.
+
+**Tag note:** `v1.4.1` still points at `0e27d8b`, which predates `.nojekyll`. Source there is
+identical, so leaving it is still the recommendation.
+---
 
 ### Pick up here — v1.4.1 is released and VERIFIED on all three hosts, 2026-09-30
 
