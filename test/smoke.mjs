@@ -2769,6 +2769,16 @@ async function layerI() {
   check("the tastes rule is sent when a member has tastes, and only then",
     tastesRuleRe.test(p) && !/LITTLE THINGS/.test(noHabitPrompt),
     `with=${tastesRuleRe.test(p)} without=${/LITTLE THINGS/.test(noHabitPrompt)}`);
+  // Two failures from the first live run of the rule (2026-10-01, 5 games on
+  // deepseek-flash): in 2 of 5 Irene handed the PLAYER a hot chocolate or a hand
+  // warmer, once saying "你以前不喝咖啡" - her taste turned into the player's - and
+  // fabric softener surfaced in 5 of 15 rounds as her scent in the air, twice in a row.
+  check("...and keeps each taste hers: it never becomes the player's, nor care aimed back at her",
+    /it never becomes [^\n]*'s taste, and the member never turns it around to look after/.test(p),
+    "the direction flipped in 2 of 5 live games before this clause");
+  check("...and never lets a taste become scenery, and most rounds use none",
+    /Never use one as scenery either/.test(p) && /Most rounds use none of them/.test(p),
+    "a smell is the easiest taste to drop into any scene, and it was: 5 of 15 rounds");
   check("...and so is section 1's allowance for a word of a language she is learning",
     /The other exception: where a member's "Little things [^"]+ knows" line says she is learning a language/.test(p)
       && !/The other exception:/.test(noHabitPrompt),

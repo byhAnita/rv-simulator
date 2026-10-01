@@ -12,7 +12,7 @@ contents rather than appending a log.
 
 ## Project state
 
-- `main` untouched at v1.4.2. **Work is on `dev`, two commits ahead of `origin/dev` (`42f908a`), NOT pushed.**
+- `main` untouched at v1.4.2. Work is on `dev`; `49713f1`..`ab4cbb0` were pushed on Yuhan's ask. Later commits are local until she asks again.
 - `npm run build` clean; `node test/smoke.mjs` **1723 passed / 0 failed**.
 
 ## What happened this session (the translationese bug)
@@ -30,6 +30,28 @@ rendered prompt herself on a diff page. Findings and decisions:
 - **`6586849`** — `habit` is now her TASTES, rendered `Little things <player> knows:`, with a usage rule
   in section 5 and a section 1 allowance for a learned language's words. Red Velvet only (her text);
   every other member emptied. Goldens read. 5 mutations RED.
+
+## Blind read 3 — the fixes did NOT close the gap (Yuhan, 2026-10-01)
+
+5 full R1-R3 games per arm on deepseek-flash (same build fingerprint for all 45 rounds), R2+R3 rated
+blind, 10 ratings per arm:
+
+| arm | 自然 | 一般 | 翻译腔 |
+| --- | --- | --- | --- |
+| v1.3.9 | 6 | 3 | 1 |
+| v1.4.2 | 0 | 6 | 4 |
+| dev after `49713f1` + `6586849` | 3 | 1 | 6 (all five R2s) |
+
+v1.3.9 is clearly better and the two commits did not bring v1.4.2 to it. Removing the opening did do
+its other job: round 1 opened in the practice-room corridor 5/5 on v1.4.2 and 0/5 on dev. **The cause
+of the register is still unidentified.** Remaining v1.3.9 -> v1.4.2 differences, none tested at n>2:
+the schema order (v1.3.9 wrote social/Kakao Chinese before the story), the `[Story Mode: Free]` tail
+line, the ROLE CONTRACT, the phone-ownership rule, the expanded stat section, and the tastes rule
+itself. Next step is bisection, one difference per arm, read blind at n>=10 ratings per arm.
+
+The tastes rule then got two fixes (Yuhan's ask): a taste stays hers and is never turned back on the
+player, and is never scenery. Live n=5: direction flips 2/5 -> 0/5; fabric softener 5/15 rounds -> 2/15,
+both remaining as her scent, so the no-scenery clause is only partly obeyed.
 
 ## NOT verified
 
