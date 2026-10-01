@@ -3395,11 +3395,30 @@ git tag v1.4.0 && git push origin v1.4.0
 git checkout -- index.html                        # see note below
 git checkout dev && git merge main && git push origin dev
 node scripts/dev-index.mjs                        # back to dev mode
+# then revise docs/.resume/v<x.y.z>.tex - the CV (gitignored, see below)
 ```
 
 **The `index.html` step is not optional and not cosmetic.** `deploy.sh` restores that file to dev mode as an *uncommitted* change, and the deploy commit just rewrote the same file on `main` with the new bundle hash — so `git checkout dev` refuses to switch with "local changes would be overwritten". Discarding it is safe: `scripts/dev-index.mjs` regenerates it exactly, which is what the last line does.
 
 Tag the **deploy commit**, not the merge commit — `npm run deploy` adds a commit after the merge, and a tag placed before it points at a tree whose `index.html` is still in dev mode.
+
+**Every release also updates the CV in `docs/.resume/`, and that folder is gitignored.** Yuhan
+applies for master thesis positions and entry-level roles in **applied LLM-agent development**, and
+this project is the main piece of technical evidence on that CV — so a release that lands a measured
+number or a technique and leaves the CV naming the previous version has thrown the evidence away.
+After the tag and the merge-back: copy the newest `docs/.resume/v<x.y.z>.tex` to the version just
+released, revise the Idol Dating Sim entry and the **Technical Skills** section against what
+actually shipped, and leave the earlier revisions in place as history.
+
+- **`docs/.resume/` is private and is never committed.** It holds a CV and job-application
+  material, which is personal data and not project documentation — the rule `D:/workspace/career`
+  already follows. `.gitignore` carries the directory, nothing in it has ever been tracked, and **no
+  CV content belongs in a tracked file, a commit message, or the README.**
+- **One page is a hard constraint.** The CV is already nearly full, so a new claim has to *displace*
+  an old one — prefer rewriting a vaguer bullet to appending another.
+- **Only measured numbers reach it.** Every figure must be traceable to a measurement recorded in
+  this file. A calculated figure is labelled as calculated or left out; never present an estimate as
+  a measurement, and never invent a metric this project has not taken.
 
 ### Hotfix (player-reported bug on a released build)
 
