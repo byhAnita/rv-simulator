@@ -1145,6 +1145,24 @@ async function layerG(mod, MODEL_CONFIGS) {
     /position: "fixed", inset: 0[^<]*?\}\} \/>/.test(listDef)
       && /onClick=\{\(\) => setWorldOpen\(false\)\}/.test(listDef),
     "with no backdrop the only way out is the toggle the list is covering");
+  // ...and it has to be OPAQUE. It shipped on `th.cardBg`, which is rgba at .03
+  // (dark) and .07 (light), so the identity grid read straight through the list
+  // that was covering it - two pages of text in one rectangle. Reported from a
+  // phone, 2026-10-01.
+  //
+  // DERIVED, not pinned to a token name: whatever the layer names is looked up in
+  // both themes and must be solid in both. A token that is opaque in dark and
+  // translucent in light is exactly the half-fix this would otherwise pass.
+  const listBgToken = (listDef.match(/background: th\.(\w+), boxShadow/) || [])[1];
+  const listBgValues = listBgToken
+    ? [...app.matchAll(new RegExp(`^\\s*${listBgToken}: "([^"]+)",`, "gm"))].map((m) => m[1])
+    : [];
+  const translucent = (v) => /transparent/.test(v)
+    || /rgba\([^)]*,\s*(?:0|0?\.\d+)\s*\)/.test(v);
+  check("...and it is opaque, so what it covers does not read through it",
+    listBgValues.length === 2 && !listBgValues.some(translucent),
+    `list background ${listBgToken || "(not a theme token)"} = `
+      + `[${listBgValues.join(", ")}]`);
   // ...and it opens UPWARD when there is no room below. On the classic door the
   // control sits two thirds down a page that already fills a small phone, so
   // downward it opens under the card's edge. useLayoutEffect and not useEffect:
@@ -4020,6 +4038,32 @@ async function layerI() {
   check("...and keeps one it does, so a shared route survives the switch",
     /!f\.identity \|\| f\.identity === CUSTOM_IDENTITY_ID\s*\r?\n?\s*\|\| world\.identities\.some/.test(setupSrc),
     "clearing unconditionally is what the ex-girlfriend's single id exists to avoid");
+  // ...and it is the ONLY thing a world switch clears. The palette effect - the
+  // one that loads a group's members and empties the main and sub picks - carried
+  // `world` in its dependency list, so changing the world on the classic door's
+  // merged page threw away the cast the player had just chosen one control above
+  // it. Reported from a phone, 2026-10-01.
+  //
+  // Read as DEPENDENCIES rather than as code shape: which cast she is choosing
+  // from is the group's fact, which identities exist is the world's, and the two
+  // effects now say so. `loadGroupConfig` takes no world argument at all.
+  const clearAt = setupSrc.indexOf("{ ...f, mainMember: null, subMembers: [] }");
+  const resolveAt = setupSrc.indexOf("resolveRoster(roster, language, world)");
+  const depsAfter = (i) => (setupSrc.slice(i).match(/\}, \[([^\]]*)\]\);/) || [, ""])[1];
+  const paletteDeps = clearAt < 0 ? "" : depsAfter(clearAt);
+  const resolveDeps = resolveAt < 0 ? "" : depsAfter(resolveAt);
+  check("...and a world switch keeps the cast she has already chosen",
+    clearAt > 0 && /selectedGroup/.test(paletteDeps) && !/\bworld\b/.test(paletteDeps),
+    `the effect that clears the picks depends on [${paletteDeps}]`);
+  // The other half, and either alone is vacuous: dropping `world` from both would
+  // pass the check above while leaving an in-game cast framed by the wrong world.
+  check("...while the in-game cast still re-resolves when the world does",
+    resolveAt > 0 && /\bworld\b/.test(resolveDeps),
+    `resolveRoster's effect depends on [${resolveDeps}]`);
+  // They are two effects rather than two branches of one, and that needs no check
+  // of its own: a merge forces ONE dependency list, which either carries `world`
+  // and reddens the palette check or does not and reddens the resolve check. A
+  // third check asserting the shape could not fail independently.
   // Counted, and counted against the number of call sites. This was four copies of
   // one expression, and the count is what found that the fourth had drifted: the
   // epilogue omitted the `"H"` branch, so a player who wrote her own identity

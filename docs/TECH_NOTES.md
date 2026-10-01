@@ -94,6 +94,20 @@ sits at `[65,65]` when it fits and `[0,-41]` when it does not — the second bei
 top of a long page is still reachable — and that the flipped-open list lands inside the card at
 every window size.
 
+**It reads BEHAVIOUR as well as size, which is what §22.12 needed and no assertion could reach.**
+The second bug of that batch was a world switch emptying the cast the player had chosen, and both
+guards for it read a **dependency array** - a source check, and three guards in this repo have
+passed while the app was broken. So the harness drives the transition instead: it clicks a main
+member and a sub, opens the world fold, picks a different world, and reads the `NPC:` line back out
+of the rendered page. Fixed, it is byte-identical across the switch; unfixed, it lists the whole
+cast with nobody chosen, which is the screenshot that was reported. The header one line above it
+(`已加载组合` → `已加载学校`) is what says the world really changed rather than the probe failing to
+click - **a probe that does nothing and a probe that passes read the same.**
+
+It also settles a question about a *colour* the same way: the open world list shipped on a
+translucent token, and the fix is checked by reading the computed `background-color` off the live
+element - `rgb(17, 8, 32)` and `rgb(224, 210, 184)`, no alpha channel - in both themes, rather than
+by trusting the token name.
 **What it costs.** Chrome. The harness lives in the gitignored `test/.out/ui/` and is **not in the
 smoke suite**, deliberately: `deploy.sh` gates on smoke, and a release must not be blocked by a
 browser dependency — the same reason the `YearWheel` browser harness stays out. What goes into

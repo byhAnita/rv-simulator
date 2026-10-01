@@ -4003,6 +4003,106 @@ contributes to it at all.
 
 ---
 
+### 22.12 The ninth phone pass - a layer you can read through, and a cast a world switch threw away
+
+**Yuhan's report, 2026-10-01**, hand-testing `a8c54cd` with three screenshots. The eighth pass's
+design is accepted - the list floats, the grid is two columns, the fields are centred - and two
+bugs came back with it. They are unrelated to each other and both are one line.
+
+> *"1. The downside list should use not transparent color to avoid the text overlapped with the
+> identity options [...] 2. if switched the world settings in classic group entry, the selected
+> members are also removed, requires to choose them again [...] the members should also saved
+> unchanged, only the selected identity should be removed when switch a world setting in classic
+> group entry mode. The custom door works correctly to remove the selected member if world setting
+> changes - that's correct don't change it."*
+
+#### 22.12.1 A layer has to be opaque, and `th.cardBg` is not
+
+The dropdown shipped on `th.cardBg`, which is `rgba(255,255,255,.03)` in dark and
+`rgba(100,70,20,.07)` in light. So the identity grid it was covering read **through** it, and the
+first screenshot is two pages of Chinese text in one rectangle - the four world names and blurbs
+interleaved with 练习生 / 助理 / 韩娱艺人 / 粉丝.
+
+**§22.11 made the list a layer and left it the background of a row.** In the flow that colour was
+right: it is a faint tint over the card, which is what every other control on the page uses. A
+layer is the one place it cannot be used, because there is something underneath it that it is
+there to hide.
+
+It is `th.panelBg` now - `#110820` / `#e0d2b8`, this app's floating-surface token, what every
+overlay panel is already drawn on. **Measured in a real browser, both themes, both doors:**
+computed `rgb(17, 8, 32)` and `rgb(224, 210, 184)`, no alpha channel at all. The page height is
+unmoved - 651 folded and 651 open, as §22.11 measured it.
+
+**The guard is derived rather than pinned to the token name:** whatever the layer names is looked
+up in *both* theme objects and must be solid in both. A token that is opaque in dark and
+translucent in light is exactly the half-fix a pinned name would pass - mutation-verified with
+`th.statsBg`, which is `#f5e8d0` in light and `rgba(20,8,28,.95)` in dark.
+
+#### 22.12.2 A dependency list is a claim about what the effect READS
+
+Switching the world on the classic door's merged page emptied the main and sub picks the player had
+made one control above it. The third screenshot is the state it leaves: five chips in the main row,
+none chosen, `NPC:` listing the whole cast.
+
+**The cause is one identifier in a dependency array.** One effect carried both halves of *who is in
+this run*:
+
+```js
+useEffect(() => {
+  if (!world) return;
+  if (phaseRef.current === "game" && roster) { resolveRoster(roster, language, world)...; return; }
+  ...
+  loadGroupConfig(selectedGroup, language).then(config => {
+    ...
+    if (phaseRef.current !== "game") setForm(f => ({ ...f, mainMember: null, subMembers: [] }));
+  });
+}, [selectedGroup, language, pendingRoster, world]);
+```
+
+`world` is there for the **first** branch, which is true: section 4's cast framing is the world's
+since v1.4.1 step 4. `loadGroupConfig` takes no world argument at all. But a dependency list belongs
+to the whole effect, so a world switch re-ran the branch that clears the picks - and before §22.10
+merged the classic door onto one page, that clearing happened on a screen the player had not reached
+yet, where nothing was lost. **The defect is older than the page that made it visible.**
+
+They are two effects now, each keyed on what it reads: the in-game resolve on
+`[selectedGroup, language, world]`, the palette on `[selectedGroup, language, pendingRoster]`.
+
+**The two facts are independent and the fix says so.** WHICH CAST she is choosing from is the
+group's; WHICH IDENTITIES exist is the world's. Only the second is cleared by a switch, by the
+effect that has done exactly that since step 3 - and only when the new world does not declare the id
+she holds, which is what keeps `主线成员前女友` across a switch.
+
+**The custom door is untouched, as asked.** Its cast lives in `RosterBuilder`'s own `picks`, and the
+world is chosen on the page *before* it - so going back to change the world unmounts the builder and
+the cast goes with it. That is a different mechanism, not this one, and Yuhan's report calls it
+correct.
+
+#### 22.12.3 The guards, and what a source check could not have settled
+
+Three checks, all derived, **7 mutations 7 RED**. The dependency-list pair is deliberately two
+checks because either alone is vacuous: dropping `world` from both effects would pass *"a world
+switch keeps the cast"* while leaving an in-game cast framed by the wrong world.
+
+A fourth check - *they are two effects rather than two branches of one* - was **written and then
+deleted**. A merge forces one dependency list, which either carries `world` and reddens the palette
+check or does not and reddens the resolve check, so it could not fail on its own. A check that
+duplicates another cannot be shown to work.
+
+**And the behaviour was measured, not only the source**, because every guard here reads a dependency
+array and this repo has three guards that passed while the app was broken. The browser harness picks
+a main member and a sub, switches the world, and reads the `NPC:` line back:
+
+| | before the switch | after |
+| --- | --- | --- |
+| fixed | `NPC: 姜涩琪, 孙胜完, 朴秀荣` | **identical** |
+| unfixed | `NPC: 姜涩琪, 孙胜完, 朴秀荣` | `NPC: 裴珠泫, 姜涩琪, 孙胜完, 朴秀荣, 金艺琳` |
+
+The header above it reads `已加载组合: Red Velvet` before and `已加载学校: Red Velvet` after, which
+is what says the world really switched rather than the probe failing to click.
+
+---
+
 ### 21.1 Three things are wrong today, and they are one bug
 
 **1. The ending and the epilogue are separate systems that share no state.**

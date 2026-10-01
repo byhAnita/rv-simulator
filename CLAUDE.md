@@ -2142,6 +2142,71 @@ its verdict line.**
 
 ---
 
+### A layer you can read through, and a dependency list that was a claim about the wrong effect
+
+**Yuhan's report, 2026-10-01**, on the layer §22.11 had just shipped. Two bugs, unrelated to each
+other, one line each.
+
+**The dropdown was translucent.** It shipped on `th.cardBg` - `rgba(255,255,255,.03)` dark,
+`rgba(100,70,20,.07)` light - so the identity grid it was covering read straight through it: two
+pages of Chinese in one rectangle, the four world blurbs interleaved with 练习生 / 助理 / 粉丝.
+
+**In the page flow that colour was right**, which is why the batch that made the list a layer left it
+alone. It is a faint tint over the card, the same one every other control on these pages uses. **A
+layer is the one place it cannot be used**, because the whole point of a layer is that there is
+something underneath it that it is covering. It is `th.panelBg` now - the floating-surface token
+every overlay panel in this app is already drawn on, solid in both themes. Measured in a real
+browser: computed `rgb(17, 8, 32)` and `rgb(224, 210, 184)`, no alpha at all, with the page height
+unmoved at 651 folded and 651 open.
+
+The guard is **derived, not pinned to the token name**: whatever the layer names is looked up in
+both theme objects and must be opaque in both. A token that is solid in dark and translucent in
+light is exactly the half-fix a name check would pass - mutation-verified with `th.statsBg`, which
+is precisely that.
+
+---
+
+**And switching the world on the classic door emptied the cast she had just chosen.** The cause is
+one identifier in a dependency array:
+
+```js
+}, [selectedGroup, language, pendingRoster, world]);
+```
+
+That effect did two jobs. In game it re-resolves the roster, and `world` genuinely belongs there -
+section 4's cast framing is the world's since v1.4.1 step 4. Before the game it loads a group as a
+**palette** and clears `form.mainMember` / `form.subMembers`, and `loadGroupConfig` takes no world
+argument at all. **A dependency list belongs to the whole effect, not to the branch that reads the
+value**, so a world switch re-ran the clear.
+
+**The defect is older than the page that made it visible.** Until §22.10 merged the classic door
+onto one page, the clearing fired on a screen the player had not reached yet, where there was
+nothing to lose. Putting the two controls on one page is what turned a harmless re-run into a
+reported bug.
+
+They are two effects now, each keyed on what it reads - the in-game resolve on `[selectedGroup,
+language, world]`, the palette on `[selectedGroup, language, pendingRoster]`. **The two facts are
+independent and the code now says so:** which cast she is choosing from is the group's, which
+identities exist is the world's. Only the second is cleared by a switch, by the effect that has
+done exactly that since step 3, and only when the new world does not declare the id she holds.
+
+**The custom door is left exactly as it is**, on Yuhan's instruction and because it is a different
+mechanism: its cast lives in `RosterBuilder`'s own state and the world is chosen on the page before
+it, so going back to change the world unmounts the builder and takes the cast with it.
+
+**Two guards, because either alone is vacuous**: dropping `world` from both effects would pass *"a
+world switch keeps the cast"* while leaving an in-game cast framed by the wrong world. A third -
+*they are two effects rather than two branches of one* - was written and **deleted**: a merge forces
+one dependency list, which must redden one of the other two, so it could not fail on its own.
+
+**And the behaviour was measured rather than only the source.** Both guards read a dependency array,
+and three guards in this repo have passed while the app was broken. The browser harness picks a main
+member and a sub, switches the world, and reads the `NPC:` line back: unchanged on the fixed code,
+and `NPC: 裴珠泫, 姜涩琪, 孙胜完, 朴秀荣, 金艺琳` - the whole cast, nobody chosen - on the unfixed
+one, which is Yuhan's screenshot.
+
+---
+
 ### A fold with two layouts is a page laid out for neither
 
 **Yuhan's report, 2026-10-01**, on the world fold §22.10 had just shipped: *"what I mean for the
@@ -4137,6 +4202,58 @@ touches `buildSystemPrompt`, the roster shape or the world.
 **Still owed from the previous batch and not addressed here:** the measured Start-wait regression
 (one whole-cast call 5.2s against five concurrent 2.2s, scaling the wrong way with cast size) is
 **Yuhan's to weigh**, and this batch put the resolve on the same path, so the two compound.
+
+#### The ninth phone pass - two UI bugs, and one of them was a dependency list
+
+**Yuhan's report, 2026-10-01, hand-testing `a8c54cd`** with three screenshots. The eighth pass's
+design is accepted - the list floats, the identity grid is two columns, the fields are centred - and
+two bugs came back with it, unrelated to each other and one line each. Plan in `docs/V140_PLAN.md`
+§22.12.
+
+1. **The open world list was see-through.** `th.cardBg` is rgba at .03 / .07, so the identity grid
+   it covers read through it. It is `th.panelBg` now, solid in both themes. **Measured in a
+   browser: `rgb(17, 8, 32)` and `rgb(224, 210, 184)`**, no alpha, with the page height unmoved at
+   651 folded / 651 open.
+2. **Switching the world on the classic door emptied the chosen cast.** One effect loaded the group
+   as a palette *and* re-resolved the in-game roster, and `world` - which only the second half reads
+   - was in the dependency list they shared. Two effects now, each keyed on what it reads. The
+   custom door is untouched on Yuhan's instruction: its cast lives in the builder's own state and
+   the world is chosen on the page before it.
+
+**Verified:** smoke **1717 → 1720** (three checks added, a fourth written and deleted as vacuous);
+**7 mutations, 7 RED, 0 GREEN, 0 WRONG, 0 CRASHED**, tree restored byte-identical; **all six goldens
+byte-identical** (`update-golden.mjs` reported six unchanged and wrote nothing); build clean at
+**441.10 kB / gzip 154.45**.
+
+**And the second fix was verified BEHAVIOURALLY, not only in the source**, because both its guards
+read a dependency array and three guards in this repo have passed while the app was broken. The
+browser harness picks a main member and a sub, switches the world, and reads the `NPC:` line:
+unchanged on the fixed code, and the whole cast with nobody chosen on the unfixed code - Yuhan's
+screenshot, reproduced.
+
+**NOT VERIFIED.**
+
+- **Neither fix has been on a device.** The opacity is a computed colour in headless Chrome and the
+  cast fix is a React state transition in the same; whether the list reads well over the fields on a
+  real screen is the phone.
+- **No live round** has been played against this commit, which touches neither the prompt, the
+  roster shape nor the world.
+- **The largest casts still scroll on the smallest phone**, unchanged from the eighth pass: 26-30px
+  over on an iPhone 13 mini for a 9- or 10-member classic cast. Still Yuhan's call - three columns
+  gives back 47px, dropping the header 36.
+
+**What to look at:**
+
+- Open the world list on **both** doors: nothing underneath it should be legible through it.
+- On the classic door, choose a main member and a sub, **then** switch the world. The chips must
+  stay chosen and only the identity should clear - and only if the new world does not declare the
+  one you had. Switch back and forth twice.
+- Then start that run, to confirm the cast you kept is the cast the game opens with.
+- On the **custom** door, changing the world still clears the builder's cast. That is unchanged and
+  correct.
+
+**Still owed from five batches back:** the measured Start-wait regression (one whole-cast call 5.2s
+against five concurrent 2.2s, scaling the wrong way with cast size) is **Yuhan's to weigh**.
 
 #### The eighth phone pass — one commit, and a harness correction that reaches back three batches
 

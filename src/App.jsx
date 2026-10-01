@@ -598,23 +598,42 @@ export default function App() {
   // express. Language is what changes underneath either, so both paths re-fetch
   // rather than leaving the cast in the previous language.
   //
-  // `roster` is deliberately not a dependency. It is set in the same batch as
-  // `selectedGroup` when a save is loaded, so this already sees it; adding it
-  // would additionally re-resolve on every new game, for a cast startNewGame
-  // has in hand.
-  // `world` is a dependency because section 4's cast framing is the world's since
-  // v1.4.1 step 4 - `castLore`, `useGroupLore` and `useRole` all decide what the
-  // resolved `groupConfig.groupLore` says. It can be null for the width of a world
-  // fetch, and resolving against a missing world would throw rather than compose.
+  // THEY ARE TWO EFFECTS, because they do not read the same things - see the
+  // second one for what a shared dependency list cost.
+  //
+  // IN GAME: the roster is authoritative, and it is the half the world reaches.
+  // `roster` is deliberately not a dependency of it. It is set in the same batch
+  // as `selectedGroup` when a save is loaded, so this already sees it; adding it
+  // would additionally re-resolve on every new game, for a cast startNewGame has
+  // in hand. `world` IS one, because section 4's cast framing is the world's
+  // since v1.4.1 step 4 - `castLore`, `useGroupLore` and `useRole` all decide what
+  // the resolved `groupConfig.groupLore` says. It can be null for the width of a
+  // world fetch, and resolving against a missing world would throw rather than
+  // compose.
   useEffect(() => {
     if (!world) return;
-    if (phaseRef.current === "game" && roster) {
-      resolveRoster(roster, language, world).then(r => {
-        setGroupConfig(r.groupConfig);
-        setMembers(r.members);
-      }).catch(console.error);
-      return;
-    }
+    if (phaseRef.current !== "game" || !roster) return;
+    resolveRoster(roster, language, world).then(r => {
+      setGroupConfig(r.groupConfig);
+      setMembers(r.members);
+    }).catch(console.error);
+  }, [selectedGroup, language, world]);
+
+  // BEFORE THE GAME: the group is a PALETTE to choose from, and this is keyed on
+  // the group and the language because that is all `loadGroupConfig` reads.
+  //
+  // IT CARRIED `world` IN THAT LIST TOO, and the clear below therefore fired on a
+  // WORLD switch: changing the world on the classic door's merged page emptied the
+  // main and sub picks the player had just made one control above it. Reported
+  // from a phone, 2026-10-01.
+  //
+  // The two facts are independent. WHICH CAST she is choosing from is the group's;
+  // WHICH IDENTITIES exist is the world's. Only the second is cleared by a switch,
+  // by the effect above - and only when the new world does not declare the one she
+  // holds. These are two effects rather than two branches of one for exactly that
+  // reason: a shared dependency list re-ran a branch on a value it does not read.
+  useEffect(() => {
+    if (phaseRef.current === "game" && roster) return;
     // The custom door owns `members` before the game starts, and this effect
     // would otherwise overwrite the builder's cast with whichever group happens
     // to still be selected from a previous classic run. The group id is kept
@@ -632,7 +651,7 @@ export default function App() {
       }
       saveToStorage("rv_sim_group", selectedGroup);
     }).catch(console.error);
-  }, [selectedGroup, language, pendingRoster, world]);
+  }, [selectedGroup, language, pendingRoster]);
 
   // The effect that used to resolve `pendingRoster` here is GONE, and it is gone
   // rather than left with nothing to fire on. It existed so the page BETWEEN the
@@ -1385,7 +1404,11 @@ export default function App() {
           list instead - a layer that eats the tap meant for what it is hiding. */}
       <div className="rv-fixed" onClick={() => setWorldOpen(false)}
         style={{ position: "fixed", inset: 0, zIndex: 60, background: "transparent" }} />
-      <div ref={worldListRef} style={{ position: "absolute", [worldUp ? "bottom" : "top"]: "calc(100% + 4px)", left: 0, right: 0, zIndex: 61, display: "grid", gap: 4, padding: 4, borderRadius: 12, border: `1px solid ${th.notifBarBorder}`, background: th.cardBg, boxShadow: "0 12px 30px rgba(0,0,0,.35)" }}>
+      {/* OPAQUE, and `th.cardBg` is not: it is rgba at .03 / .07, so the identity
+          grid read straight through the list covering it - two pages of text in
+          one rectangle. `panelBg` is this app's floating-surface token and is
+          solid in both themes; every overlay panel is already drawn on it. */}
+      <div ref={worldListRef} style={{ position: "absolute", [worldUp ? "bottom" : "top"]: "calc(100% + 4px)", left: 0, right: 0, zIndex: 61, display: "grid", gap: 4, padding: 4, borderRadius: 12, border: `1px solid ${th.notifBarBorder}`, background: th.panelBg, boxShadow: "0 12px 30px rgba(0,0,0,.35)" }}>
         {worldList.map((w) => (
           <div key={w.id} onClick={() => { setSelectedWorld(w.id); setWorldOpen(false); }}
             style={{ padding: "6px 9px", borderRadius: 10, border: `1px solid ${selectedWorld === w.id ? th.notifBarBorder : th.groupBtnBorder}`, background: selectedWorld === w.id ? th.langBtnActiveBg : th.memberBtnBg, color: selectedWorld === w.id ? (theme === "dark" ? "#fff" : "#2c1f0e") : th.memberBtnColor, fontSize: 11, cursor: "pointer" }}>
