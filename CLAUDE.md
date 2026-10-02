@@ -1108,6 +1108,45 @@ self-describing, and the flag only chooses one extra line of explanation.
 
 The lesson generalises past this field: **a test that reads `public/groups/*.json` directly tests the formatter, not the feature.** The v1.3.6 checks did exactly that and passed while the app was broken. Anything asserting on member data must load it through `loadGroupConfig`, which is what smoke Layer I now does. When you add a member field to a group JSON, add it to the whitelist in the same commit or it will not exist at runtime.
 
+### The translationese bug: in-language text in a prompt is a style example
+
+**Reported after v1.4.2, fixed in v1.4.3.** The generated Chinese read like machine translation.
+Four lessons, in the order they cost time:
+
+**1. It was not a commit, so bisecting versions could not find it.** The first plan was to
+diff v1.3.9 against v1.4.2 and blind-read each difference. Blind read 4 put v1.3.9, v1.4.2 and two
+bisection arms within sampling variance of each other: **translationese is a RATE every version
+has**, and n=6 per arm cannot resolve a difference smaller than the noise between two runs of the
+same code. The question that found it was *where in the text* the stiff Chinese sits, not *which
+change* introduced it.
+
+**2. The instrument was a native reader locating it, not a grader.** Yuhan's reading put it in
+**the scene description each round opens on, and rigid metaphors**. Both mapped onto two rules
+unchanged since v1.3.9 — *"Open with 1-2 sentences establishing scene atmosphere"* and
+*"Literary, emotional, sensory details"*. An instruction to open on atmosphere, every round, asks
+for stock imagery, and stock imagery is where a model's Chinese is weakest. Replacing them (read 5:
+翻译腔 6 -> 3 of 12, openings on a person 0 -> 15 of 18, similes 5.6 -> 3.8 per 1k characters) is
+what fixed it. No assertion written in advance could have located this; only reading could.
+
+**3. Chinese text in the prompt teaches the register more strongly than any English rule.** The
+place blurbs, the opening scene and the habit lines were Chinese written or translated by a model
+— aphoristic contrasts like `声音清楚而表情不清楚` — and they sat in the static prompt as the
+strongest style example the model got. Deleting them (and having Yuhan rewrite `[初见]` herself)
+was the first change that her reads judged better.
+
+**4. A style rule names the language's own tradition.** The shipped line asks for *"native
+Chinese romance novel style"* in zh, English in en, Korean in ko — a rule describing Chinese
+abstractly in English is what produced the translated voice in the first place. A plain-spoken,
+one-simile variant tested better on 翻译腔 and was rejected by Yuhan as too casual: the target is
+a register, not the absence of one.
+
+**THE RULE THIS EARNS: no agent adds Chinese (or Korean) prose to the prompt, a world file, a group
+file or a register without Yuhan's review.** That covers descriptions, openings, examples, rule
+text and translations alike. English rule text is fine; any in-language narration is either
+written by Yuhan or reviewed by her before it is committed. A model-written Chinese sentence in
+the static prompt is not neutral data — it is copied, register and all, into every round. Korean
+additionally needs a native reader; nobody on this project is one.
+
 ### `buildSystemPrompt` must be a pure function of the save
 
 **The same save must produce a byte-identical system prompt on every round, forever.** This is not a style preference — it is the load-bearing assumption behind the entire 3-tier design. `executeRound` rebuilds the system prompt from scratch every round (`mainAgent.js:579`) and relies on the ~5,500 tokens coming out identical so the provider serves them from cache. One character of drift costs the whole prefix.
@@ -3795,9 +3834,14 @@ Then:
 
 ---
 
-## Project Status (2026-10-01)
+## Project Status (2026-10-02)
 
-**v1.4.2 is the current release, deployed 2026-10-01**, tagged `v1.4.2` on deploy commit
+**v1.4.3 is prepared on `dev` and NOT yet released** (`fd196ca`, bumped, smoke 1714/0). It is the
+translation-quality fix — see *The translationese bug: in-language text in a prompt is a style
+example* and the pick-up block below. The release sequence was refused by the cloud session's
+permission classifier as a production deploy, so `main` is still v1.4.2.
+
+**v1.4.2 is the deployed release, deployed 2026-10-01**, tagged `v1.4.2` on deploy commit
 `376fba4`. All three mirrors serve `index-CNKn62wG.js`, verified by
 `scripts/verify-mirrors.mjs` at 51/51 paths each with every JSON parsed. It is §22 end
 to end — the cast restaged for the world it is cast in, and the setup flow rebuilt over
@@ -4043,6 +4087,25 @@ produces an empty failure list and is indistinguishable from a guard that cannot
 fail — the harness now reports CRASHED. The other was a real guard weakness: the
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
+
+### Pick up here — v1.4.3 is prepared and not released, 2026-10-02
+
+**This block is the authority on what is open. Every block below it is history.**
+
+`dev` holds v1.4.3: each round opens on a person, `prose.style` asks for the native romance-novel
+register of the prompt's own language, place descriptions and `world.scenario` are deleted,
+`[初见]` is Yuhan's rewrite, and `habit` is removed end to end. Yuhan hand-played the zh build on
+the `dev` preview and judged it good. **The next step is the release sequence**, run from a
+machine allowed to deploy.
+
+**NOT verified:** the shipped style line is not the one blind read 5 measured (that was a
+plain-spoken variant), so read 5 is evidence for the person-first opening only; her hand play is
+the evidence for the combination. en and ko have had no blind read and no live play, and the ko
+`[初见]` translation needs a native reader.
+
+**Open, carried forward unchanged** from the v1.4.2 block below.
+
+---
 
 ### Pick up here — v1.4.2 is released and VERIFIED on all three hosts, 2026-10-01
 

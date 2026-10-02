@@ -93,6 +93,10 @@ Approval for one instance is not approval for the next one. Committing locally i
 - A golden is **not a specification**. When you change the prompt on purpose, run
   `node scripts/update-golden.mjs` and then **read the diff**. Regenerating to turn a red suite green
   converts the only prompt-regression detector in this repo into a rubber stamp.
+- **Never add Chinese or Korean prose without Yuhan's review.** Descriptions, openings, examples,
+  rule text and translations all count. In-language text in the prompt is the strongest style
+  example the model gets, and model-written Chinese is what made v1.4.2 read like a translation —
+  see *The translationese bug* in `CLAUDE.md`. Write the English, propose the Chinese, and wait.
 - **A prompt is not append-only.** When you add a rule, grep for what the old one said about the same
   thing and delete it. Nothing fails when two sections disagree; the model just picks.
 - `buildSystemPrompt` must be a **pure function of the save** — no `Math.random()`, no `Date.now()`,

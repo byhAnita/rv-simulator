@@ -5,15 +5,24 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-01 by Claude Opus 5.5 (Claude Code Cloud), working directly with Yuhan
-**Handing to:** whoever runs next — the live blind read is the open item
+**Last updated:** 2026-10-02 by Claude Opus 5.5 (Claude Code Cloud), working directly with Yuhan
+**Handing to:** whoever can deploy — the v1.4.3 release sequence is the one open item
 
 ---
 
 ## Project state
 
-- `main` untouched at v1.4.2. Work is on `dev`; `49713f1`..`ab4cbb0` were pushed on Yuhan's ask. Later commits are local until she asks again.
-- `npm run build` clean; `node test/smoke.mjs` **1723 passed / 0 failed**.
+- **v1.4.3 is bumped on `dev` (`fd196ca`) and not released.** The cloud session's permission
+  classifier refused the release as a production deploy; `main` is still v1.4.2.
+- Yuhan judged the zh build good on the `dev` preview. The fix is closed; the lesson and the new
+  rule (no Chinese/Korean prose without her review) are in `CLAUDE.md` and `docs/AGENTS.md`.
+- `npm run build` clean; `node test/smoke.mjs` **1714 passed / 0 failed**.
+
+## Next command
+
+The release sequence in `CLAUDE.md` > Branch & Deploy Workflow > Release, starting from
+`git checkout main && git pull && git merge dev --no-ff -m "release: v1.4.3"`. Then the CV in
+`docs/.resume/` (local only).
 
 ## What happened this session (the translationese bug)
 
@@ -92,17 +101,9 @@ person-first opening, not for this style line.
 
 ## NOT verified
 
-- **Nothing here has been measured live.** `deepseek-flash` stopped answering ~20:05 UTC (requests are
-  accepted, held with keep-alives, then dropped; `deepseek-v4-pro` answers normally). The blind read
-  that would show whether the register improved has not run.
-- Not hand-played; no live round of the new tastes rule on any provider.
-
-## Next command
-
-The blind read (scratchpad harness from this session; not in the repo): 5 full R1-R3 games per arm on
-`deepseek-flash`, arms v1.3.9 / v1.4.2 / dev HEAD, rated blind by Yuhan on R2 and R3. Locally the
-equivalent is `node test/playthrough.mjs --lang zh --group red_velvet --subs 2 --mode free --rounds 3`
-on each tree, then reading the stories blind.
+- The shipped style line was not itself blind-read (read 5 measured a plain-spoken variant); Yuhan's
+  hand play on the `dev` preview is the evidence for it.
+- en and ko: no blind read, no live play. The ko `[初见]` translation needs a native reader.
 
 ## Open, for the main session
 
