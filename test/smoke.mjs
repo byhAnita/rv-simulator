@@ -2711,6 +2711,19 @@ async function layerI() {
   const withOldHabit = buildSystemPrompt(
     form(), members.map((m) => ({ ...m, habit: "SENTINEL_HABIT_VALUE" })),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
+  // Blind read 5 (2026-10-02, Yuhan, 12 ratings per arm): the translationese sat in
+  // the scene description each round OPENED on, and in rigid metaphors. Replacing
+  // "Open with 1-2 sentences establishing scene atmosphere" with a person-first
+  // opening halved the 翻译腔 count (6 -> 3), and Yuhan dropped "Literary" from the
+  // style line. Every language, because the register files carry the rule per
+  // language and a revert in one would pass a check on another.
+  const sceneOpeners = ["zh", "en", "ko"].filter((l) => {
+    const pl = prompt(form(), l);
+    return !/Open on a person: what someone is doing or saying as the round begins/.test(pl)
+      || /establishing scene atmosphere/.test(pl) || /Style: Literary/.test(pl);
+  });
+  check("every round opens on a person, and the style line no longer asks for 'Literary'",
+    sceneOpeners.length === 0, sceneOpeners.join(", "));
   check("a habit carried by an old save reaches no part of the prompt",
     !withOldHabit.includes("SENTINEL_HABIT_VALUE") && !/LITTLE THINGS|Little things|Habit:/.test(withOldHabit),
     profilesOf(withOldHabit).split("\n").filter((l) => /SENTINEL|Little things|Habit:/.test(l)).join(" | "));

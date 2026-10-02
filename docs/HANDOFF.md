@@ -68,8 +68,9 @@ sensory details").
 **Read 5** (12 ratings per arm, those two lines replaced by a test wording vs dev): replaced 2 / 7 / 3,
 dev 1 / 5 / 6 — 翻译腔 halved, and Yuhan's overall verdict was that the replaced stories read better.
 Mechanically: dev opened 18/18 rounds on weather, light or a room; the replacement opened 15/18 on a
-person, and similes fell 5.6 -> 3.8 per 1k characters. **The replacement is NOT in the repo yet** — the
-test wording lives in the session harness. Landing it is the next step, as `prose.style` and
+person, and similes fell 5.6 -> 3.8 per 1k characters. **Landed 2026-10-02 (Yuhan's version):** `prose.openWith` takes the person-first wording below in all
+three register files, and `prose.style` keeps the old line minus "Literary" — she kept the sensory clause and
+did not take the test's "plain spoken / one simile" sentence. That exact combination has NOT been read blind. Landing it is the next step, as `prose.style` and
 `prose.openWith` in `public/worlds/_registers/zh.json` (plumbing exists, `9e82d09`), ideally in
 Yuhan's Chinese. The test wording was:
 

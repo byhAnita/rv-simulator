@@ -26,8 +26,8 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
 - Story length: 350 - 450 words in Chinese (Simplified)
-- Style: Literary, emotional, sensory details (sight/sound/touch/smell).
-- Open with 1-2 sentences establishing scene atmosphere
+- Style: emotional, sensory details (sight/sound/touch/smell).
+- Open on a person: what someone is doing or saying as the round begins. Never open with a description of the light, the weather, the corridor or the room.
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: house staff member, driver, executive, or reporter.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
