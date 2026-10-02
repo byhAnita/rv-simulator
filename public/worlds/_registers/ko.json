@@ -1,8 +1,8 @@
 {
   "prose": {
     "length": "Story length: 350 - 450 words in {lang}",
-    "style": "Style: emotional, sensory details (sight/sound/touch/smell).",
-    "openWith": "Open on a person: what someone is doing or saying as the round begins. Never open with a description of the light, the weather, the corridor or the room.",
+    "style": "Style: emotional, sensory details (sight/sound/touch/smell), native Korean romance novel style.",
+    "openWith": "Open on a person doing or saying something, never on a description of the place.",
     "profileCritical": "CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.",
     "socialFreshness": "ALL of it comes out of THIS round. A member posts about the day she has just had — {recentBeat}, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.",
     "tone": "Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.",

@@ -77,6 +77,17 @@ Yuhan's Chinese. The test wording was:
 - Style: plain, spoken modern Chinese, the way a native Chinese romance novelist writes. Carry the scene with what people do and say, and state a feeling plainly rather than staging it through imagery. At most one simile in the whole story, and only an everyday one a reader would not stop on.
 - Open on a person: what someone is doing or saying as the round begins. Never open with a description of the light, the weather, the corridor or the room.
 
+**Revised the same day (Yuhan):** she judged the test's "plain spoken" style too plain and casual, and
+asked for a shorter opening rule. All three register files now send:
+
+- Style: emotional, sensory details (sight/sound/touch/smell), native <Chinese|English|Korean> romance novel style.
+- Open on a person doing or saying something, never on a description of the place.
+
+Each file names **its own** language's novel tradition; smoke asserts that per language (3 mutations,
+3 RED). Six goldens moved by exactly those two lines each. **Not read blind and not played live** — the
+wording that read 5 measured was different (plain-spoken, one simile), so read 5 is evidence for the
+person-first opening, not for this style line.
+
 **Habits removed entirely** after read 5 (Yuhan): data, loader, editor, generator and prompt.
 
 ## NOT verified
