@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.2
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.3
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.4.2-e887b0)
+![Version](https://img.shields.io/badge/version-1.4.3-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -66,7 +66,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.4.2)
+## 💰 API Cost & Performance (v1.4.3)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -177,6 +177,18 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.4.3
+
+The writing reads like a novel written in your language, not a translation of one.
+
+* ✍️ **Each round opens on a person** — someone doing or saying something as the round begins, instead of a paragraph about the light, the weather or the corridor. That opening paragraph was where the stiff, translated-sounding Chinese concentrated, and in blind reads the stories read better without it.
+* 📖 **The style is your language's own romance-novel register** — emotional, with sensory detail, written the way a Chinese, English or Korean romance novelist would write it in that language.
+* 🗺️ **Round 1 opens where your identity puts you** — the scripted opening scene and the place descriptions are gone from every world. The places are still on the map; the model just no longer copies their wording into the story.
+* 🤝 **The first meeting is rewritten** — the cast starts as people you have never really spoken to, in plainer words.
+* 🧹 **Habits are gone** — the habit field has left the profile editor and the prompt. It kept being turned back on the player or repeated round after round, and the stories read better without it.
+
+> 🔎 Honest about coverage: the Chinese changes were judged in blind reads by a native speaker and hand-played before release. The English and Korean prompts carry the same rules, but have not had that read.
 
 ## 🎉 What's New in v1.4.2
 
@@ -358,7 +370,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.4.2              | |
+|  |              LLM Text Adventure . v1.4.3              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -461,7 +473,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.4.2 - Architecture                     |
+|          Idol Dating Sim  v1.4.3 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -518,7 +530,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.4.2 Round Flow                            |
+|                    v1.4.3 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |

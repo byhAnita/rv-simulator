@@ -25,6 +25,12 @@
 
 export const RELEASE_NOTES = [
   {
+    version: "1.4.3",
+    zh: "文字更像一本用中文写成的言情小说，而不是翻译过来的：每一回合从一个人开始——她在做什么、说什么——不再先描写光线、天气和走廊。第一回合从你的身份所在的地方开场，世界里的地点描述和固定开场已删除；初见的设定改写得更直白；成员的「习惯」字段也已移除。",
+    en: "The writing reads like a romance novel written in your language rather than a translation: each round opens on a person doing or saying something instead of on the light, the weather or the corridor. Round 1 opens where your identity puts you, the worlds' place descriptions and scripted opening are gone, the first meeting is rewritten in plainer words, and the members' habit field has been removed.",
+    ko: "이제 문장이 번역문이 아니라 그 언어로 쓰인 로맨스 소설처럼 읽힙니다. 각 라운드는 빛이나 날씨, 복도 묘사가 아니라 무언가를 하거나 말하는 사람에게서 시작합니다. 첫 라운드는 당신의 정체성이 있는 곳에서 열리고, 세계의 장소 설명과 고정된 오프닝은 삭제되었으며, 첫 만남 설정은 더 담백하게 다시 쓰였고, 멤버의 습관 항목은 제거되었습니다.",
+  },
+  {
     version: "1.4.2",
     zh: "非偶像世界里，卡司的设定会在开始时按世界重写：她在这里的身份、对外形象、说话方式都重新生成，五个人一次生成，所以彼此不冲突。点任何一位已选成员的头像就能打开她的资料卡（包括预设成员），分为「她是谁」和「在这个世界」两页。经典开局恢复为一页，自定义卡司变成团体旁边的一个按钮，页面顶部也不再被状态栏逄住。",
     en: "In the non-idol worlds the cast is rewritten for the setting when you press Start — her position here, her public image and how she talks are all regenerated, in one call for the whole cast so they agree with each other. Tapping any chosen member's face opens her profile, prebuilt members included, with one tab for who she is and one for who she is in this world. The classic start is one page again, the custom cast is a chip beside the groups, and the top of the page no longer sits under the clock.",
