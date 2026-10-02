@@ -41,7 +41,7 @@ import { WORLD_FIELDS } from "../rag/rosterResolver";
 export const CARD_FIELDS = [
   "name", "birthday",
   "private_personality", "public_image", "queer_texture",
-  "speech_style", "habit", "hidden_conflict",
+  "speech_style", "hidden_conflict",
 ];
 
 // Long enough that the model has something to work from. Below this the card is
@@ -60,8 +60,8 @@ const LANGUAGE_NAME = { zh: "Chinese", en: "English", ko: "Korean" };
  *    name into the box, and the fields being asked for are private personality,
  *    queer texture and hidden conflict — so without this the feature becomes a
  *    generator of invented claims about a real person's private life. That is
- *    the exact thing the habit sourcing rule forbids (CLAUDE.md, Group JSON
- *    Structure), and a custom member is fiction by construction anyway.
+ *    the thing this project refuses to invent about a real person, and a
+ *    custom member is fiction by construction anyway.
  *  - ONE LANGUAGE, THE PLAYER'S. Custom profiles are authored in one language
  *    and never translated (§5); the prompt carries the cross-lingual
  *    instruction at render time instead.
@@ -94,7 +94,6 @@ Output ONLY valid JSON, no markdown fences, with exactly these keys:
   "public_image": "the persona the public sees, 1-2 sentences",
   "queer_texture": "how attraction to a woman surfaces in her specifically, 1-2 sentences",
   "speech_style": "how she talks - register, rhythm, verbal tics, 1 sentence",
-  "habit": "her tastes and small facts the player could learn and act on to show care - a drink she avoids, a favourite colour, a hobby. A few short items separated by semicolons, on one line",
   "hidden_conflict": "the tension she carries and hides, 1 sentence"
 }`;
 }
@@ -116,9 +115,8 @@ export function parseCard(text) {
     const v = obj[f];
     if (v === undefined || v === null) continue;
     const str = String(v).trim();
-    // A habit must be one line - the profile block renders it as one, and a
-    // newline inside it would break the line-per-field shape the prompt relies
-    // on. Same reason smoke rejects a multi-line habit in the group library.
+    // Every field renders as ONE line in the profile block, so a newline inside
+    // one would break the line-per-field shape the prompt relies on.
     if (str) out[f] = str.replace(/\s*[\r\n]+\s*/g, " ");
   }
   return out;
@@ -328,8 +326,7 @@ function sourceLines(member) {
     was("Public image", member?.public_image),
     was("Queer texture", member?.queer_texture),
     was("Speech style", member?.speech_style),
-    was("Hidden conflict", member?.hidden_conflict),
-    was("Habit", member?.habit)].filter(Boolean).join("\n");
+    was("Hidden conflict", member?.hidden_conflict)].filter(Boolean).join("\n");
 }
 
 // ONE renderer for the ladder rows, so the whole-cast prompt and the single-member

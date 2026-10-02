@@ -173,17 +173,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const playerBirthYear = parseInt(form.birthYear) || (GAME_YEAR - (parseInt(form.age || 20) || 20));
   const playerAge = GAME_YEAR - playerBirthYear;
   const playerName = form.name || "Player";
-  // The one place a member's tastes line may let another language in: Yuhan's
-  // Yeri is learning English and Japanese, and section 1 is HIGHEST PRIORITY, so a
-  // permission written only in her line would lose to "ALL content MUST be in X".
-  // Rendered only when someone in this cast HAS such a line - a rule about a line
-  // no member carries is a rule pointing at nothing.
-  const hasTastes = members.some((m) => m.habit && String(m.habit).trim());
-  const tastesLabel = `Little things ${playerName} knows`;
-  const foreignWordClause = hasTastes
-    ? ` The other exception: where a member's "${tastesLabel}" line says she is learning a language, a scene with her may carry one or two very common words of it, each followed by its meaning in ${lr.lang} \u2014 never a whole sentence in that language.`
-    : "";
-
   // Every line here is conditional on having content, for the same reason the
   // member profile block is: a solo run has no sub members and rendered a blank
   // line mid-list, a custom main member has no `name_kr` and rendered `Kim()`,
@@ -348,19 +337,13 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     // byte-identically whether these lines are conditional or not. Only the
     // dedicated Layer I guard fails, and it was verified to. Custom members are
     // the branch no snapshot can contain.
-    //
-    // The `habit` field is rendered as what the PLAYER knows about her - her
-    // tastes, a drink she avoids, a hobby - since 2026-10-01 (Yuhan). It was a
-    // physical tic for the model to stage, and the staging read as mannered;
-    // as knowledge it is something the player can act on to show care. The
-    // field keeps its name so no save or file changes shape.
     const line = (label, value) =>
       (value && String(value).trim() ? `\n  ${label}: ${value}` : "");
     const emojiPart = m.emoji ? `${m.emoji} ` : "";
     const krPart = m.name_kr ? `(${m.name_kr})` : "";
     return `${emojiPart}${m.name}${krPart} ${role}
   Age: ${ageLine}
-  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line(tastesLabel, m.habit)}${line("Hidden Conflict", m.hidden_conflict)}`;
+  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
   // JSON schema. Written without the spaces a formatter would add: the schema is
@@ -420,11 +403,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // model before the prose does.
   const untranslated = members.filter((m) => !m.world_position);
   const literalOnes = untranslated.length === members.length ? "" : ` This applies to ${untranslated.map((m) => m.name).join(", ")} and to no one else: every other member's three fields were rewritten for this world and are literal.`;
-  // How the tastes lines are USED, stated before the profiles that carry them.
-  // Care shown through an act, never a fact recited: "she likes purple" in the
-  // narration is the restating this whole fix exists to stop.
-  const tastesRule = hasTastes ? `
-LITTLE THINGS ${playerName.toUpperCase()} KNOWS: some members carry a "${tastesLabel}" line - her tastes and small facts about her. Each line is about HER and stays hers: it never becomes ${playerName}'s taste, and the member never turns it around to look after ${playerName} with it - ${playerName} is the one who acts on it. They are chances for ${playerName} to show care, never facts to recite: do not narrate one as a statement about her; let it show in what ${playerName} does - the drink she picked out for her, the small thing she brought - and let the member notice she was remembered and answer in her own character. Never use one as scenery either - not her scent in the air, not a detail of the room; a taste appears only in something ${playerName} does. Most rounds use none of them; use at most one per round, and never the same one in consecutive rounds. When it fits the scene, one of the four options may be a small considerate act drawing on one of them. ${playerName} knows them from the start only if her identity gives her a reason to; otherwise she learns them by noticing, and using one before she could know it reads as surveillance, not care.` : "";
   const textureCaveat = (world.castLore.useRole || untranslated.length === 0) ? "" : `
 READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting and this story is not one. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through: here she has no stage, no debut, no comeback, no fandom, and no rank in a performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185. What she has instead is ${world.castLife.theirs}. Where a line describes her through idol work, keep the trait and restage it there.${literalOnes}`;
 
@@ -446,7 +424,7 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 ║ 1. LANGUAGE RULE - HIGHEST PRIORITY      ║
 ╚══════════════════════════════════════════╝
 LANGUAGE: ${lr.lang}
-${lr.rule}${foreignWordClause}
+${lr.rule}
 ${lr.storyRule}
 ${lr.socialRule}
 
@@ -487,7 +465,7 @@ ${groupConfig.groupLore}
 ╔══════════════════════════════════════════╗
 ║ 5. MEMBER PROFILES                       ║
 ╚══════════════════════════════════════════╝
-${P("profileCritical")}${textureCaveat}${tastesRule}
+${P("profileCritical")}${textureCaveat}
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗
@@ -555,7 +533,7 @@ ${statNoteLines}
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
 ${placeLines}
-WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Private Personality and tastes give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Private Personality gives her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║

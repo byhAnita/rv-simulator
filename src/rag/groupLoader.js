@@ -83,12 +83,11 @@ function parseGroupConfig(config) {
     // On the whitelist before any group JSON declares them, and that order is
     // deliberate: adding the field here first means the content arrives working
     // rather than arriving silently dropped, which is exactly how `birthday`
-    // was lost. `habit` was authored across 30 files in step 5 and now renders.
+    // was lost.
     // `speech_style` is a recommended custom-member field (docs/V140_PLAN.md
     // §4.4) that no group JSON declares yet; it renders conditionally, so a
     // member without one is not a prompt change. `tags` reaches no prompt at
     // all — it is read by the v1.4.2 place-affinity matrix.
-    habit: m.habit || "",
     speech_style: m.speech_style || "",
     tags: m.tags || [],
     ig: m.ig || `${m.id}_official`,

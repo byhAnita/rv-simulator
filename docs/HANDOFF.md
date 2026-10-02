@@ -53,6 +53,31 @@ The tastes rule then got two fixes (Yuhan's ask): a taste stays hers and is neve
 player, and is never scenery. Live n=5: direction flips 2/5 -> 0/5; fabric softener 5/15 rounds -> 2/15,
 both remaining as her scent, so the no-scenery clause is only partly obeyed.
 
+## Blind reads 4 and 5 (2026-10-02)
+
+**Read 4** (8 ratings per arm): current dev 5 自然 / 3 一般 / 0 翻译腔; v1.3.9 3/1/4; dev with v1.3.9's whole
+system prompt 1/4/3; dev with the old key order (social before story) 0/6/2. v1.3.9 swung from best in
+read 3 to second-worst here, so at this sample size **per-sample variance exceeds any arm difference**:
+no v1.3.9 -> v1.4.2 diff is shown to cause the register. Translationese is a rate in every version.
+
+Yuhan located it instead: the rigid Chinese is concentrated in the **scene description that opens each
+round**, plus rigid metaphors. Those map onto two rules unchanged since v1.3.9 — `prose.openWith`
+("Open with 1-2 sentences establishing scene atmosphere") and `prose.style` ("Literary, emotional,
+sensory details").
+
+**Read 5** (12 ratings per arm, those two lines replaced by a test wording vs dev): replaced 2 / 7 / 3,
+dev 1 / 5 / 6 — 翻译腔 halved, and Yuhan's overall verdict was that the replaced stories read better.
+Mechanically: dev opened 18/18 rounds on weather, light or a room; the replacement opened 15/18 on a
+person, and similes fell 5.6 -> 3.8 per 1k characters. **The replacement is NOT in the repo yet** — the
+test wording lives in the session harness. Landing it is the next step, as `prose.style` and
+`prose.openWith` in `public/worlds/_registers/zh.json` (plumbing exists, `9e82d09`), ideally in
+Yuhan's Chinese. The test wording was:
+
+- Style: plain, spoken modern Chinese, the way a native Chinese romance novelist writes. Carry the scene with what people do and say, and state a feeling plainly rather than staging it through imagery. At most one simile in the whole story, and only an everyday one a reader would not stop on.
+- Open on a person: what someone is doing or saying as the round begins. Never open with a description of the light, the weather, the corridor or the room.
+
+**Habits removed entirely** after read 5 (Yuhan): data, loader, editor, generator and prompt.
+
 ## NOT verified
 
 - **Nothing here has been measured live.** `deepseek-flash` stopped answering ~20:05 UTC (requests are

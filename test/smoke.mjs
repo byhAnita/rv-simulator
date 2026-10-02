@@ -2507,28 +2507,25 @@ async function layerI() {
     new Set(members.map((m) => m.birthday)).size > 1,
     "one birth year for the whole cast means the seniority fallback is in play");
 
-  // `habit` (step 5), `speech_style` (step 6) and `tags` (v1.4.2) go on the
-  // whitelist before any group JSON declares them, so the content arrives
-  // working instead of arriving silently dropped — precisely what happened to
-  // `birthday`.
-  check("the whitelist carries habit, speech_style and tags through parseGroupConfig",
-    members.every((m) => typeof m.habit === "string"
-      && typeof m.speech_style === "string" && Array.isArray(m.tags)),
+  // `speech_style` (step 6) and `tags` (v1.4.2) go on the whitelist before any
+  // group JSON declares them, so the content arrives working instead of arriving
+  // silently dropped — precisely what happened to `birthday`.
+  check("the whitelist carries speech_style and tags through parseGroupConfig",
+    members.every((m) => typeof m.speech_style === "string" && Array.isArray(m.tags)),
     JSON.stringify(members.map((m) =>
-      `${m.name}:${typeof m.habit}/${typeof m.speech_style}/${Array.isArray(m.tags)}`)));
-  // Served through a stub rather than read from a file ON PURPOSE, even now
-  // that every group JSON declares a habit. This asserts the field survives
+      `${m.name}:${typeof m.speech_style}/${Array.isArray(m.tags)}`)));
+  // Served through a stub rather than read from a file ON PURPOSE. This asserts the field survives
   // parseGroupConfig for an ARBITRARY value, independently of what the library
   // happens to contain — which is the check that would have caught the
   // birthday bug. The content sweep below is the separate question.
-  const withHabit = await (async () => {
+  const withSpeech0 = await (async () => {
     const real = globalThis.fetch;
     globalThis.fetch = async (url) => {
       const p = join(ROOT, "public", String(url).replace(/^\//, ""));
       if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
       const doc = JSON.parse(readFileSync(p, "utf8"));
       if (doc.members?.[0]) {
-        doc.members[0].habit = "hums when concentrating";
+        doc.members[0].speech_style = "clipped, trails off";
         doc.members[0].tags = ["dancer", "leader"];
       }
       return { ok: true, status: 200, json: async () => doc };
@@ -2536,12 +2533,12 @@ async function layerI() {
     try { return await loader.loadGroupConfig("red_velvet", "en"); }
     finally { globalThis.fetch = real; }
   })();
-  check("a habit declared in group JSON reaches the parsed member",
-    withHabit.members[0].habit === "hums when concentrating"
-      && JSON.stringify(withHabit.members[0].tags) === JSON.stringify(["dancer", "leader"]),
-    `habit=${withHabit.members[0].habit} tags=${JSON.stringify(withHabit.members[0].tags)}`);
+  check("a speech_style declared in group JSON reaches the parsed member",
+    withSpeech0.members[0].speech_style === "clipped, trails off"
+      && JSON.stringify(withSpeech0.members[0].tags) === JSON.stringify(["dancer", "leader"]),
+    `speech_style=${withSpeech0.members[0].speech_style} tags=${JSON.stringify(withSpeech0.members[0].tags)}`);
 
-  // --- step 5 content: habit across the whole library -----------------------
+  // --- the whole library, through the loader ---------------------------------
   // Swept through loadGroupConfig in all three languages, never by reading the
   // JSON. A fixture read off disk tests the formatter, not the feature.
   // These are aggregate checks that NAME their offenders, rather than one
@@ -2563,25 +2560,20 @@ async function layerI() {
     for (const [lang, ms] of Object.entries(langs))
       for (const m of ms) everyMember.push({ gid, lang, ...m });
 
-  // Since 2026-10-01 `habit` is OPTIONAL and means the member's tastes - what the
-  // player can know about her and act on. Yuhan wrote Red Velvet's and emptied the
-  // rest: an unverified fact about a real person is worse than none. What must
-  // hold is that a member has tastes in all three languages or in none, or a
-  // player gets a different person depending on her UI language.
-  const halfTranslated = [];
-  for (const [gid, langs] of Object.entries(library))
-    for (const m of langs.zh) {
-      const has = LIB_LANGS.map((l) => Boolean(langs[l].find((x) => x.id === m.id)?.habit?.trim()));
-      if (new Set(has).size > 1) halfTranslated.push(`${gid}:${m.id} (${LIB_LANGS.filter((l, i) => has[i]).join("/")})`);
+  // `habit` is GONE, Yuhan's call on 2026-10-02. As a physical tic it read as
+  // mannered and the facts were unverified; as "what the player knows" it was
+  // turned back on the player in 2 of 5 live games and her scent filled 5 of 15
+  // rounds. Read from the RAW files, because the loader no longer passes the field
+  // and a parsed member could not show a re-added one.
+  const habitFiles = [];
+  for (const root of ["public/groups", "groups"])
+    for (const g of readdirSync(join(ROOT, root))) {
+      for (const lang of LIB_LANGS) {
+        const f = join(ROOT, root, g, `${lang}.json`);
+        if (existsSync(f) && /"habit"\s*:/.test(readFileSync(f, "utf8"))) habitFiles.push(`${root}/${g}/${lang}`);
+      }
     }
-  check("a member's tastes are authored in all three languages or in none",
-    halfTranslated.length === 0, halfTranslated.join(", "));
-
-  // A habit renders as ONE line in the member profile block. A newline would
-  // split it in two and silently reshape the section for that cast only.
-  const multiline = everyMember.filter((m) => /[\r\n]/.test(m.habit || ""));
-  check("no habit carries a line break",
-    multiline.length === 0, multiline.map((m) => `${m.gid}/${m.lang}:${m.id}`).join(", "));
+  check("no group file carries a habit", habitFiles.length === 0, habitFiles.join(", "));
 
   // The three language files are authored together; a member present in one
   // and absent from another means a file was edited alone.
@@ -2592,33 +2584,6 @@ async function layerI() {
   check("the three language files of a group agree on its member ids",
     idSetMismatch.length === 0, idSetMismatch.map(([g]) => g).join(", "));
 
-  // Member ids are NOT unique across the library — `x` is a crossover roster
-  // sharing seven of them (the finding that reshaped step 4's group scan). A
-  // habit is a physical tic and belongs to the PERSON, so the shared ids must
-  // agree; disagreement means one file was edited and its twin forgotten.
-  const crossover = [];
-  for (const lang of LIB_LANGS) {
-    const seen = {};
-    for (const m of everyMember.filter((e) => e.lang === lang)) (seen[m.id] ||= []).push(m);
-    for (const [id, ms] of Object.entries(seen)) {
-      if (ms.length < 2) continue;
-      if (new Set(ms.map((m) => m.habit)).size !== 1)
-        crossover.push(`${lang}:${id} (${ms.map((m) => m.gid).join("+")})`);
-    }
-  }
-  check("a member in two groups carries the same habit in both",
-    crossover.length === 0, crossover.join(", "));
-
-  // Within one cast the habits are what make members distinguishable in a
-  // scene. Two identical ones is a copy-paste that reads as a real profile.
-  const dupes = [];
-  for (const [gid, langs] of Object.entries(library))
-    for (const lang of LIB_LANGS) {
-      const hs = langs[lang].map((m) => m.habit).filter((h) => h && h.trim());
-      if (new Set(hs).size !== hs.length) dupes.push(`${gid}/${lang}`);
-    }
-  check("no two members of one cast share a habit",
-    dupes.length === 0, dupes.join(", "));
   const byId = (id) => members.find((m) => m.id === id);
   const GROUP = { groupLore: "lore" };
 
@@ -2730,7 +2695,7 @@ async function layerI() {
     === stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "2000" }))),
     "the backstory seed moved with the birth year");
 
-  // --- step 5: the habit renders, and its ABSENCE renders nothing ----------
+  // --- the member profile section ------------------------------------------
   // The member profile section only, so an unrelated block cannot mask or
   // trip these.
   // Cut back to the start of the NEXT banner box, not to its title: slicing at
@@ -2739,61 +2704,16 @@ async function layerI() {
   const profilesOf = (text) => text.slice(
     text.indexOf("5. MEMBER PROFILES"),
     text.lastIndexOf("╔", text.indexOf("6. CAST IDENTITY")));
-  // Since 2026-10-01 the `habit` field renders as what the PLAYER knows about her
-  // (Yuhan: tastes she can act on to show care), under a label naming the player.
-  const TL = `Little things ${form().name} knows`;
-  const tastesLines = (text) => (profilesOf(text).match(new RegExp(`^ {2}${TL}: `, "gm")) || []).length;
-  const withTastes = members.filter((m) => m.habit && m.habit.trim()).length;
-  const ireneHabit = members.find((m) => m.id === "irene").habit;
-  check("a member's tastes reach the member profile block, under the player-knows label",
-    profilesOf(p).includes(`\n  ${TL}: ${ireneHabit}`), addressOfIn(p, "Irene"));
-  check("every member who has tastes carries exactly one tastes line, and nobody else does",
-    withTastes > 0 && tastesLines(p) === withTastes,
-    `${tastesLines(p)} lines / ${withTastes} members with tastes`);
-  check("the tastes line renders below Queer Texture",
-    new RegExp(`\\n {2}Queer Texture: [^\\n]*\\n {2}${TL}: `).test(profilesOf(p)));
-  // The rule saying HOW they are used - care shown in an act, never a fact recited -
-  // and section 1's allowance for a word of a language she is learning are sent
-  // only when some member in the cast has such a line: a rule about a line nobody
-  // carries is a rule pointing at nothing.
-  const tastesRuleRe = /LITTLE THINGS [^\n]* KNOWS: [^\n]*never facts to recite: do not narrate one as a statement about her/;
-
-  // A member with no habit must render NOTHING — not `  Habit: ` with a
-  // trailing space, which no reviewer sees and which costs the whole cached
-  // prefix. Custom members (step 6) are exactly this case.
-  const strippedMembers = members.map(({ habit, ...rest }) => rest);
-  const noHabitPrompt = buildSystemPrompt(
-    form(), strippedMembers, "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("a member with no tastes renders no tastes line at all",
-    !noHabitPrompt.includes(`${TL}:`), profilesOf(noHabitPrompt).slice(0, 300));
-  check("the tastes rule is sent when a member has tastes, and only then",
-    tastesRuleRe.test(p) && !/LITTLE THINGS/.test(noHabitPrompt),
-    `with=${tastesRuleRe.test(p)} without=${/LITTLE THINGS/.test(noHabitPrompt)}`);
-  // Two failures from the first live run of the rule (2026-10-01, 5 games on
-  // deepseek-flash): in 2 of 5 Irene handed the PLAYER a hot chocolate or a hand
-  // warmer, once saying "你以前不喝咖啡" - her taste turned into the player's - and
-  // fabric softener surfaced in 5 of 15 rounds as her scent in the air, twice in a row.
-  check("...and keeps each taste hers: it never becomes the player's, nor care aimed back at her",
-    /it never becomes [^\n]*'s taste, and the member never turns it around to look after/.test(p),
-    "the direction flipped in 2 of 5 live games before this clause");
-  check("...and never lets a taste become scenery, and most rounds use none",
-    /Never use one as scenery either/.test(p) && /Most rounds use none of them/.test(p),
-    "a smell is the easiest taste to drop into any scene, and it was: 5 of 15 rounds");
-  check("...and so is section 1's allowance for a word of a language she is learning",
-    /The other exception: where a member's "Little things [^"]+ knows" line says she is learning a language/.test(p)
-      && !/The other exception:/.test(noHabitPrompt),
-    "section 1 is HIGHEST PRIORITY; a permission written only in her line loses to it");
-  const trailing = profilesOf(noHabitPrompt).split("\n").filter((l) => /[ \t]$/.test(l));
-  check("...and leaves no trailing whitespace where the line would have been",
-    trailing.length === 0, JSON.stringify(trailing.slice(0, 3)));
-  // One habit missing from a cast must not disturb the members around it.
-  const oneMissing = buildSystemPrompt(
-    form(), members.map((m) => (m.id === "yeri" ? { ...m, habit: "" } : m)),
+  // `habit` was removed on 2026-10-02 (Yuhan). An old save can still carry one: a
+  // custom member is snapshotted INLINE into the roster, so her stored profile
+  // reaches members[] without passing the palette whitelist. The prompt must
+  // ignore it - no line, no tastes rule, no section 1 allowance.
+  const withOldHabit = buildSystemPrompt(
+    form(), members.map((m) => ({ ...m, habit: "SENTINEL_HABIT_VALUE" })),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("one member without tastes does not disturb the rest of the cast",
-    tastesLines(oneMissing) === withTastes - 1
-      && profilesOf(oneMissing).includes(`\n  ${TL}: ${ireneHabit}`),
-    profilesOf(oneMissing).split("\n").filter((l) => /[ \t]$/.test(l)).join("|"));
+  check("a habit carried by an old save reaches no part of the prompt",
+    !withOldHabit.includes("SENTINEL_HABIT_VALUE") && !/LITTLE THINGS|Little things|Habit:/.test(withOldHabit),
+    profilesOf(withOldHabit).split("\n").filter((l) => /SENTINEL|Little things|Habit:/.test(l)).join(" | "));
 
   // --- step 6: a member built from the REQUIRED tier alone -------------------
   // docs/V140_PLAN.md §4.4 requires exactly three fields of a custom member:
@@ -2845,7 +2765,7 @@ async function layerI() {
   const OPTIONAL_LINES = [
     ["animal_plastic", "Animal"], ["public_image", "Public"],
     ["private_personality", "Private"], ["queer_texture", "Queer Texture"],
-    ["speech_style", "Speech Style"], ["habit", TL],
+    ["speech_style", "Speech Style"],
     ["hidden_conflict", "Hidden Conflict"],
   ];
   const strippedOffenders = [];
@@ -2870,10 +2790,9 @@ async function layerI() {
   const withSpeech = buildSystemPrompt(
     form(), members.map((m) => (m.id === "irene" ? { ...m, speech_style: "clipped, trails off" } : m)),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("a speech_style renders below Queer Texture and above the tastes line",
-    new RegExp(`\\n {2}Queer Texture: [^\\n]*\\n {2}Speech Style: clipped, trails off\\n {2}${TL}: `)
-      .test(profilesOf(withSpeech)),
-    (profilesOf(withSpeech).match(new RegExp(`^ {2}(Queer Texture|Speech Style|${TL}): .*`, "gm")) || [])
+  check("a speech_style renders directly below Queer Texture",
+    /\n {2}Queer Texture: [^\n]*\n {2}Speech Style: clipped, trails off\n/.test(profilesOf(withSpeech)),
+    (profilesOf(withSpeech).match(/^ {2}(Queer Texture|Speech Style): .*/gm) || [])
       .slice(0, 3).join(" / "));
 
   // The real path: a custom entry is snapshotted inline by resolveRoster and so
@@ -4872,7 +4791,7 @@ async function layerI() {
     + " escape hatch is a prohibition it will route around");
   check("...and says that where she is decides who is there",
     /WHERE SHE IS DECIDES WHO IS THERE/.test(pEn)
-      && /Private Personality and tastes/.test(pEn),
+      && /Private Personality gives her a reason to be there/.test(pEn),
     "going somewhere was supposed to be how you run into someone");
   check("...and points that rule at [Rounds Absent] rather than restating it",
     /a member \[Rounds Absent\] shows has been away is a reason to put her there/.test(pEn),
@@ -6351,16 +6270,16 @@ async function layerI() {
   // The whitelist is applied on write: the stored shape stays the documented
   // one even if a later editor version puts something else in scope.
   const junk = store.upsertMember([], {
-    id: "c_1", profile: { ...REQ, apiKey: "sk-secret", notes: "x", habit: "hums" },
+    id: "c_1", profile: { ...REQ, apiKey: "sk-secret", notes: "x", speech_style: "hums" },
   }).cast[0].profile;
   check("an unrecognised field never reaches the stored profile",
-    !("apiKey" in junk) && !("notes" in junk) && junk.habit === "hums",
+    !("apiKey" in junk) && !("notes" in junk) && junk.speech_style === "hums",
     JSON.stringify(Object.keys(junk)));
   const blanks = store.upsertMember([], {
-    id: "c_1", profile: { ...REQ, habit: "   ", queer_texture: "" },
+    id: "c_1", profile: { ...REQ, speech_style: "   ", queer_texture: "" },
   }).cast[0].profile;
   check("a blank optional field is dropped rather than stored as an empty string",
-    !("habit" in blanks) && !("queer_texture" in blanks),
+    !("speech_style" in blanks) && !("queer_texture" in blanks),
     JSON.stringify(Object.keys(blanks)));
 
   check("cosmetic fields are auto-assigned so the player never has to pick",
@@ -6664,7 +6583,7 @@ async function layerI() {
     name: "Lin Xia", birthday: "1999-04-02",
     private_personality: "fixes things quietly", public_image: "the calm one",
     queer_texture: "she notices hands first", speech_style: "clipped, trails off",
-    habit: "tunes a string that is already in tune", animal_plastic: "heron - still, then sudden",
+    animal_plastic: "heron - still, then sudden",
     hidden_conflict: "she was the reason the last group split",
   };
 
@@ -6674,19 +6593,19 @@ async function layerI() {
   check("a bare JSON card parses",
     cg.parseCard(JSON.stringify(FULL_CARD)).name === "Lin Xia");
   check("a fenced JSON card parses",
-    cg.parseCard("```json\n" + JSON.stringify(FULL_CARD) + "\n```").habit.length > 0);
+    cg.parseCard("```json\n" + JSON.stringify(FULL_CARD) + "\n```").speech_style.length > 0);
   check("an unlabelled fence parses",
     cg.parseCard("```\n" + JSON.stringify(FULL_CARD) + "\n```").name === "Lin Xia");
   // Fence stripping has to happen BEFORE the brace slice, and this is the case
   // that proves it: trailing prose containing braces moves lastIndexOf("}") past
-  // the card, so the slice alone would extract "{habit}" and parse nothing.
+  // the card, so the slice alone would extract "{speech_style}" and parse nothing.
   // Without this the fence handling is redundant with the slice and a mutation
   // removing it stays green - which is exactly what it did.
   check("a fenced card survives trailing prose that contains braces",
     cg.parseCard("```json\n" + JSON.stringify(FULL_CARD)
-      + "\n```\nAdjust the {habit} field if you like.").name === "Lin Xia",
+      + "\n```\nAdjust the {speech_style} field if you like.").name === "Lin Xia",
     JSON.stringify(cg.parseCard("```json\n" + JSON.stringify(FULL_CARD)
-      + "\n```\nAdjust the {habit} field if you like.")));
+      + "\n```\nAdjust the {speech_style} field if you like.")));
   check("prose around the object is discarded",
     cg.parseCard("Here you go!\n" + JSON.stringify(FULL_CARD) + "\nHope that helps.")
       .name === "Lin Xia");
@@ -6697,22 +6616,22 @@ async function layerI() {
   // §4.5: missing fields stay empty rather than failing the call. Six of nine
   // fields is still a head start, and refusing it hands the player a blank form
   // for no reason.
-  const partial = cg.parseCard('{"name":"Lin Xia","habit":"hums"}');
+  const partial = cg.parseCard('{"name":"Lin Xia","speech_style":"hums"}');
   check("a partial card keeps what it has and does not invent the rest",
-    partial.name === "Lin Xia" && partial.habit === "hums"
+    partial.name === "Lin Xia" && partial.speech_style === "hums"
       && Object.keys(partial).length === 2,
     JSON.stringify(partial));
   check("a field the schema does not list is dropped",
     !("apiKey" in cg.parseCard('{"name":"Lin Xia","apiKey":"sk-secret"}')),
     "the card parser is a whitelist too");
   check("a blank field is not stored as an empty string",
-    !("habit" in cg.parseCard('{"name":"Lin Xia","habit":"   "}')));
-  // A habit renders as ONE line in the profile block, exactly as in the group
+    !("speech_style" in cg.parseCard('{"name":"Lin Xia","speech_style":"   "}')));
+  // A field renders as ONE line in the profile block, exactly as in the group
   // library, so a model that returns a wrapped one must not break the shape.
-  check("a multi-line habit is folded onto one line",
-    cg.parseCard('{"habit":"taps the rim\\n  twice, always"}').habit
+  check("a multi-line field is folded onto one line",
+    cg.parseCard('{"speech_style":"taps the rim\\n  twice, always"}').speech_style
       === "taps the rim twice, always",
-    JSON.stringify(cg.parseCard('{"habit":"taps the rim\\n  twice, always"}').habit));
+    JSON.stringify(cg.parseCard('{"speech_style":"taps the rim\\n  twice, always"}').speech_style));
   for (const junk of ["", "   ", "no json here", "[1,2,3]", '"a string"', "null", null, 42]) {
     if (Object.keys(cg.parseCard(junk)).length !== 0) {
       check("unparseable output yields an empty card, never a throw", false, JSON.stringify(junk));
@@ -6731,7 +6650,7 @@ async function layerI() {
   // A player can type a real idol's name into the box, and the fields being
   // asked for are private personality, queer texture and hidden conflict.
   // Without this the feature generates invented claims about a real person's
-  // private life — the exact thing the habit sourcing rule forbids.
+  // private life — the thing this project refuses to invent about a real person.
   // Whitespace-normalized: the prompt is a hard-wrapped template literal, so a
   // phrase can legitimately straddle a newline and a raw substring match would
   // fail on a reflow that changed nothing the model sees.
@@ -6776,7 +6695,7 @@ async function layerI() {
   }));
   check("a good response produces a usable card",
     cardOk.ok === true && cardOk.profile.name === "Lin Xia"
-      && cardOk.profile.habit.length > 0,
+      && cardOk.profile.speech_style.length > 0,
     JSON.stringify(cardOk.reason || Object.keys(cardOk.profile)));
 
   // No key at all: callLLM throws `auth` before any request is made. This is the
@@ -7036,7 +6955,7 @@ async function layerI() {
     const cast = [
       { id: "seulgi", name: "Seulgi", birthday: "1994-02-10", public_image: "the maknae" },
       { id: "irene", name: "Irene", birthday: "1991-03-29", private_personality: "reserved" },
-      { id: "yeri", name: "Yeri", birthday: "1999-03-05", habit: "taps the table" },
+      { id: "yeri", name: "Yeri", birthday: "1999-03-05", speech_style: "taps the table" },
       { id: "wendy", name: "Wendy", birthday: "1994-02-21", world_position: "the in-house counsel" },
     ];
     const targets = ["irene", "seulgi", "yeri"];
@@ -7189,7 +7108,8 @@ async function layerI() {
       // four: it is rendered, and what it lost is the editor's box. A field the
       // model fills and the player cannot correct fails the next check below.
       && !cg.CARD_FIELDS.includes("animal_plastic")
-      && cg.CARD_FIELDS.includes("habit"),
+      // habit left on 2026-10-02 with the field itself; nothing renders it.
+      && !cg.CARD_FIELDS.includes("habit"),
     JSON.stringify(cg.CARD_FIELDS));
 
   // A generated card must satisfy the palette's own rules, or the fast path
@@ -7288,9 +7208,9 @@ async function layerI() {
       && /aspectRatio: kind === "wall" \? "2 \/ 3" : "1 \/ 1"/.test(editorSrc),
     "the wallpaper sits directly under the photo, and neither tile's ratio moves");
   // The right column's ORDER is the requirement, not an accident of the loop -
-  // Yuhan asked for MBTI above habit, and the three required fields lead.
-  check("...and the fields beside it read name, year, personality, MBTI, habit",
-    /\["name", "birthYear", "private_personality", "mbti", "habit"\]/.test(tab1Block),
+  // The three required fields lead, then MBTI; the habit box left on 2026-10-02.
+  check("...and the fields beside it read name, year, personality, MBTI",
+    /\["name", "birthYear", "private_personality", "mbti"\]/.test(tab1Block),
     "the order the player reads them in is the design");
   // THE TWO TABS ARE ONE SIZE (22.8.3), and it is made true by construction
   // rather than by a pinned height: both panes sit in the same grid cell, so the

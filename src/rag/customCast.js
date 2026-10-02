@@ -44,7 +44,7 @@ export const PROFILE_FIELDS = [
   // required
   "name", "birthday", "private_personality",
   // recommended
-  "public_image", "queer_texture", "speech_style", "habit",
+  "public_image", "queer_texture", "speech_style",
   // advanced
   "name_kr", "mbti", "role", "animal_plastic", "hidden_conflict",
   "emoji", "color", "accent", "tags",
