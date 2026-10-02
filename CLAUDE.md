@@ -4,13 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.4.2** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.3** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
 - `dev` — default working branch, never deploy from here
 
 See **Branch & Deploy Workflow** for the release, hotfix and merge-back rules.
+
+> **More than one agent works on this repo, one at a time.** If you are not the main VS Code
+> session, read **`docs/AGENTS.md`** (roles, scope, and the rules a cloud or third-party agent
+> cannot see because they live in Yuhan's personal config) and then **`docs/HANDOFF.md`** (the one
+> task in flight, and the exact next command). Stand-in agents **fix bugs and do not design**.
 
 Production numbers (reasoning off). **Four cache figures exist and they are not interchangeable** —
 quote the right one, with its source:
@@ -471,7 +476,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.4.2)
+## Add-on Features (v1.4.3)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -821,7 +826,7 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
 8. **Speaker contract + address protocol** — who "I" and "you" are, and what each character is allowed to call the others. See below.
 9. **What moves each stat in THIS world** — section 10 prints one line per stat from `world.statNotes`. The stat *keys* are permanent and their *labels* are i18n's; the world supplies only the prose saying what raises and lowers them, which is the half no other file holds a copy of.
-10. **Canon places and the opening** — section 11, from `world.places` and `world.scenario`. See *Where she is decides who is there*.
+10. **Canon places** — section 11, from `world.places`, names only. The opening scene and the place descriptions were deleted on 2026-10-01; see *Where she is decides who is there*.
 
 ### Who is speaking, and what she calls whom
 
@@ -1102,6 +1107,45 @@ self-describing, and the flag only chooses one extra line of explanation.
 **`parseGroupConfig` is a field whitelist, and it was dropping `birthday`.** v1.3.6 shipped the corrected address protocol and it was **inert in the running app**: `groupLoader.js#parseGroupConfig` rebuilds each member field by field, `birthday` was not on the list, and `buildSystemPrompt` fell back to `"2000-01-01"` — so the entire cast reached the prompt as one birth year and the age line was uniform nonsense rather than merely backwards. Fixed in v1.3.7.
 
 The lesson generalises past this field: **a test that reads `public/groups/*.json` directly tests the formatter, not the feature.** The v1.3.6 checks did exactly that and passed while the app was broken. Anything asserting on member data must load it through `loadGroupConfig`, which is what smoke Layer I now does. When you add a member field to a group JSON, add it to the whitelist in the same commit or it will not exist at runtime.
+
+### The translationese bug: in-language text in a prompt is a style example
+
+**Reported after v1.4.2, fixed in v1.4.3.** The generated Chinese read like machine translation.
+Four lessons, in the order they cost time:
+
+**1. It was not a commit, so bisecting versions could not find it.** The first plan was to
+diff v1.3.9 against v1.4.2 and blind-read each difference. Blind read 4 put v1.3.9, v1.4.2 and two
+bisection arms within sampling variance of each other: **translationese is a RATE every version
+has**, and n=6 per arm cannot resolve a difference smaller than the noise between two runs of the
+same code. The question that found it was *where in the text* the stiff Chinese sits, not *which
+change* introduced it.
+
+**2. The instrument was a native reader locating it, not a grader.** Yuhan's reading put it in
+**the scene description each round opens on, and rigid metaphors**. Both mapped onto two rules
+unchanged since v1.3.9 — *"Open with 1-2 sentences establishing scene atmosphere"* and
+*"Literary, emotional, sensory details"*. An instruction to open on atmosphere, every round, asks
+for stock imagery, and stock imagery is where a model's Chinese is weakest. Replacing them (read 5:
+翻译腔 6 -> 3 of 12, openings on a person 0 -> 15 of 18, similes 5.6 -> 3.8 per 1k characters) is
+what fixed it. No assertion written in advance could have located this; only reading could.
+
+**3. Chinese text in the prompt teaches the register more strongly than any English rule.** The
+place blurbs, the opening scene and the habit lines were Chinese written or translated by a model
+— aphoristic contrasts like `声音清楚而表情不清楚` — and they sat in the static prompt as the
+strongest style example the model got. Deleting them (and having Yuhan rewrite `[初见]` herself)
+was the first change that her reads judged better.
+
+**4. A style rule names the language's own tradition.** The shipped line asks for *"native
+Chinese romance novel style"* in zh, English in en, Korean in ko — a rule describing Chinese
+abstractly in English is what produced the translated voice in the first place. A plain-spoken,
+one-simile variant tested better on 翻译腔 and was rejected by Yuhan as too casual: the target is
+a register, not the absence of one.
+
+**THE RULE THIS EARNS: no agent adds Chinese (or Korean) prose to the prompt, a world file, a group
+file or a register without Yuhan's review.** That covers descriptions, openings, examples, rule
+text and translations alike. English rule text is fine; any in-language narration is either
+written by Yuhan or reviewed by her before it is committed. A model-written Chinese sentence in
+the static prompt is not neutral data — it is copied, register and all, into every round. Korean
+additionally needs a native reader; nobody on this project is one.
 
 ### `buildSystemPrompt` must be a pure function of the save
 
@@ -3148,7 +3192,7 @@ reasoning.
 
 ### Where she is decides who is there
 
-Section 11 carries `world.places` — ten canon places, each `emoji name — desc` — with
+Section 11 carries `world.places` — ten canon places, each `emoji name` — with
 the rule *prefer this list; invent somewhere new only when the story genuinely needs a place this list
 does not have*, and the schema's `scene` rule points at it.
 
@@ -3164,7 +3208,21 @@ static part, rule pointing at the fact: the shape `[KKT Channels]` and `[Rounds 
 table for exactly the judgement §7.4 argues the model makes better than a table does — *who would be in
 the recording booth at midnight* is a reasoning question.
 
-**`world.scenario` is unconditional static text, and it cannot be anything else.** Sending it on
+**The place descriptions and `world.scenario` were DELETED on 2026-10-01, from all four worlds in
+all three languages, on Yuhan's call.** Investigating the report that v1.4.2's Chinese reads as machine
+translation, a diff of the rendered zh prompt against v1.3.9 found that section 11 was the only new
+Chinese *narration* v1.4.2 sends, and it was written in exactly the register the report quoted: the
+blurbs were aphoristic contrasts (`声音清楚而表情不清楚`, `最私密也最没有隐私的地方`) and the opening
+was `又一个练习到深夜的日子。走廊的灯只剩一半亮着…`. In-language text in a prompt is the strongest style
+example the model gets. The opening was also identity-blind: it put every player, a new chairwoman
+included, in a late-night practice corridor, which is the scene the report's bad rounds were set in.
+Round 1 now opens where the player's identity puts her, as it did in v1.3.9. Smoke asserts no world
+ships either field, reading the raw files for `scenario` because `parseWorld` no longer returns it.
+**Whether this fixes the register is measured by a blind read, not assumed** — see the pick-up block.
+
+The paragraph below is the history of the field while it existed.
+
+**`world.scenario` was unconditional static text, and it could not be anything else.** Sending it on
 round 1 and dropping it afterwards would make the static system prompt differ between round 1 and round
 2, invalidating the entire ~5,500-token cached prefix on round 2 — the most expensive mistake available
 here. It ships every round, framed as the story's *first scene*: round 1 opens here, and from round 2 it
@@ -3305,7 +3363,13 @@ Key fields: `group.name`, `group.lore`, `members[]` (each with `id`, `name`, `em
 
 **`habit` went on the whitelist ahead of any file that declared it, and `tags` still is** — `habit` is authored in v1.4.0 step 5, `tags` in v1.4.2. Putting the field first means the content arrives working instead of arriving silently dropped, which is exactly how `birthday` was lost.
 
-**`habit` is a concrete, observable, repeatable physical behaviour — something the model can stage in a scene.** `private_personality` says *expresses affection through caretaking*, which cannot be blocked into a shot; *straightens your collar mid-sentence without asking* can. It is the staging handle for the three prose fields, not a fourth description of them, which is why it sits outside the `CRITICAL: ★` line naming Public / Private / Queer Texture as the primary differentiators.
+**`habit` was REMOVED on 2026-10-02 — Yuhan's call, after two live rounds of trying to make it work.** No group file carries it, the loader no longer passes it, the editor has no box for it, the card generator does not ask for it, and the prompt renders nothing from it — including from an old save, whose custom members are snapshotted inline and may still carry one (smoke asserts a sentinel value reaches no part of the prompt). As a physical tic it read as mannered and the facts were unverified; reworked as "what the player knows about her" it was turned back on the player in 2 of 5 live games and her scent filled 5 of 15 rounds, and a rule-level fix only partly held. The three paragraphs below record both designs as history.
+
+**From 2026-10-01 to 2026-10-02 `habit` meant HER TASTES, rendered as `Little things <player> knows:` — Yuhan's redesign.** The field keeps its name, so no save, whitelist or file changes shape; what changed is what it holds and how the prompt uses it. It is what the player can know about her and act on to show care — Irene does not drink coffee, so the player buys her a hot chocolate — and one rule before the profiles says how: care shown in an act and never a fact recited, at most one per round, possibly as one of the four options, known from the start only when the player's identity gives her a reason. Section 1 gains one allowance with it (a word or two of a language a member's line says she is learning, with its meaning), because section 1 is HIGHEST PRIORITY and a permission written only in her line would lose to it. Both the rule and the allowance render only when some member in the cast carries a tastes line.
+
+**Only Red Velvet has tastes, written by Yuhan in zh and translated to en/ko; every other member's field was EMPTIED.** The previous content was translated from an English list of physical tics, and she judged that an unverified fact about a real person is worse than none. The paragraphs below describe the field as it was designed before that, and are kept as its history. Smoke now asserts a member has tastes in all three languages or in none, rather than that every member has one.
+
+**`habit` was a concrete, observable, repeatable physical behaviour — something the model can stage in a scene.** `private_personality` says *expresses affection through caretaking*, which cannot be blocked into a shot; *straightens your collar mid-sentence without asking* can. It is the staging handle for the three prose fields, not a fourth description of them, which is why it sits outside the `CRITICAL: ★` line naming Public / Private / Queer Texture as the primary differentiators.
 
 **Content is sourced, not invented, and that is a different rule from the fields around it.** `queer_texture` is fiction because it has to be; a habit is the one field fans actually know, and a fabricated concrete detail is both less useful to the model and more misleading than a real one. So: **publicly known, persona level, and never a claim about a real person's health, body, relationships or private life.** Where that knowledge is not reliable — parts of `gnz`, `nmixx` and `x` — the habit is instead *derived* from that file's own `private_personality` and is plainly fiction. The two tiers are tracked per member in `docs/V140_PLAN.md`; do not silently promote a derived habit to a sourced one.
 
@@ -3395,11 +3459,30 @@ git tag v1.4.0 && git push origin v1.4.0
 git checkout -- index.html                        # see note below
 git checkout dev && git merge main && git push origin dev
 node scripts/dev-index.mjs                        # back to dev mode
+# then revise docs/.resume/v<x.y.z>.tex - the CV (gitignored, see below)
 ```
 
 **The `index.html` step is not optional and not cosmetic.** `deploy.sh` restores that file to dev mode as an *uncommitted* change, and the deploy commit just rewrote the same file on `main` with the new bundle hash — so `git checkout dev` refuses to switch with "local changes would be overwritten". Discarding it is safe: `scripts/dev-index.mjs` regenerates it exactly, which is what the last line does.
 
 Tag the **deploy commit**, not the merge commit — `npm run deploy` adds a commit after the merge, and a tag placed before it points at a tree whose `index.html` is still in dev mode.
+
+**Every release also updates the CV in `docs/.resume/`, and that folder is gitignored.** Yuhan
+applies for master thesis positions and entry-level roles in **applied LLM-agent development**, and
+this project is the main piece of technical evidence on that CV — so a release that lands a measured
+number or a technique and leaves the CV naming the previous version has thrown the evidence away.
+After the tag and the merge-back: copy the newest `docs/.resume/v<x.y.z>.tex` to the version just
+released, revise the Idol Dating Sim entry and the **Technical Skills** section against what
+actually shipped, and leave the earlier revisions in place as history.
+
+- **`docs/.resume/` is private and is never committed.** It holds a CV and job-application
+  material, which is personal data and not project documentation — the rule `D:/workspace/career`
+  already follows. `.gitignore` carries the directory, nothing in it has ever been tracked, and **no
+  CV content belongs in a tracked file, a commit message, or the README.**
+- **One page is a hard constraint.** The CV is already nearly full, so a new claim has to *displace*
+  an old one — prefer rewriting a vaguer bullet to appending another.
+- **Only measured numbers reach it.** Every figure must be traceable to a measurement recorded in
+  this file. A calculated figure is labelled as calculated or left out; never present an estimate as
+  a measurement, and never invent a metric this project has not taken.
 
 ### Hotfix (player-reported bug on a released build)
 
@@ -3751,9 +3834,20 @@ Then:
 
 ---
 
-## Project Status (2026-09-30)
+## Project Status (2026-10-02)
 
-**v1.4.1 is the current release, deployed 2026-09-29**, tagged `v1.4.1` on deploy commit
+**v1.4.3 is prepared on `dev` and NOT yet released** (`fd196ca`, bumped, smoke 1714/0). It is the
+translation-quality fix — see *The translationese bug: in-language text in a prompt is a style
+example* and the pick-up block below. The release sequence was refused by the cloud session's
+permission classifier as a production deploy, so `main` is still v1.4.2.
+
+**v1.4.2 is the deployed release, deployed 2026-10-01**, tagged `v1.4.2` on deploy commit
+`376fba4`. All three mirrors serve `index-CNKn62wG.js`, verified by
+`scripts/verify-mirrors.mjs` at 51/51 paths each with every JSON parsed. It is §22 end
+to end — the cast restaged for the world it is cast in, and the setup flow rebuilt over
+nine phone passes. See the pick-up block above.
+
+**v1.4.1 was the release before it, deployed 2026-09-29**, tagged `v1.4.1` on deploy commit
 `0e27d8b`. All three mirrors serve `index-CiihP5yH.js`, byte-identical to the local build once
 line endings are normalised (the working tree is CRLF, the served file LF).
 
@@ -3993,6 +4087,197 @@ produces an empty failure list and is indistinguishable from a guard that cannot
 fail — the harness now reports CRASHED. The other was a real guard weakness: the
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
+
+### Pick up here — v1.4.3 is prepared and not released, 2026-10-02
+
+**This block is the authority on what is open. Every block below it is history.**
+
+`dev` holds v1.4.3: each round opens on a person, `prose.style` asks for the native romance-novel
+register of the prompt's own language, place descriptions and `world.scenario` are deleted,
+`[初见]` is Yuhan's rewrite, and `habit` is removed end to end. Yuhan hand-played the zh build on
+the `dev` preview and judged it good. **The next step is the release sequence**, run from a
+machine allowed to deploy.
+
+**NOT verified:** the shipped style line is not the one blind read 5 measured (that was a
+plain-spoken variant), so read 5 is evidence for the person-first opening only; her hand play is
+the evidence for the combination. en and ko have had no blind read and no live play, and the ko
+`[初见]` translation needs a native reader.
+
+**Open, carried forward unchanged** from the v1.4.2 block below.
+
+---
+
+### Pick up here — v1.4.2 is released and VERIFIED on all three hosts, 2026-10-01
+
+**This block is the authority on what is open. Every block below it is history — read the
+dates, not the tense.**
+
+**v1.4.2 is live.** `main` = `origin/main` = **`376fba4`**, tagged `v1.4.2` on that deploy
+commit. The merge back into `dev` is done. Tree clean, nothing stashed, nothing running.
+
+**`dev` = `origin/dev` = `1333ed8`, pushed 2026-10-01.** It carries, on top of the release: the CV
+rule (`b055a49`), a status update (`e929076`), the prompt's prose rules moving to the per-language
+register document (`9e82d09`), and the agent-handoff docs (`16c764e`, `1333ed8`). Only `9e82d09`
+touches `src/`, and it renders byte-identically, so `main` and the deployed bundle are unaffected.
+**It was pushed so Claude Code Cloud can see it** — a cloud session works from the GitHub checkout,
+so an unpushed baton is an inert one.
+
+**Measured, not assumed:** `node scripts/verify-mirrors.mjs` fetched 51 paths from each of
+the three mirrors — 47 data files, `index.html`, both manifests, the bundle and the
+stylesheet — and reported **51/51 served on all three, every JSON parsed, all three on
+`index-CNKn62wG.js`**. Build clean at **442.31 kB / gzip 155.47**, smoke **1721 passed / 0
+failed**, all six goldens committed with the one clause that moved three of them.
+
+#### What v1.4.2 is
+
+**§22 end to end: the cast library was written for one world, and the setup flow asked in
+the wrong order.** 28 commits off `v1.4.1`. The prompt half is the world-scoped restaging —
+a member's position, public image, queer texture and speech style regenerated for the world
+she is cast in, in **one call for the whole cast** so five independent samples cannot
+produce two second daughters. The flow half is player info before the cast, one profile
+editor for prebuilt and authored members, the cast picker starting the game, the custom
+door as a chip, and the classic door merged back onto one page. Then **nine phone passes**
+of layout correction, §22.6 through §22.12.
+
+**The prompt is byte-identical for an idol run.** The six goldens did not move across the
+whole of §22 except for one clause in the final fix, which renders only where
+`castLore.useRole` is false.
+
+#### The live gate, and what it found
+
+12 rounds on `deepseek-flash`, three arms, before the bump: `chaebol`/zh, `kpop_idol`
+classic/zh, `campus`/ko. **4/4 clean in each, 0 static-prompt drifts across all 12, 0 ledger
+prefix breaks, 89.6–90.4% cache.**
+
+It found one defect and the fix for it was wrong in its first form — both recorded under *A
+rule written in English about a word the model is copying in Chinese*. The short version:
+the restaging law enumerated the forbidden ranks in English while the prose it restages and
+the output are Chinese, so the model kept 忙内; naming the zh forms fixed it, and naming the
+**ko** forms as well was an over-reach that banned the ordinary Korean word for *youngest*,
+caught by reading a clean run's output.
+
+#### NOT verified
+
+- **The released build has not been hand-played.** Yuhan's phone pass was at `1cac3ab`; the
+  release carries one prompt change on top of it (the rank enumeration) plus docs. That
+  change is live-tested in three arms but has not been seen on a device.
+- **No live round on the production mirrors** — the bundle is byte-identical to the one the
+  branch alias served, so this is a formality rather than a gap, and it has not been done.
+- **The largest casts scroll on the smallest phone**, unchanged: a 9- or 10-member classic
+  cast is 26-30px over on an iPhone 13 mini, fits an iPhone 15 by 1-5px. Yuhan's call —
+  three identity columns gives back 47px, dropping the page header 36.
+
+#### After the release: the CV rule, and the CV itself
+
+**Every release now updates the CV in `docs/.resume/`, written into the Release section
+above.** The reasoning is that this project is the main piece of technical evidence on a CV
+aimed at master thesis positions and entry-level applied LLM-agent roles, so a release that
+lands a measured number and leaves the CV naming the previous version has thrown that
+evidence away.
+
+- **`docs/.resume/` is gitignored and nothing in it has ever been tracked** (`git log --all --
+  'docs/.resume*'` is empty, so there is no history to purge). It holds personal
+  job-application material rather than project documentation. **No CV content belongs in a
+  tracked file, a commit message or the README** — which is why nothing below names any of it.
+- **`v1.4.2.tex` exists and Yuhan has it compiling as one tight page.** What the revision added
+  over the previous one is the material no earlier CV mentioned: RAG over the JSON document
+  library, schema-validated structured output, and a whole bullet on the evaluation machinery —
+  mutation-verified assertions, golden-file prompt snapshots, the graders that turned out to be
+  wrong 9 times in 13, the A/B reported inconclusive, and CI. A `LLM Evaluation` skills line
+  replaced `Performance`.
+- **One page is a hard constraint and bold costs width.** The skills section bolds ten terms and
+  paid for them by dropping 33 characters of plain text, including the one duplicated figure on
+  the page. If a later revision spills, the file's own header comment names what to cut first.
+
+**Nothing here is a code change**, so no gate applies beyond the suite still being green: smoke
+**1721 passed / 0 failed**, and `src/` was not touched.
+
+#### The translation-quality bug, and more than one agent
+
+**Reported 2026-10-01: on the classic Red Velvet door, `kpop_idol`, free mode, DeepSeek V4.1 Flash
+— the same model and cast as v1.3.9 — the generated Chinese in rounds 1 and 2 reads like machine
+translation.** It did not in v1.3.9.
+
+**Measured on the rendered zh golden, `v1.3.9` against `v1.4.2`:** the static prompt grew **+37%**
+(~5,435 → ~7,259 tokens, 59 → 68 bullet rules) while the **Chinese share of its characters FELL
+from 18.4% to 16.2%** — ~4,000 of the ~5,900 new characters are English rules. Every rule governing
+how the prose *sounds* was an English sentence describing Chinese writing abstractly, and **no rule
+anywhere said what good Chinese prose is.** That is the condition that produces translationese, and
+it costs the weakest model in a route first.
+
+**Ruled out, with evidence — do not re-investigate:**
+
+- **Not the cast data.** `public/groups/red_velvet/zh.json` is byte-identical to `v1.3.9` apart from
+  five added `habit` lines and two deleted dead fields.
+- **Not the world-detail restaging.** Correctly skipped in `kpop_idol` (`castLore.useRole` is true),
+  and the feature plus **both** its gates landed in one commit (`a51dbc8`), so no build has ever
+  written a `kpop_idol`-stamped overlay. `applyWorldDetail` is gated on the stamp, not on `useRole`
+  — a latent hole if an overlay ever did exist, since the editor hides tab 2 there and nothing could
+  revert it. Not reachable today; recorded rather than fixed.
+- **Not prompt drift.** `backstorySeed` shipped in v1.3.9 and smoke builds each prompt twice across
+  8 identities x 3 languages. A live run measured **0 drifts across 8 rounds**.
+
+**NOT reproduced**, and that is stated rather than hidden: a live run on the exact configuration
+returned **8/8 clean, 89.6% cache, 662-904 chars per story**, and the prose read well. That is weak
+evidence — this repo has measured 0% vs 26.7% rule violation across two runs of *identical* code —
+so **the player's reading is the instrument, not the verdict line.**
+
+**Shipped in `9e82d09`: the plumbing only.** The eight prose rules now come from
+`public/worlds/_registers/<lang>.json` under `prose`, the same per-language document the address
+register lives in — these are facts about a **language**, not a setting, so four worlds must not
+carry four copies. All three files hold the English verbatim, so **all six goldens are unmoved**,
+which is the gate that says the wiring changed nothing but the wiring. Smoke **1721 → 1725**,
+**5 mutations 5 RED**. `renderProse` throws on an unknown placeholder **and on an empty value**,
+deliberately unlike `renderCastLore`, which drops a line — right for optional lore, wrong for a
+rule. **Three guards were written and deleted** for duplicating the validator (their mutation
+crashed the suite instead of reddening the check — third time), and **one was green against broken
+code** for testing presence rather than counting call sites.
+
+**Open, and it is content rather than code:** Yuhan writes the eight Chinese values; `prose.voice`
+(a rule that does not exist yet, saying what good Chinese prose *is*) and `prose.length` in
+characters rather than words are **design and belong to the main session**. `docs/PROMPT_L10N.md`
+carries the English source, the placements and the hard constraints.
+
+**More than one agent works on this repo now, one at a time.** `docs/AGENTS.md` holds the roles —
+the VS Code session designs and implements, Claude Code Cloud (and possibly GPT) stand in for **bug
+fixes only** — plus the rules restated rather than referenced, because a cloud or third-party agent
+never sees Yuhan's personal config. `docs/HANDOFF.md` is the baton: the one task in flight, what is
+**not** verified, and the exact next command. **Every live test is local-only** — a cloud session
+has no `API_KEY` and must never be given one.
+
+#### Open, in rough order of value
+
+1. **§22.4's two undiagnosed defects.** The saved cast whose deleted custom member returns
+   as name + emoji (**not reproduced**), and the round that names nobody, only 她 — which
+   also makes `membersNamedIn` record no one present, so `[Rounds Absent]` reports a false
+   absence. One prompt rule may close the second; it moves all six goldens.
+2. **`PROPOSALS.md` §6 — the ending precedence.** Two of five endings are effectively
+   unreachable and one common state reaches none. **This blocks §21** (endings and the
+   epilogue), because the epilogue's register is keyed on the ending id.
+3. **§18's two dead-field decisions:** `STAR_LEVELS` and `STORAGE_KEYS.FORM` (delete or
+   wire), `world.tone` and `country.name` (render or delete — rendering `tone` moves all six
+   goldens).
+4. **The Start-wait regression**, owed since the whole-cast call shipped: one call **5.2s**
+   against five concurrent **2.2s**, scaling the wrong way with cast size. Yuhan's to weigh.
+5. **Three of four providers have still never played a live round** — `--provider gemini`
+   and `--provider gpt4omini` are one command each, and open question 3 has been waiting on
+   exactly that.
+6. Longer-standing: `PROPOSALS.md` §7 (a truncated round rendered as raw JSON, and
+   `hasUsableStory` cannot fire on the worst case), §10's calculated storage budget, the
+   router fix from `56cc684` live-untested, the `[Rounds Absent]` A/B needing 3+ replicates.
+
+**Still unbuilt and scoped for the next feature release:** plot mode (§19), endings and the
+epilogue (§21), the affinity matrix (§7.3/7.4), player-side KKT/IG composers (§8),
+`WorldBuilder.jsx`. The unified door is **cancelled** (§22.9).
+
+**Housekeeping, Yuhan's because deletion is a red line** — `scripts/hotfix-worktree.sh
+status` prints the commands. The worktree under the session temp path, and
+`hotfix/year-wheel-start-blocked` locally and on the remote; it needs `-D`, not `-d`,
+because `main` carries the same fix by a different commit.
+
+**Tag note:** `v1.4.1` still points at `0e27d8b`, which predates `.nojekyll`. Source there is
+identical, so leaving it is still the recommendation.
+---
 
 ### Pick up here — v1.4.1 is released and VERIFIED on all three hosts, 2026-09-30
 

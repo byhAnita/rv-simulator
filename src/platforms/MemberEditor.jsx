@@ -5,7 +5,7 @@
 // TWO TABS SINCE §22.2's COMMIT 4b, AND THE SPLIT IS THE STORAGE RULE: tab 1 is
 // true of the PERSON, tab 2 is true of the person IN A WORLD. §22.2's test for
 // which tab a field is in is *would this sentence still be true if she were cast
-// in a different world?* - her MBTI, her habit and her birth year survive the
+// in a different world?* - her MBTI and her birth year survive the
 // move; her position here and the three ★ texture fields do not.
 //
 // It was three steps (who she is / how she reads / details) and the reason for
@@ -58,7 +58,7 @@ import { photoFill } from "./memberFace";
 // say what she does - the filtered-slot-left-empty defect commit 4 exists to
 // close, one door over.
 export const STEP_FIELDS = [
-  ["name", "birthday", "private_personality", "mbti", "habit", "emoji"],
+  ["name", "birthday", "private_personality", "mbti", "emoji"],
   ["name_kr", "world_position", "public_image", "queer_texture", "speech_style", "hidden_conflict"],
 ];
 
@@ -367,8 +367,8 @@ export default function MemberEditor({
   // ── THE RESUME: ONE image column, and the five fields beside it ─────────────
   //
   // Yuhan's design, 2026-09-30 (22.8.1): photo, wallpaper and the emoji palette
-  // stacked on the left; name, birth year, private personality, MBTI and habit on
-  // the right, one per line.
+  // stacked on the left; name, birth year, private personality and MBTI on the
+  // right, one per line. (A habit box sat here until 2026-10-02.)
   //
   // IT IS ONE ROW BECAUSE TWO ROWS EACH PAY FOR THEIR OWN MISMATCH. 22.7.2 gave
   // the wallpaper a narrower column than the photo, which shortened that tile and
@@ -556,7 +556,7 @@ export default function MemberEditor({
                   {photoTile("wall", wall, "🖼", c.wall)}
                   {renderCompact("emoji")}
                 </>,
-                ["name", "birthYear", "private_personality", "mbti", "habit"],
+                ["name", "birthYear", "private_personality", "mbti"],
               )}
 
               {/* THE ONE THING ON THIS SCREEN THAT WANTS THE WIDTH. A sentence is not a

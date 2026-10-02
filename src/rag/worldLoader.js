@@ -29,6 +29,38 @@ export const DEFAULT_WORLD_ID = "kpop_idol";
 // different door. Universal ids delete the coupling instead of guarding it.
 export const MODE_IDS = ["free", "romance", "pressure", "dramatic"];
 
+// The prompt's per-language prose rules, in `public/worlds/_registers/<lang>.json`
+// under `prose`. DERIVED FROM, not duplicated beside: parseWorld validates against
+// this list and smoke asserts all three language files carry every key, so a rule
+// added here without a translation fails the suite instead of going missing in one
+// language — the releaseNotes.js lesson, where a hole is invisible until a Korean
+// player opens the game.
+export const PROSE_KEYS = [
+  "length", "style", "openWith", "profileCritical",
+  "socialFreshness", "tone", "sceneRule", "storyRule",
+];
+
+/**
+ * Substitute `{key}` in ONE prose rule.
+ *
+ * Deliberately NOT `renderCastLore`, which drops a line whose value is missing.
+ * That is right for optional lore (`Fandom: {fandom}.` disappears for a cast with
+ * no fanbase) and WRONG here: a prose rule that vanishes because a placeholder was
+ * empty is a prompt that silently stops asking for something, which is the defect
+ * this whole block exists to prevent. Both an unknown placeholder and an empty
+ * value throw.
+ */
+export function renderProse(template, vars) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => {
+    if (!(key in vars)) throw new Error(`prose template: unknown placeholder {${key}}`);
+    const v = vars[key];
+    if (v === undefined || v === null || v === "") {
+      throw new Error(`prose template: empty value for {${key}}`);
+    }
+    return v;
+  });
+}
+
 // The story mode is a live SETTING, not a save field, so it is seeded once from
 // the pace the player last chose rather than migrated. Same pattern as
 // `resolvePaidModel` taking `rv_sim_qwen_submodel`: read the legacy value, write
@@ -131,7 +163,7 @@ export async function loadWorld(worldId = DEFAULT_WORLD_ID, language = "zh") {
 // reader — the `NPC_APPEARANCE_CHANCE` shape this project tracks four times.
 const REQUIRED = ["world", "country", "setting", "tone", "statNotes", "platforms",
   "castLore", "useGroupLore", "identities", "modes", "phases", "places",
-  "scenario", "npcArchetypes", "addressContext", "castLife"];
+  "npcArchetypes", "addressContext", "castLife"];
 
 export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", registers = null) {
   const where = `${worldId}/${language}`;
@@ -139,7 +171,7 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     if (config?.[key] === undefined) throw new Error(`world ${where}: missing "${key}"`);
   }
   const { world, country, setting, tone, statNotes, platforms, castLore, useGroupLore,
-    identities, modes, phases, places, scenario, npcArchetypes, addressContext, castLife } = config;
+    identities, modes, phases, places, npcArchetypes, addressContext, castLife } = config;
 
   for (const [key, value] of [["identities", identities],
     ["phases", phases], ["places", places]]) {
@@ -297,7 +329,36 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     throw new Error(`register ${registerId}/${language}: "guide" must be a string`);
   }
 
+  // `prose` is the per-LANGUAGE half of the prompt: the rules that decide how the
+  // story SOUNDS, authored in the language they are about rather than described in
+  // English. It lives in the SAME document as the address register, and for the
+  // same reason the register does — these are facts about a LANGUAGE, not about a
+  // setting, so four worlds must not carry four copies of one paragraph.
+  //
+  // Measured on the rendered zh golden, v1.3.9 against v1.4.2: the static prompt
+  // grew 37% and the Chinese share of its characters FELL from 18.4% to 16.2%.
+  // Every rule governing register — style, tone, the opening, the scene and story
+  // rules — was an English sentence describing Chinese writing abstractly, which
+  // is the condition that produces translationese, and it costs the weakest model
+  // in a route first.
+  //
+  // A MISSING KEY THROWS; it does not fall back to English. A prose rule that
+  // silently disappears is a prompt that quietly stops asking for something, and
+  // the symptom is "the writing got worse" with nothing to bisect — the same
+  // reasoning as the unknown-register throw above, applied to the half of the
+  // prompt no diff makes obvious.
+  const prose = registers?.prose;
+  if (!prose || typeof prose !== "object") {
+    throw new Error(`register ${language}: "prose" must be an object`);
+  }
+  for (const k of PROSE_KEYS) {
+    if (typeof prose[k] !== "string" || !prose[k].trim()) {
+      throw new Error(`register ${language}: prose is missing "${k}"`);
+    }
+  }
+
   return {
+    prose,
     id: world?.id || worldId,
     name: world?.name || worldId,
     emoji: world?.emoji || "",
@@ -313,7 +374,6 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
     modes,
     phases,
     places,
-    scenario,
     addressForms,
     npcArchetypes,
     addressContext,

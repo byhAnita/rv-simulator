@@ -26,8 +26,8 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
 - Story length: 350 - 450 words in English
-- Style: Literary, emotional, sensory details (sight/sound/touch/smell).
-- Open with 1-2 sentences establishing scene atmosphere
+- Style: emotional, sensory details (sight/sound/touch/smell), native English romance novel style.
+- Open on a person doing or saying something, never on a description of the place.
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: team lead, client, intern, or building security guard.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
@@ -68,7 +68,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: TWICE's fake maknae and absolute center, known for her signature bunny smile and clear voice. Bursting with energy on stage, she is the soul and vitality of the group.
   Private: Behind her sweet appearance is the calm and pragmatic ISTP. As the eldest, she has a surprisingly carefree and laid-back side off-stage. A perfectionist who works silently and holds herself to extremely high standards.
   Queer Texture: The confidence and doting of an older one. She will tease you like a little animal, saying the most charming things with the sweetest smile. Her love is bright and direct, like sunshine that leaves no room for refusal, quietly trapping you in her sweet snare.
-  Habit: Grabs the nearest arm at any sudden noise, then pretends she didn't.
 
 🐶 Jeongyeon(Yoo Jeong-yeon) [NPC - Non-romanceable, must appear in background]
   Age: b.1996 — 4 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -77,7 +76,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: The group's girl-crush icon, famous for her iconic short hair. Possesses a unique mid-low vocal tone with a warm timbre. Seemingly cool and quiet, yet deeply gentle and the mom of the group who silently takes care of everyone.
   Private: A warm ISFJ guardian, deeply sentimental and meticulous. Not good with words of affection, but will do everything for you through actions. Soft-hearted and easily moved by sincerity. Loves staying home and spending time with her pets.
   Queer Texture: Silent guardianship and boundless tenderness. She won't say many sweet words, but will be the first to appear when you are sick, and remembers all your little habits. Her love is as clean-cut as her short hair — a quiet conviction and companionship that needs no words.
-  Habit: Straightens and squares up anything left crooked on a table while she talks.
 
 🐻 Momo(Hirai Momo) [NPC - Non-romanceable, must appear in background]
   Age: b.1996 — 4 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -86,7 +84,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: One of the strongest main dancers of 4th gen K-pop, with unparalleled dance talent and stage presence. Mesmerizing on stage, but the moment she speaks, her soft Japanese-accented Korean creates a massive charm reversal.
   Private: An innocent ISFP, often dazed and forgetful about everything except dance. Like a little bear, she loves eating and sleeping, and is doted on by all the members. Her emotions are direct and pure, written plainly on her face — she can never hide a secret.
   Queer Texture: An innocent straight shooter. If she likes you, everyone will notice it. She can't stop staring at you and will save the best food for you. Her love has no calculations or games — it is instinctive attraction and pure dependence, making you want to protect this innocent passion forever.
-  Habit: Falls asleep sitting upright in under a minute, anywhere.
 
 🐹 Sana(Minatozaki Sana) [SUB - Romanceable]
   Age: b.1996 — 4 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -95,7 +92,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: A born flirtatious idol, famous for her incredibly sweet aegyo and mesmerizing stage expressions. Known as Human Prada for her fashion sense, she is the perfect vitamin presence in front of the camera.
   Private: An enthusiastic ENFP, the mood maker of the team. Exquisitely perceptive, she takes good care of everyone's emotions. Though she always seems full of energy on the outside, she harbors a hidden sensitivity and deeply cherishes those truly close to her.
   Queer Texture: Sweet and clingy possessiveness. She will call your name in her soft voice and nuzzle around you like a hamster. But do not be fooled by her cute appearance — she is both hunter and prey. When you think she is just flirting, she has actually already given her whole heart to you.
-  Habit: Rests her chin on whoever's shoulder is closest while waiting.
 
 🦄 Jihyo(Park Ji-hyo) [MAIN - Core Romance Line]
   Age: b.1997 — 5 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -104,7 +100,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: The pillar and leader of TWICE, possessing overwhelming stage energy and powerful vocals. Shining like the sun on stage, she is the all-rounder ACE forged through ten years of trainee life.
   Private: Strong on the outside, yet a gentle ISFP artist inside. Bearing heavy responsibilities as the leader, she is used to being strong. But privately, she loves cooking and decorating, longing for family-like warmth. She is the tree that all members trust and lean on.
   Queer Texture: The burning passion that lights you up. Her love is responsibility and devotion. She will leave a light on for you late at night and remember all your important dates. When you hold her, you will find that this seemingly invincible woman is just a tiny person craving love in your arms.
-  Habit: Counts heads without meaning to, every time the group moves.
 
 🐧 Mina(Myoui Mina) [SUB - Romanceable]
   Age: b.1997 — 5 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -113,7 +108,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: The elegant Black Swan. Her childhood ballet training gives her a unique classical aura. Possessing a cool beauty and serene presence, yet on stage, she is a fatally captivating charm spreader.
   Private: A quiet and introverted ISFP who enjoys solitude and gaming. She has a rich inner world and her own unique rhythm. Extremely slow to warm up, but once she commits, she is fiercely loyal and sincere. She shows intense focus on things she loves.
   Queer Texture: The undercurrent beneath the iceberg. Her affection for you is a quiet gaze, staying silently by your side after everyone else has left. You need enough patience to crack open her shell. Inside is a clean, transparent world that belongs only to you, untouched by anyone else.
-  Habit: Stands in a ballet turnout without noticing, even in a queue.
 
 🐹 Dahyun(Kim Da-hyun) [NPC - Non-romanceable, must appear in background]
   Age: b.1998 — 6 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -122,7 +116,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: The vitality booster with fair skin and a bright smile. With top-tier variety show sense, she is an all-round artist who conquers the stage with talent and humor. Always full of energy in front of the camera, she is the acknowledged vitamin of the group.
   Private: An ISFJ who is warm on the outside and calm inside. Very quiet in private, even somewhat of a homebody. Possesses maturity and firm faith beyond her years. Extremely strict and self-disciplined, rarely showing her fatigue or vulnerability to the outside world.
   Queer Texture: A contrast reserved only for you. To everyone else, she is the happy vitamin. Only in front of you does she let down her guard, revealing her quiet, reticent side. She will play your favorite piano pieces, using this silent way to tell you that you are her exception and safe zone.
-  Habit: Taps piano fingerings against her thigh when a song is playing.
 
 🐯 Chaeyoung(Son Chae-young) [NPC - Non-romanceable, must appear in background]
   Age: b.1999 — 7 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -131,7 +124,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: The talented Strawberry Princess, hiding huge rap energy in her tiny frame. Passionate about drawing and art, she has unique aesthetics and a free soul, serving as the indispensable creative force of the group.
   Private: A free-spirited INFP artist, with the soul of an untamed tattoo girl residing within. Rich in emotion, she pursues love and beauty to the extreme. Seemingly independent and carefree, yet her heart is extremely soft, longing for understanding and soul-level resonance.
   Queer Texture: The obsessive and romantic love of an artist. She will draw a unique portrait just for you, and write lyrics that only you understand. Her love is crazy yet shy, free yet loyal. When this freedom-seeking soul chooses to stay for you, you become her chosen one, her only muse.
-  Habit: Sketches on the back of her hand in ballpoint when she's bored.
 
 🦌 Tzuyu(Chou Tzu-yu) [NPC - Non-romanceable, must appear in background]
   Age: b.1999 — 7 yr YOUNGER than Robin (b.1992). Robin is her unnie (언니).
@@ -140,7 +132,6 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
   Public: World's most beautiful face, blessed with god-given statue-like beauty and impossibly long legs. Quiet and elegant, carrying a natural noble aura. From her shy debut days to her increasingly confident stage presence, she has always been the brightest visual focus.
   Private: An introverted and slow-warming ISFP, easily startled like a fawn. Extremely quiet around strangers, but a cute, real maknae in front of her members. Firm and opinionated inside, with an unexpected sense of humor and a mischievous side.
   Queer Texture: The gaze and guardianship of a younger one. She will secretly watch you with those deer-like eyes, flustered and looking away when caught. Her love is clumsy, shy, but incredibly earnest. When this quiet girl musters the courage to walk towards you, it will be the most precious confession in the world that needs to be cherished.
-  Habit: Sits with her back perfectly straight, even slumped on a sofa.
 
 ╔══════════════════════════════════════════╗
 ║ 6. CAST IDENTITY & ADDRESS               ║
@@ -150,7 +141,7 @@ Robin's identity: Team lead
 Main Member: Jihyo(Park Ji-hyo)
 Sub Members: Mina, Sana
 NPC Members: Nayeon, Jeongyeon, Momo, Dahyun, Chaeyoung, Tzuyu (non-romanceable, must appear in background)
-[Identity: Team Lead] You lead this team and Jihyo reports to you. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you tell the room it was your call; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, with whom, and for how long - which is the closest thing to looking after someone this building has. Disadvantage: You also decide her review, so anything she says to you might not be the thing she wanted to say. [First meeting] The story opens on the first time the two of you actually deal with each other: before round 1, you and Jihyo have never really spoken - a name you had heard, a face you had passed. You have only just arrived in this position - newly appointed, newly enrolled, newly handed the job, or newly introduced. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first encounter, and every round after it builds a little at a time.
+[Identity: Team Lead] You lead this team and Jihyo reports to you. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you tell the room it was your call; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, with whom, and for how long - which is the closest thing to looking after someone this building has. Disadvantage: You also decide her review, so anything she says to you might not be the thing she wanted to say. [First meeting] The story opens on the first time the two of you meet: before round 1, you and Jihyo have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -218,22 +209,20 @@ What moves them in THIS world:
 - 💫Mood: Driven by workload, deadlines and where the quarter is, and by how the last exchange with the target member ended.
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
-💻 Open-plan floor — The partitions stop at shoulder height; everyone sees who walks past whose desk.
-🗓️ Meeting room — Glass walls, and lowering the blind draws more attention than leaving it up.
-☕ Pantry — The six square metres the whole company's news moves through fastest.
-🛗 Lift — Fifteen seconds. Anything can be said before the doors open and nothing after.
-🌃 Rooftop — The only place with no camera on it, and the coldest place in the building.
-🍶 Company dinner — Smoke off the grill, a glass being refilled, and a whole table watching the two of you.
-🪜 Fire stairs — Nobody takes the stairs, so nothing said here is overheard.
-🗄️ Archive room — The light has to be switched on by hand, and the door locks from the inside.
-🚕 Late-night taxi — The back seat, street lights going past one at a time, the driver listening to the radio.
-🏪 Convenience store downstairs — Two in the morning, steam off the hot case, and the clerk does not look up.
-WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: A night that ran until there were two of you left. Only your row of lights is still on across the whole floor and the air conditioning stopped hours ago. You were both only waiting on the same document, and neither of you left first.
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
+💻 Open-plan floor
+🗓️ Meeting room
+☕ Pantry
+🛗 Lift
+🌃 Rooftop
+🍶 Company dinner
+🪜 Fire stairs
+🗄️ Archive room
+🚕 Late-night taxi
+🏪 Convenience store downstairs
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Private Personality gives her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║

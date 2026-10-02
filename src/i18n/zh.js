@@ -1,7 +1,7 @@
 const zh = {
   cover: {
     subtitle: "嫂嫂模拟器",
-    desc: "LLM文游·女女恋爱养成·v1.4.2",
+    desc: "LLM文游·女女恋爱养成·v1.4.3",
     newGame: "✨ 开始新游戏",
     continue: "💾 继续游戏 (读档)",
     apiKey: "🔑 修改API Key/切换模型",
@@ -75,7 +75,6 @@ const zh = {
       public_image: "公众形象",
       queer_texture: "同性质感",
       speech_style: "说话方式",
-      habit: "小习惯",
       name_kr: "本名",
       mbti: "MBTI",
       role: "队内定位",
@@ -87,7 +86,6 @@ const zh = {
       world_position: "她在这个世界里做什么 — 位置、年级或职位。",
       emoji: "没有照片时，顶栏和状态框里就用这个符号代表她。",
       birthday: "年份决定敬语方向，必填。",
-      habit: "一个具体、可重复的身体动作 —— 能演出来的，不是感受。",
       private_personality: "没人看着的时候她是什么样。",
     },
     advanced: "进阶设定",

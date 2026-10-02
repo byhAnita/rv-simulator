@@ -1,7 +1,7 @@
 const en = {
   cover: {
     subtitle: "Idol Dating Simulator",
-    desc: "LLM Text Adventure · Yuri Dating Sim · v1.4.2",
+    desc: "LLM Text Adventure · Yuri Dating Sim · v1.4.3",
     newGame: "✨ New Game",
     continue: "💾 Continue (Load Save)",
     apiKey: "🔑 API Key / Model",
@@ -75,7 +75,6 @@ const en = {
       public_image: "Public image",
       queer_texture: "Queer texture",
       speech_style: "Speech style",
-      habit: "Habit",
       name_kr: "Real name",
       mbti: "MBTI",
       role: "Role in the group",
@@ -87,7 +86,6 @@ const en = {
       world_position: "Her place in THIS world — a position, a year, a job.",
       emoji: "With no photo, this is her face in the top bar and the stats box.",
       birthday: "The year sets which way honorifics point. Required.",
-      habit: "One concrete, repeatable physical action — something stageable, not a feeling.",
       private_personality: "Who she is when no one is watching.",
     },
     advanced: "Advanced",

@@ -2507,28 +2507,25 @@ async function layerI() {
     new Set(members.map((m) => m.birthday)).size > 1,
     "one birth year for the whole cast means the seniority fallback is in play");
 
-  // `habit` (step 5), `speech_style` (step 6) and `tags` (v1.4.2) go on the
-  // whitelist before any group JSON declares them, so the content arrives
-  // working instead of arriving silently dropped — precisely what happened to
-  // `birthday`.
-  check("the whitelist carries habit, speech_style and tags through parseGroupConfig",
-    members.every((m) => typeof m.habit === "string"
-      && typeof m.speech_style === "string" && Array.isArray(m.tags)),
+  // `speech_style` (step 6) and `tags` (v1.4.2) go on the whitelist before any
+  // group JSON declares them, so the content arrives working instead of arriving
+  // silently dropped — precisely what happened to `birthday`.
+  check("the whitelist carries speech_style and tags through parseGroupConfig",
+    members.every((m) => typeof m.speech_style === "string" && Array.isArray(m.tags)),
     JSON.stringify(members.map((m) =>
-      `${m.name}:${typeof m.habit}/${typeof m.speech_style}/${Array.isArray(m.tags)}`)));
-  // Served through a stub rather than read from a file ON PURPOSE, even now
-  // that every group JSON declares a habit. This asserts the field survives
+      `${m.name}:${typeof m.speech_style}/${Array.isArray(m.tags)}`)));
+  // Served through a stub rather than read from a file ON PURPOSE. This asserts the field survives
   // parseGroupConfig for an ARBITRARY value, independently of what the library
   // happens to contain — which is the check that would have caught the
   // birthday bug. The content sweep below is the separate question.
-  const withHabit = await (async () => {
+  const withSpeech0 = await (async () => {
     const real = globalThis.fetch;
     globalThis.fetch = async (url) => {
       const p = join(ROOT, "public", String(url).replace(/^\//, ""));
       if (!existsSync(p)) return { ok: false, status: 404, json: async () => ({}) };
       const doc = JSON.parse(readFileSync(p, "utf8"));
       if (doc.members?.[0]) {
-        doc.members[0].habit = "hums when concentrating";
+        doc.members[0].speech_style = "clipped, trails off";
         doc.members[0].tags = ["dancer", "leader"];
       }
       return { ok: true, status: 200, json: async () => doc };
@@ -2536,12 +2533,12 @@ async function layerI() {
     try { return await loader.loadGroupConfig("red_velvet", "en"); }
     finally { globalThis.fetch = real; }
   })();
-  check("a habit declared in group JSON reaches the parsed member",
-    withHabit.members[0].habit === "hums when concentrating"
-      && JSON.stringify(withHabit.members[0].tags) === JSON.stringify(["dancer", "leader"]),
-    `habit=${withHabit.members[0].habit} tags=${JSON.stringify(withHabit.members[0].tags)}`);
+  check("a speech_style declared in group JSON reaches the parsed member",
+    withSpeech0.members[0].speech_style === "clipped, trails off"
+      && JSON.stringify(withSpeech0.members[0].tags) === JSON.stringify(["dancer", "leader"]),
+    `speech_style=${withSpeech0.members[0].speech_style} tags=${JSON.stringify(withSpeech0.members[0].tags)}`);
 
-  // --- step 5 content: habit across the whole library -----------------------
+  // --- the whole library, through the loader ---------------------------------
   // Swept through loadGroupConfig in all three languages, never by reading the
   // JSON. A fixture read off disk tests the formatter, not the feature.
   // These are aggregate checks that NAME their offenders, rather than one
@@ -2563,16 +2560,20 @@ async function layerI() {
     for (const [lang, ms] of Object.entries(langs))
       for (const m of ms) everyMember.push({ gid, lang, ...m });
 
-  const noHabit = everyMember.filter((m) => !m.habit || !m.habit.trim());
-  check("every member in every group reaches the prompt with a habit",
-    noHabit.length === 0,
-    noHabit.map((m) => `${m.gid}/${m.lang}:${m.id}`).join(", ") || `${everyMember.length} checked`);
-
-  // A habit renders as ONE line in the member profile block. A newline would
-  // split it in two and silently reshape the section for that cast only.
-  const multiline = everyMember.filter((m) => /[\r\n]/.test(m.habit || ""));
-  check("no habit carries a line break",
-    multiline.length === 0, multiline.map((m) => `${m.gid}/${m.lang}:${m.id}`).join(", "));
+  // `habit` is GONE, Yuhan's call on 2026-10-02. As a physical tic it read as
+  // mannered and the facts were unverified; as "what the player knows" it was
+  // turned back on the player in 2 of 5 live games and her scent filled 5 of 15
+  // rounds. Read from the RAW files, because the loader no longer passes the field
+  // and a parsed member could not show a re-added one.
+  const habitFiles = [];
+  for (const root of ["public/groups", "groups"])
+    for (const g of readdirSync(join(ROOT, root))) {
+      for (const lang of LIB_LANGS) {
+        const f = join(ROOT, root, g, `${lang}.json`);
+        if (existsSync(f) && /"habit"\s*:/.test(readFileSync(f, "utf8"))) habitFiles.push(`${root}/${g}/${lang}`);
+      }
+    }
+  check("no group file carries a habit", habitFiles.length === 0, habitFiles.join(", "));
 
   // The three language files are authored together; a member present in one
   // and absent from another means a file was edited alone.
@@ -2583,33 +2584,6 @@ async function layerI() {
   check("the three language files of a group agree on its member ids",
     idSetMismatch.length === 0, idSetMismatch.map(([g]) => g).join(", "));
 
-  // Member ids are NOT unique across the library — `x` is a crossover roster
-  // sharing seven of them (the finding that reshaped step 4's group scan). A
-  // habit is a physical tic and belongs to the PERSON, so the shared ids must
-  // agree; disagreement means one file was edited and its twin forgotten.
-  const crossover = [];
-  for (const lang of LIB_LANGS) {
-    const seen = {};
-    for (const m of everyMember.filter((e) => e.lang === lang)) (seen[m.id] ||= []).push(m);
-    for (const [id, ms] of Object.entries(seen)) {
-      if (ms.length < 2) continue;
-      if (new Set(ms.map((m) => m.habit)).size !== 1)
-        crossover.push(`${lang}:${id} (${ms.map((m) => m.gid).join("+")})`);
-    }
-  }
-  check("a member in two groups carries the same habit in both",
-    crossover.length === 0, crossover.join(", "));
-
-  // Within one cast the habits are what make members distinguishable in a
-  // scene. Two identical ones is a copy-paste that reads as a real profile.
-  const dupes = [];
-  for (const [gid, langs] of Object.entries(library))
-    for (const lang of LIB_LANGS) {
-      const hs = langs[lang].map((m) => m.habit);
-      if (new Set(hs).size !== hs.length) dupes.push(`${gid}/${lang}`);
-    }
-  check("no two members of one cast share a habit",
-    dupes.length === 0, dupes.join(", "));
   const byId = (id) => members.find((m) => m.id === id);
   const GROUP = { groupLore: "lore" };
 
@@ -2721,7 +2695,7 @@ async function layerI() {
     === stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "2000" }))),
     "the backstory seed moved with the birth year");
 
-  // --- step 5: the habit renders, and its ABSENCE renders nothing ----------
+  // --- the member profile section ------------------------------------------
   // The member profile section only, so an unrelated block cannot mask or
   // trip these.
   // Cut back to the start of the NEXT banner box, not to its title: slicing at
@@ -2730,36 +2704,33 @@ async function layerI() {
   const profilesOf = (text) => text.slice(
     text.indexOf("5. MEMBER PROFILES"),
     text.lastIndexOf("╔", text.indexOf("6. CAST IDENTITY")));
-  const ireneHabit = members.find((m) => m.id === "irene").habit;
-  check("a member's habit reaches the member profile block",
-    profilesOf(p).includes(`\n  Habit: ${ireneHabit}`), addressOfIn(p, "Irene"));
-  check("every member of the cast carries exactly one Habit line",
-    (profilesOf(p).match(/^ {2}Habit: /gm) || []).length === members.length,
-    `${(profilesOf(p).match(/^ {2}Habit: /gm) || []).length} lines / ${members.length} members`);
-  // Placement is meaning here: Habit is the staging handle for the three prose
-  // fields, not a fourth differentiator sitting among them.
-  check("Habit renders below Queer Texture",
-    /\n {2}Queer Texture: [^\n]*\n {2}Habit: /.test(profilesOf(p)));
-
-  // A member with no habit must render NOTHING — not `  Habit: ` with a
-  // trailing space, which no reviewer sees and which costs the whole cached
-  // prefix. Custom members (step 6) are exactly this case.
-  const strippedMembers = members.map(({ habit, ...rest }) => rest);
-  const noHabitPrompt = buildSystemPrompt(
-    form(), strippedMembers, "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("a member with no habit renders no Habit line at all",
-    !/Habit:/.test(noHabitPrompt), profilesOf(noHabitPrompt).slice(0, 300));
-  const trailing = profilesOf(noHabitPrompt).split("\n").filter((l) => /[ \t]$/.test(l));
-  check("...and leaves no trailing whitespace where the line would have been",
-    trailing.length === 0, JSON.stringify(trailing.slice(0, 3)));
-  // One habit missing from a cast must not disturb the members around it.
-  const oneMissing = buildSystemPrompt(
-    form(), members.map((m) => (m.id === "yeri" ? { ...m, habit: "" } : m)),
+  // `habit` was removed on 2026-10-02 (Yuhan). An old save can still carry one: a
+  // custom member is snapshotted INLINE into the roster, so her stored profile
+  // reaches members[] without passing the palette whitelist. The prompt must
+  // ignore it - no line, no tastes rule, no section 1 allowance.
+  const withOldHabit = buildSystemPrompt(
+    form(), members.map((m) => ({ ...m, habit: "SENTINEL_HABIT_VALUE" })),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("one habit-less member does not disturb the rest of the cast",
-    (profilesOf(oneMissing).match(/^ {2}Habit: /gm) || []).length === members.length - 1
-      && profilesOf(oneMissing).includes(`\n  Habit: ${ireneHabit}`),
-    profilesOf(oneMissing).split("\n").filter((l) => /[ \t]$/.test(l)).join("|"));
+  // Blind read 5 (2026-10-02, Yuhan, 12 ratings per arm): the translationese sat in
+  // the scene description each round OPENED on, and in rigid metaphors. Replacing
+  // "Open with 1-2 sentences establishing scene atmosphere" with a person-first
+  // opening halved the 翻译腔 count (6 -> 3), and Yuhan dropped "Literary" from the
+  // style line. Every language, because the register files carry the rule per
+  // language and a revert in one would pass a check on another. The style then
+  // names the novel tradition of ITS OWN language: a zh prompt asking for an
+  // English romance novel is the translationese this rule exists to prevent.
+  const NOVEL_LANG = { zh: "Chinese", en: "English", ko: "Korean" };
+  const sceneOpeners = ["zh", "en", "ko"].filter((l) => {
+    const pl = prompt(form(), l);
+    return !/Open on a person doing or saying something, never on a description of the place\./.test(pl)
+      || /establishing scene atmosphere/.test(pl) || /Style: Literary/.test(pl)
+      || !pl.includes(`native ${NOVEL_LANG[l]} romance novel style`);
+  });
+  check("every round opens on a person, and the style asks for that language's own romance-novel register",
+    sceneOpeners.length === 0, sceneOpeners.join(", "));
+  check("a habit carried by an old save reaches no part of the prompt",
+    !withOldHabit.includes("SENTINEL_HABIT_VALUE") && !/LITTLE THINGS|Little things|Habit:/.test(withOldHabit),
+    profilesOf(withOldHabit).split("\n").filter((l) => /SENTINEL|Little things|Habit:/.test(l)).join(" | "));
 
   // --- step 6: a member built from the REQUIRED tier alone -------------------
   // docs/V140_PLAN.md §4.4 requires exactly three fields of a custom member:
@@ -2811,7 +2782,7 @@ async function layerI() {
   const OPTIONAL_LINES = [
     ["animal_plastic", "Animal"], ["public_image", "Public"],
     ["private_personality", "Private"], ["queer_texture", "Queer Texture"],
-    ["speech_style", "Speech Style"], ["habit", "Habit"],
+    ["speech_style", "Speech Style"],
     ["hidden_conflict", "Hidden Conflict"],
   ];
   const strippedOffenders = [];
@@ -2836,10 +2807,9 @@ async function layerI() {
   const withSpeech = buildSystemPrompt(
     form(), members.map((m) => (m.id === "irene" ? { ...m, speech_style: "clipped, trails off" } : m)),
     "irene", ["yeri"], GROUP, "", "qwen", "en", worldFor.en);
-  check("a speech_style renders below Queer Texture and above Habit",
-    /\n {2}Queer Texture: [^\n]*\n {2}Speech Style: clipped, trails off\n {2}Habit: /
-      .test(profilesOf(withSpeech)),
-    (profilesOf(withSpeech).match(/^ {2}(Queer Texture|Speech Style|Habit): .*/gm) || [])
+  check("a speech_style renders directly below Queer Texture",
+    /\n {2}Queer Texture: [^\n]*\n {2}Speech Style: clipped, trails off\n/.test(profilesOf(withSpeech)),
+    (profilesOf(withSpeech).match(/^ {2}(Queer Texture|Speech Style): .*/gm) || [])
       .slice(0, 3).join(" / "));
 
   // The real path: a custom entry is snapshotted inline by resolveRoster and so
@@ -4224,9 +4194,9 @@ async function layerI() {
       && langIndependent(worlds.en) === langIndependent(worlds.ko),
     "the three world files disagree on language-independent rule text");
   // ...and the localized half must actually BE localized, or a field was pasted
-  // into all three files and never translated. `setting` and `scenario` are prose
-  // the model reads as story material, like an identity's background.
-  for (const key of ["setting", "scenario"]) {
+  // into all three files and never translated. `setting` is prose the model reads
+  // as story material, like an identity's background.
+  for (const key of ["setting"]) {
     check(`"${key}" is authored per language, not triplicated`,
       new Set(["zh", "en", "ko"].map((l) => worlds[l][key])).size === 3,
       `${key} is the same string in at least two of the three world files`);
@@ -4273,8 +4243,8 @@ async function layerI() {
       collide.map((i) => i.name).join(", "));
   }
 
-  check("every place is named and described in the player's language",
-    ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name && p.desc)),
+  check("every place is named in the player's language",
+    ["zh", "en", "ko"].every((l) => worlds[l].places.every((p) => p.name)),
     "a place with no name renders as a blank line in the canon list");
   check("place ids are unique within a world",
     new Set(worlds.zh.places.map((p) => p.id)).size === worlds.zh.places.length,
@@ -4324,7 +4294,20 @@ async function layerI() {
     check(`[${id}] the language-independent half is identical across zh/en/ko`,
       invariantHalf(w.zh) === invariantHalf(w.en) && invariantHalf(w.en) === invariantHalf(w.ko),
       `${id}'s three world files disagree on language-independent rule text`);
-    for (const key of ["setting", "scenario"]) {
+    // Yuhan, 2026-10-01: the place blurbs and the opening scene were Chinese a model
+    // had written, in the aphoristic register the translationese report quoted
+    // (`声音清楚而表情不清楚`, `走廊的灯只剩一半亮着`), and in-language text in a prompt
+    // is the strongest style example the model gets. Both were deleted from all four
+    // worlds in all three languages. This stops either coming back unread.
+    const reAuthored = ["zh", "en", "ko"].flatMap((l) => [
+      ...w[l].places.filter((pl) => "desc" in pl).map((pl) => `${l}:${pl.id}.desc`),
+      // Read from the FILE: parseWorld no longer returns `scenario`, so the parsed
+      // world cannot show a re-added one and this half would pass against it.
+      ...("scenario" in JSON.parse(readFileSync(join(ROOT, "public", "worlds", id, `${l}.json`), "utf8"))
+        ? [`${l}:scenario`] : [])]);
+    check(`[${id}] ships no place descriptions and no opening scene`,
+      reAuthored.length === 0, reAuthored.join(", "));
+    for (const key of ["setting"]) {
       check(`[${id}] "${key}" is authored per language, not triplicated`,
         new Set(["zh", "en", "ko"].map((l) => w[l][key])).size === 3,
         `${id}: ${key} is the same string in at least two of the three files`);
@@ -4497,10 +4480,10 @@ async function layerI() {
     check(`[${id}] declares at least one social platform`,
       Array.isArray(w.zh.platforms.social) && w.zh.platforms.social.length > 0,
       "an empty social list renders an empty schema object nothing can fill");
-    check(`[${id}] places are ten, uniquely identified, named and described in every language`,
+    check(`[${id}] places are ten, uniquely identified, named in every language`,
       w.zh.places.length === 10
         && new Set(w.zh.places.map((p) => p.id)).size === 10
-        && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name && p.desc)),
+        && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name)),
       `${w.zh.places.length} places`);
     check(`[${id}] covers all four round phases and the last one is open-ended`,
       w.zh.phases.length === 4 && w.zh.phases[3].to === null,
@@ -4801,12 +4784,12 @@ async function layerI() {
     const missing = worlds[lang].places.filter((pl) => !p.includes(pl.name));
     check(`[${lang}] every canon place the world declares reaches the prompt`,
       missing.length === 0, missing.map((pl) => pl.id).join(", "));
-    check(`[${lang}] ...with the one-line description that tells them apart`,
-      worlds[lang].places.every((pl) => p.includes(`${pl.name} \u2014 ${pl.desc}`)),
-      "a bare list of names says nothing about which place suits which scene");
-    check(`[${lang}] the opening scenario reaches the prompt`,
-      p.includes(worlds[lang].scenario),
-      "round 1 has nothing to open on");
+    // Deleted 2026-10-01 rather than reworded: it opened every identity in the same
+    // late-night practice corridor, a chairwoman included, and wrote it in the
+    // register the prose then copied. Round 1 opens where her identity puts her.
+    check(`[${lang}] the prompt sends no opening scene`,
+      !/THE OPENING/.test(p) && !/round 1 begins here/.test(p),
+      "an opening in section 11 is back; see the 2026-10-01 translationese entry");
     // Every note of every stat, because section 10 asks the model to move them and
     // said nothing anywhere about what moves them in THIS world.
     check(`[${lang}] all three stat notes reach section 10`,
@@ -4825,15 +4808,11 @@ async function layerI() {
     + " escape hatch is a prohibition it will route around");
   check("...and says that where she is decides who is there",
     /WHERE SHE IS DECIDES WHO IS THERE/.test(pEn)
-      && /Habit and Private Personality/.test(pEn),
+      && /Private Personality gives her a reason to be there/.test(pEn),
     "going somewhere was supposed to be how you run into someone");
   check("...and points that rule at [Rounds Absent] rather than restating it",
     /a member \[Rounds Absent\] shows has been away is a reason to put her there/.test(pEn),
     "the absence rule lives in section 3; duplicating it is how two rules disagree");
-  check("the opening is framed as the first scene, not as this round's brief",
-    /round 1 begins here/.test(pEn)
-      && /From round 2 on this has already happened and is never replayed/.test(pEn),
-    "at round 20 an unqualified opening reads as an instruction to open again");
   // It CANNOT be round-conditional - buildSystemPrompt takes no round - and that is
   // why it is safe in the cached prefix. What a future edit could still do is put
   // the place in the tail as well, which is the same fact twice and the second copy
@@ -4849,11 +4828,14 @@ async function layerI() {
   // Asserted as the WHOLE line rather than by hunting for a tag string: several
   // tags are ordinary words the prompt uses elsewhere (`manager` and `staff` are
   // npcArchetypes), so a substring search would fail for the wrong reason. A place
-  // line that renders exactly emoji + name + desc cannot be carrying anything else.
-  check("a place renders as emoji, name and description, and nothing else",
-    drawTags.length > 0 && worlds.en.places.every((pl) =>
-      pEn.includes(`\n${pl.emoji} ${pl.name} \u2014 ${pl.desc}\n`)),
-    "`draws` is the v1.4.2 affinity matrix input, not prose for the model");
+  // line that renders exactly emoji + name cannot be carrying anything else -
+  // neither `draws` nor a description, which was deleted on 2026-10-01.
+  for (const lang of ["zh", "en", "ko"]) {
+    const pl = prompt(form(), lang);
+    check(`[${lang}] a place renders as emoji and name, and nothing else`,
+      drawTags.length > 0 && worlds[lang].places.every((x) => pl.includes(`\n${x.emoji} ${x.name}\n`)),
+      worlds[lang].places.filter((x) => !pl.includes(`\n${x.emoji} ${x.name}\n`)).map((x) => x.id).join(", "));
+  }
 
   // The section numbers are load-bearing: the prompt refers to its own sections by
   // number in five places (`section 4 names`, `Section 6 SPEAKER CONTRACT`,
@@ -5289,7 +5271,7 @@ async function layerI() {
   const parseW = (cfg, reg = registers) => loader.parseWorld(cfg, "kpop_idol", "zh", reg);
 
   for (const key of ["country", "setting", "tone", "statNotes", "platforms", "castLore",
-    "useGroupLore", "identities", "modes", "phases", "places", "scenario",
+    "useGroupLore", "identities", "modes", "phases", "places",
     "npcArchetypes"]) {
     const broken = { ...good };
     delete broken[key];
@@ -5406,6 +5388,79 @@ async function layerI() {
   try { parseW(good); } catch (e) { nullYa = e.message; }
   check("parseWorld accepts a null ya, which is a real value and not an absence",
     nullYa === null, nullYa || "");
+
+  // --- the per-language prose rules ---------------------------------------
+  //
+  // `prose` holds the rules that decide how the story SOUNDS, authored per
+  // language rather than described in English. The failure these guard against is
+  // the quiet one: a rule that goes missing in ONE language produces worse writing
+  // for that language only, with nothing in a diff to point at.
+  // A per-language "the file carries every key" check was WRITTEN HERE AND
+  // DELETED. Removing a key from any of the three files makes parseWorld throw on
+  // load, so the mutation crashed the suite instead of reddening the check — it
+  // duplicated the validator below and could not fail on its own. That is the
+  // third time this repo has deleted a check for that reason; the throw is the
+  // protection, and it names the key and the language.
+  //
+  // A MISSING KEY THROWS. It must not fall back to English: a prose rule that
+  // silently disappears is a prompt that stops asking for something, and the
+  // symptom is "the writing got worse" with nothing to bisect.
+  let noProse = null;
+  const { profileCritical, ...proseGap } = registers.prose;
+  try { parseW(good, { ...registers, prose: proseGap }); }
+  catch (e) { noProse = e.message; }
+  check("parseWorld rejects a register whose prose is missing a rule",
+    noProse !== null && noProse.includes("profileCritical"),
+    noProse || "parsed without complaint");
+  check("parseWorld resolves the prose block onto world.prose",
+    parseW(good).prose.style === registers.prose.style,
+    "the resolved prose is not the one the register ships");
+
+  // THE PROMPT MUST READ THE REGISTER, not a literal. Without this the whole
+  // block could sit on disk, validate, and reach nothing — the shape this repo
+  // tracks seven instances of, a feature complete on one side of a boundary and
+  // connected to nothing on the other. Mutating the VALUE must move the prompt.
+  //
+  // It asserts EVERY key reaches the prompt, with its own sentinel, rather than
+  // that one of them does. The first version set two sentinels and asked whether
+  // either appeared, so putting ONE rule back as a literal left it green — count
+  // the call sites, do not test presence.
+  {
+    const sentinels = Object.fromEntries(
+      loader.PROSE_KEYS.map((k) => [k, `ZZ${k}ZZ`]));
+    const w = parseW(good, { ...registers, prose: sentinels });
+    const p = buildSystemPrompt(
+      form(), members, "irene", ["yeri"], GROUP, "", "qwen", "zh", w);
+    const unused = loader.PROSE_KEYS.filter((k) => !p.includes(sentinels[k]));
+    check("every prose rule in the register reaches the rendered prompt",
+      unused.length === 0,
+      `these are declared but never rendered: ${unused.join(", ")}`);
+  }
+
+  // A TRANSLATED STRING MUST NOT CARRY A TAIL LABEL OR A JSON KEY. The static
+  // prompt points at `[Rounds Absent]` and names `story`/`summary` by key, and
+  // `buildDynamicTail` emits those labels in English — so a localized rule naming
+  // a translated label is a rule pointing at nothing, which is exactly what
+  // `[NPC Appearances]` was. This is the guard that protects future translations.
+  {
+    const LABELS = ["[Player Status]", "[Affections]", "[Stage Changes]",
+      "[Rounds Absent]", "[KKT Channels]", "[KKT Messages]", "[Time Speed]"];
+    const bad = [];
+    for (const l of ["zh", "en", "ko"]) {
+      const reg = JSON.parse(readFileSync(
+        join(ROOT, "public", "worlds", "_registers", `${l}.json`), "utf8"));
+      for (const k of loader.PROSE_KEYS) {
+        const v = reg.prose?.[k] || "";
+        // A label is legal ONLY in its exact English spelling. Any bracketed
+        // token that is not on the list is a translated one.
+        for (const m of v.match(/\[[^\]]+\]/g) || []) {
+          if (!LABELS.includes(m)) bad.push(`${l}.${k}: ${m}`);
+        }
+      }
+    }
+    check("no prose rule carries a tail label the dynamic tail does not emit",
+      bad.length === 0, bad.join(" | "));
+  }
 
   // --- the world index ----------------------------------------------------
   //
@@ -6232,16 +6287,16 @@ async function layerI() {
   // The whitelist is applied on write: the stored shape stays the documented
   // one even if a later editor version puts something else in scope.
   const junk = store.upsertMember([], {
-    id: "c_1", profile: { ...REQ, apiKey: "sk-secret", notes: "x", habit: "hums" },
+    id: "c_1", profile: { ...REQ, apiKey: "sk-secret", notes: "x", speech_style: "hums" },
   }).cast[0].profile;
   check("an unrecognised field never reaches the stored profile",
-    !("apiKey" in junk) && !("notes" in junk) && junk.habit === "hums",
+    !("apiKey" in junk) && !("notes" in junk) && junk.speech_style === "hums",
     JSON.stringify(Object.keys(junk)));
   const blanks = store.upsertMember([], {
-    id: "c_1", profile: { ...REQ, habit: "   ", queer_texture: "" },
+    id: "c_1", profile: { ...REQ, speech_style: "   ", queer_texture: "" },
   }).cast[0].profile;
   check("a blank optional field is dropped rather than stored as an empty string",
-    !("habit" in blanks) && !("queer_texture" in blanks),
+    !("speech_style" in blanks) && !("queer_texture" in blanks),
     JSON.stringify(Object.keys(blanks)));
 
   check("cosmetic fields are auto-assigned so the player never has to pick",
@@ -6545,7 +6600,7 @@ async function layerI() {
     name: "Lin Xia", birthday: "1999-04-02",
     private_personality: "fixes things quietly", public_image: "the calm one",
     queer_texture: "she notices hands first", speech_style: "clipped, trails off",
-    habit: "tunes a string that is already in tune", animal_plastic: "heron - still, then sudden",
+    animal_plastic: "heron - still, then sudden",
     hidden_conflict: "she was the reason the last group split",
   };
 
@@ -6555,19 +6610,19 @@ async function layerI() {
   check("a bare JSON card parses",
     cg.parseCard(JSON.stringify(FULL_CARD)).name === "Lin Xia");
   check("a fenced JSON card parses",
-    cg.parseCard("```json\n" + JSON.stringify(FULL_CARD) + "\n```").habit.length > 0);
+    cg.parseCard("```json\n" + JSON.stringify(FULL_CARD) + "\n```").speech_style.length > 0);
   check("an unlabelled fence parses",
     cg.parseCard("```\n" + JSON.stringify(FULL_CARD) + "\n```").name === "Lin Xia");
   // Fence stripping has to happen BEFORE the brace slice, and this is the case
   // that proves it: trailing prose containing braces moves lastIndexOf("}") past
-  // the card, so the slice alone would extract "{habit}" and parse nothing.
+  // the card, so the slice alone would extract "{speech_style}" and parse nothing.
   // Without this the fence handling is redundant with the slice and a mutation
   // removing it stays green - which is exactly what it did.
   check("a fenced card survives trailing prose that contains braces",
     cg.parseCard("```json\n" + JSON.stringify(FULL_CARD)
-      + "\n```\nAdjust the {habit} field if you like.").name === "Lin Xia",
+      + "\n```\nAdjust the {speech_style} field if you like.").name === "Lin Xia",
     JSON.stringify(cg.parseCard("```json\n" + JSON.stringify(FULL_CARD)
-      + "\n```\nAdjust the {habit} field if you like.")));
+      + "\n```\nAdjust the {speech_style} field if you like.")));
   check("prose around the object is discarded",
     cg.parseCard("Here you go!\n" + JSON.stringify(FULL_CARD) + "\nHope that helps.")
       .name === "Lin Xia");
@@ -6578,22 +6633,22 @@ async function layerI() {
   // §4.5: missing fields stay empty rather than failing the call. Six of nine
   // fields is still a head start, and refusing it hands the player a blank form
   // for no reason.
-  const partial = cg.parseCard('{"name":"Lin Xia","habit":"hums"}');
+  const partial = cg.parseCard('{"name":"Lin Xia","speech_style":"hums"}');
   check("a partial card keeps what it has and does not invent the rest",
-    partial.name === "Lin Xia" && partial.habit === "hums"
+    partial.name === "Lin Xia" && partial.speech_style === "hums"
       && Object.keys(partial).length === 2,
     JSON.stringify(partial));
   check("a field the schema does not list is dropped",
     !("apiKey" in cg.parseCard('{"name":"Lin Xia","apiKey":"sk-secret"}')),
     "the card parser is a whitelist too");
   check("a blank field is not stored as an empty string",
-    !("habit" in cg.parseCard('{"name":"Lin Xia","habit":"   "}')));
-  // A habit renders as ONE line in the profile block, exactly as in the group
+    !("speech_style" in cg.parseCard('{"name":"Lin Xia","speech_style":"   "}')));
+  // A field renders as ONE line in the profile block, exactly as in the group
   // library, so a model that returns a wrapped one must not break the shape.
-  check("a multi-line habit is folded onto one line",
-    cg.parseCard('{"habit":"taps the rim\\n  twice, always"}').habit
+  check("a multi-line field is folded onto one line",
+    cg.parseCard('{"speech_style":"taps the rim\\n  twice, always"}').speech_style
       === "taps the rim twice, always",
-    JSON.stringify(cg.parseCard('{"habit":"taps the rim\\n  twice, always"}').habit));
+    JSON.stringify(cg.parseCard('{"speech_style":"taps the rim\\n  twice, always"}').speech_style));
   for (const junk of ["", "   ", "no json here", "[1,2,3]", '"a string"', "null", null, 42]) {
     if (Object.keys(cg.parseCard(junk)).length !== 0) {
       check("unparseable output yields an empty card, never a throw", false, JSON.stringify(junk));
@@ -6612,7 +6667,7 @@ async function layerI() {
   // A player can type a real idol's name into the box, and the fields being
   // asked for are private personality, queer texture and hidden conflict.
   // Without this the feature generates invented claims about a real person's
-  // private life — the exact thing the habit sourcing rule forbids.
+  // private life — the thing this project refuses to invent about a real person.
   // Whitespace-normalized: the prompt is a hard-wrapped template literal, so a
   // phrase can legitimately straddle a newline and a raw substring match would
   // fail on a reflow that changed nothing the model sees.
@@ -6657,7 +6712,7 @@ async function layerI() {
   }));
   check("a good response produces a usable card",
     cardOk.ok === true && cardOk.profile.name === "Lin Xia"
-      && cardOk.profile.habit.length > 0,
+      && cardOk.profile.speech_style.length > 0,
     JSON.stringify(cardOk.reason || Object.keys(cardOk.profile)));
 
   // No key at all: callLLM throws `auth` before any request is made. This is the
@@ -6779,7 +6834,7 @@ async function layerI() {
     const dp = w ? cg.buildWorldDetailPrompt({ name: "Yeri", public_image: "the maknae" }, w, "en") : "";
     check("the restaging prompt is built from fields the world already carries",
       Boolean(w) && dp.includes(w.castLife.theirs) && dp.includes(w.castLore.orgNoun)
-        && dp.includes(w.scenario) && dp.includes(w.places[0].name),
+        && dp.includes(w.places[0].name),
       "a new prose field would be twelve world documents for something already there");
     check("...and hands her existing lines over as the source to restage",
       dp.includes("the maknae") && /KEEP WHO SHE IS/.test(dp),
@@ -6917,7 +6972,7 @@ async function layerI() {
     const cast = [
       { id: "seulgi", name: "Seulgi", birthday: "1994-02-10", public_image: "the maknae" },
       { id: "irene", name: "Irene", birthday: "1991-03-29", private_personality: "reserved" },
-      { id: "yeri", name: "Yeri", birthday: "1999-03-05", habit: "taps the table" },
+      { id: "yeri", name: "Yeri", birthday: "1999-03-05", speech_style: "taps the table" },
       { id: "wendy", name: "Wendy", birthday: "1994-02-21", world_position: "the in-house counsel" },
     ];
     const targets = ["irene", "seulgi", "yeri"];
@@ -7070,7 +7125,8 @@ async function layerI() {
       // four: it is rendered, and what it lost is the editor's box. A field the
       // model fills and the player cannot correct fails the next check below.
       && !cg.CARD_FIELDS.includes("animal_plastic")
-      && cg.CARD_FIELDS.includes("habit"),
+      // habit left on 2026-10-02 with the field itself; nothing renders it.
+      && !cg.CARD_FIELDS.includes("habit"),
     JSON.stringify(cg.CARD_FIELDS));
 
   // A generated card must satisfy the palette's own rules, or the fast path
@@ -7169,9 +7225,9 @@ async function layerI() {
       && /aspectRatio: kind === "wall" \? "2 \/ 3" : "1 \/ 1"/.test(editorSrc),
     "the wallpaper sits directly under the photo, and neither tile's ratio moves");
   // The right column's ORDER is the requirement, not an accident of the loop -
-  // Yuhan asked for MBTI above habit, and the three required fields lead.
-  check("...and the fields beside it read name, year, personality, MBTI, habit",
-    /\["name", "birthYear", "private_personality", "mbti", "habit"\]/.test(tab1Block),
+  // The three required fields lead, then MBTI; the habit box left on 2026-10-02.
+  check("...and the fields beside it read name, year, personality, MBTI",
+    /\["name", "birthYear", "private_personality", "mbti"\]/.test(tab1Block),
     "the order the player reads them in is the design");
   // THE TWO TABS ARE ONE SIZE (22.8.3), and it is made true by construction
   // rather than by a pinned height: both panes sit in the same grid cell, so the

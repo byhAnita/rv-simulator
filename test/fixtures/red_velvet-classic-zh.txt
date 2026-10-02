@@ -26,8 +26,8 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
 - Story length: 350 - 450 words in Chinese (Simplified)
-- Style: Literary, emotional, sensory details (sight/sound/touch/smell).
-- Open with 1-2 sentences establishing scene atmosphere
+- Style: emotional, sensory details (sight/sound/touch/smell), native Chinese romance novel style.
+- Open on a person doing or saying something, never on a description of the place.
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
@@ -95,7 +95,6 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
   Public: 统一饭圈审美的南韩神颜，舞台上高冷优雅，作为队长是全队的定海神针，克制、体面且滴水不漏。
   Private: 典型的慢热与极度细腻。习惯用照顾人的方式（洗衣服、做饭、整理衣角）表达爱意。在不熟的人面前话极少，但对笃定的人有着近乎执拗的保护欲。
   Queer Texture: 年长者的隐忍。比任何人都清楚曝光的代价，前期的拉扯充满理智与情感的疯狂博弈。会用姐姐照顾后辈/朋友的身份作为最坚固的掩护，克制到让人心疼。
-  Habit: 手总是冰的，会不问自取地捧住旁边最近的那杯热饮暖手。
 
 🐻 Seulgi(姜涩琪) [SUB - Romanceable]
   Age: b.1994 — 4 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
@@ -104,7 +103,6 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
   Public: 舞台上的全能ACE, 跳舞时眼神凌厉。私底下却是公认的懵懂小熊，性格温和、大大咧咧，笑起来眼睛弯成月牙。
   Private: 纯粹的直球。没有那么多弯弯绕绕，喜欢就会体现在亮晶晶的眼神里。完美主义者，对自己要求极高，容易把压力藏在心里。
   Queer Texture: 笨拙的勇敢。可能不太懂女团里这种感情的弯弯绕绕，但只要认准了你，就会像小熊护食一样，在练习室深夜的走廊里，把退烧药和手写纸条硬塞进你手里。
-  Habit: 手边有纸就会画一只歪歪扭扭的小熊。
 
 🐿️ Wendy(孙胜完) [SUB - Romanceable]
   Age: b.1994 — 4 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
@@ -113,7 +111,6 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
   Public: 元气满满的主唱，随时随地散发正能量。情商极高，韩娱圈公认的天使。曾在加拿大留学，精通英语。
   Private: 过度的付出型人格。习惯性优先处理他人情绪，越难过越用笑声掩盖。拥有极高感知的细腻内心，但对自己需求极度克制。
   Queer Texture: 润物细无声的越界。会为了你学做你家乡的菜, 在深夜录音室共用一副耳机听未公开Demo。当边界在她无底线的温柔里融化时，你才发现自己早已无处可逃。
-  Habit: 每次都要先确认其他人都吃过了，自己才坐下。
 
 🐥 Joy(朴秀荣) [NPC - Non-romanceable, must appear in background]
   Age: b.1996 — 2 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
@@ -122,7 +119,6 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
   Public: 充满生命力的纯欲天花板，果汁相美貌。性格直爽、开朗，在影视和综艺里都非常活跃。
   Private: 情感炽热且占有欲强。像一团火，恋爱时极度黏人，情绪起伏鲜明，开心和吃醋都写在脸上，是个十足的浪漫主义者。
   Queer Texture: 极度敏感。如果长期得不到对等的回应，亮晶晶的眼神会突然暗下去，开始陷入你是不是不爱我了的自我怀疑。
-  Habit: 会在说话说到一半时从背后抱住对方，越过肩膀继续讲。
   Hidden Conflict: 极度敏感，长期得不到对等回应会陷入自我怀疑
 
 🐢 Yeri(金艺琳) [NPC - Non-romanceable, must appear in background]
@@ -132,7 +128,6 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
   Public: 忙内，古灵精怪的社交小能手，和谁都能迅速打成一片。看似没心没肺，自由奔放。
   Private: 拥有超越年龄的清醒与决断力。过早经历娱乐圈的洗礼让她内心极其坚韧，傲娇之下藏着非常成熟的一面。
   Queer Texture: 最不羁的挑战者。对社会的规则嗤之以鼻，喜欢就是喜欢和性别有什么关系？会故意在直播里戴着你送的戒指，用这种隐秘的挑衅来试探你的胆量。
-  Habit: 吃饭比谁都慢，别人都收桌了她还在吃第一盘。
 
 ╔══════════════════════════════════════════╗
 ║ 6. CAST IDENTITY & ADDRESS               ║
@@ -142,7 +137,7 @@ Summer's identity: 韩娱艺人
 Main Member: Irene(裴珠泫)
 Sub Members: Seulgi, Wendy
 NPC Members: Joy, Yeri (non-romanceable, must appear in background)
-[身份背景] 你是其他公司的kpop女idol, 与Irene有合作机会。 典型事件：你和Irene两人私下排练合作舞台，逐渐熟悉和默契； 你和Irene在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析;  你和Irene的综艺同框被剪辑成暧昧视频广泛流传等。  优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次真正打交道开始：第一回合之前，你和Irene没有真正说过话，彼此只是听过名字、照过面。你是最近才站到这个位置上的——刚到任、刚入学、刚接手、或刚被引见。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合才一点点积累。
+[身份背景] 你是其他公司的kpop女idol, 与Irene有合作机会。 典型事件：你和Irene两人私下排练合作舞台，逐渐熟悉和默契； 你和Irene在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析;  你和Irene的综艺同框被剪辑成暧昧视频广泛流传等。  优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次见面开始：第一回合之前，你和Irene没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -212,22 +207,20 @@ What moves them in THIS world:
 - 💫Mood: Driven by schedule load, comeback pressure, and how the last interaction with the target member ended.
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
-💃 练习室 — 镜墙、地板胶、随时可能被推开的门。
-🎙️ 录音棚 — 隔音玻璃两侧，声音清楚而表情不清楚。
-🏠 宿舍 — 最私密也最没有隐私的地方，门永远虚掩着。
-🏢 公司大厅 — 进出都要刷卡，谁和谁一起来会被看见。
-🎬 打歌节目后台 — 走廊拥挤，别的团、工作人员和摄影机都在。
-💄 发型化妆间 — 镜子太多，距离太近，说话要压低声音。
-🌃 天台 — 唯一没有摄像头的地方，也是最冷的地方。
-🚐 保姆车 — 后座、耳机、经纪人在前排。
-🏪 便利店 — 凌晨两点，口罩和帽檐，收银员没有抬头。
-🌊 汉江公园 — 开阔、公开、危险，但风很好。
-WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: 又一个练习到深夜的日子。走廊的灯只剩一半亮着，其他人陆续离开，而你和她因为某件小事被留了下来。这是你们第一次，在没有其他人看着的地方说话。
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
+💃 练习室
+🎙️ 录音棚
+🏠 宿舍
+🏢 公司大厅
+🎬 打歌节目后台
+💄 发型化妆间
+🌃 天台
+🚐 保姆车
+🏪 便利店
+🌊 汉江公园
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Private Personality gives her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║

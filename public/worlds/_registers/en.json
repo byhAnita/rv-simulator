@@ -1,4 +1,14 @@
 {
+  "prose": {
+    "length": "Story length: 350 - 450 words in {lang}",
+    "style": "Style: emotional, sensory details (sight/sound/touch/smell), native English romance novel style.",
+    "openWith": "Open on a person doing or saying something, never on a description of the place.",
+    "profileCritical": "CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.",
+    "socialFreshness": "ALL of it comes out of THIS round. A member posts about the day she has just had — {recentBeat}, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.",
+    "tone": "Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.",
+    "sceneRule": "ONE SHORT PHRASE — a place and a time, nothing else: \"{sceneExample}\". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only organisation that exists in this story is the one section 4 names; never write another one's name anywhere.",
+    "storyRule": "PURE story text. NO stat bars, NO options embedded, NO repeated \"story\" keys."
+  },
   "korea": {
     "tokens": {
       "unnie": "unnie",

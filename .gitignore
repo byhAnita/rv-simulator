@@ -11,3 +11,7 @@ dist
 
 # Local smoke-test scratch output
 test/.out/
+
+# Private: local CV and job-application material under docs/.resume/.
+# Never committed, never published - it is personal data, not project docs.
+docs/.resume/

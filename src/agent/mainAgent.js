@@ -8,7 +8,7 @@ import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
-import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground } from "../rag/worldLoader";
+import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderProse } from "../rag/worldLoader";
 import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
@@ -107,6 +107,17 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   };
   const lr = langRules[language] || langRules.zh;
 
+  // The prose rules — how the story SOUNDS — come from the per-language register
+  // document, not from literals here. See worldLoader.js#PROSE_KEYS for why. ONE
+  // substitution table serves every one of them, so a world field renamed in one
+  // place cannot leave another rule rendering a literal `{recentBeat}`.
+  const proseVars = {
+    lang: lr.lang,
+    recentBeat: world.castLife.recentBeat,
+    sceneExample: world.castLife.sceneExample,
+  };
+  const P = (key) => renderProse(world.prose[key], proseVars);
+
   // Identity background. The seed is what keeps this stable round to round —
   // see backstorySeed below, and "buildSystemPrompt must be a pure function of
   // the save" in CLAUDE.md.
@@ -162,7 +173,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const playerBirthYear = parseInt(form.birthYear) || (GAME_YEAR - (parseInt(form.age || 20) || 20));
   const playerAge = GAME_YEAR - playerBirthYear;
   const playerName = form.name || "Player";
-
   // Every line here is conditional on having content, for the same reason the
   // member profile block is: a solo run has no sub members and rendered a blank
   // line mid-list, a custom main member has no `name_kr` and rendered `Kim()`,
@@ -327,16 +337,13 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     // byte-identically whether these lines are conditional or not. Only the
     // dedicated Layer I guard fails, and it was verified to. Custom members are
     // the branch no snapshot can contain.
-    //
-    // Habit sits below the prose fields because it is the staging handle for
-    // them, not a fourth differentiator alongside them.
     const line = (label, value) =>
       (value && String(value).trim() ? `\n  ${label}: ${value}` : "");
     const emojiPart = m.emoji ? `${m.emoji} ` : "";
     const krPart = m.name_kr ? `(${m.name_kr})` : "";
     return `${emojiPart}${m.name}${krPart} ${role}
   Age: ${ageLine}
-  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Habit", m.habit)}${line("Hidden Conflict", m.hidden_conflict)}`;
+  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
   // JSON schema. Written without the spaces a formatter would add: the schema is
@@ -438,9 +445,9 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 ╚══════════════════════════════════════════╝
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
-- Story length: 350 - 450 words in ${lr.lang}
-- Style: Literary, emotional, sensory details (sight/sound/touch/smell).
-- Open with 1-2 sentences establishing scene atmosphere
+- ${P("length")}
+- ${P("style")}
+- ${P("openWith")}
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: ${archetypeList}.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
@@ -458,7 +465,7 @@ ${groupConfig.groupLore}
 ╔══════════════════════════════════════════╗
 ║ 5. MEMBER PROFILES                       ║
 ╚══════════════════════════════════════════╝
-CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.${textureCaveat}
+${P("profileCritical")}${textureCaveat}
 ${memberDetails}
 
 ╔══════════════════════════════════════════╗
@@ -496,7 +503,7 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ║ 7. SOCIAL PLATFORM RULES                 ║
 ╚══════════════════════════════════════════╝
 - LANGUAGE: ${lr.lang}.
-- ALL of it comes out of THIS round. A member posts about the day she has just had — ${world.castLife.recentBeat}, the weather she just walked through, the thing that just made her laugh. Nothing here is filler written about no particular day, and nothing here says outright what the story kept unspoken.
+- ${P("socialFreshness")}
 ${platformRules}
 - Only main and sub members generate social content. NPC members DO NOT generate social content.
 
@@ -510,7 +517,7 @@ ${platformRules}
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
 - Relationship stages, in order: ${stageNamesFor(language).map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
-- Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
+- ${P("tone")}
 
 ╔══════════════════════════════════════════╗
 ║ 10. STAT SYSTEM                          ║
@@ -522,13 +529,11 @@ What moves them in THIS world:
 ${statNoteLines}
 
 ╔══════════════════════════════════════════╗
-║ 11. PLACES & THE OPENING                 ║
+║ 11. PLACES                               ║
 ╚══════════════════════════════════════════╝
 CANON PLACES — prefer this list when you choose a scene. Invent somewhere new only when the story genuinely needs a place this list does not have, and then name it as plainly as these are named.
 ${placeLines}
-WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Habit and Private Personality give her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
-THE OPENING — round 1 begins here: ${world.scenario}
-From round 2 on this has already happened and is never replayed. [Player Status] Round in CURRENT STATE says which round you are writing.
+WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewhere, that place is a fact about this round: a member whose Private Personality gives her a reason to be there is likelier to be the one she finds than a member with no reason at all, and a member [Rounds Absent] shows has been away is a reason to put her there rather than a reason to leave her out.
 
 ╔══════════════════════════════════════════╗
 ║ JSON SCHEMA - MUST FOLLOW EXACTLY        ║
@@ -549,11 +554,11 @@ From round 2 on this has already happened and is never replayed. [Player Status]
 }
 
 RULES:
-- scene: ONE SHORT PHRASE — a place and a time, nothing else: "${world.castLife.sceneExample}". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only organisation that exists in this story is the one section 4 names; never write another one's name anywhere.
+- scene: ${P("sceneRule")}
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
 ${platformFormatRules}
-- story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
+- story: ${P("storyRule")}
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.

@@ -1,7 +1,7 @@
 const ko = {
   cover: {
     subtitle: "아이돌 데이트 시뮬레이터",
-    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.2",
+    desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.3",
     newGame: "✨ 새 게임",
     continue: "💾 이어하기 (불러오기)",
     apiKey: "🔑 API 키 / 모델",
@@ -75,7 +75,6 @@ const ko = {
       public_image: "대외 이미지",
       queer_texture: "퀴어 텍스처",
       speech_style: "말투",
-      habit: "습관",
       name_kr: "본명",
       mbti: "MBTI",
       role: "팀 내 포지션",
@@ -87,7 +86,6 @@ const ko = {
       world_position: "이 세계에서 그녀가 하는 일 — 직위, 학년, 업무.",
       emoji: "사진이 없을 때 상단 바와 상태 상자에 나타나는 그녀의 얼굴입니다.",
       birthday: "연도가 존댓말의 방향을 결정합니다. 필수입니다.",
-      habit: "구체적이고 반복 가능한 신체 동작 — 감정이 아니라 연출할 수 있는 것.",
       private_personality: "아무도 보지 않을 때의 그녀.",
     },
     advanced: "고급 설정",
