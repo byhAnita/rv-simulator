@@ -4110,9 +4110,9 @@ so mutating the other left it green. It counts them now. Smoke **1544 → 1551**
 **This block is the authority on what is open. Every block below it is history.**
 
 **v1.4.3 is live.** `main` = `origin/main` = `origin/dev` = **`adf19b9`**, tagged `v1.4.3`.
-On top of it `dev` carries local, **unpushed** commits: the dev-mode `index.html` that
-`dev-index.mjs` restores after a deploy plus a status update (`7e90e66`), and the `place.desc`
-deletion below. `git log --oneline origin/dev..dev` is the authority.
+On top of it `dev` carries the dev-mode `index.html` plus a status update (`7e90e66`, pushed), and
+two **unpushed** commits: the `place.desc` deletion below and the en/ko live-play record.
+`git log --oneline origin/dev..dev` is the authority.
 
 What v1.4.3 is: each round opens on a person, `prose.style` asks for the native romance-novel
 register of the prompt's own language, place descriptions and `world.scenario` are deleted,
@@ -4125,8 +4125,18 @@ hosts, every JSON parsed**. Yuhan played the released zh build and judged it goo
 
 **NOT verified:** the shipped style line is not the one blind read 5 measured (that was a
 plain-spoken variant), so read 5 is evidence for the person-first opening only; her play is the
-evidence for the combination. **en and ko have had no blind read and no live play**, and the ko
-`[初见]` translation needs a native reader.
+evidence for the combination. **en and ko have had no blind read**, and the ko `[初见]` translation
+needs a native reader.
+
+**en and ko have now had live play, 2026-10-06** - 4 rounds each, `kpop_idol` classic, Red Velvet,
+`deepseek-flash`: **4/4 clean in both, 0 static-prompt drifts, 0 ledger prefix breaks, 89.2% / 88.4%
+cache.** The mechanics hold. **What they also showed, and it is a signal rather than a result:** the
+person-first opening held in **2 of 4** en rounds and **about 1 of 4** ko rounds (the main session's
+classification of the first sentence - a structural count, not a register judgement). The other
+rounds open on the room: *"The practice room smelled of floor cleaner"*, *"연습실 형광등이 반쯤
+꺼지고"*. Read 5 measured 15 of 18 in zh. n=4 per language settles nothing, so the prompt is not
+touched; the measurement that would is a longer en/ko run with the opening classified per round.
+Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` (ko).
 
 **Open, new in this release:**
 
