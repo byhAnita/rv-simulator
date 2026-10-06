@@ -4836,6 +4836,21 @@ async function layerI() {
       drawTags.length > 0 && worlds[lang].places.every((x) => pl.includes(`\n${x.emoji} ${x.name}\n`)),
       worlds[lang].places.filter((x) => !pl.includes(`\n${x.emoji} ${x.name}\n`)).map((x) => x.id).join(", "));
   }
+  // The data guard above ("ships no place descriptions") stops a blurb coming back
+  // in a world file; this stops the READER coming back. With no data on disk the
+  // check above cannot tell a deleted reader from a live one, so it is fed one.
+  {
+    const SENTINEL = "PLACE_DESC_SENTINEL_0610";
+    const w = worldFor.zh;
+    const withDesc = { ...w, places: w.places.map((pl, i) => (i === 0 ? { ...pl, desc: SENTINEL } : pl)) };
+    const pd = buildSystemPrompt(form(), members, "irene", ["yeri"], GROUP, "", "qwen", "zh", withDesc);
+    check("a place description is not rendered even when a world carries one",
+      !pd.includes(SENTINEL), "section 11 renders place.desc again; see the 2026-10-01 translationese entry");
+    const mapSrc = readFileSync(join(ROOT, "src/platforms/MapOverlay.jsx"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    check("...and the map picker reads no place description either",
+      !/\.desc\b/.test(mapSrc), "MapOverlay reads p.desc again");
+  }
 
   // The section numbers are load-bearing: the prompt refers to its own sections by
   // number in five places (`section 4 names`, `Section 6 SPEAKER CONTRACT`,

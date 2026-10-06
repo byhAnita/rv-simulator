@@ -25,14 +25,16 @@ export default function MapOverlay({ canon = [], discovered = [], t, theme, font
     color: isLight ? "#3a2a12" : "#f0dce8", cursor: "pointer",
   };
 
-  const row = (key, emoji, name, desc) => (
+  // `note` is the discovered-place line ("found in round 7"). A canon place passes
+  // none: its description was deleted from the world data on 2026-10-01.
+  const row = (key, emoji, name, note) => (
     <button key={key} onClick={() => onPick(name)} style={rowStyle}>
       <span style={{ fontSize: f(15), flexShrink: 0 }}>{emoji || "\u{1F4CD}"}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ fontSize: f(12), fontWeight: 600, display: "block" }}>{name}</span>
-        {desc && (
+        {note && (
           <span style={{ fontSize: f(10), color: isLight ? "#7a5a34" : "#a88ca0", lineHeight: 1.4, display: "block", marginTop: 2 }}>
-            {desc}
+            {note}
           </span>
         )}
       </span>
@@ -53,7 +55,7 @@ export default function MapOverlay({ canon = [], discovered = [], t, theme, font
             {t.map.costsRound}
           </div>
 
-          {canon.map((p) => row(p.id || p.name, p.emoji, p.name, p.desc))}
+          {canon.map((p) => row(p.id || p.name, p.emoji, p.name))}
 
           {discovered.length > 0 && (
             <>

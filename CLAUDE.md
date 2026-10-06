@@ -3229,6 +3229,8 @@ example the model gets. The opening was also identity-blind: it put every player
 included, in a late-night practice corridor, which is the scene the report's bad rounds were set in.
 Round 1 now opens where the player's identity puts her, as it did in v1.3.9. Smoke asserts no world
 ships either field, reading the raw files for `scenario` because `parseWorld` no longer returns it.
+The two readers of `place.desc` (section 11 and the map picker) were deleted on 2026-10-06, and a
+sentinel guard stops either coming back.
 **It did not fix the register on its own** - blind read 3 still rated the build below v1.3.9. What
 fixed it was the opening and style rules; see *The translationese bug*. The deletion stands for the
 reason in lesson 3 there, and because the opening was identity-blind.
@@ -4108,8 +4110,9 @@ so mutating the other left it green. It counts them now. Smoke **1544 → 1551**
 **This block is the authority on what is open. Every block below it is history.**
 
 **v1.4.3 is live.** `main` = `origin/main` = `origin/dev` = **`adf19b9`**, tagged `v1.4.3`.
-On top of it `dev` carries one local, **unpushed** commit: the dev-mode `index.html` that
-`dev-index.mjs` restores after a deploy, plus this status update.
+On top of it `dev` carries local, **unpushed** commits: the dev-mode `index.html` that
+`dev-index.mjs` restores after a deploy plus a status update (`7e90e66`), and the `place.desc`
+deletion below. `git log --oneline origin/dev..dev` is the authority.
 
 What v1.4.3 is: each round opens on a person, `prose.style` asks for the native romance-novel
 register of the prompt's own language, place descriptions and `world.scenario` are deleted,
@@ -4127,10 +4130,14 @@ evidence for the combination. **en and ko have had no blind read and no live pla
 
 **Open, new in this release:**
 
-- **`place.desc` is a reader with no data.** `mainAgent.js:258` and `MapOverlay.jsx` still render
-  a description when a place carries one, and no world file does any more - the dead-field shape this
-  file tracks seven times, with the halves swapped. Delete the branches, or decide places get
-  descriptions back, in which case they are Chinese prose and fall under *THE RULE THIS EARNS*.
+- ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
+  `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
+  and no world file does any more - the dead-field shape this file tracks seven times, with the
+  halves swapped. Deleted rather than kept for a comeback, because a comeback is Chinese prose and
+  falls under *THE RULE THIS EARNS*; restoring it is two lines. The existing data guard could not
+  tell a deleted reader from a live one with nothing on disk, so the new guard feeds a sentinel
+  description through `buildSystemPrompt` and scans the map picker's source. **2 mutations, 2 RED**,
+  smoke **1714 → 1716**, all six goldens byte-identical, bundle `index-CbS1KJjv.js`.
 - **The CV is owed.** `docs/.resume/` holds `v1.4.2.tex` only, and the Release section makes the
   revision part of every release. What v1.4.3 adds is a method rather than a feature - blind native
   evaluation after three automated instruments failed - so whether it displaces anything on a full

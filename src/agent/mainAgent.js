@@ -247,15 +247,17 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     .map(k => `- ${STAT_FACE[k]}: ${world.statNotes[k]}`).join("\n");
 
   // Section 11: the canon places, and the one sentence that makes going somewhere
-  // mean something. `desc` is conditional for the same reason every member field
-  // is - an absent one renders nothing, never a dangling separator.
+  // mean something. A place is its emoji and its name and nothing else. The
+  // descriptions were deleted from every world on 2026-10-01 (model-written Chinese
+  // that the prose copied), and their reader followed on 2026-10-06: a branch with
+  // no data is where an unreviewed blurb would quietly start rendering again.
   //
   // `draws` is deliberately NOT rendered. It is a tag vocabulary feeding the
   // affinity matrix in docs/V140_PLAN.md section 7.3, whose reader is v1.4.2;
   // printing it would hand the model a lookup table for exactly the judgement
   // section 7.4 argues the model makes better than a table does.
   const placeLines = world.places
-    .map(p => `${p.emoji ? `${p.emoji} ` : ""}${p.name}${p.desc ? ` \u2014 ${p.desc}` : ""}`)
+    .map(p => `${p.emoji ? `${p.emoji} ` : ""}${p.name}`)
     .join("\n");
   const a = world.npcArchetypes;
   const archetypeList = a.length > 1
