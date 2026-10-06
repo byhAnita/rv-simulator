@@ -1110,8 +1110,9 @@ The lesson generalises past this field: **a test that reads `public/groups/*.jso
 
 ### The translationese bug: in-language text in a prompt is a style example
 
-**Reported after v1.4.2, fixed in v1.4.3.** The generated Chinese read like machine translation.
-Four lessons, in the order they cost time:
+**Reported after v1.4.2, fixed in v1.4.3** (released 2026-10-02; Yuhan's play on the released
+build confirms it). The generated Chinese read like machine translation. Five lessons, in the order
+they cost time:
 
 **1. It was not a commit, so bisecting versions could not find it.** The first plan was to
 diff v1.3.9 against v1.4.2 and blind-read each difference. Blind read 4 put v1.3.9, v1.4.2 and two
@@ -1146,6 +1147,16 @@ text and translations alike. English rule text is fine; any in-language narratio
 written by Yuhan or reviewed by her before it is committed. A model-written Chinese sentence in
 the static prompt is not neutral data — it is copied, register and all, into every round. Korean
 additionally needs a native reader; nobody on this project is one.
+
+**5. Every cheap instrument failed before the reader worked, and each failed differently.** The main
+session's own reading - a non-native one - called v1.4.2 and v1.3.9 equal and quoted v1.3.9's
+similes as evidence. Yuhan's first read preferred v1.3.9 decisively, but it was **unblinded** (the
+harness printed the arm labels), and the blind repeat of the same comparison put them level. A
+dialogue-share proxy reversed sign between two runs of identical code (12.3 vs 17.7, then 13.5 vs
+10.3). An LLM pairwise judge (`deepseek-v4-pro`, temperature 0, both orders) preferred the wrong arm
+in 12 of 18 judgements and contradicted itself on 6 of 9 pairs. **For register the instrument is a
+native reader, blind, with several samples per arm** - and asking her *where* the stiff sentences
+sit, rather than *which version* is worse, is what turned a rate into a location.
 
 ### `buildSystemPrompt` must be a pure function of the save
 
@@ -3218,7 +3229,9 @@ example the model gets. The opening was also identity-blind: it put every player
 included, in a late-night practice corridor, which is the scene the report's bad rounds were set in.
 Round 1 now opens where the player's identity puts her, as it did in v1.3.9. Smoke asserts no world
 ships either field, reading the raw files for `scenario` because `parseWorld` no longer returns it.
-**Whether this fixes the register is measured by a blind read, not assumed** — see the pick-up block.
+**It did not fix the register on its own** - blind read 3 still rated the build below v1.3.9. What
+fixed it was the opening and style rules; see *The translationese bug*. The deletion stands for the
+reason in lesson 3 there, and because the opening was identity-blind.
 
 The paragraph below is the history of the field while it existed.
 
@@ -3834,14 +3847,16 @@ Then:
 
 ---
 
-## Project Status (2026-10-02)
+## Project Status (2026-10-06)
 
-**v1.4.3 is prepared on `dev` and NOT yet released** (`fd196ca`, bumped, smoke 1714/0). It is the
-translation-quality fix — see *The translationese bug: in-language text in a prompt is a style
-example* and the pick-up block below. The release sequence was refused by the cloud session's
-permission classifier as a production deploy, so `main` is still v1.4.2.
+**v1.4.3 is the deployed release, deployed 2026-10-02**, tagged `v1.4.3` on deploy commit
+`adf19b9`. It is the translation-quality fix - see *The translationese bug: in-language text in a
+prompt is a style example*. Yuhan ran the release and merge-back herself, because the cloud
+session's permission classifier refused the deploy. **Re-verified 2026-10-06:** all three mirrors
+serve `index-DSKfWT5U.js` at 51/51 paths each with every JSON parsed, and a local rebuild of `dev`
+reproduces that hash.
 
-**v1.4.2 is the deployed release, deployed 2026-10-01**, tagged `v1.4.2` on deploy commit
+**v1.4.2 was the release before it, deployed 2026-10-01**, tagged `v1.4.2` on deploy commit
 `376fba4`. All three mirrors serve `index-CNKn62wG.js`, verified by
 `scripts/verify-mirrors.mjs` at 51/51 paths each with every JSON parsed. It is §22 end
 to end — the cast restaged for the world it is cast in, and the setup flow rebuilt over
@@ -4088,22 +4103,45 @@ fail — the harness now reports CRASHED. The other was a real guard weakness: t
 delegation check matched **one** of the builder's two `rosterFromPicks` call sites,
 so mutating the other left it green. It counts them now. Smoke **1544 → 1551**.
 
-### Pick up here — v1.4.3 is prepared and not released, 2026-10-02
+### Pick up here — v1.4.3 is released and VERIFIED on all three hosts, 2026-10-06
 
 **This block is the authority on what is open. Every block below it is history.**
 
-`dev` holds v1.4.3: each round opens on a person, `prose.style` asks for the native romance-novel
+**v1.4.3 is live.** `main` = `origin/main` = `origin/dev` = **`adf19b9`**, tagged `v1.4.3`.
+On top of it `dev` carries one local, **unpushed** commit: the dev-mode `index.html` that
+`dev-index.mjs` restores after a deploy, plus this status update.
+
+What v1.4.3 is: each round opens on a person, `prose.style` asks for the native romance-novel
 register of the prompt's own language, place descriptions and `world.scenario` are deleted,
-`[初见]` is Yuhan's rewrite, and `habit` is removed end to end. Yuhan hand-played the zh build on
-the `dev` preview and judged it good. **The next step is the release sequence**, run from a
-machine allowed to deploy.
+`[初见]` is Yuhan's rewrite, and `habit` is removed end to end.
+
+**Verified, by measurement:** `npm run build` clean at 441.71 kB / gzip 155.30 and **reproduces
+the deployed `index-DSKfWT5U.js`**; `node test/smoke.mjs` **1714 passed / 0 failed**;
+`update-golden.mjs` reports all six goldens unchanged; `verify-mirrors.mjs` **51/51 on all three
+hosts, every JSON parsed**. Yuhan played the released zh build and judged it good.
 
 **NOT verified:** the shipped style line is not the one blind read 5 measured (that was a
-plain-spoken variant), so read 5 is evidence for the person-first opening only; her hand play is
-the evidence for the combination. en and ko have had no blind read and no live play, and the ko
+plain-spoken variant), so read 5 is evidence for the person-first opening only; her play is the
+evidence for the combination. **en and ko have had no blind read and no live play**, and the ko
 `[初见]` translation needs a native reader.
 
+**Open, new in this release:**
+
+- **`place.desc` is a reader with no data.** `mainAgent.js:258` and `MapOverlay.jsx` still render
+  a description when a place carries one, and no world file does any more - the dead-field shape this
+  file tracks seven times, with the halves swapped. Delete the branches, or decide places get
+  descriptions back, in which case they are Chinese prose and fall under *THE RULE THIS EARNS*.
+- **The CV is owed.** `docs/.resume/` holds `v1.4.2.tex` only, and the Release section makes the
+  revision part of every release. What v1.4.3 adds is a method rather than a feature - blind native
+  evaluation after three automated instruments failed - so whether it displaces anything on a full
+  page is Yuhan's call.
+- `docs/PROMPT_L10N.md` Tier 1 (Chinese values for the eight `prose` keys) is **no longer needed
+  for this bug** - the English rule naming the native tradition fixed it. It stays a possible
+  improvement, and any Chinese written for it is Yuhan's.
+
 **Open, carried forward unchanged** from the v1.4.2 block below.
+
+**The exact next command** is Yuhan's, because it is a red line: `git push origin dev`.
 
 ---
 

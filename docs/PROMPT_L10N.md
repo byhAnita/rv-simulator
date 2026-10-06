@@ -1,7 +1,13 @@
 # Prompt localization — the prose rules are English and the prose is not
 
-**Status: Tier 1 PLUMBING IS BUILT and committed (`9e82d09`). Tier 1 CONTENT is Yuhan's to write.**
-**Tier 2 is not started.**
+**Status, 2026-10-06: the bug this document was opened for is FIXED and RELEASED in v1.4.3 - without
+Tier 1's Chinese content.** Two English register values changed instead: `prose.openWith` opens each
+round on a person, and `prose.style` names the native romance-novel tradition of the prompt's own
+language. The record is in `CLAUDE.md`, *The translationese bug*. What follows is kept as the design
+it was; Tier 1 content is now an optional improvement, and any Chinese written for it is Yuhan's (no
+agent adds Chinese prose without her review). **Tier 2 is not started.**
+
+**Original status:** Tier 1 PLUMBING IS BUILT and committed (`9e82d09`). Tier 1 CONTENT is Yuhan's to write.
 
 The wiring is in and renders byte-identically: all eight rules now come from
 `public/worlds/_registers/<lang>.json`, every file currently holds the English text verbatim, and
@@ -458,7 +464,12 @@ atmosphere`, both unchanged since v1.3.9). **Every reading from here is blind**,
 two samples per arm, because the per-sample variance seen here is larger than any difference between
 arms.
 
-### Blind read 2 — the voice rule, PENDING Yuhan's ratings
+### Blind read 2 — the voice rule (SUPERSEDED, never rated)
+
+Superseded by blind reads 3-5, run by the cloud session with Yuhan on full R1-R3 games. Read 5 tested
+a close cousin of this rule - plain-spoken, one simile, open on a person - and it halved 翻译腔; Yuhan
+then kept the person-first opening and rejected the plain-spoken style as too casual. Recorded in
+`CLAUDE.md`, *The translationese bug*. The original plan follows.
 
 One change: in v1.4.2's rendered prompt, the two lines `- Style: Literary, emotional, sensory details
 (sight/sound/touch/smell).` and `- Open with 1-2 sentences establishing scene atmosphere` are replaced
@@ -477,3 +488,78 @@ same private artifact as read 1. **Nothing in `src/` or the register files has c
 arm reads clearly more natural, the rule goes into `public/worlds/_registers/zh.json` as `prose.voice`
 (plumbing already exists), the two lines it replaces are deleted rather than kept beside it, and the
 goldens move by exactly that.
+
+## Blind reads 3-5 - the cloud session's record, moved from HANDOFF.md on 2026-10-06
+
+Yuhan supplied a DeepSeek key for this cloud session (her call; capped billing) and reviewed the
+rendered prompt herself on a diff page. Findings and decisions:
+
+- **Cause (hypothesis, not yet measured):** diffing v1.3.9 against v1.4.2's rendered zh prompt for her
+  exact setup shows section 11 is the only new Chinese narration v1.4.2 sends — place blurbs in an
+  aphoristic register and an identity-blind opening set in a late-night practice corridor, which is
+  where her bad rounds took place. The earlier blind reads fixed the round-2 choice in every arm, which
+  forces that corridor scene and hides a cause that works by putting the player there.
+- **`49713f1`** — place descriptions and `scenario` deleted from all 4 worlds x 3 languages (+ mirror);
+  `[初见]` takes her zh rewrite, translated to en/ko (ko had two typos). Goldens read. 4 mutations RED.
+- **`6586849`** — `habit` is now her TASTES, rendered `Little things <player> knows:`, with a usage rule
+  in section 5 and a section 1 allowance for a learned language's words. Red Velvet only (her text);
+  every other member emptied. Goldens read. 5 mutations RED.
+
+### Blind read 3 — the fixes did NOT close the gap (Yuhan, 2026-10-01)
+
+5 full R1-R3 games per arm on deepseek-flash (same build fingerprint for all 45 rounds), R2+R3 rated
+blind, 10 ratings per arm:
+
+| arm | 自然 | 一般 | 翻译腔 |
+| --- | --- | --- | --- |
+| v1.3.9 | 6 | 3 | 1 |
+| v1.4.2 | 0 | 6 | 4 |
+| dev after `49713f1` + `6586849` | 3 | 1 | 6 (all five R2s) |
+
+v1.3.9 is clearly better and the two commits did not bring v1.4.2 to it. Removing the opening did do
+its other job: round 1 opened in the practice-room corridor 5/5 on v1.4.2 and 0/5 on dev. **The cause
+of the register is still unidentified.** Remaining v1.3.9 -> v1.4.2 differences, none tested at n>2:
+the schema order (v1.3.9 wrote social/Kakao Chinese before the story), the `[Story Mode: Free]` tail
+line, the ROLE CONTRACT, the phone-ownership rule, the expanded stat section, and the tastes rule
+itself. Next step is bisection, one difference per arm, read blind at n>=10 ratings per arm.
+
+The tastes rule then got two fixes (Yuhan's ask): a taste stays hers and is never turned back on the
+player, and is never scenery. Live n=5: direction flips 2/5 -> 0/5; fabric softener 5/15 rounds -> 2/15,
+both remaining as her scent, so the no-scenery clause is only partly obeyed.
+
+### Blind reads 4 and 5 (2026-10-02)
+
+**Read 4** (8 ratings per arm): current dev 5 自然 / 3 一般 / 0 翻译腔; v1.3.9 3/1/4; dev with v1.3.9's whole
+system prompt 1/4/3; dev with the old key order (social before story) 0/6/2. v1.3.9 swung from best in
+read 3 to second-worst here, so at this sample size **per-sample variance exceeds any arm difference**:
+no v1.3.9 -> v1.4.2 diff is shown to cause the register. Translationese is a rate in every version.
+
+Yuhan located it instead: the rigid Chinese is concentrated in the **scene description that opens each
+round**, plus rigid metaphors. Those map onto two rules unchanged since v1.3.9 — `prose.openWith`
+("Open with 1-2 sentences establishing scene atmosphere") and `prose.style` ("Literary, emotional,
+sensory details").
+
+**Read 5** (12 ratings per arm, those two lines replaced by a test wording vs dev): replaced 2 / 7 / 3,
+dev 1 / 5 / 6 — 翻译腔 halved, and Yuhan's overall verdict was that the replaced stories read better.
+Mechanically: dev opened 18/18 rounds on weather, light or a room; the replacement opened 15/18 on a
+person, and similes fell 5.6 -> 3.8 per 1k characters. **Landed 2026-10-02 (Yuhan's version):** `prose.openWith` takes the person-first wording below in all
+three register files, and `prose.style` keeps the old line minus "Literary" — she kept the sensory clause and
+did not take the test's "plain spoken / one simile" sentence. That exact combination has NOT been read blind. Landing it is the next step, as `prose.style` and
+`prose.openWith` in `public/worlds/_registers/zh.json` (plumbing exists, `9e82d09`), ideally in
+Yuhan's Chinese. The test wording was:
+
+- Style: plain, spoken modern Chinese, the way a native Chinese romance novelist writes. Carry the scene with what people do and say, and state a feeling plainly rather than staging it through imagery. At most one simile in the whole story, and only an everyday one a reader would not stop on.
+- Open on a person: what someone is doing or saying as the round begins. Never open with a description of the light, the weather, the corridor or the room.
+
+**Revised the same day (Yuhan):** she judged the test's "plain spoken" style too plain and casual, and
+asked for a shorter opening rule. All three register files now send:
+
+- Style: emotional, sensory details (sight/sound/touch/smell), native <Chinese|English|Korean> romance novel style.
+- Open on a person doing or saying something, never on a description of the place.
+
+Each file names **its own** language's novel tradition; smoke asserts that per language (3 mutations,
+3 RED). Six goldens moved by exactly those two lines each. **Not read blind and not played live** — the
+wording that read 5 measured was different (plain-spoken, one simile), so read 5 is evidence for the
+person-first opening, not for this style line.
+
+**Habits removed entirely** after read 5 (Yuhan): data, loader, editor, generator and prompt.

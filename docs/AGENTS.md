@@ -119,6 +119,9 @@ Approval for one instance is not approval for the next one. Committing locally i
   environment variable is visible to anyone using that environment. Every live test
   (`playthrough.mjs`, `smoke.mjs --live`, `--live-free`) is therefore **local-only** — hand those
   back rather than trying to make them run.
+- **One recorded exception:** Yuhan supplied a capped-billing DeepSeek key to one cloud session on
+  2026-10-01, for the translationese blind reads. It was her call for that session only; approval
+  for one instance is not approval for the next.
 - **`node test/smoke.mjs` runs fully offline** and skips every live layer when no key is present.
   That is your gate, together with `npm run build`.
 - **`vite` is a devDependency.** `NODE_ENV=production` makes npm omit it and the build then fails,
