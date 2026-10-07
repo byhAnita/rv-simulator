@@ -14,7 +14,7 @@ stop and say so rather than guessing.
 | --- | --- | --- |
 | **Claude Opus 5** | VS Code extension | **Main developer and designer**, working with Yuhan. Owns design, architecture, prompt design, new features, releases. |
 | **Claude Opus 5.5** | Claude Code Cloud | **Bug fixes only.** Stand-in when the main session runs out of credits. |
-| **GPT** | VS Code extension | Possible future stand-in. Same scope as above. |
+| **Codex (GPT)** | VS Code extension | Stand-in when a Claude session nears its limit. Same scope as above. Loads the root `AGENTS.md`, which points here. |
 
 **The stand-ins fix bugs. They do not design.** No new features, no architecture changes, no prompt
 redesign, no refactors "while I'm here", no renaming, no restructuring of documents. If the task in
@@ -49,6 +49,8 @@ agent does not see her personal config.
 
 **Shell**
 - **Use the Bash tool for shell commands, never PowerShell.** Unix syntax throughout.
+  Codex has no Bash tool here: run commands through Git Bash
+  (`D:\download\Git\bin\bash.exe -lc "<command>"`) so the documented commands work unchanged.
 - Multi-line commit messages go through `git commit -F - <<'MSGEOF'`. PowerShell here-string syntax
   (`@'...'@`) silently corrupts the message.
 - Windows line endings: most tracked files are **CRLF**. A multi-line patch anchor written with `\n`
@@ -107,6 +109,7 @@ Approval for one instance is not approval for the next one. Committing locally i
 - Sign with **your own** model name, so the history says who did what:
   - `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
   - `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
+  - Codex: a trailer line `Agent: Codex (<model as Codex reports it>)`, with no invented email.
 - Author must remain `byhAnita <52732052+byhAnita@users.noreply.github.com>` — Vercel refuses to
   deploy a commit whose author it cannot match to a GitHub account.
 - Work on `dev`. Never commit directly to `main`.
