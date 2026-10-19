@@ -948,6 +948,44 @@ renumbers the other side.
 
 ---
 
+### A content-hash approval ledger for human-reviewed text — v1.4.3 (unreleased)
+
+**What it is.** Every Chinese string in the data is collected by a script, and a committed ledger
+records a short SHA-256 of each one as Yuhan last saw it, marked `pending` or `approved`. Smoke
+fails when a string's hash is not in the ledger. She edits a Markdown sheet per data file and ticks
+a box per string; `sync` writes ticked text back into the JSON and moves its hash. Nothing else
+moves a hash.
+
+**What it replaced.** A sentence in `CLAUDE.md` and `docs/AGENTS.md`: *no agent adds Chinese prose
+without Yuhan's review*. A rule an agent has to remember is a rule a stand-in agent in a fresh
+context will not see in time, and nothing failed when it was broken - the v1.4.2 translationese
+came from exactly such text sitting in the prompt unnoticed. A PR-style "she reads the diff" does
+not work either: the data is hand-formatted JSON with 500-character strings on one line, and a
+diff of that is not something anyone reviews prose in.
+
+**What it bought.** The rule is a red suite rather than a memory, so it gates `deploy.sh`. The
+property that matters is mutation-verified: an agent that edits the JSON and then runs `sync`
+without a tick stays red, because `sync` only moves hashes for ticked blocks. Each sheet block
+also carries the hash of the text it was generated from - **optimistic concurrency** - so a sheet
+edited against data that has since changed is refused rather than overwriting the newer text.
+Not measured: whether it changes what ships, since the review has not happened yet.
+
+**What it costs.** A second copy of every string's identity (the ledger) that must be pruned when
+a field is deleted - smoke says so. Writing back is a surgical string replacement, because the files
+do not round-trip through `JSON.stringify`; short values repeat (two members whose animal is the
+same word), so the occurrence is chosen by ordinal in document order, and a count that disagrees is
+refused. Provenance comes from `git blame` and is line-level. And it trusts that only Yuhan ticks a
+box: nothing technical stops an agent doing so, which is a rule in `docs/AGENTS.md`.
+
+**Where it lives.** `scripts/zh-review.mjs` (`collectZh`, `locate`, `replaceInRaw`, `sync`),
+`docs/zh-review/` (the sheets and `ledger.json`), smoke `layerZhReview`, workflow in
+`docs/ZH_REVIEW.md`.
+
+**Short form.** Hash every string a human must approve, commit the hashes, and fail the build on
+any string whose hash is not on the list. Let only the human's own action move a hash.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

@@ -99,6 +99,9 @@ Approval for one instance is not approval for the next one. Committing locally i
   rule text and translations all count. In-language text in the prompt is the strongest style
   example the model gets, and model-written Chinese is what made v1.4.2 read like a translation —
   see *The translationese bug* in `CLAUDE.md`. Write the English, propose the Chinese, and wait.
+  **The mechanism is `docs/ZH_REVIEW.md`**: a proposed change to existing Chinese goes into her
+  sheet in `docs/zh-review/` as an *unticked* draft, never into the JSON; never tick a box; never
+  edit `ledger.json`. Smoke Layer Z fails on any Chinese data string she has not reviewed.
 - **A prompt is not append-only.** When you add a rule, grep for what the old one said about the same
   thing and delete it. Nothing fails when two sections disagree; the model just picks.
 - `buildSystemPrompt` must be a **pure function of the save** — no `Math.random()`, no `Date.now()`,

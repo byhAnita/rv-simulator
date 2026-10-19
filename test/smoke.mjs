@@ -30,6 +30,7 @@ import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
 import { MIRRORED_TREES, MIRRORS, buildProbePlan, classifyResponse } from "../scripts/verify-mirrors.mjs";
 import { classifyWorktree, parseWorktreeList, auditWorktrees, classifyHotfixBranch } from "../scripts/worktree-hygiene.mjs";
+import * as zhReview from "../scripts/zh-review.mjs";
 import { PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "../src/config/constants.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -2037,6 +2038,29 @@ async function layerH(mod, ALIYUN_FREE_ROUTE, getAliyunModelFamily) {
     console.log(`    served in ${secs}s · route now ${status.available}/${status.total} available · next: ${status.current}`);
   }
   localStorage.clear();
+}
+
+// ============================================================ LAYER Z
+// No agent adds or changes Chinese prose in the data without Yuhan's review (CLAUDE.md,
+// "The translationese bug", lesson 3). The ledger records the hash of each string as she
+// last saw it; a string whose hash is not there was written or changed since. Only a box
+// she ticks in a sheet moves a hash, so `sync` cannot launder an agent's edit.
+// docs/ZH_REVIEW.md.
+function layerZhReview() {
+  section("LAYER Z - Chinese data is the text Yuhan last reviewed (offline)");
+  const all = zhReview.collectZh();
+  const ledger = zhReview.loadLedger() || {};
+  check("the review collector finds the Chinese data in every world and group",
+    all.length > 300 && zhReview.zhSources().every((s) => all.some((e) => e.source === s.source)),
+    `${all.length} strings`);
+  const off = all.filter((e) => !["approved", "pending"].includes(zhReview.stateOf(e, ledger)));
+  check("every Chinese data string is the text Yuhan last reviewed",
+    off.length === 0,
+    `${off.length} written or changed without review, e.g. ${off.slice(0, 4).map((e) => `${e.key} (${zhReview.stateOf(e, ledger)})`).join(", ")} - put the text in her sheet, never in the JSON; see docs/ZH_REVIEW.md`);
+  const live = new Set(all.map((e) => e.key));
+  const stale = Object.keys(ledger).filter((k) => !live.has(k));
+  check("...and the ledger names no string the data no longer has",
+    stale.length === 0, `${stale.slice(0, 4).join(", ")} - run node scripts/zh-review.mjs sync`);
 }
 
 // ============================================================ LAYER C
@@ -9952,6 +9976,7 @@ async function layerL() {
   await layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg);
   await layerB(mod.callLLM, MODEL_CONFIGS, mod);
   layerC();
+  layerZhReview();
   await layerD();
   layerE(mod);
   await layerEi18n();

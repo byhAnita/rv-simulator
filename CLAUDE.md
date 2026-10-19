@@ -48,6 +48,8 @@ npm run bump 1.3.3                    # rewrite all 15 version strings (note the
 npm run deploy                        # full deploy: preflight -> build -> patch index.html -> push main
 DEPLOY_MSG="fix: desc" npm run deploy # deploy with custom commit message
 node scripts/verify-mirrors.mjs       # AFTER a deploy: fetch the bundle AND every data file from all three mirrors
+node scripts/zh-review.mjs status     # Yuhan's review of every Chinese data string; docs/ZH_REVIEW.md
+node scripts/zh-review.mjs sync       # apply the blocks she ticked in docs/zh-review/*.md
 scripts/hotfix-worktree.sh new <slug> # a clean checkout of main to fix one player-reported bug in
 scripts/hotfix-worktree.sh status     # what worktrees and hotfix branches exist, and which are debris
 ```
@@ -1147,6 +1149,13 @@ text and translations alike. English rule text is fine; any in-language narratio
 written by Yuhan or reviewed by her before it is committed. A model-written Chinese sentence in
 the static prompt is not neutral data — it is copied, register and all, into every round. Korean
 additionally needs a native reader; nobody on this project is one.
+
+**Since 2026-10-19 the rule is enforced, not remembered — `docs/ZH_REVIEW.md`.** Every Chinese
+string in the world, register and group files is collected by `scripts/zh-review.mjs`;
+`docs/zh-review/ledger.json` holds the hash of each as Yuhan last saw it; smoke **Layer Z** fails
+on any string whose hash is not there. She edits a Markdown sheet per file and ticks what she
+approves, and only a tick moves a hash, so an agent that edits the JSON and runs `sync` stays red.
+Baselined at 619 strings, all `pending`.
 
 **5. Every cheap instrument failed before the reader worked, and each failed differently.** The main
 session's own reading - a non-native one - called v1.4.2 and v1.3.9 equal and quoted v1.3.9's
@@ -2762,7 +2771,7 @@ consumer, and the derived scan counts them. The tiles are real `<button>`s, not 
 because the iOS file-input failure is what made the only uploader for an authored member
 untappable on the one device this app is built for.
 
-**ONE control now runs BOTH generations, and it is on the tab that asks.** His label —
+**ONE control now runs BOTH generations, and it is on the tab that asks.** Her label —
 *生成她在世界观下的设定详细设定* — describes her card *and* her restaging, which were two buttons on
 two tabs: the fast path crossed a tab boundary, and tab 2 auto-ran a call the player had not asked
 for. The pair is Generate and Regenerate, one line, half each, and **it is not one button twice**:
@@ -4109,10 +4118,9 @@ so mutating the other left it green. It counts them now. Smoke **1544 → 1551**
 
 **This block is the authority on what is open. Every block below it is history.**
 
-**v1.4.3 is live.** `main` = `origin/main` = `origin/dev` = **`adf19b9`**, tagged `v1.4.3`.
-On top of it `dev` carries the dev-mode `index.html` plus a status update (`7e90e66`, pushed), and
-two **unpushed** commits: the `place.desc` deletion below and the en/ko live-play record.
-`git log --oneline origin/dev..dev` is the authority.
+**v1.4.3 is live.** `main` = `origin/main` = **`adf19b9`**, tagged `v1.4.3`. On top of it `dev`
+carries unreleased work: the `place.desc` deletion, the en/ko live-play record, the Codex handoff
+docs and the zh review machinery. `git log --oneline origin/dev..dev` says what is unpushed.
 
 What v1.4.3 is: each round opens on a person, `prose.style` asks for the native romance-novel
 register of the prompt's own language, place descriptions and `world.scenario` are deleted,
@@ -4140,6 +4148,15 @@ Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` 
 
 **Open, new in this release:**
 
+- ◩ **Yuhan's review of every Chinese data string - the machinery is DONE 2026-10-19, the review is
+  hers.** `scripts/zh-review.mjs` + `docs/zh-review/` + smoke Layer Z; workflow in
+  `docs/ZH_REVIEW.md`, baton in `docs/HANDOFF.md`. 619 strings baselined `pending`. Provenance by
+  `git blame`: all 160 world strings are Claude's; all 459 group strings trace to May-June commits
+  with no co-author line - whether those are hers is her question. **5 mutations, 5 RED**,
+  including the one that matters: an agent edits the JSON and runs `sync` without a tick, and the
+  suite stays red. Every one of the 619 strings was checked to be locatable and editable at exactly
+  its own key in both `public/` and the root mirror, since short values repeat (two members whose
+  animal is 猫咪). Smoke **1716 -> 1719**; no golden moved and no source under `src/` changed.
 - ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
   `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
   and no world file does any more - the dead-field shape this file tracks seven times, with the
@@ -4775,7 +4792,7 @@ really does fit on your phone** — that is the 8px.
 #### The sixth phone pass — two commits, and the first one is a second attempt
 
 **Yuhan's report, 2026-09-30, hand-testing `0d1aa11`** with three screenshots. Plan in
-`docs/V140_PLAN.md` §22.7. His verdict on the flow and the résumé was *"Good. That's exactly my
+`docs/V140_PLAN.md` §22.7. Her verdict on the flow and the résumé was *"Good. That's exactly my
 design"*; what follows is what was still wrong.
 
 1. ✅ **`6dae9a4` — the header was under the clock.** The previous batch's `100vh` fix was a real
@@ -4968,7 +4985,7 @@ on `entry.override`, which `resolveRoster` already honours — never a snapshot.
 **Nothing of §22 is implemented.** The order of work, and the one decision still open:
 
 1. Yuhan's hand test of `631071b` (the PDF flow, the save-slot world label, the saved-cast
-   ×) — **owed from him, nothing to do until it arrives.**
+   ×) — **owed from her, nothing to do until it arrives.**
 2. **DECIDED — take the §22.1 interim prompt rule now** (Yuhan, 2026-09-29), with §22.2's
    generated tab 2 replacing it properly in v1.4.2. It moves the three non-idol goldens, so
    it gets its own commit and the diff is read.
@@ -5072,7 +5089,7 @@ node test/playthrough.mjs --provider gpt4omini --rounds 8
 
 - **the role-first cast picker**, rebuilt on Yuhan's design — see *The cast picker is organised by
   role, not by member*;
-- **step 8: photos in the game, wallpapers, and the year wheel**, from his hand test of the first —
+- **step 8: photos in the game, wallpapers, and the year wheel**, from her hand test of the first —
   see *The photo store shipped with no reader* and *A birth year is stated once*;
 - **step 8's second pass: the crop the player chooses, and three phone-only rendering bugs** — see
   *Four of those six surfaces were wrong on a phone*. **33 mutations, all RED**, three red only
