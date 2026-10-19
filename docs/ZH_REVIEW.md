@@ -77,8 +77,13 @@ When you change a zh string, its en and ko counterparts are now translations of 
 until each one changes.
 
 - **en** — I translate from your zh, and you can read the result.
-- **ko** — blocked. Nobody on this project reads Korean natively, and the rule covers Korean
-  too. They stay listed as owed; translating them is your call, not a default.
+- **ko** — translated on your ask (2026-10-20, the first pass), **not native-reviewed**. Nobody
+  on this project reads Korean natively; treat every ko string as a draft a native reader
+  should check.
+- **Already right?** Some zh edits leave the translation correct (a reworded Chinese place
+  name whose English was always fine). `settle <key> <en|ko>` clears that one owed entry,
+  and only while the translation is still the exact text that was owed. It never touches a
+  zh hash or an approval.
 
 ## What enforces it
 
@@ -89,6 +94,8 @@ exists. Since `deploy.sh` gates on smoke, unreviewed Chinese cannot reach a rele
 `sync` cannot launder an agent's edit: it moves a hash **only** for a block you ticked. An
 agent that edits the JSON and runs `sync` leaves smoke red, and the sheet shows the block as
 `CHANGED SINCE YOUR LAST REVIEW`. That is mutation-verified.
+
+A box typed `[]` reads as unticked, like `[ ]`; only `[x]` is a tick.
 
 **Conflicts.** Every block carries the hash of the text it was generated from. If the data
 changed after the sheet was written, your block is not applied; it is kept as a draft flagged
@@ -111,5 +118,6 @@ changed after the sheet was written, your block is not applied; it is kept as a 
 node scripts/zh-review.mjs status        # per file: approved / pending / changed / new, drafts, owed
 node scripts/zh-review.mjs sync --dry    # what a sync would apply
 node scripts/zh-review.mjs sync          # apply ticked blocks, refresh every sheet
+node scripts/zh-review.mjs settle <key> <en|ko>   # an owed translation needs no change
 node scripts/zh-review.mjs init          # once only; already done 2026-10-19
 ```

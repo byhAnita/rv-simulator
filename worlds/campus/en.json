@@ -10,7 +10,7 @@
     "name": "South Korea",
     "register": "korea"
   },
-  "setting": "The story is set at a university in present-day Seoul. Timetables, club rooms, study rooms that stay open all night and a convenience store that never turns its lights off are the texture of an ordinary day. There is no contract here and no company that can fire anyone - which is exactly why every constraint comes from people: the eyes of her own year, the fixed places of senior and junior, and talk that moves through a department faster than the syllabus does. Romance is not forbidden, but the moment it is seen it becomes somebody else's subject.",
+  "setting": "The story is set at a university in present-day Seoul. Everyday life revolves around first crushes, club activities, coursework and the 24-hour convenience store. The distance Korea's senior-junior hierarchy puts between the player and the members, and the shy testing of new feelings, are where the whole story's tension lives.",
   "tone": "slow-burn, campus seasons, social exposure",
   "statNotes": {
     "selfId": "Rises when she says what she actually wants in a room where an answer is expected - a seminar, a club meeting, a group project. Falls when she gives the answer that keeps things smooth.",
@@ -26,8 +26,8 @@
   "castLore": {
     "useRole": false,
     "orgSuffix": "University",
-    "orgNoun": "school",
-    "orgHint": "These members are students in the same year at the same school. School: {org}",
+    "orgNoun": "university",
+    "orgHint": "These members are students at the same university. University: {org}",
     "composed": [
       "[{name} Background]",
       "{name} is a circle of {n} students at {org}.",
@@ -55,12 +55,12 @@
     {
       "id": "peer_student",
       "name": "Classmate",
-      "background": "[Identity: Classmate] You and {name} are in the same year and the same department, on the same attendance list since your first day. Typical events: Assigned to the same group project, still awake at the convenience store on your third coffee; Picking courses and finding you have chosen the same one again; She falls asleep in the seat beside you and her head tips slowly toward your shoulder; On the last day of finals the whole department is celebrating and the two of you leave early. Advantage: The shortest distance and the most reasons - being in the same room needs no explanation at all. Disadvantage: And for exactly that reason, any change is seen by the same people. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Classmate] You are in the same year and the same department as {name} and the others, and you got to know each other naturally when you started. Typical events: Assigned to the same group project, you drink coffee together and stay up all night to finish it; She falls asleep in the seat beside you in class and her head tips slowly toward your shoulder; On the day exams end the whole department is celebrating and the two of you leave early. Advantage: The shortest distance and the most reasons to see each other. Disadvantage: And for exactly that reason, the line between love and friendship blurs. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "senior_student",
       "name": "Senior",
-      "background": "[Identity: Senior] You are a year above {name} in the same department. Typical events: At the first-year orientation you are the one assigned to look after her; She brings her course list to ask which classes are worth taking; A club dinner ends and you walk her back to the dorms; The first time she presents, her hands shake, and you are sitting in the back row. Advantage: You have a natural reason for her to come to you, and being a senior makes looking after her look obvious. Disadvantage: The moment the senior-junior position turns into something else, the whole department knows which of you crossed the line first. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Senior] You are the members' mentor senior, a year above them in the same department, and you got to know them naturally when they started as first-years. Typical events: The members arrive as first-years and you are the one sent to show them around; She brings her course list to ask you which classes are worth taking; A club dinner ends and you walk her back to the dorms; The first time she presents her hands shake, and you are the one who encourages her. Advantage: A built-in reason to spend time together, and being her senior makes looking after her look obvious. Disadvantage: For exactly that reason, being her senior makes any step across the line a careful one. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님"
@@ -69,7 +69,7 @@
     {
       "id": "junior_student",
       "name": "Junior",
-      "background": "[Identity: Junior] You are a year below {name}, and she is the first senior in the department whose name you learned. Typical events: You could not get into a class, so she hands you her entire set of notes; In the club she takes on the errand that was about to be pushed onto you; At a dinner someone keeps refilling your glass and she takes it away; You are up all night on an assignment and she stays in the study room until you finish. Advantage: Asking a senior for help is the most natural way to get close, and nobody finds it strange. Disadvantage: Care between a senior and a junior is easy to read as something else, and the people reading it will not be the two of you. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Junior] You are a year below the members and got to know them naturally when you started; she is the first senior in the department whose name you learned. Typical events: She gives you her notes and holds nothing back; In the club she takes on the errand that was about to be pushed onto you; At a dinner someone keeps refilling your glass and she takes it away; You are up all night on an assignment and she stays in the study room until you finish. Advantage: Asking a senior for help is the most natural way to get close. Disadvantage: For exactly that reason, being her junior makes any step across the line a careful one. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님",
@@ -80,17 +80,17 @@
     {
       "id": "ta",
       "name": "Teaching assistant",
-      "background": "[Identity: Teaching Assistant] You are the TA for this course and {name} is a student in it - you are not her professor, but you mark her work. Typical events: You write a note in the margin of her report that is longer than the grade comment; Office hours empty out until it is just the two of you and the subject left the course a while ago; She hands an assignment in at the last possible minute and you do not ask why; Entering final marks, you notice you have checked her line three times. Advantage: The position is ambiguous - you have a little authority and not much, which makes getting close far easier than it would be for a professor. Disadvantage: Because it is not much, you can protect neither her nor yourself; if it is ever talked about, you are the one who was supposed to know better. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Teaching Assistant] You are the TA for a new course the members are taking this semester: you guide their course projects, hold office hours and mark their work, and you get to know them naturally through the course. Typical events: You write a note in the margin of her report that is longer than an ordinary comment; Office hours empty out until it is just the two of you, and the subject left the course a while ago; She hands an assignment in at the last possible minute and you do not ask; Marking a pile of work, you recognise her handwriting at a glance. Advantage: The position is ambiguous - you have a little authority and can help her, which makes getting close easy. Disadvantage: The rule that a TA stays fair and plays no favourites. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "exchange_student",
       "name": "Exchange student",
-      "background": "[Identity: Exchange Student] You are here on exchange - one semester, or a year. Typical events: In a group discussion you cannot keep up with the speed and she slows hers down; She takes you to the place only local students know about; You say a word wrong, she laughs for a long time, and then teaches you how to say it; You get as far as when you are leaving and you both change the subject. Advantage: Being an outsider puts you in none of the existing networks, and the rules sit more loosely on you. Disadvantage: Everyone knows you are leaving, her included - it has been underneath every conversation since the first day. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. You are new to this position - newly appointed, newly enrolled, newly handed the job, or newly introduced to her. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Exchange Student] You have just arrived at the university on a one-semester exchange, in the same year and department as the members, and you are not yet at home in Korean or in Korea. Typical events: In a group discussion you cannot keep up with the speed, so she slows down and helps translate for you; She takes you to the place only local students know about; You say a word wrong, she laughs for a long time, and then teaches you the right way to say it; You get as far as when you are leaving and you both change the subject. Advantage: Being an exchange student keeps attention on the two of you low and the pressure of gossip light. Disadvantage: Everyone knows you are leaving, her included - it has been a premise you both share since the first day. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
     },
     {
       "id": "主线成员前女友",
       "name": "Main Member's Ex-Girlfriend",
-      "background": "[Special Identity: Main Member's Ex-Girlfriend]\n- You and {name} were lovers, breaking up years ago due to {reason}\n- You still keep {keepsake} to this day\n- Now she is back at the same university - a transfer, a return from leave, or simply the same course. The reunion is awkward: complicated feelings, things left unsaid. Early interactions involve deliberate distance, averted eyes, polite but distant\n- Other people may or may not know about your past. As the game progresses, you may reconcile or go your separate ways",
+      "background": "[Special Identity: Main Member's Ex-Girlfriend]\n- You and {name} were lovers, breaking up years ago due to {reason}\n- You still keep {keepsake} to this day\n- Now going on to university has put you at the same one as her, as classmates: awkwardness, complicated feelings, things left unsaid. Early interactions involve deliberate distance, averted eyes, polite but distant\n- Other people may or may not know about your past. As the game progresses, you may reconcile or go your separate ways",
       "variants": {
         "reason": [
           "different plans after graduation",
@@ -100,8 +100,8 @@
         ],
         "keepsake": [
           "the book she lent you",
-          "the student-ID photos you took together",
-          "a note she wrote on the back of a handout",
+          "the photo-booth strip you took together",
+          "notes she wrote on the back of a handout",
           "the earphones you used to share"
         ]
       }
@@ -152,7 +152,7 @@
     },
     {
       "id": "seminar_room",
-      "name": "Seminar room",
+      "name": "Discussion room",
       "emoji": "🗒️",
       "draws": [
         "organiser"

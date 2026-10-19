@@ -1577,6 +1577,26 @@ dropped when it would repeat the form. No golden had ever pinned it, because the
 uses the identity with no work title. **This is the rotate-the-fixture-language rule paying for
 itself on its first run.**
 
+### The secretary called the heiress by her own title
+
+**Found 2026-10-20, from Yuhan's zh pass.** `chaebol`'s `secretary` shipped in step 7 with
+`form: 室长nim`, `direction: to_cast` - and to_cast renders *"Summer also uses 室长nim for
+them"*. 실장 is the **secretary's** title. Every chaebol secretary run told the model the player
+addresses the heiress by the player's own job, and no check could see it: the direction field
+validated, the sentence was grammatical, and no golden uses that identity. Yuhan's edit dropped
+the 님 (`室长`), which only makes sense one way round - the heiress addressing her secretary - so
+the entry is now to_player with no `because`, rendering *"she addresses Summer as 室长"*.
+
+**The same pass turned `lawyer` into a new employee at the main member's family company**, who
+calls the members `代表nim` (to_cast). The **id stays `lawyer`**, because an identity id sits in
+every save. The same rule keeps `prof_of_cast` while campus replaces the professor - a stored id
+is a key, not a description, and `docs/HANDOFF.md` lists the ids that no longer describe what
+they hold.
+
+**The lesson is the one this section opens with, a third time: a direction is a claim about who
+holds the title**, and it has to be read against the *form* - not checked for being one of two
+legal values.
+
 ### The platforms a non-idol world declares, and step 6 rendering for real
 
 `campus`, `office` and `chaebol` declare **Instagram and KakaoTalk only** (Yuhan's call,
@@ -4157,6 +4177,14 @@ Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` 
   suite stays red. Every one of the 619 strings was checked to be locatable and editable at exactly
   its own key in both `public/` and the root mirror, since short values repeat (two members whose
   animal is 猫咪). Smoke **1716 -> 1719**; no golden moved and no source under `src/` changed.
+- ◩ **Her first pass is applied, 2026-10-20: 176 edited, 614 approved, 5 left.** The group prose
+  lost its idol-industry facts (the §22.1 defect, fixed at the source for the library), and the
+  four worlds' backgrounds and settings are hers. en and ko were retranslated for every edit
+  (ko **not native-reviewed**). All six goldens moved by data lines only, diff read. Left:
+  campus `prof_of_cast` is being replaced (her call; the id stays for saves), the `kpop_idol`
+  财阀 draft uses `{org}` which backgrounds cannot render, and `_registers` awaits a tick.
+  `zh-review.mjs` gained `settle` and reads `[]` as unticked; **5 mutations, 5 RED**. Smoke
+  **1719 -> 1724**. See *The secretary called the heiress by her own title*.
 - ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
   `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
   and no world file does any more - the dead-field shape this file tracks seven times, with the

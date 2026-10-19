@@ -2061,6 +2061,29 @@ function layerZhReview() {
   const stale = Object.keys(ledger).filter((k) => !live.has(k));
   check("...and the ledger names no string the data no longer has",
     stale.length === 0, `${stale.slice(0, 4).join(", ")} - run node scripts/zh-review.mjs sync`);
+
+  // Yuhan's first real pass typed "- []" once, and the strict parser threw on it, which
+  // blocked every block in every sheet. "[]" is an unticked box; "[x]" stays the only tick.
+  const sheet = (box) => `<!-- zh-review key="a#b" base="0123456789ab" -->\n- [${box}] pending\n~~~~\ntext\n~~~~\n`;
+  let parsed = null;
+  try { parsed = zhReview.parseSheet(sheet("")); } catch { parsed = null; }
+  check("a sheet block typed with an empty box [] parses, as unticked",
+    parsed?.length === 1 && parsed[0].ticked === false, JSON.stringify(parsed));
+  check("...while [x] is still a tick and [ ] still is not",
+    zhReview.parseSheet(sheet("x"))[0]?.ticked === true && zhReview.parseSheet(sheet(" "))[0]?.ticked === false);
+
+  // settle clears one owed translation that was checked and needed no change. It must
+  // refuse once the counterpart has moved, and it must never touch the zh hash or the
+  // approval - otherwise it would be the laundering path the ledger exists to close.
+  const L = { "g#p": { hash: "zzzzzzzzzzzz", status: "approved", owed: { en: zhReview.hashText("old en"), ko: zhReview.hashText("old ko") } } };
+  const s1 = zhReview.settleOwed(L, "g#p", "en", "old en");
+  check("settle drops exactly the one owed language it names",
+    s1.ok && !s1.ledger["g#p"].owed?.en && s1.ledger["g#p"].owed?.ko === L["g#p"].owed.ko, JSON.stringify(s1));
+  check("...leaves the zh hash and the approval as they were, and the input untouched",
+    s1.ok && s1.ledger["g#p"].hash === "zzzzzzzzzzzz" && s1.ledger["g#p"].status === "approved"
+      && L["g#p"].owed.en === zhReview.hashText("old en"));
+  check("...and refuses once the translation has changed since it was owed",
+    zhReview.settleOwed(L, "g#p", "en", "new en").ok === false);
 }
 
 // ============================================================ LAYER C

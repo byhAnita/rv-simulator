@@ -5,39 +5,58 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-19 by Claude Opus 5.5 (main VS Code session)
-**Handing to:** **Yuhan** - the Chinese text review
+**Last updated:** 2026-10-20 by Claude Opus 5.5 (main VS Code session)
+**Handing to:** **Yuhan** - one decision (campus), then the last two zh blocks
 
 ---
 
 ## Project state
 
-- **v1.4.3 is released**, deployed 2026-10-02, tagged on `adf19b9`. `dev` carries unreleased work on
-  top: the `place.desc` reader deletion, docs, and the zh review machinery below.
-- `npm run build` clean; `node test/smoke.mjs` green (Layer Z added, 1716 -> 1719).
+- **v1.4.3 is released**, deployed 2026-10-02, tagged on `adf19b9`. `dev` carries unreleased work.
+- `npm run build` clean (bundle unchanged, `index-CbS1KJjv.js`); `node test/smoke.mjs` **1724 / 0**.
+- Yuhan's first zh pass is applied: 176 strings edited, 614 approved. Every en/ko counterpart of
+  an edit is retranslated; `status` shows **0 owed**. All six goldens regenerated and the diff
+  read: data lines only (member prose, identity blocks, place names and emojis), no rule text.
 
-## The task in flight: Yuhan reviews the Chinese data
+## The task in flight
 
-The workflow is **`docs/ZH_REVIEW.md`**. In short: she edits the sheets in `docs/zh-review/`, ticks
-`[x]` on what she approves, and runs `node scripts/zh-review.mjs sync`. Nothing reaches the JSON
-without a tick.
+1. **Campus: replace `prof_of_cast`.** Yuhan judged a professor wrong for a dating game. The id
+   stays `prof_of_cast` so old saves load; the name, background and work title change. Options are
+   in the chat of 2026-10-20; she picks one and writes its zh in `worlds-campus.md` (the professor
+   blocks). Her unticked draft there is a placeholder, not the new text.
+   - Smoke pins `prof_of_cast` as the campus identity whose title points **at the player**
+     (`[campus] a title pointed at the player relaxes toward HER name`). If the replacement
+     keeps a to_player title, nothing moves; if it has none, that check needs another fixture.
+2. **`kpop_idol` 财阀 background is REFUSED and held as her draft**: it uses `{org}`, and identity
+   backgrounds only substitute `{name}`, `{reason}`, `{keepsake}`. On the classic door there is no
+   company name to put there. She rewords (e.g. `{name}组合所在公司`) and re-ticks.
+3. **`_registers` is still `pending`**: she said it needs no change, but no box was ticked, and
+   agents never tick. One tick and a `sync`.
 
-- **Baseline:** 619 strings, all `pending`, recorded 2026-10-19. Smoke is green because pending
-  text is the text she has *seen listed*; it goes red only if anything changes without her tick.
-- **Suggested order:** `worlds-kpop_idol.md`, then chaebol / campus / office, then the register,
-  then `groups-red_velvet.md`, then the other groups.
-- **Open question for her:** the 459 group strings all date from May-June 2026 commits with no
-  co-author line. If she wrote them, she ticks them as they stand.
+## Not verified
+
+- **No live round** has been played on the new world text. The new-employee (`lawyer` id) and
+  secretary title lines were rendered offline and read correctly; nothing more.
+- **ko is not native-reviewed**, all 177 strings of it.
 
 ## Next command
 
-Hers: edit a sheet, then `node scripts/zh-review.mjs sync`. When she hands it back, the agent runs
-`node scripts/update-golden.mjs` and **reads the diff**, then `npm run build && node test/smoke.mjs`,
-commits, and translates the **en** strings `status` lists as owed. The **ko** ones stay owed: no
-native reader.
+Hers: edit `docs/zh-review/worlds-campus.md` and `worlds-kpop_idol.md`, tick, then
+`node scripts/zh-review.mjs sync`. Then the agent: en/ko for whatever `status` lists as owed,
+`node scripts/update-golden.mjs` and **read the diff**, `npm run build && node test/smoke.mjs`,
+commit. `git push origin dev` is hers.
 
 ---
 
 ## Found along the way
 
 *(Add anything you notice but were not asked to fix. Do not fix it.)*
+
+- `groups/red_velvet` and `groups/x` Irene `public_image` read `定海神神`; the earlier text had
+  `定海神针`. Possibly a typo in her edit - hers to decide, an agent does not touch zh.
+- The `练习生` (kpop) and `junior_student` (campus) zh backgrounds now contain a line break
+  mid-text, so section 6 renders `典型事件` on its own line. Harmless; noted in case it was
+  unintended.
+- Place ids `greenhouse`, `back_seat` (chaebol) and `hoesik` (office) no longer describe their
+  places (now the family company offices, the van, the company canteen). Ids are internal and
+  `draws` has no reader, so nothing breaks.

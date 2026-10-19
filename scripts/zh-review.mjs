@@ -17,6 +17,8 @@
 //   node scripts/zh-review.mjs sync     # apply ticked blocks, refresh every sheet
 //   node scripts/zh-review.mjs sync --dry
 //   node scripts/zh-review.mjs status   # what is pending, changed, drafted, owed
+//   node scripts/zh-review.mjs settle <key> <en|ko>   # an owed translation was checked
+//                                       # and needs no change (touches only `owed`)
 //
 // docs/ZH_REVIEW.md is the workflow; this file is the machinery.
 
@@ -217,12 +219,13 @@ export function parseSheet(md) {
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^<!-- zh-review key=("(?:[^"\\]|\\.)*") base="([0-9a-f]+)" -->$/);
     if (!m) continue;
-    const box = lines[i + 1]?.match(/^- \[([ xX])\]/);
+    // "[]" reads as unticked: an easy typo for "[ ]", and refusing it would block the whole sheet.
+    const box = lines[i + 1]?.match(/^- \[([ xX]?)\]/);
     if (!box || lines[i + 2] !== FENCE) throw new Error(`sheet block for ${m[1]} is malformed near line ${i + 1}`);
     let j = i + 3;
     while (j < lines.length && lines[j] !== FENCE) j++;
     if (j >= lines.length) throw new Error(`sheet block for ${m[1]} has no closing ${FENCE}`);
-    blocks.push({ key: JSON.parse(m[1]), base: m[2], ticked: box[1] !== " ", text: lines.slice(i + 3, j).join("\n") });
+    blocks.push({ key: JSON.parse(m[1]), base: m[2], ticked: box[1] === "x" || box[1] === "X", text: lines.slice(i + 3, j).join("\n") });
     i = j;
   }
   return blocks;
@@ -387,11 +390,42 @@ function status() {
   for (const o of owed) console.log(`  ${o}`);
 }
 
+// A translation can already say what the edited zh now says (a reworded Chinese name whose
+// English was always right). Editing it to clear the flag would be churn, and hand-editing
+// the ledger is what this script exists to prevent - so this drops one owed entry, and only
+// while the counterpart is still the exact text recorded as owed. It never touches a zh
+// hash or an approval, so it cannot launder Chinese text.
+// Pure: returns {ok, ledger} with a copy, or {ok:false, reason}. `current` is the
+// counterpart's text as it is on disk now.
+export function settleOwed(ledger, key, lang, current) {
+  const l = ledger?.[key];
+  if (!l?.owed?.[lang]) return { ok: false, reason: `nothing owed for ${lang} ${key}` };
+  if (typeof current !== "string" || hashText(current) !== l.owed[lang]) {
+    return { ok: false, reason: `${lang} ${key} has changed since it was owed; it is no longer listed, nothing to settle` };
+  }
+  const owed = { ...l.owed };
+  delete owed[lang];
+  const entry = { ...l };
+  if (Object.keys(owed).length) entry.owed = owed; else delete entry.owed;
+  return { ok: true, ledger: { ...ledger, [key]: entry } };
+}
+
+function settle(key, lang) {
+  const [source, path] = String(key).split("#");
+  const [tree, id] = source.split("/");
+  const doc = JSON.parse(readFileSync(join(ROOT, "public", tree, id, `${lang}.json`), "utf8"));
+  const r = settleOwed(loadLedger(), key, lang, resolvePath(doc, path));
+  if (!r.ok) { console.error(r.reason); process.exit(1); }
+  saveLedger(r.ledger);
+  console.log(`settled  ${lang} ${key}`);
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [cmd] = process.argv.slice(2);
   const dry = process.argv.includes("--dry");
   if (cmd === "init") init();
   else if (cmd === "sync") sync({ dry });
   else if (cmd === "status") status();
-  else { console.log("usage: node scripts/zh-review.mjs init|sync [--dry]|status"); process.exit(1); }
+  else if (cmd === "settle") settle(process.argv[3], process.argv[4]);
+  else { console.log("usage: node scripts/zh-review.mjs init|sync [--dry]|status|settle <key> <en|ko>"); process.exit(1); }
 }

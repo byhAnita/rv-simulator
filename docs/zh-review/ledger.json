@@ -1,1883 +1,2859 @@
 {
   "groups/aespa#group.lightstick": {
     "hash": "6bcf74aa5c83",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[0].event": {
     "hash": "32853cf4b689",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[10].event": {
     "hash": "3556508c7dd9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[11].event": {
     "hash": "35bb64a5e8da",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[1].event": {
     "hash": "a1fb0c3c249d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[2].event": {
     "hash": "09e18661c111",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[3].event": {
     "hash": "b11fe5e73875",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[4].event": {
     "hash": "5220ae5a4989",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[5].event": {
     "hash": "321f05990ffe",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[6].event": {
     "hash": "be5c9c2ca53d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[7].event": {
     "hash": "44a039c4441e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[8].event": {
     "hash": "ab780c2c5dd3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#history[9].event": {
     "hash": "7cbdf2f3dd65",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[giselle].animal": {
     "hash": "fc585a14bf79",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[giselle].animal_plastic": {
     "hash": "a378e84e4044",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[giselle].private_personality": {
-    "hash": "b29cb1077f73",
-    "status": "pending"
+    "hash": "3ab685f0b6c9",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "47c49f8ca806",
+      "ko": "1a0c6d8fc3df"
+    }
   },
   "groups/aespa#members[giselle].public_image": {
-    "hash": "617ea7806dfc",
-    "status": "pending"
+    "hash": "8e3d597570e1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "7e4beb1ab391",
+      "ko": "b1702c3277b0"
+    }
   },
   "groups/aespa#members[giselle].queer_texture": {
     "hash": "7c68572e5055",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[giselle].role": {
     "hash": "6276accb6d1a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[karina].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[karina].animal_plastic": {
-    "hash": "6980b29799e0",
-    "status": "pending"
+    "hash": "0e1953243059",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "5e2e69417597",
+      "ko": "e4747b000ab0"
+    }
   },
   "groups/aespa#members[karina].private_personality": {
-    "hash": "f8e8152e0e8b",
-    "status": "pending"
+    "hash": "78a0ef205802",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "de57c9471055",
+      "ko": "7db48afa321c"
+    }
   },
   "groups/aespa#members[karina].public_image": {
-    "hash": "b1538f77ad0a",
-    "status": "pending"
+    "hash": "a75620f07317",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "aa562530fdb2",
+      "ko": "7b5d048f8938"
+    }
   },
   "groups/aespa#members[karina].queer_texture": {
     "hash": "293997bdc2b5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[karina].role": {
     "hash": "56b34e2916dc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[ningning].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[ningning].animal_plastic": {
-    "hash": "3b7dc38ef217",
-    "status": "pending"
+    "hash": "80b2365a215a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "ed80a9b6814f",
+      "ko": "b0e4cc253682"
+    }
   },
   "groups/aespa#members[ningning].private_personality": {
-    "hash": "2421122817d5",
-    "status": "pending"
+    "hash": "71dd83af2f5f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "944888efd47c",
+      "ko": "fc5c1e6dc3fd"
+    }
   },
   "groups/aespa#members[ningning].public_image": {
-    "hash": "2acde2617cc9",
-    "status": "pending"
+    "hash": "90e433b9ed96",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "2a8781985ed2",
+      "ko": "d95b10bb4f46"
+    }
   },
   "groups/aespa#members[ningning].queer_texture": {
     "hash": "c61a32655d08",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[ningning].role": {
     "hash": "821d608a05ca",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[winter].animal": {
     "hash": "680cf99812a6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[winter].animal_plastic": {
     "hash": "f0ac63aca1ed",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[winter].private_personality": {
-    "hash": "77a0b7cca430",
-    "status": "pending"
+    "hash": "43553f3ed428",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "7603363479e3",
+      "ko": "b93e39679ac6"
+    }
   },
   "groups/aespa#members[winter].public_image": {
-    "hash": "7af50ea3387d",
-    "status": "pending"
+    "hash": "0ba8ab255c1c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "6389ac1c3f3e",
+      "ko": "37c2613084ed"
+    }
   },
   "groups/aespa#members[winter].queer_texture": {
     "hash": "09fbf7e97daa",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/aespa#members[winter].role": {
     "hash": "2723e195f05c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#group.lightstick": {
     "hash": "e245bf73ad6c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[0].event": {
     "hash": "8363a4630b4e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[10].event": {
     "hash": "c021496da5a0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[11].event": {
     "hash": "c8ad70fc5108",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[12].event": {
     "hash": "336ce5ee0f92",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[13].event": {
     "hash": "e072ecd06461",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[14].event": {
     "hash": "6cd5a33d3f60",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[15].event": {
     "hash": "90486c0eaeec",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[16].event": {
     "hash": "b6b029f0c4f0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[17].event": {
     "hash": "7a5016c39cde",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[18].event": {
     "hash": "0e77beb87c25",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[19].event": {
     "hash": "617f576c5c7d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[1].event": {
     "hash": "05e80326efa9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[20].event": {
     "hash": "0ac77a447174",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[2].event": {
     "hash": "d4ea75c298a4",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[3].event": {
     "hash": "7b766280d545",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[4].event": {
     "hash": "ad8a060e128d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[5].event": {
     "hash": "ffa1a3a9e0e0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[6].event": {
     "hash": "69f3962beb5a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[7].event": {
     "hash": "032f870bd965",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[8].event": {
     "hash": "f35ae66a1bcf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#history[9].event": {
     "hash": "38dce28829b3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jennie].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jennie].animal_plastic": {
     "hash": "16d12762981b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jennie].private_personality": {
-    "hash": "581d17aeccae",
-    "status": "pending"
+    "hash": "7166e7ed567c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "74e7f8f6a391",
+      "ko": "2500025e29bd"
+    }
   },
   "groups/blackpink#members[jennie].public_image": {
-    "hash": "956f3a251d17",
-    "status": "pending"
+    "hash": "364721a8363d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "c9e558b1570b",
+      "ko": "d0caf8e8f8f9"
+    }
   },
   "groups/blackpink#members[jennie].queer_texture": {
-    "hash": "6323f2ddbd74",
-    "status": "pending"
+    "hash": "6752cd1ca241",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "de9ce29a3569",
+      "ko": "2f5d8cd4abe3"
+    }
   },
   "groups/blackpink#members[jennie].role": {
     "hash": "6276accb6d1a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jisoo].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jisoo].animal_plastic": {
-    "hash": "15b6b9e3b4cb",
-    "status": "pending"
+    "hash": "b9ed46632dd5",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "9eef72dea50d",
+      "ko": "65572de85b85"
+    }
   },
   "groups/blackpink#members[jisoo].private_personality": {
     "hash": "2e65542b5778",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jisoo].public_image": {
     "hash": "c7c253c17f48",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jisoo].queer_texture": {
     "hash": "37ec346bad06",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[jisoo].role": {
     "hash": "5d1ec09ab9a8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[lisa].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[lisa].animal_plastic": {
-    "hash": "3bdd39063dfc",
-    "status": "pending"
+    "hash": "66472fda6fee",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "0620cc001933",
+      "ko": "9d29665a8fb1"
+    }
   },
   "groups/blackpink#members[lisa].private_personality": {
     "hash": "4dff1c3b6bd4",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[lisa].public_image": {
-    "hash": "3b95d4c395d6",
-    "status": "pending"
+    "hash": "b8e8bf4c1b99",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "898892720fb5",
+      "ko": "33465d26aa03"
+    }
   },
   "groups/blackpink#members[lisa].queer_texture": {
-    "hash": "07565e5da80f",
-    "status": "pending"
+    "hash": "c18a4661f87e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "184a3583a13a",
+      "ko": "b18b3f616d51"
+    }
   },
   "groups/blackpink#members[lisa].role": {
     "hash": "fdaee9714ba2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[rose].animal": {
     "hash": "ee8372513bc1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[rose].animal_plastic": {
     "hash": "6550d62d03bf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[rose].private_personality": {
-    "hash": "8cf16b7a0da1",
-    "status": "pending"
+    "hash": "d3ed1e6232c8",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "70e4fbfed9f1",
+      "ko": "bfe4c25862b3"
+    }
   },
   "groups/blackpink#members[rose].public_image": {
-    "hash": "ceedc6db3492",
-    "status": "pending"
+    "hash": "554192de1c91",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4082599f2552",
+      "ko": "4d97404858e0"
+    }
   },
   "groups/blackpink#members[rose].queer_texture": {
     "hash": "20b409c62889",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/blackpink#members[rose].role": {
     "hash": "cad9ad19561b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#group.lightstick": {
     "hash": "2eee099106d2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#history[0].event": {
     "hash": "bb38ead818ad",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#history[1].event": {
     "hash": "137293c6afad",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#history[2].event": {
     "hash": "59c08c60f936",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#history[3].event": {
     "hash": "20880fbef4cc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#history[4].event": {
     "hash": "44961254ba2b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[hongjingwen].animal": {
     "hash": "291b0888f1c6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[hongjingwen].animal_plastic": {
     "hash": "35a2eddf44c1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[hongjingwen].private_personality": {
     "hash": "0decf19b92e1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[hongjingwen].public_image": {
-    "hash": "f452ca33e648",
-    "status": "pending"
+    "hash": "175d21a56e5d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "a432ee648e05",
+      "ko": "6ffe5a4ac2db"
+    }
   },
   "groups/gnz#members[hongjingwen].queer_texture": {
     "hash": "4a662dd525f2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[hongjingwen].role": {
     "hash": "de52390c2742",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liulifei].animal": {
-    "hash": "d8106a34bda6",
-    "status": "pending"
+    "hash": "c185ad00c7d0",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d4f3f587d286",
+      "ko": "7ded037c62c5"
+    }
   },
   "groups/gnz#members[liulifei].animal_plastic": {
-    "hash": "373d0c8dae14",
-    "status": "pending"
+    "hash": "7f34c1aa17c7",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "9d9a322ac8d7",
+      "ko": "53dbe10035c5"
+    }
   },
   "groups/gnz#members[liulifei].private_personality": {
-    "hash": "8db88afb2a1f",
-    "status": "pending"
+    "hash": "f95b9d689a1e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "885d9fb80451",
+      "ko": "46f28763f91c"
+    }
   },
   "groups/gnz#members[liulifei].public_image": {
-    "hash": "ce92c2369727",
-    "status": "pending"
+    "hash": "ebfdce4bd2a1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "6a9e5bdb18b9",
+      "ko": "7ebfa5faa304"
+    }
   },
   "groups/gnz#members[liulifei].queer_texture": {
     "hash": "6e5c6d61f15a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liulifei].role": {
     "hash": "cc17a8c95b0e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liuqianqian].animal": {
     "hash": "a500e0365288",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liuqianqian].animal_plastic": {
     "hash": "16ad275df585",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liuqianqian].private_personality": {
     "hash": "4847f00dee82",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liuqianqian].public_image": {
-    "hash": "39732703476f",
-    "status": "pending"
+    "hash": "838fe63594c9",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "7109025b1136",
+      "ko": "7258afe5cfd6"
+    }
   },
   "groups/gnz#members[liuqianqian].queer_texture": {
     "hash": "cde0882d3b30",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[liuqianqian].role": {
     "hash": "de52390c2742",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[tanglijia].animal": {
     "hash": "b21222455c12",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[tanglijia].animal_plastic": {
     "hash": "a94be4344557",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[tanglijia].private_personality": {
-    "hash": "d284cab75e4a",
-    "status": "pending"
+    "hash": "5d8fdf8cb89e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "121dcc082388",
+      "ko": "1b656df3e753"
+    }
   },
   "groups/gnz#members[tanglijia].public_image": {
-    "hash": "9b35ca58e2c7",
-    "status": "pending"
+    "hash": "1d7d06c3188d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "e0fac08b2ead",
+      "ko": "babd7171e058"
+    }
   },
   "groups/gnz#members[tanglijia].queer_texture": {
     "hash": "b8e861602ce1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[tanglijia].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wangyuchen].animal": {
     "hash": "ac3069de6824",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wangyuchen].animal_plastic": {
     "hash": "4285057063a3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wangyuchen].private_personality": {
     "hash": "072801e281f3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wangyuchen].public_image": {
-    "hash": "5010dd566317",
-    "status": "pending"
+    "hash": "63615e0d603a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fbf306213007",
+      "ko": "eef88d1cbb20"
+    }
   },
   "groups/gnz#members[wangyuchen].queer_texture": {
     "hash": "8cb6f532064c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wangyuchen].role": {
     "hash": "03f2a2daedaf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wuyufei].animal": {
     "hash": "3a1629c7c667",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wuyufei].animal_plastic": {
     "hash": "c7c5bac6b0db",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[wuyufei].private_personality": {
-    "hash": "34b57ba7a799",
-    "status": "pending"
+    "hash": "407a4d2d017a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "614ddabcb084",
+      "ko": "fb89b5864444"
+    }
   },
   "groups/gnz#members[wuyufei].public_image": {
-    "hash": "7ed08cc7936d",
-    "status": "pending"
+    "hash": "83ccbc3da404",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "37830aa212f1",
+      "ko": "5897da07076d"
+    }
   },
   "groups/gnz#members[wuyufei].queer_texture": {
-    "hash": "c1101166c095",
-    "status": "pending"
+    "hash": "f3654225fbd0",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "2e20897b200c"
+    }
   },
   "groups/gnz#members[wuyufei].role": {
     "hash": "81ff2b493939",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[zhangqiongyu].animal": {
     "hash": "0a93e4ffe2a9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[zhangqiongyu].animal_plastic": {
-    "hash": "d5e57d0811fe",
-    "status": "pending"
+    "hash": "1ea698c16e29",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "28251007abf7",
+      "ko": "4aa8212b41bd"
+    }
   },
   "groups/gnz#members[zhangqiongyu].private_personality": {
-    "hash": "3bc4dd2b51a4",
-    "status": "pending"
+    "hash": "ac459c18380f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "79e12ff1b5f1",
+      "ko": "e4042eeecb31"
+    }
   },
   "groups/gnz#members[zhangqiongyu].public_image": {
-    "hash": "dccfe38ff667",
-    "status": "pending"
+    "hash": "8eee5dbecbd5",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d74cec435c6f",
+      "ko": "00bb8375aeaf"
+    }
   },
   "groups/gnz#members[zhangqiongyu].queer_texture": {
-    "hash": "f4d09f0a8231",
-    "status": "pending"
+    "hash": "441dd750063b",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "2622efe5b114",
+      "ko": "a8589a9d40ef"
+    }
   },
   "groups/gnz#members[zhangqiongyu].role": {
     "hash": "996f9c16265e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[zhuyixin].animal": {
     "hash": "12726233ac9c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[zhuyixin].animal_plastic": {
-    "hash": "05b7c9b99cfb",
-    "status": "pending"
+    "hash": "699e7e9c5183",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "39220e981262",
+      "ko": "c555e9ccbdcb"
+    }
   },
   "groups/gnz#members[zhuyixin].private_personality": {
-    "hash": "4c008a0448bf",
-    "status": "pending"
+    "hash": "c575ab5969c6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "7abead8bac18",
+      "ko": "2288205bbcb5"
+    }
   },
   "groups/gnz#members[zhuyixin].public_image": {
-    "hash": "d7b758f09339",
-    "status": "pending"
+    "hash": "777f6c986c40",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f43501184350",
+      "ko": "6343344b43b3"
+    }
   },
   "groups/gnz#members[zhuyixin].queer_texture": {
     "hash": "07b205902b69",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/gnz#members[zhuyixin].role": {
     "hash": "6f57e8e2c589",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#group.lightstick": {
     "hash": "98f79d414e7a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[0].event": {
     "hash": "4a21a075abe5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[10].event": {
     "hash": "1ba5711ee19a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[11].event": {
     "hash": "2a6b75997bc8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[12].event": {
     "hash": "e07dfc371348",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[13].event": {
     "hash": "1919ed0bbf85",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[14].event": {
     "hash": "76be229d5696",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[1].event": {
     "hash": "92b8fdfa4ae9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[2].event": {
     "hash": "d5e9cff7fa99",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[3].event": {
     "hash": "65368d203bec",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[4].event": {
     "hash": "d02166b67883",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[5].event": {
     "hash": "2bf917351c78",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[6].event": {
     "hash": "3dc47ed0ba2e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[7].event": {
     "hash": "e0300febc6b1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[8].event": {
     "hash": "8dca3360c757",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#history[9].event": {
     "hash": "d33f931992a9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[chaeryeong].animal": {
     "hash": "0a93e4ffe2a9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[chaeryeong].animal_plastic": {
-    "hash": "bb12d2ebf8b9",
-    "status": "pending"
+    "hash": "2ab7cc22f6b6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "df54b965862a",
+      "ko": "a4c8666fd6d2"
+    }
   },
   "groups/itzy#members[chaeryeong].private_personality": {
     "hash": "ccd77a690d85",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[chaeryeong].public_image": {
-    "hash": "73b189c54002",
-    "status": "pending"
+    "hash": "ae04be040f79",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8c94712faf2b",
+      "ko": "7d57b15a32bf"
+    }
   },
   "groups/itzy#members[chaeryeong].queer_texture": {
     "hash": "fc8cdd0895fa",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[chaeryeong].role": {
     "hash": "996f9c16265e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[lia].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[lia].animal_plastic": {
-    "hash": "4a9063203869",
-    "status": "pending"
+    "hash": "1683c8ff6099",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f5377c724823",
+      "ko": "564bf6e50792"
+    }
   },
   "groups/itzy#members[lia].private_personality": {
-    "hash": "aa8667462d91",
-    "status": "pending"
+    "hash": "d52ed3061e63",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "bfb19e6c7652",
+      "ko": "73a98cb92678"
+    }
   },
   "groups/itzy#members[lia].public_image": {
-    "hash": "a489c640b727",
-    "status": "pending"
+    "hash": "87be6cdac7b6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8e123fb366cf",
+      "ko": "d902cf8bf1af"
+    }
   },
   "groups/itzy#members[lia].queer_texture": {
     "hash": "3071853fc17f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[lia].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[ryujin].animal": {
     "hash": "680cf99812a6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[ryujin].animal_plastic": {
     "hash": "d07612d0a4de",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[ryujin].private_personality": {
     "hash": "0514538ddbbd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[ryujin].public_image": {
-    "hash": "29357e5e880f",
-    "status": "pending"
+    "hash": "c0a85d0255d1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "17c61b71b3eb",
+      "ko": "ec1fcb7aeccd"
+    }
   },
   "groups/itzy#members[ryujin].queer_texture": {
     "hash": "8425994d787d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[ryujin].role": {
     "hash": "6bb8afc4e43c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yeji].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yeji].animal_plastic": {
-    "hash": "6d93dfd3f779",
-    "status": "pending"
+    "hash": "685877262117",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "ffeae4ce89ff",
+      "ko": "6b1249d644ba"
+    }
   },
   "groups/itzy#members[yeji].private_personality": {
-    "hash": "e25b14124a6b",
-    "status": "pending"
+    "hash": "56ba575a6866",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "124544c6b770",
+      "ko": "6307f3a7f676"
+    }
   },
   "groups/itzy#members[yeji].public_image": {
-    "hash": "82cf326f9f62",
-    "status": "pending"
+    "hash": "250427c1456f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "82edde9901a0",
+      "ko": "a31da9306d3c"
+    }
   },
   "groups/itzy#members[yeji].queer_texture": {
     "hash": "a63a7d00818a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yeji].role": {
     "hash": "710bb6a34dec",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yuna].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yuna].animal_plastic": {
     "hash": "0a838b495c4a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yuna].private_personality": {
     "hash": "76bbbb882d57",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yuna].public_image": {
-    "hash": "ba5dae273b1c",
-    "status": "pending"
+    "hash": "fbc0a46b59fc",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d7d0f3251ca3",
+      "ko": "962d888250cc"
+    }
   },
   "groups/itzy#members[yuna].queer_texture": {
     "hash": "386ded31ae1c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/itzy#members[yuna].role": {
     "hash": "504b8366cae5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#group.lightstick": {
     "hash": "35389782defe",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[0].event": {
     "hash": "b5e3ecfe7186",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[1].event": {
     "hash": "87450078b511",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[2].event": {
     "hash": "256c3a862a70",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[3].event": {
     "hash": "f95ed223cdc4",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[4].event": {
     "hash": "2c6ac9f2f7fc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[5].event": {
     "hash": "5afe99ad7adf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[6].event": {
     "hash": "a1d3a0c77b28",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[7].event": {
     "hash": "78d1e0cd3b0c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[8].event": {
     "hash": "127d5439dc99",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#history[9].event": {
     "hash": "bde26fa99915",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[gaeul].animal": {
     "hash": "ee8372513bc1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[gaeul].animal_plastic": {
     "hash": "81506c5f08b0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[gaeul].private_personality": {
-    "hash": "afcd26d5baf1",
-    "status": "pending"
+    "hash": "3c56422dba91",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "13180eff0455",
+      "ko": "51ff4f6ebe93"
+    }
   },
   "groups/ive#members[gaeul].public_image": {
-    "hash": "1e5189767937",
-    "status": "pending"
+    "hash": "40799df1141c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "69636079018a",
+      "ko": "4c2d0350568b"
+    }
   },
   "groups/ive#members[gaeul].queer_texture": {
     "hash": "b450c4c6860a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[gaeul].role": {
     "hash": "45210a4e0782",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[leeseo].animal": {
     "hash": "b1436bb1d45d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[leeseo].animal_plastic": {
-    "hash": "c30427f1d5fe",
-    "status": "pending"
+    "hash": "6e96485a25cf",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fed1f54d3f11",
+      "ko": "78f597a40ec8"
+    }
   },
   "groups/ive#members[leeseo].private_personality": {
     "hash": "2594aed9a508",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[leeseo].public_image": {
-    "hash": "007e2c291f05",
-    "status": "pending"
+    "hash": "dc0e67d6e716",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8948ee99d129",
+      "ko": "34958e7018d8"
+    }
   },
   "groups/ive#members[leeseo].queer_texture": {
     "hash": "54cbb8f49400",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[leeseo].role": {
     "hash": "12299946a545",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[liz].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[liz].animal_plastic": {
-    "hash": "06d4546791e5",
-    "status": "pending"
+    "hash": "14729546c062",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "851ee0413f5f",
+      "ko": "a00aa8553647"
+    }
   },
   "groups/ive#members[liz].private_personality": {
-    "hash": "2e0178521a6d",
-    "status": "pending"
+    "hash": "37b4c4a94602",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "e9b20b3417a0",
+      "ko": "9beb7108927a"
+    }
   },
   "groups/ive#members[liz].public_image": {
-    "hash": "f9df2578cd6a",
-    "status": "pending"
+    "hash": "882ed9e485d2",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "b7ea1f82ede0",
+      "ko": "c317d96ebcc1"
+    }
   },
   "groups/ive#members[liz].queer_texture": {
     "hash": "449de60e6a10",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[liz].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[rei].animal": {
     "hash": "b74e668fc792",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[rei].animal_plastic": {
     "hash": "480a2fb1969c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[rei].private_personality": {
-    "hash": "8fab38794bd8",
-    "status": "pending"
+    "hash": "ffa4842c78ae",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "b302d62b125a",
+      "ko": "c2660aaafa56"
+    }
   },
   "groups/ive#members[rei].public_image": {
-    "hash": "ade27f0e5435",
-    "status": "pending"
+    "hash": "7dc8eef782c5",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "c882723872b5",
+      "ko": "d41f6310d16e"
+    }
   },
   "groups/ive#members[rei].queer_texture": {
     "hash": "e38fb8cf2a49",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[rei].role": {
     "hash": "6276accb6d1a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[wonyoung].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[wonyoung].animal_plastic": {
-    "hash": "abca9a6e8902",
-    "status": "pending"
+    "hash": "78d9e6ab1242",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "577c012b633c",
+      "ko": "b3656448a1f1"
+    }
   },
   "groups/ive#members[wonyoung].private_personality": {
     "hash": "df12a1b1096b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[wonyoung].public_image": {
-    "hash": "3544fff9999c",
-    "status": "pending"
+    "hash": "8b848d56e9cc",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "c04330f4073f",
+      "ko": "81faf7da32c5"
+    }
   },
   "groups/ive#members[wonyoung].queer_texture": {
-    "hash": "c57554374ef9",
-    "status": "pending"
+    "hash": "d38b6d95d2f2",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "000ccbda9362",
+      "ko": "c232972a6fc1"
+    }
   },
   "groups/ive#members[wonyoung].role": {
     "hash": "0584c343c439",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[yujin].animal": {
     "hash": "680cf99812a6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[yujin].animal_plastic": {
-    "hash": "38dc7dc982ef",
-    "status": "pending"
+    "hash": "947e331bb3ed",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "11da09293154",
+      "ko": "4ad846c16858"
+    }
   },
   "groups/ive#members[yujin].private_personality": {
     "hash": "29f80aac3396",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[yujin].public_image": {
-    "hash": "0fd5d0c97055",
-    "status": "pending"
+    "hash": "ec314962fbfb",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "2b6fe90698fa",
+      "ko": "8783cde1716b"
+    }
   },
   "groups/ive#members[yujin].queer_texture": {
     "hash": "a4c2d8fc4192",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/ive#members[yujin].role": {
     "hash": "65665454e011",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#group.lightstick": {
     "hash": "1ee9062f3444",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[0].event": {
     "hash": "0328e0dd09f5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[1].event": {
     "hash": "4ab59b26a4dd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[2].event": {
     "hash": "4a5825662f8c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[3].event": {
     "hash": "dc7ff0fee131",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[4].event": {
     "hash": "ce97973325dc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[5].event": {
     "hash": "e46ae83f07a2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[6].event": {
     "hash": "0d2213c0b467",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[7].event": {
     "hash": "6c3430e6f89a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[8].event": {
     "hash": "bcd44637f47c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#history[9].event": {
     "hash": "b592b2bc156e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[bae].animal": {
     "hash": "ee8372513bc1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[bae].animal_plastic": {
     "hash": "7ce754199683",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[bae].private_personality": {
     "hash": "1c5594631d1f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[bae].public_image": {
-    "hash": "13e76e064a04",
-    "status": "pending"
+    "hash": "53560ffb9c63",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "2b16c2364825",
+      "ko": "6a59461af410"
+    }
   },
   "groups/nmixx#members[bae].queer_texture": {
     "hash": "3d26b0e53921",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[bae].role": {
     "hash": "ecac5eadc28b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[haewon].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[haewon].animal_plastic": {
-    "hash": "4e9cee572d1f",
-    "status": "pending"
+    "hash": "efe8fcfa3b55",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f09ce7fd9b2c",
+      "ko": "130acec0def5"
+    }
   },
   "groups/nmixx#members[haewon].private_personality": {
-    "hash": "17f390fc70a5",
-    "status": "pending"
+    "hash": "353ac4db5bd4",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "5b6aa72e0852",
+      "ko": "f54074295c3d"
+    }
   },
   "groups/nmixx#members[haewon].public_image": {
-    "hash": "ec70c3bb614f",
-    "status": "pending"
+    "hash": "a5ffb4571ad8",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "601acc10f8d7",
+      "ko": "dae672d73c12"
+    }
   },
   "groups/nmixx#members[haewon].queer_texture": {
     "hash": "5d8ed3832b6b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[haewon].role": {
     "hash": "502bd8c6073d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[jiwoo].animal": {
     "hash": "680cf99812a6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[jiwoo].animal_plastic": {
-    "hash": "07065cdfea4e",
-    "status": "pending"
+    "hash": "e22d69fdc651",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8975c502b190",
+      "ko": "0b0a6ac0eede"
+    }
   },
   "groups/nmixx#members[jiwoo].private_personality": {
-    "hash": "c8ac55e1df4e",
-    "status": "pending"
+    "hash": "e693ac242279",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "6b64a6ebed18",
+      "ko": "10c037c6fa71"
+    }
   },
   "groups/nmixx#members[jiwoo].public_image": {
-    "hash": "61a97abf3d52",
-    "status": "pending"
+    "hash": "511489705f21",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "36fbe7001fff",
+      "ko": "2172d66a6791"
+    }
   },
   "groups/nmixx#members[jiwoo].queer_texture": {
     "hash": "04ec7034d5e1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[jiwoo].role": {
     "hash": "4330ede9fb54",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[kyujin].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[kyujin].animal_plastic": {
-    "hash": "3a6d2035bb39",
-    "status": "pending"
+    "hash": "d210d38ceba3",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "9b786d2d3276",
+      "ko": "376bae3c411b"
+    }
   },
   "groups/nmixx#members[kyujin].private_personality": {
     "hash": "2006072887b4",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[kyujin].public_image": {
-    "hash": "8ca009939282",
-    "status": "pending"
+    "hash": "b0389ed86621",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "76c4d6b18444",
+      "ko": "d2eb0a66f9b8"
+    }
   },
   "groups/nmixx#members[kyujin].queer_texture": {
-    "hash": "0e70e0e8acb5",
-    "status": "pending"
+    "hash": "721819a3ec60",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "ffeb6ebdc29b",
+      "ko": "c8c156cbe2d5"
+    }
   },
   "groups/nmixx#members[kyujin].role": {
     "hash": "0714ac26ff50",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[lily].animal": {
     "hash": "d26f788b571d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[lily].animal_plastic": {
-    "hash": "edbbcc5072b8",
-    "status": "pending"
+    "hash": "6df039b6d964",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d06e6c42a5d3",
+      "ko": "461d7693846f"
+    }
   },
   "groups/nmixx#members[lily].private_personality": {
     "hash": "451630904928",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[lily].public_image": {
-    "hash": "ff83f2837c53",
-    "status": "pending"
+    "hash": "37972cc5fadd",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fe8e5bdf0ebc",
+      "ko": "6082c9b6bb2d"
+    }
   },
   "groups/nmixx#members[lily].queer_texture": {
     "hash": "be0a25b9517d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[lily].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[sullyoon].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[sullyoon].animal_plastic": {
-    "hash": "871fc7c27703",
-    "status": "pending"
+    "hash": "89e13457af90",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8a70bcff66ea",
+      "ko": "da881ea2e575"
+    }
   },
   "groups/nmixx#members[sullyoon].private_personality": {
-    "hash": "0311ded1bff1",
-    "status": "pending"
+    "hash": "ddb7dc051f21",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f7f50642472d",
+      "ko": "6bc6caca6424"
+    }
   },
   "groups/nmixx#members[sullyoon].public_image": {
-    "hash": "5cec11517502",
-    "status": "pending"
+    "hash": "abad89be5700",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f0ef7a003d5e",
+      "ko": "00a885064fd9"
+    }
   },
   "groups/nmixx#members[sullyoon].queer_texture": {
     "hash": "f5901f5758d3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/nmixx#members[sullyoon].role": {
     "hash": "2723e195f05c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#group.lightstick": {
     "hash": "87a7319da134",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[0].event": {
     "hash": "4474e3b84ac9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[10].event": {
     "hash": "673982eb1a11",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[12].event": {
     "hash": "d773b7e26998",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[14].event": {
     "hash": "e6d6f4aa1730",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[15].event": {
     "hash": "09dd0c85384b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[17].event": {
-    "hash": "4b29b094e3ee",
-    "status": "pending"
+    "hash": "fe46dbc33956",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "a82d73d4bf4a",
+      "ko": "3dc5df5a1ad3"
+    }
   },
   "groups/red_velvet#history[1].event": {
     "hash": "10de9851c00b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[2].event": {
     "hash": "e96565b97fe6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[3].event": {
     "hash": "bd939de068a8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[4].event": {
     "hash": "dab00d5765ed",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[5].event": {
     "hash": "f133b79a1650",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[6].event": {
     "hash": "6e3206ed5e1d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[7].event": {
     "hash": "f513c03add5b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#history[9].event": {
     "hash": "6763e131f771",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[irene].animal": {
     "hash": "519285e2df00",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[irene].animal_plastic": {
     "hash": "327ad2b4e008",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[irene].private_personality": {
     "hash": "794f6322cb73",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[irene].public_image": {
-    "hash": "815303891936",
-    "status": "pending"
+    "hash": "7177590fcd2a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "380d8d1a9b09",
+      "ko": "6a5f581d4b86"
+    }
   },
   "groups/red_velvet#members[irene].queer_texture": {
     "hash": "b19c36f51ca1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[irene].role": {
     "hash": "6de4fa6de422",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[joy].animal": {
     "hash": "783ff446023a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[joy].animal_plastic": {
     "hash": "2dedec67b5ba",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[joy].hidden_conflict": {
     "hash": "6de6851caa7f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[joy].private_personality": {
     "hash": "68e3afd9b132",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[joy].public_image": {
-    "hash": "caa4326b4bcf",
-    "status": "pending"
+    "hash": "2ddc447c993e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8f0977557fd6",
+      "ko": "d4cd065c8a24"
+    }
   },
   "groups/red_velvet#members[joy].queer_texture": {
     "hash": "fd828a16fbaf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[joy].role": {
     "hash": "ba93e5c19be6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[seulgi].animal": {
     "hash": "925ae83ae560",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[seulgi].animal_plastic": {
-    "hash": "53009376f3c9",
-    "status": "pending"
+    "hash": "a483032c2c49",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "181680b81f29",
+      "ko": "6dadd2ae5978"
+    }
   },
   "groups/red_velvet#members[seulgi].private_personality": {
     "hash": "a83c441e637f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[seulgi].public_image": {
-    "hash": "17f6b5174360",
-    "status": "pending"
+    "hash": "31db851c1595",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "7f2582b9375a",
+      "ko": "0d74920928a9"
+    }
   },
   "groups/red_velvet#members[seulgi].queer_texture": {
-    "hash": "b4ec3a7ab934",
-    "status": "pending"
+    "hash": "17c159ddd975",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f2c5bcbeb7eb",
+      "ko": "14638de7690d"
+    }
   },
   "groups/red_velvet#members[seulgi].role": {
     "hash": "303beab74675",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[wendy].animal": {
     "hash": "ee8372513bc1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[wendy].animal_plastic": {
     "hash": "4a238bd275fc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[wendy].private_personality": {
     "hash": "34f4283c28fa",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[wendy].public_image": {
-    "hash": "45781a1746fa",
-    "status": "pending"
+    "hash": "c62edfeb630d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "b81b97366bf9",
+      "ko": "5617af7afbd2"
+    }
   },
   "groups/red_velvet#members[wendy].queer_texture": {
-    "hash": "23a46bd0b7da",
-    "status": "pending"
+    "hash": "95d5ca79e6ed",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "832596682a84",
+      "ko": "fddee839e3f4"
+    }
   },
   "groups/red_velvet#members[wendy].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[yeri].animal": {
     "hash": "f96755b3d71b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[yeri].animal_plastic": {
     "hash": "e9bdc67af1d8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/red_velvet#members[yeri].private_personality": {
-    "hash": "c0e7d0b357b3",
-    "status": "pending"
+    "hash": "7cf06075203d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "bd0876b16a68",
+      "ko": "1dc97c2fd936"
+    }
   },
   "groups/red_velvet#members[yeri].public_image": {
-    "hash": "6d6decac4633",
-    "status": "pending"
+    "hash": "d0de1acad549",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8ccaa1aacf6f",
+      "ko": "d8c87853e931"
+    }
   },
   "groups/red_velvet#members[yeri].queer_texture": {
-    "hash": "f5e5bc4de067",
-    "status": "pending"
+    "hash": "12ae448bd600",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "68c2cc6a6b04",
+      "ko": "28302a3ac6d2"
+    }
   },
   "groups/red_velvet#members[yeri].role": {
     "hash": "9a4842afec7d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#group.lightstick": {
     "hash": "5c9ebb233de0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[0].event": {
     "hash": "3c72ca7b34df",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[10].event": {
     "hash": "27f4f611a9bd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[11].event": {
     "hash": "1bd6271dd48b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[12].event": {
     "hash": "5cd7c8093402",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[13].event": {
     "hash": "49d0aa521c3e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[1].event": {
     "hash": "07d18e55b391",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[2].event": {
     "hash": "7b02c9254658",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[3].event": {
     "hash": "ba985554bc0f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[4].event": {
     "hash": "a143ab7981b6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[5].event": {
     "hash": "9da439d27578",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[6].event": {
     "hash": "ee9953025829",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[7].event": {
     "hash": "6381c9185ea5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[8].event": {
     "hash": "956c7d74d286",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#history[9].event": {
     "hash": "50d762b6f453",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[chaeyoung].animal": {
     "hash": "b1436bb1d45d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[chaeyoung].animal_plastic": {
     "hash": "5060f8c3b166",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[chaeyoung].private_personality": {
     "hash": "aa8123de3bc2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[chaeyoung].public_image": {
-    "hash": "dd3e869123a3",
-    "status": "pending"
+    "hash": "e9055621ba15",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "80276ea3442c",
+      "ko": "cf6c05422e79"
+    }
   },
   "groups/twice#members[chaeyoung].queer_texture": {
     "hash": "3c244c70d781",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[chaeyoung].role": {
     "hash": "6276accb6d1a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[dahyun].animal": {
     "hash": "e9e075d54504",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[dahyun].animal_plastic": {
     "hash": "4b45ec697620",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[dahyun].private_personality": {
     "hash": "b7e309dad775",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[dahyun].public_image": {
-    "hash": "11c646740f31",
-    "status": "pending"
+    "hash": "cf04e74f22ec",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "78aa64f4f610",
+      "ko": "2eda48ba3b9c"
+    }
   },
   "groups/twice#members[dahyun].queer_texture": {
     "hash": "0cbb5b243155",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[dahyun].role": {
     "hash": "2514ce4f69fc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jeongyeon].animal": {
     "hash": "680cf99812a6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jeongyeon].animal_plastic": {
     "hash": "3a3c2c71ff83",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jeongyeon].private_personality": {
     "hash": "b392433d9171",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jeongyeon].public_image": {
-    "hash": "4ba1e3c16463",
-    "status": "pending"
+    "hash": "0501c3cfe56e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "31aa379ee0fb",
+      "ko": "d8a9701157d5"
+    }
   },
   "groups/twice#members[jeongyeon].queer_texture": {
     "hash": "7d109e354d5f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jeongyeon].role": {
     "hash": "2fc1fd079543",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jihyo].animal": {
     "hash": "fc585a14bf79",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jihyo].animal_plastic": {
-    "hash": "b015c2fdb40a",
-    "status": "pending"
+    "hash": "5c82feabfc18",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "dc961112ca7a",
+      "ko": "20250e350039"
+    }
   },
   "groups/twice#members[jihyo].private_personality": {
-    "hash": "a22185e32715",
-    "status": "pending"
+    "hash": "0b7975dcdcbe",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "23956dd9f399",
+      "ko": "49dd14951ce6"
+    }
   },
   "groups/twice#members[jihyo].public_image": {
-    "hash": "c9839e1238b5",
-    "status": "pending"
+    "hash": "6edc94075c2e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "508e9277ea7c",
+      "ko": "a4477394a0eb"
+    }
   },
   "groups/twice#members[jihyo].queer_texture": {
     "hash": "ac32f85e9cfd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[jihyo].role": {
     "hash": "502bd8c6073d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[mina].animal": {
     "hash": "5edbaf078d46",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[mina].animal_plastic": {
     "hash": "ba07f5422d3f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[mina].private_personality": {
     "hash": "ff78889f27f5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[mina].public_image": {
-    "hash": "51edc6a35908",
-    "status": "pending"
+    "hash": "7c288f1194ee",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d1a1080b4505",
+      "ko": "5b3163d0e053"
+    }
   },
   "groups/twice#members[mina].queer_texture": {
     "hash": "40da11d9ca44",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[mina].role": {
     "hash": "996f9c16265e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[momo].animal": {
     "hash": "925ae83ae560",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[momo].animal_plastic": {
     "hash": "527d83cf1af0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[momo].private_personality": {
-    "hash": "04c7a1fb87bb",
-    "status": "pending"
+    "hash": "c1781e5a630c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "68d5aabae1a7",
+      "ko": "874cb62bc1f1"
+    }
   },
   "groups/twice#members[momo].public_image": {
-    "hash": "a8ba0f29efa2",
-    "status": "pending"
+    "hash": "a249e1dbb4c1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fba219d9e08e",
+      "ko": "762a475a450c"
+    }
   },
   "groups/twice#members[momo].queer_texture": {
     "hash": "8cab4869d6b2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[momo].role": {
     "hash": "996f9c16265e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[nayeon].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[nayeon].animal_plastic": {
-    "hash": "99d6bd1fc064",
-    "status": "pending"
+    "hash": "f8e6af723fed",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "5f9cc59ec251",
+      "ko": "9673b6c39856"
+    }
   },
   "groups/twice#members[nayeon].private_personality": {
     "hash": "b2a4aeac1d10",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[nayeon].public_image": {
-    "hash": "83fa44f280d8",
-    "status": "pending"
+    "hash": "78c1fec4711f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "099df716a048",
+      "ko": "38f7bd2fcc4b"
+    }
   },
   "groups/twice#members[nayeon].queer_texture": {
     "hash": "b32068f545a0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[nayeon].role": {
     "hash": "e60a7d0bbd22",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[sana].animal": {
     "hash": "cdee70afa8c2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[sana].animal_plastic": {
     "hash": "eb1d8f2e9398",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[sana].private_personality": {
     "hash": "1f059b853048",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[sana].public_image": {
-    "hash": "5efad73c9b19",
-    "status": "pending"
+    "hash": "a7c80bbad4d6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "99ae4347eba5",
+      "ko": "23d62d8622e1"
+    }
   },
   "groups/twice#members[sana].queer_texture": {
     "hash": "c485ac66a246",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[sana].role": {
     "hash": "de52390c2742",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[tzuyu].animal": {
     "hash": "be20ec93d3ea",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[tzuyu].animal_plastic": {
     "hash": "600abb61b3e3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[tzuyu].private_personality": {
-    "hash": "e8ffc0fb3222",
-    "status": "pending"
+    "hash": "8ea84405cb59",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "60d736571d24",
+      "ko": "fa1a3f238bba"
+    }
   },
   "groups/twice#members[tzuyu].public_image": {
-    "hash": "6c29987d7755",
-    "status": "pending"
+    "hash": "2093b8efc845",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "c131f35b0223",
+      "ko": "474b7c0f3e2b"
+    }
   },
   "groups/twice#members[tzuyu].queer_texture": {
     "hash": "c606ea637b13",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/twice#members[tzuyu].role": {
     "hash": "b9f5f1bdbaf8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#group.lightstick": {
     "hash": "2c281d3c12db",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#history[0].event": {
     "hash": "8ed5f711cc93",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#history[1].event": {
     "hash": "70677ce224e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#history[2].event": {
     "hash": "984382c4cb65",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#history[3].event": {
     "hash": "bc6beb98628d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#history[4].event": {
     "hash": "4ea4578ac947",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#history[5].event": {
     "hash": "5ca6f3789eb4",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[eunbi].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[eunbi].animal_plastic": {
     "hash": "3f25f6001649",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[eunbi].private_personality": {
-    "hash": "223bc10de493",
-    "status": "pending"
+    "hash": "b96c63c8bbeb",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "664589a54e8f",
+      "ko": "56099e87fb80"
+    }
   },
   "groups/x#members[eunbi].public_image": {
-    "hash": "bb86f65d1a00",
-    "status": "pending"
+    "hash": "aa1e103a89f8",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "cbafa866ff67",
+      "ko": "aa4ec7b31642"
+    }
   },
   "groups/x#members[eunbi].queer_texture": {
     "hash": "4ea36cf83cab",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[eunbi].role": {
     "hash": "2723e195f05c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[hyewon].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[hyewon].animal_plastic": {
     "hash": "af3b9039fcfc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[hyewon].private_personality": {
     "hash": "d00a6a3fb785",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[hyewon].public_image": {
-    "hash": "a2db1619b0ad",
-    "status": "pending"
+    "hash": "fc3ba05f1ea5",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "64c0b2734896",
+      "ko": "632b3f3b4399"
+    }
   },
   "groups/x#members[hyewon].queer_texture": {
     "hash": "48b2e2e3f191",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[hyewon].role": {
     "hash": "3f7a9ef9d5e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[irene].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[irene].animal_plastic": {
     "hash": "5246dd2a9b52",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[irene].private_personality": {
     "hash": "11dd013d15c1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[irene].public_image": {
-    "hash": "f735f41a6d6e",
-    "status": "pending"
+    "hash": "398b577f34ca",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "792e69b720de",
+      "ko": "3863688abcaa"
+    }
   },
   "groups/x#members[irene].queer_texture": {
     "hash": "3ae00cb385e0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[irene].role": {
     "hash": "37cc4dba6e17",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[jisoo].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[jisoo].animal_plastic": {
-    "hash": "f1f68db416f2",
-    "status": "pending"
+    "hash": "e7e3f04639e3",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "ac5fab6efff0",
+      "ko": "69500da05ebf"
+    }
   },
   "groups/x#members[jisoo].private_personality": {
     "hash": "8117f5b5a8fb",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[jisoo].public_image": {
-    "hash": "2536d090e4ba",
-    "status": "pending"
+    "hash": "4fe23084d104",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "3b40fffeccc6",
+      "ko": "875ebb02a284"
+    }
   },
   "groups/x#members[jisoo].queer_texture": {
     "hash": "2b64096a2152",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[jisoo].role": {
     "hash": "4879cb477f0c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[mina].animal": {
     "hash": "5edbaf078d46",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[mina].animal_plastic": {
     "hash": "ba07f5422d3f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[mina].private_personality": {
     "hash": "47a60f4e0762",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[mina].public_image": {
-    "hash": "62f85137957e",
-    "status": "pending"
+    "hash": "256d82408ba4",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4ba7ec5ef0d0",
+      "ko": "ab4e93c26f13"
+    }
   },
   "groups/x#members[mina].queer_texture": {
     "hash": "40da11d9ca44",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[mina].role": {
     "hash": "996f9c16265e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[miyeon].animal": {
     "hash": "44c3910b5fa1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[miyeon].animal_plastic": {
-    "hash": "3f4c5dc2d4d6",
-    "status": "pending"
+    "hash": "464c5d3d5f21",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "315edbff8983",
+      "ko": "a9ad14a49bf7"
+    }
   },
   "groups/x#members[miyeon].private_personality": {
-    "hash": "43e72103f6d0",
-    "status": "pending"
+    "hash": "3e1eb894cf25",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "6cbd4f70f86b",
+      "ko": "fea672e4f11c"
+    }
   },
   "groups/x#members[miyeon].public_image": {
-    "hash": "1581968202db",
-    "status": "pending"
+    "hash": "2c01e58a14b7",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "26cf87890574",
+      "ko": "26f945747d31"
+    }
   },
   "groups/x#members[miyeon].queer_texture": {
     "hash": "71fe421b4367",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[miyeon].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sana].animal": {
     "hash": "cdee70afa8c2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sana].animal_plastic": {
     "hash": "eb1d8f2e9398",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sana].private_personality": {
     "hash": "d7bc5d2f02bd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sana].public_image": {
-    "hash": "a531be48f5d3",
-    "status": "pending"
+    "hash": "b159e628c7b6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "adec01120ea0",
+      "ko": "249362dd8d0d"
+    }
   },
   "groups/x#members[sana].queer_texture": {
     "hash": "ff9a266a045f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sana].role": {
     "hash": "81ff2b493939",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sullyoon].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sullyoon].animal_plastic": {
-    "hash": "871fc7c27703",
-    "status": "pending"
+    "hash": "f41245cd357a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "8a70bcff66ea",
+      "ko": "da881ea2e575"
+    }
   },
   "groups/x#members[sullyoon].private_personality": {
-    "hash": "2eef6f1d543d",
-    "status": "pending"
+    "hash": "3548b7fa34c9",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4a8fb6f81a37",
+      "ko": "7200d9d34efa"
+    }
   },
   "groups/x#members[sullyoon].public_image": {
-    "hash": "c2d834dbc493",
-    "status": "pending"
+    "hash": "c6802b27c9d1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "66242656629d",
+      "ko": "da556e692ea9"
+    }
   },
   "groups/x#members[sullyoon].queer_texture": {
     "hash": "37e01b85d4ca",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[sullyoon].role": {
     "hash": "5d1ec09ab9a8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[wendy].animal": {
     "hash": "ee8372513bc1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[wendy].animal_plastic": {
     "hash": "944b82b7112f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[wendy].private_personality": {
     "hash": "00947b4dca98",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[wendy].public_image": {
-    "hash": "2a999d56c014",
-    "status": "pending"
+    "hash": "5e23d76a7507",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "7b44712bbb24",
+      "ko": "410caa05f8cc"
+    }
   },
   "groups/x#members[wendy].queer_texture": {
-    "hash": "05f9d3290d7c",
-    "status": "pending"
+    "hash": "95d5ca79e6ed",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "832596682a84",
+      "ko": "fddee839e3f4"
+    }
   },
   "groups/x#members[wendy].role": {
     "hash": "9224d08f2f0d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[wonyoung].animal": {
     "hash": "02ea6e1b01e9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "groups/x#members[wonyoung].animal_plastic": {
-    "hash": "abca9a6e8902",
-    "status": "pending"
+    "hash": "78d9e6ab1242",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "5b6d4071be2c",
+      "ko": "b3656448a1f1"
+    }
   },
   "groups/x#members[wonyoung].private_personality": {
-    "hash": "2da7b7d7f63b",
-    "status": "pending"
+    "hash": "c1c2b01bbe76",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f21d719cb6f3",
+      "ko": "d22680687f71"
+    }
   },
   "groups/x#members[wonyoung].public_image": {
-    "hash": "8e9fc99d3cb4",
-    "status": "pending"
+    "hash": "a139fcdedc9d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "79867ab0b393",
+      "ko": "3086c84b0897"
+    }
   },
   "groups/x#members[wonyoung].queer_texture": {
-    "hash": "a75b5eefbfdd",
-    "status": "pending"
+    "hash": "05ee5433c994",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "000ccbda9362",
+      "ko": "c232972a6fc1"
+    }
   },
   "groups/x#members[wonyoung].role": {
     "hash": "dea360533a0e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/_registers#korea.guide": {
     "hash": "580a1944077f",
     "status": "pending"
   },
   "worlds/campus#castLore.orgHint": {
-    "hash": "867e0e62230f",
-    "status": "pending"
+    "hash": "ff2655b4bd4f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "1fa7ccc548af",
+      "ko": "e73c57ebfc26"
+    }
   },
   "worlds/campus#castLore.orgNoun": {
-    "hash": "dc6e2aafeb9e",
-    "status": "pending"
+    "hash": "4513bba5432d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d64debd942d7",
+      "ko": "f7b9c878ccca"
+    }
   },
   "worlds/campus#country.name": {
     "hash": "963cd7300454",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[exchange_student].background": {
-    "hash": "12f3a90cc6cc",
-    "status": "pending"
+    "hash": "9cda57aa9041",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4e9b8a8cb761",
+      "ko": "61fafe326ff3"
+    }
   },
   "worlds/campus#identities[exchange_student].name": {
     "hash": "17b1e9d112e2",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[junior_student].background": {
-    "hash": "510e1fa4ca91",
-    "status": "pending"
+    "hash": "ace5f3d36764",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "6502dd980ce8",
+      "ko": "59320356553b"
+    }
   },
   "worlds/campus#identities[junior_student].name": {
     "hash": "5b9d02367edf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[junior_student].workTitle.form": {
     "hash": "9228325b78f3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[peer_student].background": {
-    "hash": "4b83d6d0b1e9",
-    "status": "pending"
+    "hash": "acd69debbbb2",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4c2622f2e96a",
+      "ko": "46ee01bf6df8"
+    }
   },
   "worlds/campus#identities[peer_student].name": {
     "hash": "19eb1b2d68ad",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[prof_of_cast].background": {
     "hash": "0d6934f7f6a5",
@@ -1885,367 +2861,592 @@
   },
   "worlds/campus#identities[prof_of_cast].name": {
     "hash": "456e01f92061",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[prof_of_cast].workTitle.form": {
     "hash": "7fecd7675744",
     "status": "pending"
   },
   "worlds/campus#identities[senior_student].background": {
-    "hash": "9da66df281ad",
-    "status": "pending"
+    "hash": "addc28cd034d",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "df8e011bce3f",
+      "ko": "594c44a7982f"
+    }
   },
   "worlds/campus#identities[senior_student].name": {
     "hash": "f7a51a50f497",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[senior_student].workTitle.form": {
     "hash": "9228325b78f3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[ta].background": {
-    "hash": "04e5d647b907",
-    "status": "pending"
+    "hash": "fb98f7b36fc4",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "05634f3e9405",
+      "ko": "21c7984f54d6"
+    }
   },
   "worlds/campus#identities[ta].name": {
     "hash": "8c5ac79b144a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].background": {
-    "hash": "2090b235c719",
-    "status": "pending"
+    "hash": "c2b1e7dda978",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "3bd347fc3973",
+      "ko": "916894729cda"
+    }
   },
   "worlds/campus#identities[主线成员前女友].name": {
     "hash": "99b912dc8eba",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].variants.keepsake[0]": {
     "hash": "2427c666bde0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].variants.keepsake[1]": {
-    "hash": "810a51da45b6",
-    "status": "pending"
+    "hash": "9e274f52b413",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "56c58f7fabf5",
+      "ko": "879546276519"
+    }
   },
   "worlds/campus#identities[主线成员前女友].variants.keepsake[2]": {
-    "hash": "4b51ba0dcdf7",
-    "status": "pending"
+    "hash": "6f9f8096ef13",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "6bd8fbddb80c",
+      "ko": "cc65d1908b88"
+    }
   },
   "worlds/campus#identities[主线成员前女友].variants.keepsake[3]": {
     "hash": "1722f92fd17c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].variants.reason[0]": {
     "hash": "0bc661621ca7",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].variants.reason[1]": {
     "hash": "f2891de8322e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].variants.reason[2]": {
     "hash": "b5174ec5a579",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#identities[主线成员前女友].variants.reason[3]": {
     "hash": "c519b68be415",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[campus_cafe].name": {
     "hash": "0c20d83a16c3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[club_room].name": {
     "hash": "dd3f7d04bf98",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[convenience_store].name": {
     "hash": "bd4437f208a8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[dorm_room].name": {
     "hash": "3a74de9a9014",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[lecture_hall].name": {
     "hash": "d612fb01e913",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[library].name": {
     "hash": "266e6cb77079",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[night_study].name": {
     "hash": "c2e16cbc63a8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[quad].name": {
     "hash": "c387a55dc782",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#places[seminar_room].name": {
-    "hash": "7b9e77d4fd3a",
-    "status": "pending"
+    "hash": "520678b1d971",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4789ae0629ac",
+      "ko": "d0f018242b02"
+    }
   },
   "worlds/campus#places[track_field].name": {
     "hash": "0f20f29891dd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/campus#setting": {
-    "hash": "da344399ad70",
-    "status": "pending"
+    "hash": "bd0469297963",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "1bd8e662badf",
+      "ko": "ab42b1e215bc"
+    }
   },
   "worlds/campus#world.name": {
     "hash": "cf3e1046a3c3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#castLore.orgHint": {
-    "hash": "8f283b8af137",
-    "status": "pending"
+    "hash": "2e87cc01ac5f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "376b2e7d7d7a",
+      "ko": "a5b16785b899"
+    }
   },
   "worlds/chaebol#castLore.orgNoun": {
     "hash": "d20c5cf4bbe9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#country.name": {
     "hash": "963cd7300454",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[bodyguard].background": {
-    "hash": "57a30cc1a971",
-    "status": "pending"
+    "hash": "854c0e589096",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "565d120102ed",
+      "ko": "46ed812bedfa"
+    }
   },
   "worlds/chaebol#identities[bodyguard].name": {
-    "hash": "8129d84e9dbb",
-    "status": "pending"
+    "hash": "ef243a7c444a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "998e41b432f4",
+      "ko": "c46793190b54"
+    }
   },
   "worlds/chaebol#identities[heiress_fallen].background": {
-    "hash": "c09041bbfc28",
-    "status": "pending"
+    "hash": "0e0f31aba3bb",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4787b44dafcf",
+      "ko": "30f56badb770"
+    }
   },
   "worlds/chaebol#identities[heiress_fallen].name": {
     "hash": "8f78197f04e1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[journalist].background": {
-    "hash": "7a1cc7b72a8e",
-    "status": "pending"
+    "hash": "bcc779a43086",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "03857258d0ef",
+      "ko": "b16cacc016d2"
+    }
   },
   "worlds/chaebol#identities[journalist].name": {
     "hash": "5df8707c1e58",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[lawyer].background": {
-    "hash": "ab65efefb808",
-    "status": "pending"
+    "hash": "85f12b557ba1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "5a18dd46f45f",
+      "ko": "672fd99323c8"
+    }
   },
   "worlds/chaebol#identities[lawyer].name": {
-    "hash": "d2202d235b4b",
-    "status": "pending"
+    "hash": "b965ca1730f7",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "cb523f25a6af",
+      "ko": "77c018c25e46"
+    }
   },
   "worlds/chaebol#identities[lawyer].workTitle.form": {
-    "hash": "551ebf8e651e",
-    "status": "pending"
+    "hash": "fe7dd1d9d106",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "a1c7bf7401e2",
+      "ko": "04a8eea53b7b"
+    }
   },
   "worlds/chaebol#identities[rival_heiress].background": {
-    "hash": "8f5e862f19c0",
-    "status": "pending"
+    "hash": "f9cb77b80cb6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "297f4e04fe60",
+      "ko": "90787b5f22bf"
+    }
   },
   "worlds/chaebol#identities[rival_heiress].name": {
     "hash": "5b89523e9220",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[secretary].background": {
-    "hash": "8e219f9eaddb",
-    "status": "pending"
+    "hash": "8974e099ced9",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "b263907edc96",
+      "ko": "dac1a685889b"
+    }
   },
   "worlds/chaebol#identities[secretary].name": {
     "hash": "5b1abd6143f5",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[secretary].workTitle.form": {
-    "hash": "ef88c87c8802",
-    "status": "pending"
+    "hash": "5b1abd6143f5",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "ad3ffa282c2f",
+      "ko": "18d98c560c88"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].background": {
-    "hash": "7ca567ae566e",
-    "status": "pending"
+    "hash": "a6c39a32c386",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f888981e8b09",
+      "ko": "7b0a67f65600"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].name": {
     "hash": "99b912dc8eba",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[主线成员前女友].variants.keepsake[0]": {
     "hash": "a72f0f6dc3cc",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[主线成员前女友].variants.keepsake[1]": {
-    "hash": "06ca3f32e2ef",
-    "status": "pending"
+    "hash": "79de96aee8bb",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "20fe4978e908",
+      "ko": "910290cb971d"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].variants.keepsake[2]": {
-    "hash": "f1f45c979415",
-    "status": "pending"
+    "hash": "688cbeadd6b7",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "044f9af76f67",
+      "ko": "3b8b9e50a4f4"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].variants.keepsake[3]": {
-    "hash": "f0d94694a340",
-    "status": "pending"
+    "hash": "b59133431905",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fafcb3a8e578",
+      "ko": "d0ec4ca9c4b0"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].variants.reason[0]": {
-    "hash": "bec6c6fa1f94",
-    "status": "pending"
+    "hash": "9796a801ed9c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "cff57c44aec5",
+      "ko": "9416f4716334"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].variants.reason[1]": {
-    "hash": "42df87dbf33f",
-    "status": "pending"
+    "hash": "4a51545e4929",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "be869aa8efe5",
+      "ko": "b4f102ede44f"
+    }
   },
   "worlds/chaebol#identities[主线成员前女友].variants.reason[2]": {
     "hash": "9c2096497807",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#identities[主线成员前女友].variants.reason[3]": {
     "hash": "0f77e485ba16",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[back_seat].name": {
-    "hash": "bf59e894c354",
-    "status": "pending"
+    "hash": "6d3c9869ac23",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fd51d90ffc69",
+      "ko": "dcc86ac7b9b8"
+    }
   },
   "worlds/chaebol#places[banquet_hall].name": {
     "hash": "de7289640966",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[boardroom].name": {
     "hash": "edee700ec281",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[family_office].name": {
     "hash": "7dd2b244a0ed",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[greenhouse].name": {
-    "hash": "15c9f662fc39",
-    "status": "pending"
+    "hash": "81c4b771a21c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "d5150bb6c5de",
+      "ko": "3b7897ea4685"
+    }
   },
   "worlds/chaebol#places[late_night_diner].name": {
     "hash": "3ea32fd35657",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[main_house].name": {
     "hash": "f95c855a5cd9",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[members_club].name": {
-    "hash": "05906d6c2508",
-    "status": "pending"
+    "hash": "d296e92ce49c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "ko": "3ea6e6082cfc"
+    }
   },
   "worlds/chaebol#places[penthouse].name": {
     "hash": "8d7c3d05149c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#places[private_gallery].name": {
     "hash": "99e03f07e619",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/chaebol#setting": {
-    "hash": "511fdde59f6f",
-    "status": "pending"
+    "hash": "c258f3780d5a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "72d0881e2026",
+      "ko": "83d58e329f77"
+    }
   },
   "worlds/chaebol#world.name": {
     "hash": "b58ae79644d7",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#castLore.orgHint": {
-    "hash": "50dc6e775d75",
-    "status": "pending"
+    "hash": "f1b71aed1023",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "fc792a66d42d",
+      "ko": "b7dc13805374"
+    }
   },
   "worlds/kpop_idol#castLore.orgNoun": {
     "hash": "ce3df931927b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#country.name": {
     "hash": "963cd7300454",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[Staff].background": {
-    "hash": "96768d2505ae",
-    "status": "pending"
+    "hash": "fa9e34ab09a8",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "ece3020d6ece",
+      "ko": "fe3af771e0e8"
+    }
   },
   "worlds/kpop_idol#identities[Staff].name": {
     "hash": "650a8d0f8e79",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[Staff].workTitle.form": {
     "hash": "b2d2058cd8f3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].background": {
-    "hash": "8b9479b54bf6",
-    "status": "pending"
+    "hash": "b86162386f42",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "da19b3fac826",
+      "ko": "726eedf2857d"
+    }
   },
   "worlds/kpop_idol#identities[主线成员前女友].name": {
     "hash": "99b912dc8eba",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.keepsake[0]": {
     "hash": "d9256c98172d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.keepsake[1]": {
     "hash": "932f69c0b139",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.keepsake[2]": {
     "hash": "ff8ec918a72b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.keepsake[3]": {
     "hash": "a067f5846411",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.reason[0]": {
     "hash": "a3711715f72b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.reason[1]": {
     "hash": "4a51545e4929",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.reason[2]": {
     "hash": "9796a801ed9c",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[主线成员前女友].variants.reason[3]": {
     "hash": "277a5e336c26",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[留学生].background": {
-    "hash": "7398b7b82fac",
-    "status": "pending"
+    "hash": "df8b4f0870e6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "34631df4ba4e",
+      "ko": "0242d0600947"
+    }
   },
   "worlds/kpop_idol#identities[留学生].name": {
     "hash": "0aafc21fe06b",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[粉丝].background": {
-    "hash": "a05e5b965ceb",
-    "status": "pending"
+    "hash": "b6bd066c39a6",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "af8305373fc6",
+      "ko": "b9c17a0538e0"
+    }
   },
   "worlds/kpop_idol#identities[粉丝].name": {
     "hash": "261c51c9f1cd",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[练习生].background": {
-    "hash": "820e4dee744c",
-    "status": "pending"
+    "hash": "4de8b5e92956",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "a6b9048ba1b4",
+      "ko": "973e5017700d"
+    }
   },
   "worlds/kpop_idol#identities[练习生].name": {
     "hash": "31ffaf17b9ca",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[练习生].workTitle.form": {
     "hash": "9228325b78f3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[财阀].background": {
     "hash": "0f9ea67c9cd5",
@@ -2253,226 +3454,345 @@
   },
   "worlds/kpop_idol#identities[财阀].name": {
     "hash": "679753784a2a",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[财阀].workTitle.form": {
     "hash": "ced1b6a510d0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#identities[韩娱艺人].background": {
-    "hash": "5346c2c4bd93",
-    "status": "pending"
+    "hash": "d927f567480e",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "3018f3b3864b",
+      "ko": "eb0ad544f43b"
+    }
   },
   "worlds/kpop_idol#identities[韩娱艺人].name": {
-    "hash": "53e4d562969a",
-    "status": "pending"
+    "hash": "4438fdac3d5f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "e7d10b316bf9",
+      "ko": "da2af9fde423"
+    }
   },
   "worlds/kpop_idol#places[backstage].name": {
     "hash": "bb55dafeac38",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[company_lobby].name": {
     "hash": "187e5bb33d79",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[convenience_store].name": {
     "hash": "3a6fb85d3639",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[dorm].name": {
     "hash": "3a74de9a9014",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[hair_makeup].name": {
-    "hash": "91202d57754c",
-    "status": "pending"
+    "hash": "c20eb62494f1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "ko": "456d29ad5582"
+    }
   },
   "worlds/kpop_idol#places[han_river].name": {
     "hash": "c39dfc8494a1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[practice_room].name": {
     "hash": "152a07af45e7",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[recording_booth].name": {
     "hash": "f69648e91339",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[rooftop].name": {
     "hash": "10bdab2b8029",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#places[van].name": {
     "hash": "6d3c9869ac23",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/kpop_idol#setting": {
-    "hash": "60bf56308047",
-    "status": "pending"
+    "hash": "e70ff5dd7d2b",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "21d14f359008",
+      "ko": "bffa544d6d5d"
+    }
   },
   "worlds/kpop_idol#world.name": {
     "hash": "68a27e37e513",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#castLore.orgHint": {
     "hash": "23e3c5694cb6",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#castLore.orgNoun": {
     "hash": "e06ff957ed48",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#country.name": {
     "hash": "963cd7300454",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[contractor].background": {
-    "hash": "b8f806dcbc52",
-    "status": "pending"
+    "hash": "2f8f9f526b88",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "a523f6316a77",
+      "ko": "4fffc6ef76bf"
+    }
   },
   "worlds/office#identities[contractor].name": {
     "hash": "261bbe800a1f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[hr].background": {
-    "hash": "e32b2df34543",
-    "status": "pending"
+    "hash": "8206c4ac7a89",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "4cbd3b8e54bf",
+      "ko": "2257f6600d1a"
+    }
   },
   "worlds/office#identities[hr].name": {
     "hash": "6ac380cbd716",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[manager_of_cast].background": {
-    "hash": "b5ec4119d025",
-    "status": "pending"
+    "hash": "564c94f973d1",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "962f1bb350ba",
+      "ko": "6239446d8d20"
+    }
   },
   "worlds/office#identities[manager_of_cast].name": {
     "hash": "c182421398c0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[manager_of_cast].workTitle.form": {
     "hash": "374530c29ed1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[new_hire].background": {
-    "hash": "b4d1f32c9fb8",
-    "status": "pending"
+    "hash": "747ec781e08f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "34a8309bfd05",
+      "ko": "ea9fceac18f4"
+    }
   },
   "worlds/office#identities[new_hire].name": {
     "hash": "e87070afef32",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[new_hire].workTitle.form": {
     "hash": "9228325b78f3",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[peer_colleague].background": {
-    "hash": "da5c7ff58f73",
-    "status": "pending"
+    "hash": "d607befe3ca9",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "609172176fa1",
+      "ko": "ff7ef0994ded"
+    }
   },
   "worlds/office#identities[peer_colleague].name": {
     "hash": "6ae62af4619f",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[report_to_cast].background": {
-    "hash": "0c0df8423652",
-    "status": "pending"
+    "hash": "f9583081009f",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "c5982612f14e",
+      "ko": "89c7d4c18d9b"
+    }
   },
   "worlds/office#identities[report_to_cast].name": {
     "hash": "986608686c50",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[report_to_cast].workTitle.form": {
     "hash": "374530c29ed1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].background": {
-    "hash": "02635084c239",
-    "status": "pending"
+    "hash": "fbeade7e887a",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "71e45d14bd3c",
+      "ko": "417a7ebfebad"
+    }
   },
   "worlds/office#identities[主线成员前女友].name": {
     "hash": "99b912dc8eba",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].variants.keepsake[0]": {
     "hash": "0e511bd586cf",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].variants.keepsake[1]": {
-    "hash": "3e406f5c11a9",
-    "status": "pending"
+    "hash": "2503b0881d62",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "0f00567d96c1",
+      "ko": "4a7dae177851"
+    }
   },
   "worlds/office#identities[主线成员前女友].variants.keepsake[2]": {
     "hash": "3f8978ab062e",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].variants.keepsake[3]": {
-    "hash": "3ad865cd1e3b",
-    "status": "pending"
+    "hash": "58e247566c92",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "eddc7740c3f0",
+      "ko": "199ac5589e4f"
+    }
   },
   "worlds/office#identities[主线成员前女友].variants.reason[0]": {
     "hash": "f9ddf131f4b1",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].variants.reason[1]": {
     "hash": "55c5c818f792",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].variants.reason[2]": {
     "hash": "c68bcec78e39",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#identities[主线成员前女友].variants.reason[3]": {
-    "hash": "1b63103a654c",
-    "status": "pending"
+    "hash": "9796a801ed9c",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "42a4174bd160",
+      "ko": "f8e06d332861"
+    }
   },
   "worlds/office#places[archive_room].name": {
     "hash": "6c1154a9ee16",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[convenience_store].name": {
     "hash": "52e09afbe0d0",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[elevator].name": {
     "hash": "c4d0aea9e2da",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[hoesik].name": {
-    "hash": "f2b8d0298cfb",
-    "status": "pending"
+    "hash": "23b84dac4859",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "f34018cc9cb8",
+      "ko": "b5b3b056cbfc"
+    }
   },
   "worlds/office#places[meeting_room].name": {
     "hash": "423bba6b21af",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[open_floor].name": {
     "hash": "b25fd391b04d",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[pantry].name": {
     "hash": "805469960dd8",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[rooftop].name": {
     "hash": "10bdab2b8029",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[stairwell].name": {
     "hash": "36a25b377239",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#places[taxi].name": {
     "hash": "dadb5d2d7f56",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   },
   "worlds/office#setting": {
-    "hash": "0587ba2e6ff3",
-    "status": "pending"
+    "hash": "8d583a0b63dd",
+    "status": "approved",
+    "approved": "2026-10-19",
+    "owed": {
+      "en": "deaab5f485d6",
+      "ko": "dbe7724933f5"
+    }
   },
   "worlds/office#world.name": {
     "hash": "cb24c17f5739",
-    "status": "pending"
+    "status": "approved",
+    "approved": "2026-10-19"
   }
 }
