@@ -4187,7 +4187,12 @@ Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` 
   `prof_of_cast` is now a **cafe owner** near campus - a professor was wrong for a dating game,
   her call - addressed as 老板 / Boss / 사장님, still to_player; the **id stays** for saves. The
   kpop 财阀 background names `{name}组合所在公司` instead of the `{org}` backgrounds cannot
-  render. The zh name is 咖啡馆老板; en/ko say Café owner / 카페 사장.
+  render. The zh name is 咖啡馆老板; en/ko say Café owner / 카페 사장. **Live, 2026-10-20:**
+  campus/en café owner and chaebol/zh new employee, **4/4 clean each, 0 drifts, 89.7% cache**.
+  Reading the zh prose found Seulgi citing her trainee years and dance practice in a family
+  company, with none of it in the prompt - the model's own knowledge of the real person - and a
+  fully restaged cast is the one case where §22.1's rule is not rendered. n=1, not fixed;
+  `docs/HANDOFF.md` has it and the measurement that would settle it.
 - ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
   `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
   and no world file does any more - the dead-field shape this file tracks seven times, with the

@@ -23,19 +23,53 @@ contents rather than appending a log.
 
 ## The task in flight
 
-1. **Live test** the new world text after she pushes `dev`. The zh review itself is closed:
-   the café owner's zh name is 咖啡馆老板 (en/ko Café owner / 카페 사장).
+1. **Nothing in flight.** The zh review is closed and the live test below is done. The next
+   decision is Yuhan's: whether the Seulgi finding is worth a multi-run measurement.
+
+## Live test, 2026-10-20 (`deepseek-flash`, after the push)
+
+| run | rounds | cache | drifts | prefix breaks |
+| --- | --- | --- | --- | --- |
+| `campus` / en / `prof_of_cast` (café owner) | **4/4 clean** | 89.7% | 0 | 0 of 1 |
+| `chaebol` / zh / `lawyer` (new employee) | **4/4 clean** | 89.7% | 0 | 0 of 1 |
+
+Both premises land in the prose: the café scenes are set behind the counter with members as
+regulars, and the new employee says 「对不起，代表nim」 to the heiress in the director's lift
+(代表nim 4 times in 4 rounds, all from the player - the to_cast direction holds). Restaging 5/5
+in both, 0 idol words in the restaged fields. Reports: `test/.out/playthrough-1792455888460.json`
+(en), `-1792455936102.json` (zh).
+
+**What reading the prose found, none of it fixed (each is n=1):**
+
+- **zh chaebol: Seulgi brings her real idol past into a family company.** 「这家的牛骨汤，我练习生
+  时候常吃」, 「我练舞练到凌晨」, and she carries 乐谱. The rendered prompt holds **none** of
+  this - checked offline, the only hit is the prohibition list - so the model supplied it from what
+  it knows about the real Seulgi. And because all five members were restaged, the §22.1 interim
+  rule (*read for traits; no stage, no debut*) is **not rendered at all** - by design, since it
+  narrows to un-restaged members. So a fully restaged cast is the one case with nothing telling the
+  model these people are not idols here, other than the ROLE CONTRACT's `castLife`. Settling it
+  needs several runs counting idol-fact sentences in the **prose** per world, restaged against
+  `--no-restage`; a fix would be a world-level line that does not depend on who was restaged, and
+  it moves the three non-idol goldens.
+- **en campus: the restaging made Joy a "campus cafe barista"** while the player owns the café. It
+  did not surface in four rounds, but the restaging prompt does not see the player's identity, so
+  a member can be cast into the player's own role.
+- **en campus: round 4 switched from present to past tense** and dropped contractions ("I am not
+  usually this forgetful"), after three present-tense rounds. Register; Yuhan's to judge.
+- **zh chaebol: narration names members 裴珠泫/姜涩琪 in rounds 1-3 and Irene/Seulgi in round 4.**
+  Both are allowed; the switch mid-run is not consistent.
+- The café owner's title (Boss) was never spoken in four rounds; Irene went straight to
+  "Summer-ssi... Summer". Within the relaxing rule, early.
 
 ## Not verified
 
-- **No live round** has been played on the new world text. The café owner, new-employee
-  (`lawyer` id), secretary and kpop 财阀 identity lines were rendered offline and read; nothing more.
-- **ko is not native-reviewed.**
+- **ko has had no live round** on the new text, and is not native-reviewed.
+- The secretary and kpop 财阀 identities were rendered offline only.
 
 ## Next command
 
-`node test/playthrough.mjs --world campus --identity prof_of_cast --lang en --rounds 4`, plus a
-zh `chaebol`/`lawyer` arm, once Yuhan has pushed.
+None owed. If the Seulgi finding is pursued: several `--world chaebol --lang zh --rounds 8` runs,
+with and without `--no-restage`, counting idol-fact sentences in the prose.
 
 ---
 
