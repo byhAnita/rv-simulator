@@ -34,8 +34,8 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### castLore.orgHint
-<!-- zh-review key="worlds/chaebol#castLore.orgHint" base="2e87cc01ac5f" -->
-- [ ] approved - DRAFT (not applied) - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#castLore.orgHint" base="9e3f721695bf" -->
+- [x] approved - uncommitted
 ~~~~
 这些成员同属一个财阀家族，以主线成员的姓氏为家族姓氏。家族企业：{org}
 ~~~~

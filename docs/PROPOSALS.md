@@ -567,6 +567,10 @@ sentinel post, then read the round that follows.
 
 **Written 2026-10-20, from Yuhan's question during v1.4.4. Deliberately NOT in v1.4.4.**
 
+**DECIDED 2026-10-21 (Yuhan): do it in a later version** - the summary is generated and stored in
+the playing language. Scheduled after v1.4.4 so it does not confound P7's blind read; the A/B
+below is still how its effect is measured.
+
 **What.** `summary` is "ONE English sentence, 100-150 characters" in every language. It is the
 collapse target, so from round 4 on most of the history ledger is English summaries of Chinese
 (or Korean) stories. The change: write it in the language of the story.

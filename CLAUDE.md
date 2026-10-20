@@ -1645,9 +1645,10 @@ the same commit, and the guard goes through `resolveRoster` so a dropped field f
 **A main with no real name** (a custom member without `name_kr`) drops the family line by
 `renderCastLore`'s missing-value rule, and the cast is still one family.
 
-**The Setup hint (`castLore.orgHint`, zh) still says *different families*.** It is approved
-Chinese, so the change is an unticked draft in `docs/zh-review/worlds-chaebol.md` and the live
-string waits for Yuhan; it is UI only and reaches no prompt. en/ko follow once she accepts it.
+**The Setup hint (`castLore.orgHint`) says one family too**, in all three languages. The zh
+string was approved Chinese, so the change went through the review as a draft; Yuhan ticked it on
+2026-10-21 and `sync` applied it, and en/ko were settled against it. It is UI only and reaches no
+prompt, so no golden moved.
 
 6 guards, 6 mutations RED. Only `chaebol-zh` moved (its main is Karina, so the house is 刘).
 

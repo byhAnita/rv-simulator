@@ -3031,13 +3031,9 @@
     "approved": "2026-10-20"
   },
   "worlds/chaebol#castLore.orgHint": {
-    "hash": "2e87cc01ac5f",
+    "hash": "9e3f721695bf",
     "status": "approved",
-    "approved": "2026-10-20",
-    "owed": {
-      "en": "376b2e7d7d7a",
-      "ko": "a5b16785b899"
-    }
+    "approved": "2026-10-20"
   },
   "worlds/chaebol#castLore.orgNoun": {
     "hash": "d20c5cf4bbe9",

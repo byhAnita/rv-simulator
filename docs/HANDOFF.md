@@ -5,7 +5,7 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-20 (evening) by Claude Opus 5.5 (main VS Code session)
+**Last updated:** 2026-10-21 by Claude Opus 5.5 (main VS Code session)
 **Handing to:** the next session - continue `docs/V144_PLAN.md` at **P1**
 
 ---
@@ -66,10 +66,11 @@ authority on progress.
 - **Next: P1, the address ladder** - per-member Address line by stage rung, REGISTER and SPEAKER
   CONTRACT rewrite, `given_name` overrides (the table in P1b) via `src/rag/memberNames.js`, and
   `membersNamedIn` switched to the same helper. All six goldens move.
-- **Open for Yuhan:** she ACCEPTED the zh `castLore.orgHint` draft in conversation; en/ko already
-  follow it (`cc6ac2f`). It goes live when she ticks it in `docs/zh-review/worlds-chaebol.md`
-  and runs `sync` - agents never tick.
-- **Deferred, not v1.4.4:** `summary` in the player's language, `docs/PROPOSALS.md` §12.
+- The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
+  2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
+- **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,
+  `docs/PROPOSALS.md` §12 (Yuhan agreed 2026-10-21).
+- **Phone test of P10 and the rest is Yuhan's, after v1.4.4 is complete.**
 - In-game release notes (`src/config/releaseNotes.js`) are rewritten once, after P8.
 - Pushing and the release are Yuhan's.
 
