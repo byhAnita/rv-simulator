@@ -5,8 +5,8 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-20 (overnight) by Claude Opus 5.5 (main VS Code session)
-**Handing to:** **Yuhan** - morning read; nothing is blocked on anyone
+**Last updated:** 2026-10-20 (day) by Claude Opus 5.5 (main VS Code session)
+**Handing to:** **Yuhan** - review v1.4.4 on the Cloudflare preview, then release
 
 ---
 
@@ -49,15 +49,17 @@ Three commits, each validated (build + smoke + mutation) and pushed to `dev`:
 
 - **The parse-failure retry has not been seen firing live** - the stray-brace failures stopped
   recurring after the fix landed. Verified offline against the verbatim response.
-- **Social posts are not scanned** for idol facts; one control caption read 「练习室结束」.
+- Social posts and Kakao are now scanned (the harness stores their text): 0/8 runs leak with
+  the rule, 2/8 without. Small n.
 - ko is still **not native-reviewed**; the ko runs were read for positions and graders only.
 - The A/B is one world, one identity, one language, one model.
 
 ## Next command
 
-None owed. Yuhan's calls, if any:
-- whether `sajang-nim` reads right to her in en (it follows the transliteration table);
-- whether to scan social posts too (the harness would need to store their text).
+**v1.4.4 is bumped on `dev`** (README What's New, in-game release notes in zh/en/ko - the
+notes are Claude's and want her read). Yuhan reviews `dev.idol-dating-sim.pages.dev`, then the
+release sequence in CLAUDE.md (merge to main, `npm run deploy`, tag, merge back) - all red
+lines, hers to start. Also hers: whether `sajang-nim` reads right in en.
 
 ---
 

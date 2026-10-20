@@ -45,11 +45,22 @@ measurement on one world, one identity, one language and one model, and Seulgi i
 who leaks almost every time - so "the rule works" is supported for this configuration and not
 established beyond it.
 
+## Social posts and Kakao - a second, smaller A/B, same day
+
+The harness now stores every round's social post and Kakao text (`transcript.socialText`,
+`transcript.kktText`). 8 more runs per arm, alternating, same command and model:
+
+| arm | runs | posts + Kakao scanned | runs leaking in posts/Kakao | runs leaking anywhere |
+| --- | --- | --- | --- | --- |
+| rule ON | 8 | 139 | **0** | **0** |
+| rule OFF | 8 | 128 | **2** | **4** |
+
+Control posts, both Seulgi: 「今天的练习室阳光很好，压腿压到怀疑人生」, 「今天也是在练习室泡到天黑
+的一天」. The one treatment prose hit was a false positive (「动作利落得像是练习过很多次」).
+Small n; it says the rule reaches the posts too, not by how much.
+
 ## Not measured
 
-- **Social posts.** The scanner reads prose only and the report does not store the post text.
-  One control round's Instagram caption read 「练习室结束」, seen only because that round failed
-  to parse and kept its raw response.
 - en and ko: the word list is zh. The ko runs that night were 6/6 clean on the graders and were
   read for positions, not for idol facts.
 
