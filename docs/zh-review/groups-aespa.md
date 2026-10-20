@@ -28,14 +28,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[karina].public_image
 <!-- zh-review key="groups/aespa#members[karina].public_image" base="a75620f07317" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 代表性的AI神颜, 拥有不真实的精致五官和完美的身材比例. 气场全开, 是绝对的视觉中心。
 ~~~~
 
 ### members[karina].private_personality
 <!-- zh-review key="groups/aespa#members[karina].private_personality" base="78a0ef205802" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 外表高冷, 内心是热情黏人的ENFP快乐小狗. 说话软糯爱撒娇, 和外表判若两人. 责任感极强, 但私下里是成员们宠爱的单纯大姐姐. 对成员的保护欲爆棚, 被称为最可靠的里兜.
 ~~~~
@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[karina].animal_plastic
 <!-- zh-review key="groups/aespa#members[karina].animal_plastic" base="0e1953243059" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — AI女神, 台下软萌撒娇大姐姐
 ~~~~
@@ -70,14 +70,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[giselle].public_image
 <!-- zh-review key="groups/aespa#members[giselle].public_image" base="8e3d597570e1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有流利英日韩三语能力的国际化背景, 个人风格独特且带有高级感. 从被低估到被认可的逆袭代表. 时尚感出众
 ~~~~
 
 ### members[giselle].private_personality
 <!-- zh-review key="groups/aespa#members[giselle].private_personality" base="3ab685f0b6c9" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 灵魂深处是深邃的INFJ提倡者. 看似洒脱随性, 实则心思细腻, 情感丰富. 喜欢阅读和写作, 拥有文艺少女的一面. 对自己要求严格, 曾默默流泪但从不放弃. 是成员们的精神支柱.
 ~~~~
@@ -112,14 +112,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[winter].public_image
 <!-- zh-review key="groups/aespa#members[winter].public_image" base="0ba8ab255c1c" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有清冷少年感和甜美嗓音的反差魅力, 气质独特清澈, 工作干净利落. 短发造型深入人心, 呆萌可爱.
 ~~~~
 
 ### members[winter].private_personality
 <!-- zh-review key="groups/aespa#members[winter].private_personality" base="43553f3ed428" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 冷静独立的ISTP鉴赏家. 私下话少, 享受独处, 喜欢打游戏和拼乐高. 外表看起来冷淡, 但实际非常重感情. 对待专业极度认真, 是典型的努力派. 偶尔会流露出令人爆笑的四次元思维, 是成员们又爱又捉弄的对象.
 ~~~~
@@ -154,14 +154,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[ningning].public_image
 <!-- zh-review key="groups/aespa#members[ningning].public_image" base="90e433b9ed96" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 来自中国的专业天才忙内, 自信闪耀和拥有丰沛的情感表达力, 私下却是可爱傲娇的小猫咪.
 ~~~~
 
 ### members[ningning].private_personality
 <!-- zh-review key="groups/aespa#members[ningning].private_personality" base="71dd83af2f5f" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 感性浪漫的INFP艺术家. 拥有天马行空的想象力和丰富的内心世界. 爱撒娇也爱生气, 情绪都写在脸上, 是成员们宠爱的可爱忙内. 但在工作上有着超越年龄的成熟和执着, 对自己的要求近乎苛刻.
 ~~~~
@@ -175,7 +175,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[ningning].animal_plastic
 <!-- zh-review key="groups/aespa#members[ningning].animal_plastic" base="80b2365a215a" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 专业天才忙内, 傲娇又黏人的小猫咪
 ~~~~

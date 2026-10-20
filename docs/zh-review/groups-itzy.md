@@ -28,14 +28,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[yeji].public_image
 <!-- zh-review key="groups/itzy#members[yeji].public_image" base="250427c1456f" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有标志性的狐狸眼和锋利的下颌线, 最具辨识度的美貌. 以专业实力和致命眼神著称
 ~~~~
 
 ### members[yeji].private_personality
 <!-- zh-review key="groups/itzy#members[yeji].private_personality" base="56ba575a6866" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 外表强势, 内心是温柔的INFJ提倡者. 责任感极强, 习惯把所有压力自己扛. 私下性格软萌, 爱吃甜食, 对成员照顾得无微不至. 是团队里最可靠的支柱, 也是最容易被感动的人.
 ~~~~
@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[yeji].animal_plastic
 <!-- zh-review key="groups/itzy#members[yeji].animal_plastic" base="685877262117" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 外表霸气猎豹, 私下软萌可靠
 ~~~~
@@ -70,14 +70,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[lia].public_image
 <!-- zh-review key="groups/itzy#members[lia].public_image" base="87be6cdac7b6" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有蜂蜜般甜蜜嗓音，优雅的名媛气质和治愈的笑容是她的标志. 虽然被调侃为运动细胞为零, 但她的真诚和努力赢得了所有人的爱.
 ~~~~
 
 ### members[lia].private_personality
 <!-- zh-review key="groups/itzy#members[lia].private_personality" base="d52ed3061e63" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 敏感细腻的INFP艺术家. 内心柔软, 容易焦虑但也非常坚强. 经历过事业艰难时期, 归来后更加耀眼. 私下是成员们的开心果, 也是最爱哭但最勇敢的感性担当. 
 ~~~~
@@ -91,7 +91,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[lia].animal_plastic
 <!-- zh-review key="groups/itzy#members[lia].animal_plastic" base="1683c8ff6099" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 优雅柔软但坚韧的勇敢兔子
 ~~~~
@@ -112,7 +112,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[ryujin].public_image
 <!-- zh-review key="groups/itzy#members[ryujin].public_image" base="c0a85d0255d1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有独一无二的少年感和Girl Crush魅力, 是最具代表性的帅气担当. 专业干净利落充满力量. 散发从容自信的魅力
 ~~~~
@@ -154,7 +154,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[chaeryeong].public_image
 <!-- zh-review key="groups/itzy#members[chaeryeong].public_image" base="ae04be040f79" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有行云流水般的专业表现和独特的魅力. 越来越自信美丽, 成长型.
 ~~~~
@@ -175,7 +175,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[chaeryeong].animal_plastic
 <!-- zh-review key="groups/itzy#members[chaeryeong].animal_plastic" base="2ab7cc22f6b6" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 狐狸 — 天生舞者, 纯真真诚的成长系
 ~~~~
@@ -196,7 +196,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[yuna].public_image
 <!-- zh-review key="groups/itzy#members[yuna].public_image" base="fbc0a46b59fc" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有神赐的身材和明媚美貌的忙内, 视觉焦点. 永远充满能量是团队的活力素和氛围制造者.
 ~~~~

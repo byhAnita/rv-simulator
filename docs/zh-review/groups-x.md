@@ -27,10 +27,10 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### members[irene].public_image
-<!-- zh-review key="groups/x#members[irene].public_image" base="398b577f34ca" -->
+<!-- zh-review key="groups/x#members[irene].public_image" base="d889a2aa71e1" -->
 - [x] approved - uncommitted
 ~~~~
-清冷神颜，高冷优雅，是成员们的定海神神，克制、体面且滴水不漏. 她是所有成员最尊敬的姐姐和领袖.
+清冷神颜，高冷优雅，是成员们的定海神针，克制、体面且滴水不漏. 她是所有成员最尊敬的姐姐和领袖.
 ~~~~
 
 ### members[irene].private_personality
@@ -70,7 +70,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[sana].public_image
 <!-- zh-review key="groups/x#members[sana].public_image" base="b159e628c7b6" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 天生的钓系, 以甜到极致的撒娇和迷人的表情闻名. 是完美的维他命存在, 是团队里最闪耀的活力素.
 ~~~~
@@ -112,7 +112,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[wendy].public_image
 <!-- zh-review key="groups/x#members[wendy].public_image" base="5e23d76a7507" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 元气满满, 随时随地散发正能量. 情商极高, 公认的天使. 曾在加拿大留学, 精通英语. 在X中, 她是用歌声串联所有人的音乐核心.
 ~~~~
@@ -126,7 +126,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[wendy].queer_texture
 <!-- zh-review key="groups/x#members[wendy].queer_texture" base="95d5ca79e6ed" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 润物细无声的越界。友情的边界在她无底线的温柔里融化，你发现自己早已无处可逃
 ~~~~
@@ -154,14 +154,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[eunbi].public_image
 <!-- zh-review key="groups/x#members[eunbi].public_image" base="aa1e103a89f8" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有扎实的专业实力. 性感与清纯并存, 是公认的“水雾女神”. 在X中, 她带来了成熟前辈的稳重与优雅.
 ~~~~
 
 ### members[eunbi].private_personality
 <!-- zh-review key="groups/x#members[eunbi].private_personality" base="b96c63c8bbeb" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 温柔而坚韧的INFJ. 内心无比强大. 对后辈极其照顾, 是大家想要依赖的温暖姐姐. 但她也渴望被理解和照顾, 在坚强的外表下藏着一颗需要被呵护的心.
 ~~~~
@@ -196,14 +196,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[sullyoon].public_image
 <!-- zh-review key="groups/x#members[sullyoon].public_image" base="c6802b27c9d1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有清纯漫画颜, 五官精致如AI. 专业天赋异禀, 嗓音甜美清澈. 在X中, 她是最受姐姐们宠爱的妹妹.
 ~~~~
 
 ### members[sullyoon].private_personality
 <!-- zh-review key="groups/x#members[sullyoon].private_personality" base="3548b7fa34c9" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 极度害羞内向的ISFJ守护者. 和熟人在一起才会放松下来, 私下是爱哭爱笑的感性少女. 对自己要求极高, 常常因为不够自信而默默加倍努力. 在这个全是前辈的团队里, 她既紧张又兴奋, 像一只误入花丛的小兔子.
 ~~~~
@@ -217,7 +217,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[sullyoon].animal_plastic
 <!-- zh-review key="groups/x#members[sullyoon].animal_plastic" base="f41245cd357a" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 神颜害羞但真挚的感性少女
 ~~~~
@@ -238,28 +238,28 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[wonyoung].public_image
 <!-- zh-review key="groups/x#members[wonyoung].public_image" base="a139fcdedc9d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有神赐的身材比例和完美的表情管理. 自信、积极, 是“Lucky Vicky”心态的代名词. 即使在这个群星闪耀的X中, 她依然是无法忽视的焦点.
 ~~~~
 
 ### members[wonyoung].private_personality
 <!-- zh-review key="groups/x#members[wonyoung].private_personality" base="c1c2b01bbe76" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 甜美外壳下是霸气的ENTJ指挥官. 拥有极强的自我管理能力和事业心, 目标明确, 逻辑清晰, 是掌控自己人生的“小总裁”. 她的坚强和努力是为了保护身边的人, 包括这个组合里的每一位姐姐.
 ~~~~
 
 ### members[wonyoung].queer_texture
 <!-- zh-review key="groups/x#members[wonyoung].queer_texture" base="05ee5433c994" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 渴望被当成一个“真实的人”来爱. 她的喜欢是霸道的占有和极致的保护. 当她为你卸下完美面具, 展露一丝脆弱和依赖时, 那将是独属于你的、最致命的特权.
 ~~~~
 
 ### members[wonyoung].animal_plastic
 <!-- zh-review key="groups/x#members[wonyoung].animal_plastic" base="78d9e6ab1242" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 完美女神, 私下霸气总裁
 ~~~~
@@ -280,7 +280,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[hyewon].public_image
 <!-- zh-review key="groups/x#members[hyewon].public_image" base="fc3ba05f1ea5" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 清纯美貌与反转魅力并存. 拥有令人惊艳的视觉和独特的呆萌气质. 越来越自信. 在X中, 她是安静却无法被忽略的清冷美人.
 ~~~~
@@ -322,7 +322,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jisoo].public_image
 <!-- zh-review key="groups/x#members[jisoo].public_image" base="4fe23084d104" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有精致如画报般的经典韩式美貌. 独特的清冷烟嗓与甜美外表形成极致反差. 性格开朗幽默, 在X中是能化解任何尴尬的气氛调节者.
 ~~~~
@@ -343,7 +343,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jisoo].animal_plastic
 <!-- zh-review key="groups/x#members[jisoo].animal_plastic" base="e7e3f04639e3" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 清冷烟嗓, 外热内冷的通透智者
 ~~~~
@@ -364,14 +364,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[miyeon].public_image
 <!-- zh-review key="groups/x#members[miyeon].public_image" base="2c01e58a14b7" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有天赐嗓音和精致美貌. 性格活泼开朗, 是团队里的开心果.
 ~~~~
 
 ### members[miyeon].private_personality
 <!-- zh-review key="groups/x#members[miyeon].private_personality" base="3e1eb894cf25" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 天真烂漫的ENFP. 是成员们宠爱的“面粉团子”, 爱撒娇也爱捉弄人. 但在专业上有着绝对的专业和执着. 她很容易相信别人, 也容易受伤, 需要被温柔对待. 在这个新团队里, 她是最快和大家打成一片的人.
 ~~~~
@@ -385,7 +385,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[miyeon].animal_plastic
 <!-- zh-review key="groups/x#members[miyeon].animal_plastic" base="464c5d3d5f21" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 天赐嗓音, 天真烂漫的面粉团子
 ~~~~
@@ -406,7 +406,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[mina].public_image
 <!-- zh-review key="groups/x#members[mina].public_image" base="256d82408ba4" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 优雅的黑天鹅, 从小学习芭蕾赋予了她独特的古典气质. 拥有清冷的美貌和沉静的气场, 致命的魅力散发者. 在X中, 她的芭蕾底子为整个团队增添了高级质感.
 ~~~~

@@ -4180,11 +4180,15 @@ Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` 
 - ◩ **Her first pass is applied, 2026-10-20: 176 edited, 614 approved, 5 left.** The group prose
   lost its idol-industry facts (the §22.1 defect, fixed at the source for the library), and the
   four worlds' backgrounds and settings are hers. en and ko were retranslated for every edit
-  (ko **not native-reviewed**). All six goldens moved by data lines only, diff read. Left:
-  campus `prof_of_cast` is being replaced (her call; the id stays for saves), the `kpop_idol`
-  财阀 draft uses `{org}` which backgrounds cannot render, and `_registers` awaits a tick.
+  (ko **not native-reviewed**). All six goldens moved by data lines only, diff read.
   `zh-review.mjs` gained `settle` and reads `[]` as unticked; **5 mutations, 5 RED**. Smoke
   **1719 -> 1724**. See *The secretary called the heiress by her own title*.
+- ◩ **Her second pass closes the review: 620 of 620 approved, 0 owed, 2026-10-20.** Campus
+  `prof_of_cast` is now a **cafe owner** near campus - a professor was wrong for a dating game,
+  her call - addressed as 老板 / Boss / 사장님, still to_player; the **id stays** for saves. The
+  kpop 财阀 background names `{name}组合所在公司` instead of the `{org}` backgrounds cannot
+  render. **One gap: the zh `name` still reads 教授**, which her pass did not touch; en/ko say
+  Café owner / 카페 사장. `docs/HANDOFF.md` holds it.
 - ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
   `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
   and no world file does any more - the dead-field shape this file tracks seven times, with the

@@ -28,7 +28,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[lily].public_image
 <!-- zh-review key="groups/nmixx#members[lily].public_image" base="37972cc5fadd" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 作为澳洲韩裔, 英语流利且性格开朗自信.
 ~~~~
@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[lily].animal_plastic
 <!-- zh-review key="groups/nmixx#members[lily].animal_plastic" base="6df039b6d964" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 考拉 — 开朗自信, 私下黏人撒娇的大姐
 ~~~~
@@ -70,14 +70,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[haewon].public_image
 <!-- zh-review key="groups/nmixx#members[haewon].public_image" base="a5ffb4571ad8" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有清澈的嗓音和扎实的专业能力. 永远保持完美微笑. 是被看好的专业全能ACE.
 ~~~~
 
 ### members[haewon].private_personality
 <!-- zh-review key="groups/nmixx#members[haewon].private_personality" base="353ac4db5bd4" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 冷静克制的ISTP鉴赏家. 私下话不多, 情绪稳定到让人安心. 承受着巨大压力, 但她选择用安静的方式消化一切. 偶尔会流露出令人意外的呆萌一面, 是成员们最稳固的依靠.
 ~~~~
@@ -91,7 +91,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[haewon].animal_plastic
 <!-- zh-review key="groups/nmixx#members[haewon].animal_plastic" base="efe8fcfa3b55" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 完美专业, 私下冷静却深情
 ~~~~
@@ -112,14 +112,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[sullyoon].public_image
 <!-- zh-review key="groups/nmixx#members[sullyoon].public_image" base="abad89be5700" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有清纯漫画颜, 五官精致如AI. 专业天赋异禀, 嗓音甜美清澈. 容易紧张害羞, 但美貌和实力让她成为焦点
 ~~~~
 
 ### members[sullyoon].private_personality
 <!-- zh-review key="groups/nmixx#members[sullyoon].private_personality" base="ddb7dc051f21" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 极度害羞内向的ISFJ守护者. 和熟人在一起才会放松下来, 私下是爱哭爱笑的感性少女. 对自己要求极高, 常常因为不够自信而默默加倍努力. 内心无比柔软, 容易被感动, 是成员们想要保护的对象.
 ~~~~
@@ -133,7 +133,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[sullyoon].animal_plastic
 <!-- zh-review key="groups/nmixx#members[sullyoon].animal_plastic" base="89e13457af90" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 神颜, 害羞但真挚的感性少女
 ~~~~
@@ -154,7 +154,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[bae].public_image
 <!-- zh-review key="groups/nmixx#members[bae].public_image" base="53560ffb9c63" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有独特少年感和清爽魅力. 短发造型深入人心, 洒脱自信, 是组合里的色彩担当.
 ~~~~
@@ -196,14 +196,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jiwoo].public_image
 <!-- zh-review key="groups/nmixx#members[jiwoo].public_image" base="511489705f21" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有超强的专业实力. 是致命的Charisma女王, 身材比例优越, 是天生的气场统治者.
 ~~~~
 
 ### members[jiwoo].private_personality
 <!-- zh-review key="groups/nmixx#members[jiwoo].private_personality" base="e693ac242279" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 热情开朗的ESFP表演者, 在哪里都是焦点. 私下却像小狗一样单纯黏人, 是团队里的撒娇担当. 情感强烈, 喜怒哀乐都写在脸上, 是藏不住心事的直球少女. 对自己非常严格, 努力到凌晨是家常便饭.
 ~~~~
@@ -217,7 +217,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jiwoo].animal_plastic
 <!-- zh-review key="groups/nmixx#members[jiwoo].animal_plastic" base="e22d69fdc651" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 狗狗 — 霸气女王, 私下黏人小奶狗
 ~~~~
@@ -238,7 +238,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[kyujin].public_image
 <!-- zh-review key="groups/nmixx#members[kyujin].public_image" base="b0389ed86621" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 年纪最小却拥有专业能力. 眼神锋利, 举止精准, 是公认的六边形战士忙内.
 ~~~~
@@ -252,14 +252,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[kyujin].queer_texture
 <!-- zh-review key="groups/nmixx#members[kyujin].queer_texture" base="721819a3ec60" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 年下的反转魅力. 她在所有人面前是霸气的王者, 却只在你面前卸下盔甲, 露出笨拙可爱的一面. 她会嘴硬地说才不想你, 却在你不在时反复看你的照片. 征服世界也征服你, 是这位少女CEO最浪漫的野心.
 ~~~~
 
 ### members[kyujin].animal_plastic
 <!-- zh-review key="groups/nmixx#members[kyujin].animal_plastic" base="d210d38ceba3" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 全能忙内ACE, 私下反转可爱
 ~~~~

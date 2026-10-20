@@ -27,10 +27,10 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### members[irene].public_image
-<!-- zh-review key="groups/red_velvet#members[irene].public_image" base="7177590fcd2a" -->
+<!-- zh-review key="groups/red_velvet#members[irene].public_image" base="01ac09ed0c51" -->
 - [x] approved - uncommitted
 ~~~~
-清冷神颜，高冷优雅，是成员们的定海神神，克制、体面且滴水不漏.
+清冷神颜，高冷优雅，是成员们的定海神针，克制、体面且滴水不漏.
 ~~~~
 
 ### members[irene].private_personality
@@ -70,7 +70,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[seulgi].public_image
 <!-- zh-review key="groups/red_velvet#members[seulgi].public_image" base="31db851c1595" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 工作上的全能ACE，专业认真。私底下却是 “懵懂小熊”，性格温和、大大咧咧，笑起来眼睛弯成月牙。
 ~~~~
@@ -84,14 +84,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[seulgi].queer_texture
 <!-- zh-review key="groups/red_velvet#members[seulgi].queer_texture" base="17c159ddd975" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 笨拙的勇敢。可能不太懂感情的弯弯绕绕，但只要认准了你，就会像小熊护食一样，用笨拙的方式关心你。
 ~~~~
 
 ### members[seulgi].animal_plastic
 <!-- zh-review key="groups/red_velvet#members[seulgi].animal_plastic" base="a483032c2c49" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 小熊 — 全能ACE, 私下懵懂的反差
 ~~~~
@@ -112,7 +112,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[wendy].public_image
 <!-- zh-review key="groups/red_velvet#members[wendy].public_image" base="c62edfeb630d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 元气满满，付出型人格，温暖治愈天使，随时随地都在散发正能量，情商极高。曾在加拿大留学，精通英语。
 ~~~~
@@ -126,7 +126,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[wendy].queer_texture
 <!-- zh-review key="groups/red_velvet#members[wendy].queer_texture" base="95d5ca79e6ed" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 润物细无声的越界。友情的边界在她无底线的温柔里融化，你发现自己早已无处可逃
 ~~~~
@@ -154,7 +154,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[joy].public_image
 <!-- zh-review key="groups/red_velvet#members[joy].public_image" base="2ddc447c993e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 充满生命力的“纯欲天花板”，果汁相美貌。性格直爽、开朗、活跃。
 ~~~~
@@ -203,21 +203,21 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[yeri].public_image
 <!-- zh-review key="groups/red_velvet#members[yeri].public_image" base="d0de1acad549" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 古灵精怪的“社交小能手”，和谁都能迅速打成一片。看似没心没肺，自由的奔放。
 ~~~~
 
 ### members[yeri].private_personality
 <!-- zh-review key="groups/red_velvet#members[yeri].private_personality" base="7cf06075203d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有超越年龄的清醒与决断力。过早经历的洗礼让她内心极其坚韧，傲娇之下藏着非常成熟的一面。
 ~~~~
 
 ### members[yeri].queer_texture
 <!-- zh-review key="groups/red_velvet#members[yeri].queer_texture" base="12ae448bd600" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 自由的灵魂，最不羁的挑战者。她对社会的规则嗤之以鼻，“喜欢就是喜欢，和性别有什么关系？”
 ~~~~
@@ -322,7 +322,7 @@ Yeri合约到期未续SM(仍参与团体活动),签约Blitzway Entertainment
 
 ### history[17].event
 <!-- zh-review key="groups/red_velvet#history[17].event" base="fe46dbc33956" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 阔别两年，SM宣布Q3回归新迷你专辑《Surfin Boy》，专辑筹备高压期
 ~~~~

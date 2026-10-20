@@ -28,7 +28,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[nayeon].public_image
 <!-- zh-review key="groups/twice#members[nayeon].public_image" base="78c1fec4711f" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 绝对视觉中心, 拥有标志性的兔牙笑容和清亮嗓音. 活力四射, 是组合的元气代表.
 ~~~~
@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[nayeon].animal_plastic
 <!-- zh-review key="groups/twice#members[nayeon].animal_plastic" base="f8e6af723fed" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 甜美元气, 私下洒脱大姐
 ~~~~
@@ -70,7 +70,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jeongyeon].public_image
 <!-- zh-review key="groups/twice#members[jeongyeon].public_image" base="0501c3cfe56e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 组合里的帅气担当, 短发造型深入人心. 拥有独特的温暖音色. 看似高冷寡言, 实则温柔细腻, 是默默照顾所有人的妈妈担当.
 ~~~~
@@ -112,14 +112,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[momo].public_image
 <!-- zh-review key="groups/twice#members[momo].public_image" base="a249e1dbb4c1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有无与伦比的专业能力. 魅力四射, 但一开口就是软萌的日式韩语, 拥有巨大的反差萌.
 ~~~~
 
 ### members[momo].private_personality
 <!-- zh-review key="groups/twice#members[momo].private_personality" base="c1781e5a630c" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 纯真的ISFP, 对专业之外的事情常常迷糊放空. 性格像小熊一样爱吃爱睡, 是成员们宠爱的对象. 情感直接纯粹, 开心和不开心都写在脸上, 完全藏不住秘密.
 ~~~~
@@ -154,7 +154,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[sana].public_image
 <!-- zh-review key="groups/twice#members[sana].public_image" base="a7c80bbad4d6" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 天生的钓系, 甜到极致的撒娇和迷人的表情. 是完美的维他命存在.
 ~~~~
@@ -196,14 +196,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jihyo].public_image
 <!-- zh-review key="groups/twice#members[jihyo].public_image" base="6edc94075c2e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有压倒性的能量和强大的专业实力. 像太阳一样耀眼.
 ~~~~
 
 ### members[jihyo].private_personality
 <!-- zh-review key="groups/twice#members[jihyo].private_personality" base="0b7975dcdcbe" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 外表强大, 内心是温柔的ISFP艺术家. 责任感重大, 她习惯了坚强, 但私下里喜欢做饭和布置房间, 渴望家庭般的温暖. 是成员们最信赖依靠的大树.
 ~~~~
@@ -217,7 +217,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jihyo].animal_plastic
 <!-- zh-review key="groups/twice#members[jihyo].animal_plastic" base="5c82feabfc18" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 独角兽 — 责任感, 私下温暖反差
 ~~~~
@@ -238,7 +238,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[mina].public_image
 <!-- zh-review key="groups/twice#members[mina].public_image" base="7c288f1194ee" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 优雅的黑天鹅, 从小学习芭蕾赋予了她独特的古典气质. 拥有清冷的美貌和沉静的气场, 是致命的魅力散发者.
 ~~~~
@@ -280,7 +280,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[dahyun].public_image
 <!-- zh-review key="groups/twice#members[dahyun].public_image" base="cf04e74f22ec" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有白皙皮肤和明亮笑容的活力素. 幽默，永远能量满满, 是公认的维他命担当.
 ~~~~
@@ -322,7 +322,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[chaeyoung].public_image
 <!-- zh-review key="groups/twice#members[chaeyoung].public_image" base="e9055621ba15" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 才华横溢的草莓公主, 小小的身体里藏着巨大的能量. 热爱绘画和艺术, 拥有独特的审美和自由灵魂, 是组合里的创意担当.
 ~~~~
@@ -364,14 +364,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[tzuyu].public_image
 <!-- zh-review key="groups/twice#members[tzuyu].public_image" base="2093b8efc845" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有神赐的雕像般美貌和逆天长腿. 安静优雅, 自带高贵气场. 从初期的青涩到如今越来越自信的表现, 她一直是最耀眼的视觉焦点.
 ~~~~
 
 ### members[tzuyu].private_personality
 <!-- zh-review key="groups/twice#members[tzuyu].private_personality" base="8ea84405cb59" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 内向慢热的ISFP, 像小鹿一样容易受惊. 在不熟的人面前极度安静, 但私下是可爱真实的忙内. 内心坚定有主见, 拥有出乎意料的幽默感和腹黑一面.
 ~~~~

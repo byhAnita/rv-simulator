@@ -21,21 +21,21 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### setting
 <!-- zh-review key="worlds/campus#setting" base="bd0469297963" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 故事发生在当代首尔的一所大学。故事日常围绕青涩好感、社团活动、学业日常、24小时便利店等。玩家和成员在韩国前后辈关系带来的距离感、青涩的情感试探是整个故事的张力所在。
 ~~~~
 
 ### castLore.orgNoun
 <!-- zh-review key="worlds/campus#castLore.orgNoun" base="4513bba5432d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 大学
 ~~~~
 
 ### castLore.orgHint
 <!-- zh-review key="worlds/campus#castLore.orgHint" base="ff2655b4bd4f" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 这些成员是同一所大学的学生。大学：{org}
 ~~~~
@@ -48,17 +48,17 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[prof_of_cast].background
-<!-- zh-review key="worlds/campus#identities[prof_of_cast].background" base="0d6934f7f6a5" -->
-- [ ] pending - DRAFT (not applied) - Claude 49713f1 2026-10-01
+<!-- zh-review key="worlds/campus#identities[prof_of_cast].background" base="ffb8135f5ce1" -->
+- [x] approved - uncommitted
 ~~~~
-[身份背景] 你是{name}所在系的年轻教授，她这学期选了你的课。 典型事件：下课后她留下来问一个其实早就懂了的问题； 办公时间你发现她的笔记比你的讲义还细； 系里聚餐结束时，你们是最后两个离开的人； 期末评分的时候，你必须向自己证明没有偏心。 优势：你有她需要的东西——指导、推荐信、注意力。劣势：这层关系写在学校规章明令禁止的那一条里，每一次单独见面都要有解释。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是{name}所在大学的咖啡店老板，她们经常来你的咖啡馆买咖啡/自习/小组讨论/聚会。 典型事件：早上她们来买咖啡，你暗自记下了{name}的口味； 周末她们来咖啡馆聚会玩游戏，{name}邀请你加入一起； {name}点单时你和她闲聊了解她的生活。 优势：你与她们有自然的日常接触机会。劣势：你总是只能在咖啡店等她来，缺少主动见她的理由。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
 
 ### identities[prof_of_cast].workTitle.form
-<!-- zh-review key="worlds/campus#identities[prof_of_cast].workTitle.form" base="7fecd7675744" -->
-- [ ] pending - Claude 4c8e1f8 2026-09-29
+<!-- zh-review key="worlds/campus#identities[prof_of_cast].workTitle.form" base="04060a0dcdb9" -->
+- [x] approved - uncommitted
 ~~~~
-教授nim
+老板
 ~~~~
 
 ### identities[peer_student].name
@@ -70,7 +70,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[peer_student].background
 <!-- zh-review key="worlds/campus#identities[peer_student].background" base="acd69debbbb2" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 [身份背景] 你和{name}是成员们同一届、同一个系的学生，入学自然相识。 典型事件：被分到同一个小组作业，一起喝咖啡熬通宵完成； 上课时她在旁边的座位上睡着，头一点一点地靠过来； 考试结束那天，全系都在庆祝，你们却先走了。 优势：距离最近，见面理由最多。劣势：也正因为如此，爱情和友情的界限模糊   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -84,7 +84,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[senior_student].background
 <!-- zh-review key="worlds/campus#identities[senior_student].background" base="addc28cd034d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 [身份背景] 你是比成员们高一届，同一个系的mentor学姐，成员作为新生入学时自然相识。典型事件：成员们作为新生报道，你被派去引导； 她拿着选课表来问玩家哪门课值得选； 社团聚餐结束，玩家送她回宿舍； 她第一次做展示紧张到手抖，玩家给她鼓励。 优势：天然的互动理由，前辈的身份让照顾她显得理所当然。劣势：也正因为如此，前后辈的身份让情感越线小心翼翼。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -104,11 +104,10 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[junior_student].background
-<!-- zh-review key="worlds/campus#identities[junior_student].background" base="ace5f3d36764" -->
+<!-- zh-review key="worlds/campus#identities[junior_student].background" base="06c639fa8336" -->
 - [x] approved - uncommitted
 ~~~~
-[身份背景] 你是比成员们低一届的学妹，你新生入学时自然相识，她是系里你最先记住名字的前辈。 
-典型事件：她把自己的笔记毫无保留给了你； 社团里她替你挡下了不该你做的杂事； 聚餐时你被灌酒，她把杯子拿走了； 你熬夜赶作业，她在自习室陪到最后。 优势：向前辈求助是最自然的接近方式 劣势：也正因为如此，前后辈的身份让情感越线小心翼翼   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是比成员们低一届的学妹，你新生入学时自然相识，她是系里你最先记住名字的前辈。 典型事件：她把自己的笔记毫无保留给了你； 社团里她替你挡下了不该你做的杂事； 聚餐时你被灌酒，她把杯子拿走了； 你熬夜赶作业，她在自习室陪到最后。 优势：向前辈求助是最自然的接近方式 劣势：也正因为如此，前后辈的身份让情感越线小心翼翼   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
 
 ### identities[junior_student].workTitle.form
@@ -127,7 +126,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[ta].background
 <!-- zh-review key="worlds/campus#identities[ta].background" base="fb98f7b36fc4" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 [身份背景] 你是成员们这学期新课的助教，你指导成员们课程项目、课后答疑、作业批改等，在课程中自然相识。典型事件：你在她的报告边上写了比普通评语更长的一段话； 答疑时间只剩你们两个人，话题早就与课程无关； 她把作业拖到最后一刻交，你没有追问； 你批改作业时一眼认出了她的笔迹。 优势：位置暧昧——你有一点权力并可以提供帮助，接近她变得容易。劣势：作为助教的公正不偏袒的规则   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -141,7 +140,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[exchange_student].background
 <!-- zh-review key="worlds/campus#identities[exchange_student].background" base="9cda57aa9041" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 [身份背景] 你是刚来大学交换一学期的留学生，成为成员们同一届、同一个系的交换生同学，玩家对韩语和韩国不熟悉典型事件：小组讨论你跟不上语速，她放慢了语速并帮玩家翻译理解； 她带你去只有本地学生才知道的那家店； 你把一个词说错，她笑了很久，然后教正确的说法； 你们聊到你什么时候走，两个人都换了话题。 优势：留学生的身份让这段关系关注度低 舆论压力小 劣势：所有人都知道你会走，包括她——这件事从第一天起就是你们都知道的前提 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -155,7 +154,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[主线成员前女友].background
 <!-- zh-review key="worlds/campus#identities[主线成员前女友].background" base="c2b1e7dda978" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 [特殊身份背景-主线成员前女友]
 - 你和{name}曾是恋人，几年前因{reason}分手
@@ -201,14 +200,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[主线成员前女友].variants.keepsake[1]
 <!-- zh-review key="worlds/campus#identities[主线成员前女友].variants.keepsake[1]" base="9e274f52b413" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 一起拍的人生四格
 ~~~~
 
 ### identities[主线成员前女友].variants.keepsake[2]
 <!-- zh-review key="worlds/campus#identities[主线成员前女友].variants.keepsake[2]" base="6f9f8096ef13" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 她写在讲义背面的笔记
 ~~~~
@@ -236,7 +235,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### places[seminar_room].name
 <!-- zh-review key="worlds/campus#places[seminar_room].name" base="520678b1d971" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 讨论室
 ~~~~

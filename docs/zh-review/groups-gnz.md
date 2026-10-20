@@ -28,7 +28,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[hongjingwen].public_image
 <!-- zh-review key="groups/gnz#members[hongjingwen].public_image" base="175d21a56e5d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 昵称奶盖或盖宝. 拥有温柔细腻的嗓音和沉稳的外表. 在专业上默默耕耘型, 用时间和真诚积累口碑.
 ~~~~
@@ -56,7 +56,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[liulifei].animal
 <!-- zh-review key="groups/gnz#members[liulifei].animal" base="c185ad00c7d0" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫头鹰
 ~~~~
@@ -70,14 +70,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[liulifei].public_image
 <!-- zh-review key="groups/gnz#members[liulifei].public_image" base="ebfdce4bd2a1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有高挑清瘦的身材和清冷的气质，是不折不扣的努力型代表.
 ~~~~
 
 ### members[liulifei].private_personality
 <!-- zh-review key="groups/gnz#members[liulifei].private_personality" base="f95b9d689a1e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 外冷内热的ISTJ. 初次见面给人距离感, 但熟悉之后会发现她其实很爱操心. 热爱ACG文化和相声, 是旅行和美食达人. 责任心极强, 对自己和团队都有着高标准.
 ~~~~
@@ -91,7 +91,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[liulifei].animal_plastic
 <!-- zh-review key="groups/gnz#members[liulifei].animal_plastic" base="7f34c1aa17c7" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫头鹰 — 清冷帅气小仙女, 外冷内热的可靠队长
 ~~~~
@@ -112,28 +112,28 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[zhangqiongyu].public_image
 <!-- zh-review key="groups/gnz#members[zhangqiongyu].public_image" base="8eee5dbecbd5" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 昵称soso. 气质性感妖娆, 眼神放电. 动态比静态更迷人, 是致命魅惑者.
 ~~~~
 
 ### members[zhangqiongyu].private_personality
 <!-- zh-review key="groups/gnz#members[zhangqiongyu].private_personality" base="ac459c18380f" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 活泼开朗的ENFP, 性格好玩且接地气. 喜欢游泳、追日剧和练舞. 是团队的幽默担当. 虽然公开撩人十足, 私下却是素颜清纯的学生感. 对自己的要求很高
 ~~~~
 
 ### members[zhangqiongyu].queer_texture
 <!-- zh-review key="groups/gnz#members[zhangqiongyu].queer_texture" base="441dd750063b" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 钓系美人的直进. 她在公开场合撩遍全场, 却只在你面前露出害羞的一面. 她会故意在你面前展现最妖娆的舞姿, 然后在你呆住时调皮地眨眼. 她的喜欢是明目张胆的试探, 是用魅力让你无法拒绝的自信. 但当你真的回应她时, 她会变成最黏人的小狐狸, 只想窝在你怀里.
 ~~~~
 
 ### members[zhangqiongyu].animal_plastic
 <!-- zh-review key="groups/gnz#members[zhangqiongyu].animal_plastic" base="1ea698c16e29" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 狐狸 — 性感女神, 私下的清纯女反差
 ~~~~
@@ -154,14 +154,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[tanglijia].public_image
 <!-- zh-review key="groups/gnz#members[tanglijia].public_image" base="1d7d06c3188d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 傻白甜歌姬, 昵称Liga. 拥有一双标志性的笑眼, 不笑时如星辰般明亮, 笑时弯成月牙. 嗓音清透甜美，因幽默可爱被称为中泰三傻.
 ~~~~
 
 ### members[tanglijia].private_personality
 <!-- zh-review key="groups/gnz#members[tanglijia].private_personality" base="5d8fdf8cb89e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 INFP艺术家. 从小热爱唱歌,  认为投资自己最重要. 看起来傻白甜, 其实内心非常清醒和坚定
 ~~~~
@@ -196,7 +196,7 @@ INFP艺术家. 从小热爱唱歌,  认为投资自己最重要. 看起来傻白
 
 ### members[liuqianqian].public_image
 <!-- zh-review key="groups/gnz#members[liuqianqian].public_image" base="838fe63594c9" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有高级脸蛋和温柔气质，是公认的温柔大姐姐, 是多才多艺的宝藏女孩——会摄影、书法、手工制作舞台道具, 还有原创曲. 共情力强, 善于发现生活中的小浪漫.
 ~~~~
@@ -238,14 +238,14 @@ INFP艺术家. 从小热爱唱歌,  认为投资自己最重要. 看起来傻白
 
 ### members[zhuyixin].public_image
 <!-- zh-review key="groups/gnz#members[zhuyixin].public_image" base="777f6c986c40" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 可爱担当, 昵称GG.Bond. 拥有甜美可爱的外貌和认真努力的态度. 脚踏实地慢慢成长. 目标是努力脚踏实地.
 ~~~~
 
 ### members[zhuyixin].private_personality
 <!-- zh-review key="groups/gnz#members[zhuyixin].private_personality" base="c575ab5969c6" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 慢热但真诚的ISFP. 和熟人在一起话很多, 和不熟的人则比较闷. 喜欢收集玩偶, 想去日本旅游. 对朋友充满感激, 觉得每天都有人牵挂的感觉很好. 虽然还在努力学习专业, 但她的认真让人忍不住想为她加油.
 ~~~~
@@ -259,7 +259,7 @@ INFP艺术家. 从小热爱唱歌,  认为投资自己最重要. 看起来傻白
 
 ### members[zhuyixin].animal_plastic
 <!-- zh-review key="groups/gnz#members[zhuyixin].animal_plastic" base="699e7e9c5183" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 小猪 — 努力成长的可爱担当, 脚踏实地的小小忙内
 ~~~~
@@ -280,7 +280,7 @@ INFP艺术家. 从小热爱唱歌,  认为投资自己最重要. 看起来傻白
 
 ### members[wangyuchen].public_image
 <!-- zh-review key="groups/gnz#members[wangyuchen].public_image" base="63615e0d603a" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 引人注目的新生代力量. 拥有精致甜美的外表和Girl Crush魅力. 实力进步飞速, 是公认的成长型.
 ~~~~
@@ -322,21 +322,21 @@ INFP艺术家. 从小热爱唱歌,  认为投资自己最重要. 看起来傻白
 
 ### members[wuyufei].public_image
 <!-- zh-review key="groups/gnz#members[wuyufei].public_image" base="83ccbc3da404" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 幽默担当. 拥有独特的责任感和幽默并存的魅力, 是那种越了解越觉得有趣的人.
 ~~~~
 
 ### members[wuyufei].private_personality
 <!-- zh-review key="groups/gnz#members[wuyufei].private_personality" base="407a4d2d017a" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 聪明幽默的ENTP辩论家. 擅长做数学题和做手帐, 特长是接梗抛梗和突然的搞笑. 头脑灵活反应快. 看似大大咧咧, 其实内心细腻有自己的想法. 有责任心和领导力. 喜欢用幽默化解尴尬, 是团队里不可或缺的活力素.
 ~~~~
 
 ### members[wuyufei].queer_texture
 <!-- zh-review key="groups/gnz#members[wuyufei].queer_texture" base="f3654225fbd0" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 搞笑女的深情反转. 她总是在逗你笑, 用各种梗让你开心. 你以为她只是把你当朋友, 直到有一天她突然认真地告诉你, 她所有的笑话都只是为了看你的笑容. 她的喜欢藏在那些看似不经意的玩笑里, 藏在每一次帮你解围的机智中. 当这个最会搞笑的人为你收起所有玩笑, 认真地说出喜欢你时, 你会明白这是她最真诚的心意.
 ~~~~

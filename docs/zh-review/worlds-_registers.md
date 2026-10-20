@@ -7,7 +7,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### korea.guide
 <!-- zh-review key="worlds/_registers#korea.guide" base="580a1944077f" -->
-- [ ] pending - Claude 3014cb6 2026-09-28
+- [x] approved - Claude 3014cb6 2026-09-28
 ~~~~
 Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.
   언니 -> "欧尼"  (NEVER "姐"/"姐姐"/"姐妹" — that reads as a Chinese family drama, not K-pop)

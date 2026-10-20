@@ -28,14 +28,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[gaeul].public_image
 <!-- zh-review key="groups/ive#members[gaeul].public_image" base="40799df1141c" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 组合中的大姐, 拥有清冷高级的长相和强大的专业实力. 外表精准利落酷帅
 ~~~~
 
 ### members[gaeul].private_personality
 <!-- zh-review key="groups/ive#members[gaeul].private_personality" base="3c56422dba91" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 典型的ISTJ, 细心靠谱有责任感. 看似高冷, 实则内心温暖, 习惯用行动而非言语照顾人. 喜欢阅读推理小说, 拥有一个丰富而安静的内心世界.
 ~~~~
@@ -70,7 +70,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[yujin].public_image
 <!-- zh-review key="groups/ive#members[yujin].public_image" base="ec314962fbfb" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 专业全能ACE队长, 性格开朗大方
 ~~~~
@@ -91,7 +91,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[yujin].animal_plastic
 <!-- zh-review key="groups/ive#members[yujin].animal_plastic" base="947e331bb3ed" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 狗狗 — 帅气全能, 私下慵懒可靠
 ~~~~
@@ -112,14 +112,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[rei].public_image
 <!-- zh-review key="groups/ive#members[rei].public_image" base="7dc8eef782c5" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 来自日本, 拥有反转的甜美嗓音. 专业表现力强, 时尚感出众
 ~~~~
 
 ### members[rei].private_personality
 <!-- zh-review key="groups/ive#members[rei].private_personality" base="ffa4842c78ae" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 灵魂深处是稀有的INFJ, 拥有超越年龄的深刻思想和独特审美. 私底下安静喜欢独处, 爱画画和收集可爱物件. 思维天马行空, 是成员口中有点四次元的艺术家.
 ~~~~
@@ -154,7 +154,7 @@ C位, 视觉中心
 
 ### members[wonyoung].public_image
 <!-- zh-review key="groups/ive#members[wonyoung].public_image" base="8b848d56e9cc" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有神赐的身材比例和完美的表情管理. 自信积极, 是Lucky Vicky心态的代名词.
 ~~~~
@@ -168,14 +168,14 @@ C位, 视觉中心
 
 ### members[wonyoung].queer_texture
 <!-- zh-review key="groups/ive#members[wonyoung].queer_texture" base="d38b6d95d2f2" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 渴望被当成一个真实的人来爱. 她的喜欢是霸道的占有和极致的保护. 当她为你卸下完美面具, 展露一丝脆弱和依赖时, 那将是独属于你的最致命的特权.
 ~~~~
 
 ### members[wonyoung].animal_plastic
 <!-- zh-review key="groups/ive#members[wonyoung].animal_plastic" base="78d9e6ab1242" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 完美女神, 私下霸气总裁
 ~~~~
@@ -196,14 +196,14 @@ C位, 视觉中心
 
 ### members[liz].public_image
 <!-- zh-review key="groups/ive#members[liz].public_image" base="882ed9e485d2" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有蜜糖嗓音和深邃酒窝. 情感表达丰富. 私下却是个害羞容易紧张的小哭包.
 ~~~~
 
 ### members[liz].private_personality
 <!-- zh-review key="groups/ive#members[liz].private_personality" base="37b4c4a94602" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 柔软的INFP调停者, 高感性高共情. 对世界感知敏锐, 内心住着一个浪漫诗人. 面对镜头容易害羞, 但会表达最真挚的情感. 是团队里最需要被温柔对待的存在.
 ~~~~
@@ -217,7 +217,7 @@ C位, 视觉中心
 
 ### members[liz].animal_plastic
 <!-- zh-review key="groups/ive#members[liz].animal_plastic" base="14729546c062" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 害羞的小哭包, 却拥有震撼人心的力量
 ~~~~
@@ -238,7 +238,7 @@ C位, 视觉中心
 
 ### members[leeseo].public_image
 <!-- zh-review key="groups/ive#members[leeseo].public_image" base="dc0e67d6e716" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 充满元气的人间维他命忙内. 性格活泼开朗, 是组合的活力素和氛围制造者. 虽然年纪最小, 但表情灵动, 专业表现力远超年龄.
 ~~~~
@@ -259,7 +259,7 @@ C位, 视觉中心
 
 ### members[leeseo].animal_plastic
 <!-- zh-review key="groups/ive#members[leeseo].animal_plastic" base="6e96485a25cf" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 小老虎 — 霸气奶凶, 私下活力撒娇王
 ~~~~

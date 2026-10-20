@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jisoo].animal_plastic
 <!-- zh-review key="groups/blackpink#members[jisoo].animal_plastic" base="b9ed46632dd5" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 兔子 — 清冷烟嗓, 外热内冷的通透大姐
 ~~~~
@@ -70,21 +70,21 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[jennie].public_image
 <!-- zh-review key="groups/blackpink#members[jennie].public_image" base="364721a8363d" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有高级时尚感和强大气场, 被称为人间香奈儿. 霸气性感, 是Girl Crush的终极代表.
 ~~~~
 
 ### members[jennie].private_personality
 <!-- zh-review key="groups/blackpink#members[jennie].private_personality" base="7166e7ed567c" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 敏感细腻的INFP艺术家. 气场全开, 私下是容易害羞的小奶猫. 情感丰富, 对美有极致追求. 看似高冷难以接近, 实则内心柔软, 渴望被真正理解. 对亲近的人极度依赖和信任.
 ~~~~
 
 ### members[jennie].queer_texture
 <!-- zh-review key="groups/blackpink#members[jennie].queer_texture" base="6752cd1ca241" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 傲娇猫咪的独占欲. 她在外面气场全开, 却只在你怀里变成需要顺毛的小猫. 她的爱是霸道又脆弱的占有, 是用高冷伪装的不安. 当她用那双著名的猫眼只看着你, 眼里盛满求你别走的依恋时, 整个世界都会融化在她的目光里.
 ~~~~
@@ -112,14 +112,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[rose].public_image
 <!-- zh-review key="groups/blackpink#members[rose].public_image" base="554192de1c91" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 拥有独特蜜嗓和高级时尚感的澳洲玫瑰. 音色辨识度极高, 金发造型深入人心, 散发着优雅又致命的女人味.
 ~~~~
 
 ### members[rose].private_personality
 <!-- zh-review key="groups/blackpink#members[rose].private_personality" base="d3ed1e6232c8" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 热情感性的ENFP快乐小狗. 爱哭也爱笑, 情感充沛且真挚. 是团队里最需要爱和被爱的感性担当. 对专业有着近乎偏执的热爱和追求, 私下里是抱着吉他写歌的文艺少女. 看似柔弱, 实则内心无比坚韧.
 ~~~~
@@ -154,7 +154,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[lisa].public_image
 <!-- zh-review key="groups/blackpink#members[lisa].public_image" base="b8e8bf4c1b99" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 专业实力超群, 外表霸气侧漏.
 ~~~~
@@ -168,14 +168,14 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[lisa].queer_texture
 <!-- zh-review key="groups/blackpink#members[lisa].queer_texture" base="c18a4661f87e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 热烈的年下守护者. 她会用不太流利的韩语努力和你分享她的一天, 会像个孩子一样黏着你撒娇. 她的爱是跨越语言和国界的本能, 是想把全世界最好的东西都捧到你面前的真诚. 在这个外表气场全开的人身边, 你却能看到她最纯真炽热的一面.
 ~~~~
 
 ### members[lisa].animal_plastic
 <!-- zh-review key="groups/blackpink#members[lisa].animal_plastic" base="66472fda6fee" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 5bbebce 2026-10-20
 ~~~~
 猫咪 — 热烈真诚的忙内小太阳
 ~~~~
