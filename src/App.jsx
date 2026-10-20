@@ -35,6 +35,7 @@ import YearWheel, { DEFAULT_YEAR } from "./platforms/YearWheel";
 import { useCastImages } from "./platforms/useCastImages";
 import CastImageSheet, { CastImagesCard } from "./platforms/CastImageSheet";
 import { debugEnabled } from "./tools/debugConsole";
+import { storyScrollAction } from "./utils/storyScroll.js";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
 // brackets confuse the JSON schema, control characters break it outright.
@@ -411,6 +412,11 @@ export default function App() {
   // passes through here.
   useEffect(() => { if (phase === "game") refreshCastImages(); }, [phase]);
   const bottomRef = useRef(null);
+  // The story panel and the newest assistant message in it: a round that has
+  // just arrived is scrolled to its own top (v1.4.4 P10).
+  const storyPanelRef = useRef(null);
+  const lastRoundRef = useRef(null);
+  const scrollStateRef = useRef({ loading: false, count: 0 });
   const inputRef = useRef(null);
   const preRoundSnapshotRef = useRef(null);
   const phaseRef = useRef("cover");
@@ -667,7 +673,23 @@ export default function App() {
   // caller that ever needed it. An effect with no reachable trigger is the shape
   // this file already tracks seven instances of.
 
-  useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  // Scrolling to the end on every change landed a new round on its LAST line,
+  // and the player scrolled back up to find where it began. storyScrollAction
+  // decides; see src/utils/storyScroll.js.
+  useEffect(() => {
+    const prev = scrollStateRef.current;
+    const next = { loading, count: messages.length };
+    scrollStateRef.current = next;
+    const action = storyScrollAction(prev, next);
+    if (action === "bottom") {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else if (action === "round") {
+      const panel = storyPanelRef.current, round = lastRoundRef.current;
+      if (!panel || !round) return;
+      const top = panel.scrollTop + round.getBoundingClientRect().top - panel.getBoundingClientRect().top - 6;
+      panel.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    }
+  }, [messages, loading]);
 
   const showNotif = (msg, type = "info") => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
   const saveApiKey = (key) => {
@@ -2168,7 +2190,7 @@ export default function App() {
         )}
 
         {/* Story Area */}
-        <div id="rv-story-panel" style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
+        <div id="rv-story-panel" ref={storyPanelRef} style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
           {messages.length === 0 && (
             <div style={{ textAlign: "center", padding: "50px 16px", color: th.textFaint }}>
               <div style={{ fontSize: 32, marginBottom: 10, animation: "blink 2s infinite" }}>💗</div>
@@ -2243,7 +2265,7 @@ export default function App() {
                 let af = msg.content.slice(msg.content.indexOf(sb[0]) + sb[0].length);
                 af = af.replace(/\n?[ABCD][.、．]\s*.+/g, '').trim();
                 return (
-                  <div key={i} style={{ marginBottom: 14 }}>
+                  <div key={i} ref={i === lastAsstIdx ? lastRoundRef : undefined} style={{ marginBottom: 14 }}>
                     <div style={{ background: th.statsBg, border: `1px solid ${th.borderAccent}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontFamily: "'Courier New',monospace", fontSize: 10, color: th.textStats, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{sb[0]}</div>
                     {editingIdx === i
                       ? editor(saveStoryEdit, MAX_STORY_EDIT_CHARS)
@@ -2253,7 +2275,7 @@ export default function App() {
                 );
               }
               return (
-                <div key={i} style={{ marginBottom: 14 }}>
+                <div key={i} ref={i === lastAsstIdx ? lastRoundRef : undefined} style={{ marginBottom: 14 }}>
                   {editingIdx === i
                     ? editor(saveStoryEdit, MAX_STORY_EDIT_CHARS)
                     : <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{msg.content}</div>}

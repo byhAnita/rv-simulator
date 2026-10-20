@@ -1936,6 +1936,30 @@ async function layerG(mod, MODEL_CONFIGS) {
       check(`${lang}: t.save.${k} exists`, typeof i18n?.save?.[k] === "string" && i18n.save[k].length > 10);
     }
   }
+
+  // ── v1.4.4 P10: a new round scrolls to its own top ───────────────────────
+  // It scrolled to the END on every change, so a round landed on its last line
+  // and the player scrolled back up to find its stats box. The rule is a pure
+  // function, tested on behaviour; the App half is where the value is used.
+  const { storyScrollAction } = await import(pathToFileURL(join(ROOT, "src/utils/storyScroll.js")).href);
+  check("a round that has just arrived scrolls to the round, not to the end",
+    storyScrollAction({ loading: true, count: 4 }, { loading: false, count: 5 }) === "round"
+      && storyScrollAction({ loading: false, count: 0 }, { loading: false, count: 12 }) === "round",
+    "both the played round and a loaded save are an arrival");
+  check("...while a round is generating, the end (the choice and the loading dots) is what shows",
+    storyScrollAction({ loading: false, count: 4 }, { loading: true, count: 5 }) === "bottom");
+  check("...and saving an edited story moves nothing",
+    storyScrollAction({ loading: false, count: 5 }, { loading: false, count: 5 }) === null,
+    "an edit changes one message's content, not the count, and nothing is loading");
+  const fxAt = app.indexOf("const action = storyScrollAction(");
+  const scrollFx = fxAt < 0 ? "" : app.slice(fxAt, app.indexOf("}, [messages, loading]);", fxAt));
+  check("...App scrolls the PANEL to the newest round's top on an arrival",
+    /action === "round"[\s\S]*lastRoundRef\.current[\s\S]*panel\.scrollTo\(/.test(scrollFx)
+      && /id="rv-story-panel" ref=\{storyPanelRef\}/.test(app),
+    "the effect must read the newest round's element and scroll the story panel to it");
+  check("...and the newest-round ref sits on the last assistant message in BOTH render branches",
+    (app.match(/ref=\{i === lastAsstIdx \? lastRoundRef : undefined\}/g) || []).length === 2,
+    "one branch renders a round with a stats box, the other without; a ref on one is the extractStoryText failure");
 }
 
 // ============================================================ LAYER H

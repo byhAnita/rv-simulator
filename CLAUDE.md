@@ -135,6 +135,17 @@ The current round can be regenerated or edited without consuming a new round cou
   - ↺ Retry after an edit discards it, by design: it regenerates from the pre-round snapshot.
 - **UI**: `⎘ Copy`, `✎ Edit` and `↺ Retry` appear bottom-right of the last assistant message only, hidden during loading and gated on `preRoundSnapshotRef.current`. Copy strips the stats box and option lines, leaving pure story text. The editor **auto-grows to its content** (min 220px, capped at 66vh): a story is 600-2,400 characters, so a fixed box means scrolling to read your own text. Opening an editor hides **both** the option bar and the custom-input row, and `sendMessage` closes it, because `editingIdx` is an index into `messages` and appending a turn would point the draft at the wrong message. Smoke Layer G guards all three.
 
+### A new round scrolls to its own top (v1.4.4 P10)
+
+The story panel used to scroll to the END on every change, so a round landed on its last line
+and the player scrolled back up to find its stats box. `storyScrollAction(prev, next)` in
+`src/utils/storyScroll.js` is the rule, pure and unit-tested: **"bottom"** while a round is
+generating (her choice and the loading dots), **"round"** when one arrives (loading ended, or the
+message count changed with nothing loading, which is a loaded save), and **nothing** otherwise,
+so saving an edited story no longer jumps. On "round", App scrolls the panel itself to the top of
+the newest assistant message, whose wrapper carries `lastRoundRef` in **both** render branches
+(with and without a stats box). Guarded in Layer G, 7 mutations RED.
+
 ### Data Flow per Round (cache-optimized)
 
 ```

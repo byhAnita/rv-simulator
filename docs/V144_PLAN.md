@@ -72,7 +72,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | # | Change | Where | Cache | Goldens | Done |
 | --- | --- | --- | --- | --- | --- |
 | P9 | No named or detailed strangers | section 3 UNKNOWN CHARACTER RULE | static | all 6 move | ✅ 3 mutations RED |
-| P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves | ✅ 6 mutations RED; zh `orgHint` is a draft for Yuhan |
+| P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves | ✅ 6 mutations RED; zh `orgHint` draft accepted by Yuhan, en/ko follow; her tick applies it |
 | P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move |
 | P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move |
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildDynamicTail` | rule static, events in tail | all 6 move |
@@ -80,8 +80,10 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P6 | Narrator prologue, round 1 only | `buildTailRules` | none (tail) | none |
 | P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move |
 | P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
+| P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 
-P9 and P5 come first because they are small and P1 builds on P5's family.
+P9 and P5 come first because they are small and P1 builds on P5's family. P10 was added by
+Yuhan on 2026-10-20 and is independent of the rest, so it is done next, before P1.
 
 **Release notes** (`src/config/releaseNotes.js`, three languages) are written once, after the
 last item, so the entry describes what shipped. README gains its bullet in each commit.
@@ -291,6 +293,29 @@ The UNKNOWN CHARACTER RULE is rewritten as an ownership statement, not a permiss
 **Before writing it,** grep the rendered goldens for anything that hands the model a stranger's
 name (an example, a background), and delete it. **Measurement:** read the live runs. A zh name
 detector would cry wolf, so it is deliberately not built.
+
+### P10. A new round scrolls to its own top
+
+**Yuhan's report, 2026-10-20.** When a round arrives, the story panel scrolls to the **end** of it,
+so the player has to scroll back up to find where the round starts. The new round's stats box
+should land at the top of the panel, with the story under it.
+
+**The fix is a rule about when to scroll where**, not a new scroll call. It lives in one pure
+function, `storyScrollAction(prev, next)` in `src/utils/storyScroll.js`, so it can be tested
+offline:
+- **While a round is generating:** scroll to the bottom, as now. The player's choice bubble and the
+  loading dots are what she is waiting on.
+- **When a round arrives**, meaning loading ended, or the message count changed while not loading
+  (a loaded save): scroll the panel so the latest round's top sits at the top.
+- **Otherwise, do not move.** Saving an edited story changes the content and nothing else. Today
+  that jumps to the end, and it should not.
+
+The panel scrolls itself (`scrollTo` on its own element), measured from the round's
+bounding box. A round that errored is an assistant message too, so its notice lands at the top the
+same way.
+
+**Not verifiable offline:** whether it feels right on a phone. Smooth scrolling over a long
+round is the part a guard cannot see.
 
 ---
 
