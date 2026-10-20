@@ -15,3 +15,6 @@ test/.out/
 # Private: local CV and job-application material under docs/.resume/.
 # Never committed, never published - it is personal data, not project docs.
 docs/.resume/
+
+# Private: Yuhan's original game design doc. Read by agents, never committed.
+docs/.dating-simulator.txt
