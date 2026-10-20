@@ -175,6 +175,7 @@ Player choice
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
 | `src/rag/worldLoader.js` | `loadWorldIndex()`, `loadWorld(id, lang)`, `parseWorld`, `MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: country, identities, paces, story modes, phase beats, places, and the address register it resolves |
 | `src/rag/rosterResolver.js` | `resolveRoster(roster, lang, world)`, `buildClassicRoster()`, `composeRosterLore()`, `renderCastLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group. **`world` is required and has no default**, the same rule `buildSystemPrompt` follows: since v1.4.1 step 4 the world owns section 4's wording |
+| `src/rag/memberNames.js` | `familyNameOf` — a member's surname from `name_kr`, with the `family_name` override where the derivation is wrong. One derivation so every reader agrees; P1 adds the given name |
 | `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
 | `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
@@ -1607,6 +1608,37 @@ they hold.
 **The lesson is the one this section opens with, a third time: a direction is a claim about who
 holds the title**, and it has to be read against the *form* - not checked for being one of two
 legal values.
+
+### The chaebol cast is one family, named for the main member (v1.4.4 P5)
+
+**Yuhan's decision, 2026-10-20.** Both chaebol templates said each member was *an heir of a
+different chaebol house*, so a new-employee player was deferring to five families at once and the
+whole-cast restaging had nothing telling it the members were related. Now the whole cast, NPC
+members included, is **one family**, and the house takes the **main member's surname** through a
+`{family}` placeholder (`裴` / `Bae` / `배` for Irene).
+
+**The surname needed a rule, or the model trips on Korean naming.** Children take the father's
+surname, so 裴珠泫 and 姜涩琪 cannot be sisters. The template says it outright: a member who
+carries the surname is a daughter of the house, any other surname is a cousin through one of the
+house's daughters, and belongs just as fully. The whole-cast restaging had already reached for
+this on its own (`会长长女` beside `副会长次女`); `castLife.theirs` now says *the one house they
+all grew up in*, which is how the restaging prompt hears it.
+
+**`familyNameOf` (`src/rag/memberNames.js`) derives the surname** the way `membersNamedIn` has
+always split `name_kr`, and a `family_name` field overrides it for the eleven (member, language)
+pairs where that is wrong: two-character Japanese surnames in zh (`凑崎纱夏`), Lisa's Thai name
+in all three, and Tzuyu's two-syllable `저우` in ko. It is on `parseGroupConfig`'s whitelist in
+the same commit, and the guard goes through `resolveRoster` so a dropped field fails it.
+`family_name` / `given_name` are facts like `name_kr` and sit outside the zh review.
+
+**A main with no real name** (a custom member without `name_kr`) drops the family line by
+`renderCastLore`'s missing-value rule, and the cast is still one family.
+
+**The Setup hint (`castLore.orgHint`, zh) still says *different families*.** It is approved
+Chinese, so the change is an unticked draft in `docs/zh-review/worlds-chaebol.md` and the live
+string waits for Yuhan; it is UI only and reaches no prompt. en/ko follow once she accepts it.
+
+6 guards, 6 mutations RED. Only `chaebol-zh` moved (its main is Karina, so the house is 刘).
 
 ### A fully restaged cast still had its real namesakes, and the restaging never saw the player
 

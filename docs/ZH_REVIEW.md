@@ -8,7 +8,7 @@ rather than remembered.
 **What it covers.** Every Chinese string in `public/worlds/*/zh.json`,
 `public/worlds/_registers/zh.json` and `public/groups/*/zh.json`: 619 strings, about 31k
 characters, collected by `scripts/zh-review.mjs` and never listed by hand. Excluded on
-purpose: ids (stored in every save, never renamed), a member's `name` / `name_kr` /
+purpose: ids (stored in every save, never renamed), a member's `name` / `name_kr` / `family_name` / `given_name` /
 `birthplace` and a group's `name` / `fandom` / `debut` (facts, not register), the address
 `tokens`, and `_template`.
 

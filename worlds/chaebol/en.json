@@ -30,14 +30,16 @@
     "orgHint": "These members are heirs of different chaebol families. The leading family business: {org}",
     "composed": [
       "[{name} Background]",
-      "{name} is the circle these {n} women move in: each of them an heir of a different chaebol house.",
-      "{org} is the largest of those houses and the one the others orbit. {name} exists only in this story. These {n} have known each other since childhood - the same schools, the same weddings, the same board dinners - and their families do business with and against each other constantly. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "These {n} women are one chaebol family, and {org} is the family's company. {name} exists only in this story.",
+      "The family name is {family}. A member who carries that surname is a daughter of the house; a member with any other surname is a cousin, the child of one of the house's daughters, and belongs to the family just as fully.",
+      "They grew up inside it together - the same schools, the same weddings, the same board dinners - and each of them holds a seat in the family and in the company that the others can see. Rival houses exist around them and do business with and against them constantly, but no member of this cast belongs to another house. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
       "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else is unnamed - a driver, a house staff member, an executive, a reporter - and no other name may be used, not even in passing or over a phone."
     ],
     "subset": [
       "[{label} Background]",
       "The cast of this story is {members}.",
-      "In this world they are heirs of chaebol houses who have known each other since childhood. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "In this world they are one chaebol family who grew up inside it together. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "The family name is {family}. A member who carries that surname is a daughter of the house; a member with any other surname is a cousin, the child of one of the house's daughters, and belongs to the family just as fully.",
       "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
     ]
   },
@@ -61,7 +63,7 @@
         "form": "CEO-nim",
         "kr": "대표님",
         "direction": "to_cast",
-        "because": "is a new entry-level employee at the main member's family company, where every member of the circle is an heir she is expected to defer to"
+        "because": "is a new entry-level employee at the main member's family company, where every member of the family is one of its executives and she is expected to defer to them"
       }
     },
     {
@@ -216,7 +218,7 @@
     "toCast": "in their circle"
   },
   "castLife": {
-    "theirs": "board dinners, the family calendar, the companies their names are on, the houses they grew up in",
+    "theirs": "board dinners, the family calendar, the family company and their seats in it, the one house they all grew up in",
     "notHers": "no seat at their family's table and no name on any of it",
     "recentBeat": "the dinner she just left",
     "sceneExample": "Drawing room, 11PM",

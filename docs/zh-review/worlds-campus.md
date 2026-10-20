@@ -42,7 +42,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[prof_of_cast].name
 <!-- zh-review key="worlds/campus#identities[prof_of_cast].name" base="801602ae6458" -->
-- [x] approved - uncommitted
+- [x] approved - Claude d2c0c84 2026-10-20
 ~~~~
 咖啡馆老板
 ~~~~

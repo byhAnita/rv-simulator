@@ -15,6 +15,7 @@
 //     is not a dependency.
 
 import { loadGroupConfig } from "./groupLoader";
+import { familyNameOf } from "./memberNames";
 
 export const SLOTS = ["main", "sub", "npc"];
 
@@ -224,7 +225,11 @@ export function renderCastLore(template, vars) {
   return out;
 }
 
-export function composeRosterLore(entries, configs, members, castName, castLore) {
+export function composeRosterLore(entries, configs, members, castName, castLore, mainMember) {
+  // {family} is the MAIN member's surname, which a world that is one family names
+  // its house by (chaebol, v1.4.4 P5). Empty for a main with no real name, and the
+  // missing-value rule then drops the line that uses it rather than printing a gap.
+  const family = familyNameOf(mainMember);
   const known = new Set(members.map((m) => m.id));
   const groupsUsed = [];
   let hasCustom = false;
@@ -261,6 +266,7 @@ export function composeRosterLore(entries, configs, members, castName, castLore)
       name,
       n: String(members.length),
       org: orgNameFor(name, castLore.orgSuffix),
+      family,
     }));
   } else {
     // A subset of one real group keeps that group's name, because it IS that group
@@ -277,6 +283,7 @@ export function composeRosterLore(entries, configs, members, castName, castLore)
       label,
       fandom: cfg?.group?.fandom || "",
       members: members.map((m) => m.name).join(", "),
+      family,
     }));
   }
   lines.push("");
@@ -394,7 +401,8 @@ export async function resolveRoster(roster, language = "zh", world) {
   const castName = roster?.name || DEFAULT_CAST_NAME;
   const composed = isWholeSingleGroup
     ? null
-    : composeRosterLore(entries, configs, members, castName, world.castLore);
+    : composeRosterLore(entries, configs, members, castName, world.castLore,
+        members.find((m) => m.id === mainId));
   const groupLore = composed ? composed.lore : primary.groupLore;
 
   // An all-custom cast has no primary config at all, and buildSystemPrompt reads

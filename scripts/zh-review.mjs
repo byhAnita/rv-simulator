@@ -34,10 +34,10 @@ export const LEDGER_PATH = join(REVIEW_DIR, "ledger.json");
 
 const CJK = /[\u3400-\u9fff]/;
 // Facts and stored values, not prose: an id lives in every save and can never change,
-// and a member's name or birthplace is a fact about a real person, not a register.
+// and a member's name (with its family_name / given_name overrides) or birthplace is a fact about a real person, not a register.
 const SKIP_KEY = [
   /(^|\.)id$/,
-  /^members\[[^\]]+\]\.(name|name_kr|birthplace)$/,
+  /^members\[[^\]]+\]\.(name|name_kr|family_name|given_name|birthplace)$/,
   /^group\.(name|fandom|debut)$/,
   /\.tokens\./,
 ];

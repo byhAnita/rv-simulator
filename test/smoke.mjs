@@ -4455,6 +4455,54 @@ async function layerI() {
       && /\uae30\uc5c5/.test(allWorlds.chaebol?.ko?.castLore?.orgHint || ""),
     "`X Group` is right for a chaebol and wrong for a bare family noun");
 
+  // ── v1.4.4 P5: the chaebol cast is ONE family, named for the main member ─
+  // Yuhan's decision, 2026-10-20. Both templates used to say each member was an
+  // heir of a DIFFERENT house, so a new employee deferred to five families. The
+  // family takes the main member's surname, and because Korean children take the
+  // father's, a member with another surname is a cousin - the rule is stated, or
+  // 裴珠泫 and 姜涩琪 read as sisters with different surnames. Asserted through
+  // resolveRoster, the real path, so a `family_name` dropped by the loader's
+  // whitelist fails here rather than in a game.
+  {
+    const cz = allWorlds.chaebol?.zh;
+    const loreOf = async (entries, lang = "zh", w = cz) =>
+      (await fromDisk(() => loader.resolveRoster({ groupId: entries[0].groupId, entries }, lang, w)))
+        .groupConfig.groupLore;
+    const lib = (groupId, memberId, slot) => ({ src: "library", groupId, memberId, slot });
+    const subsetLore = await loreOf([lib("red_velvet", "irene", "main"), lib("red_velvet", "seulgi", "sub")]);
+    const composedLore = await loreOf([lib("red_velvet", "irene", "main"), lib("twice", "sana", "sub")]);
+    check("a chaebol cast of one group is one family, named for the main member",
+      /The family name is 裴\./.test(subsetLore) && /one chaebol family/.test(subsetLore)
+        && !/different chaebol house|heirs of chaebol houses/.test(subsetLore),
+      subsetLore.slice(0, 300));
+    check("...and so is a cast drawn from several groups",
+      /The family name is 裴\./.test(composedLore) && /one chaebol family/.test(composedLore)
+        && !/different chaebol house/.test(composedLore),
+      composedLore.slice(0, 300));
+    check("...and a member with another surname is told how she belongs to it",
+      /any other surname is a cousin, the child of one of the house's daughters/.test(subsetLore)
+        && /any other surname is a cousin/.test(composedLore),
+      "a Kang and a Bae cannot be sisters, and the model needs the rule to say so");
+    const sanaMain = await loreOf([lib("twice", "sana", "main"), lib("twice", "nayeon", "sub")]);
+    const lisaEn = await loreOf([lib("blackpink", "lisa", "main"), lib("blackpink", "jisoo", "sub")],
+      "en", allWorlds.chaebol?.en);
+    check("...the surname follows the main, through the override where the derivation is wrong",
+      /The family name is 凑崎\./.test(sanaMain) && /The family name is Manobal\./.test(lisaEn),
+      `${(sanaMain.match(/The family name is [^.]*\./) || ["none"])[0]} / ${(lisaEn.match(/The family name is [^.]*\./) || ["none"])[0]}`);
+    const customMain = await loreOf([
+      { src: "custom", memberId: "c_fam", slot: "main", lang: "zh", profile: REQUIRED_TIER },
+      lib("red_velvet", "seulgi", "sub"),
+    ]);
+    check("...and a main with no real name drops the family line rather than printing a gap",
+      /one chaebol family/.test(customMain) && !/The family name is/.test(customMain)
+        && !/\{family\}/.test(customMain),
+      customMain.slice(0, 300));
+    check("...and the new employee defers to the family's executives, not to heirs of a circle",
+      /every member of the family is one of its executives/.test(
+        cz?.identities?.find((i) => i.id === "lawyer")?.workTitle?.because || ""),
+      "Yuhan's lawyer rewrite made her a new employee at the main member's family company");
+  }
+
   // ── round 1 is a first meeting ───────────────────────────────────────────
   // Every member starts at Stranger, and the step-7 identities described a
   // relationship already under way - she had already covered for you, you were

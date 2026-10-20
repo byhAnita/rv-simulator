@@ -72,7 +72,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | # | Change | Where | Cache | Goldens | Done |
 | --- | --- | --- | --- | --- | --- |
 | P9 | No named or detailed strangers | section 3 UNKNOWN CHARACTER RULE | static | all 6 move | ✅ 3 mutations RED |
-| P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves |
+| P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves | ✅ 6 mutations RED; zh `orgHint` is a draft for Yuhan |
 | P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move |
 | P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move |
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildDynamicTail` | rule static, events in tail | all 6 move |

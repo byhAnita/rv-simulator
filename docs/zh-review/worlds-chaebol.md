@@ -35,9 +35,9 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### castLore.orgHint
 <!-- zh-review key="worlds/chaebol#castLore.orgHint" base="2e87cc01ac5f" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+- [ ] approved - DRAFT (not applied) - Claude 5bbebce 2026-10-20
 ~~~~
-这些成员是财阀圈里不同家族的继承人。为首的家族企业：{org}
+这些成员同属一个财阀家族，以主线成员的姓氏为家族姓氏。家族企业：{org}
 ~~~~
 
 ### identities[rival_heiress].name

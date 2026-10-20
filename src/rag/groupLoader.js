@@ -70,6 +70,10 @@ function parseGroupConfig(config) {
     emoji: m.emoji,
     name: m.name,
     name_kr: m.name_kr,
+    // Overrides for the surname `memberNames.js` derives from `name_kr`, declared
+    // only where that derivation is wrong (a two-character Japanese surname in zh).
+    // On the whitelist in the same commit as the data, or it is dropped here.
+    family_name: m.family_name || "",
     color: m.color,
     accent: m.accent,
     animal: m.animal,
