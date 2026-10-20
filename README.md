@@ -187,6 +187,7 @@ The campus, office and chaebol worlds are now about the people in them, not the 
 * ✍️ **Every world's text was rewritten by a native speaker** — the backgrounds, the identities, the first meeting and the group profiles, in Chinese, with the English and Korean retranslated to match. The campus professor is now a café owner near campus, and the chaebol identities read the way that world actually works.
 * 📷 **Photos on the classic door too** — starting from a ready-made group, the New Game page now has the same optional photo and wallpaper upload as a custom cast, for the main and sub members you chose.
 * 🧩 **No raw JSON in the story** — a reply with one stray bracket used to be shown as a block of code. It is now retried like any other unusable reply.
+* 👤 **Strangers stay strangers** — a driver, a secretary or a director outside the cast is called by their role and is never given an invented name.
 
 > 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. The Korean text has not been read by a native speaker.
 

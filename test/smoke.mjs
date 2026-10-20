@@ -3624,6 +3624,21 @@ async function layerI() {
     /she leaves something instead: a note pushed under the door/.test(p),
     "the model reaches for the beat; give it one it is allowed to have");
 
+  // v1.4.4 P9, from Yuhan's play: the model invented names for strangers. The old rule
+  // said only cast members "may appear by name", which reads as permission to name
+  // anyone else. It is ownership now, with a substitute for the recurring outsider.
+  check("a stranger gets no name of any kind",
+    /The only people with names in this story are the ones in MEMBER PROFILES and /.test(p)
+      && /no given name, no surname, no nickname, no initial/.test(p)
+      && /nothing about them beyond one visible detail/.test(p),
+    "a rule that permits cast names does not forbid invented ones");
+  check("...and a recurring stranger keeps her role and one detail instead",
+    /one who comes back is the same role with the same one detail/.test(p),
+    "a prohibition with no substitute gets routed around");
+  check("...and the permission-shaped wording is gone",
+    !/may appear by name/.test(p),
+    "the old sentence is the one that let names through");
+
   // `scene` is printed as one line of a 30-character box on a 390px phone, and "a
   // short location description" was answered with 250-character paragraphs and with
   // the same string five rounds running.

@@ -1,4 +1,4 @@
-# v1.4.4 additions — plan, 2026-10-20
+# v1.4.4 additions — plan, 2026-10-20 | | | | | | | |
 
 Source: Yuhan's requests of 2026-10-20 and her original design doc
 (`docs/.dating-simulator.txt`, gitignored, private). v1.4.4 is bumped on `dev` and not released;
@@ -6,10 +6,10 @@ everything here ships in the same release. **No big new features**: fixes and im
 Player-side social posting (design doc §八) is deferred, see `docs/PROPOSALS.md` §11.
 
 Status:
-- **P2 and P4-P8 are CONFIRMED** (Yuhan, 2026-10-20).
-- **P1 was redesigned** on her direction, and **P3 was replaced** by her idea. Both wait for her OK.
-- **P9 is new**, from her play.
-- Nothing is implemented yet.
+- **All of P1-P9 are CONFIRMED** (Yuhan, 2026-10-20), including the P1 ladder and given-name
+  table, P3's stage tags and the lawyer arc-clause default, and P5's cousin rule.
+- Implementation runs in the order of the table below, one commit each. The progress column of
+  that table is the authority on what is done.
 
 ---
 
@@ -69,9 +69,9 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 
 ## Proposed changes, one commit each, in this order
 
-| # | Change | Where | Cache | Goldens |
-| --- | --- | --- | --- | --- |
-| P9 | No named or detailed strangers | section 3 UNKNOWN CHARACTER RULE | static | all 6 move |
+| # | Change | Where | Cache | Goldens | Done |
+| --- | --- | --- | --- | --- | --- |
+| P9 | No named or detailed strangers | section 3 UNKNOWN CHARACTER RULE | static | all 6 move | ✅ 3 mutations RED |
 | P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves |
 | P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move |
 | P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move |
@@ -82,6 +82,9 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
 
 P9 and P5 come first because they are small and P1 builds on P5's family.
+
+**Release notes** (`src/config/releaseNotes.js`, three languages) are written once, after the
+last item, so the entry describes what shipped. README gains its bullet in each commit.
 
 ### P1. The address ladder: age × position × closeness
 
