@@ -5,8 +5,8 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-20 (day) by Claude Opus 5.5 (main VS Code session)
-**Handing to:** **Yuhan** - review v1.4.4 on the Cloudflare preview, then release
+**Last updated:** 2026-10-20 (evening) by Claude Opus 5.5 (main VS Code session)
+**Handing to:** the next session - continue `docs/V144_PLAN.md` at **P1**
 
 ---
 
@@ -56,10 +56,19 @@ Three commits, each validated (build + smoke + mutation) and pushed to `dev`:
 
 ## Next command
 
-**v1.4.4 is bumped on `dev`** (README What's New, in-game release notes in zh/en/ko - the
-notes are Claude's and want her read). Yuhan reviews `dev.idol-dating-sim.pages.dev`, then the
-release sequence in CLAUDE.md (merge to main, `npm run deploy`, tag, merge back) - all red
-lines, hers to start. Also hers: whether `sajang-nim` reads right in en.
+**v1.4.4 is NOT ready to release.** Yuhan confirmed nine additions (P1-P9) on 2026-10-20 and they
+ship in the same release. `docs/V144_PLAN.md` is the plan; its table's **Done** column is the
+authority on progress.
+
+- Done, local, unpushed: **P9** (`35ef7f7`, no named strangers) and **P5** (`ea95dbf`, the
+  chaebol cast is one family). Build clean, smoke **1749 / 0**.
+- **Next: P1, the address ladder** - per-member Address line by stage rung, REGISTER and SPEAKER
+  CONTRACT rewrite, `given_name` overrides (the table in P1b) via `src/rag/memberNames.js`, and
+  `membersNamedIn` switched to the same helper. All six goldens move.
+- **Open for Yuhan:** the zh `castLore.orgHint` draft in `docs/zh-review/worlds-chaebol.md`
+  (one family instead of different families). Tick it or reword it, then `sync`.
+- In-game release notes (`src/config/releaseNotes.js`) are rewritten once, after P8.
+- Pushing and the release are Yuhan's.
 
 ---
 
