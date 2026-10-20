@@ -27,7 +27,7 @@
     "useRole": false,
     "orgSuffix": "Group",
     "orgNoun": "가문 기업",
-    "orgHint": "이 멤버들은 재벌가 사교계의 서로 다른 가문 후계자들입니다. 중심 가문 기업: {org}",
+    "orgHint": "이 멤버들은 한 재벌 가문이며, 메인 멤버의 성이 가문의 성입니다. 가문 기업: {org}",
     "composed": [
       "[{name} Background]",
       "These {n} women are one chaebol family, and {org} is the family's company. {name} exists only in this story.",

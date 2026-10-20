@@ -560,3 +560,52 @@ schema, a place in the ledger (a post is history), and a decision on whether a p
 **What would settle it.** Nothing measurable decides whether to build it; it is a feature. What
 settles the design is whether a posted line visibly changes the next round. Test it with a
 sentinel post, then read the round that follows.
+
+---
+
+## 12. Write `summary` in the player's language
+
+**Written 2026-10-20, from Yuhan's question during v1.4.4. Deliberately NOT in v1.4.4.**
+
+**What.** `summary` is "ONE English sentence, 100-150 characters" in every language. It is the
+collapse target, so from round 4 on most of the history ledger is English summaries of Chinese
+(or Korean) stories. The change: write it in the language of the story.
+
+**Why it might help: the hypothesis.** When a round calls back to an earlier event, the model can
+only see that event as an English sentence. The callback is then written by **translating** from
+it. That is exactly the move that produces translationese, and it gets more frequent as the game
+gets longer, because summaries become most of the ledger. Two concrete losses:
+- the names and address forms the prose used (`涩琪`, `欧尼`) are lost; the summary says `Seulgi`;
+- the place and object words the story chose are lost; the callback re-translates them, so the
+  same rooftop or the same keepsake can come back under a different word.
+
+**Why it might hurt.**
+- **Model-written Chinese in the prompt is a style example** (*The translationese bug*, lesson 3).
+  Up to 45 terse Chinese summaries would sit in the cached prefix. The risk is limited: the three
+  full stories in the ledger are already model-written Chinese, and they are longer.
+- **Cost, calculated rather than measured:** a zh summary carrying the same content is roughly
+  50-70 characters, which is about 1.5x the tokens of a 125-character English sentence. It sits in
+  the cached block, so the per-round cost is small, but it is permanent.
+
+**What it touches.**
+- Three schema lines in `mainAgent.js` (the `summary` example, its rule, and "summary is always in
+  English"), and the length unit: "100-150 characters" is wrong for zh. See §2.
+- The collapse fallback `text.substring(0,150)`, and the comment in `App.jsx#saveStoryEdit`.
+- `analyze-prose.mjs` flags CJK in a summary as a defect, so that metric would have to be inverted.
+- All six goldens move.
+- No migration. An old save keeps its English summaries and gains in-language ones; nothing
+  already cached changes.
+
+**A middle option, if the cost matters.** Keep the summary in English, but quote the names, the
+place and the one object **exactly as the story wrote them**: `Seulgi ("涩琪") left the 保温杯 on
+the 天台 rail`. Callbacks get verbatim anchors and the rule text stays English. Test this only if
+the full change wins and its cost shows.
+
+**Why not in v1.4.4.** v1.4.4 already changes the address ladder, stage behaviour, events and the
+prose register (P1-P3, P7), and P7 has a blind read of its own. A second register change in the
+same release makes that read unattributable. One change at a time when the point is to measure.
+
+**What would settle it.** A run of 25 rounds in each arm, with the same model pinned and recorded.
+Then Yuhan reads it blind, **rounds 10-25 only**, because that is where summaries dominate the
+ledger, with several runs per arm. Ask *where* a callback reads as translated, not *which arm* is
+better. Also count whether a place or object keeps the same word across its callbacks.

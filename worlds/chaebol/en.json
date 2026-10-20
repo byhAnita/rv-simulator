@@ -27,7 +27,7 @@
     "useRole": false,
     "orgSuffix": "Group",
     "orgNoun": "family business",
-    "orgHint": "These members are heirs of different chaebol families. The leading family business: {org}",
+    "orgHint": "These members are one chaebol family, which takes the main member's surname. The family business: {org}",
     "composed": [
       "[{name} Background]",
       "These {n} women are one chaebol family, and {org} is the family's company. {name} exists only in this story.",
