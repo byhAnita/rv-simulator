@@ -631,6 +631,7 @@ async function runWorker(model) {
       const swept = await generateCastDetail({
         members, world, language: LANG, apiKey: API_KEY, modelId: PROVIDER,
         aliyun: ROUTED ? { mode: "free" } : null,
+        playerRole: mod.identityName(world, IDENTITY),
       });
       const detailById = swept.detailById;
       members = members.map((m) => applyWorldDetail(detailById[m.id]

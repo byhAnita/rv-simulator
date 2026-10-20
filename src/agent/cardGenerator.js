@@ -288,9 +288,9 @@ function restageLaw(lang) {
   return `KEEP WHO SHE IS AND CHANGE ONLY THE CIRCUMSTANCES. Her temperament, what she shows
 and what she hides, how she behaves while she is watched - all of that survives.
 What must go is every fact that only holds for a performing idol: no stage, no
-debut, no comeback, no fandom, no album, no variety show, and no rank in a
+debut, no trainee past, no comeback, no fandom, no album, no variety show, and no rank in a
 performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR
-TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185. If she is simply the
+TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185, \u7ec3\u4e60\u751f, \u51fa\u9053. If she is simply the
 youngest or the most senior of this cast, say that in plain words; do not reach for
 the group-rank word. Restage each trait inside the setting above instead.
 
@@ -316,6 +316,24 @@ function settingBlock(world) {
 - What these people do all day: ${world?.castLife?.theirs || ""}
 - The kind of organisation they belong to: ${world?.castLore?.orgNoun || ""}
 - Places that exist in it: ${places}`;
+}
+
+// THE PLAYER'S POSITION, and it is the fix for a defect a live read found: a campus
+// run whose player OWNS the cafe restaged Joy as a "campus cafe barista" - the
+// player's own business, staffed by a member. The prompt never said who the player
+// was, so there was nothing to avoid; carry the fact and state the rule beside it.
+// Empty when the caller has no identity to give (a screen before player info), so
+// the prompt is then exactly what it was.
+function playerBlock(playerRole) {
+  const role = String(playerRole || "").trim();
+  if (!role) return "";
+  return `
+
+THE PLAYER, who is NOT one of the cast
+- Her position in this setting: ${role}
+That position is hers alone. No member holds it, shares it, or works under her in
+it - if she owns or runs a place, nobody in the cast is its staff. Place every
+member around her, never in her place.`;
 }
 
 // Her existing lines go in as the SOURCE, not as an example: a restaging with
@@ -350,7 +368,7 @@ function castById(members) {
   return new Map((members || []).filter((m) => m && m.id != null).map((m) => [String(m.id), m]));
 }
 
-export function buildWorldDetailPrompt(member, world, language = "zh", cast = []) {
+export function buildWorldDetailPrompt(member, world, language = "zh", cast = [], playerRole = "") {
   const lang = LANGUAGE_NAME[language] || LANGUAGE_NAME.zh;
   // THE CAST BLOCK, and it is the fix for a defect only a live read found: five
   // members restaged CONCURRENTLY from five prompts that each showed one member
@@ -379,7 +397,7 @@ not the junior of a younger one. Write only her; the others are named so that yo
 do not collide with them.` : "";
   return `You are restaging one cast member of a dating sim into a different setting.
 
-${settingBlock(world)}${castBlock}
+${settingBlock(world)}${playerBlock(playerRole)}${castBlock}
 
 HER, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
 - Name: ${member?.name || ""}
@@ -414,7 +432,7 @@ ${DETAIL_SCHEMA}`;
  * transcription task beside a writing one, and the one place a single wrong digit
  * silently hands one member's profile to another. The numbers are already printed.
  */
-export function buildCastDetailPrompt(members = [], world, language = "zh", targetIds = null) {
+export function buildCastDetailPrompt(members = [], world, language = "zh", targetIds = null, playerRole = "") {
   const lang = LANGUAGE_NAME[language] || LANGUAGE_NAME.zh;
   const ladder = seniorityLadder(members);
   const byId = castById(members);
@@ -432,7 +450,7 @@ export function buildCastDetailPrompt(members = [], world, language = "zh", targ
 
   return `You are restaging the cast of a dating sim into a different setting.
 
-${settingBlock(world)}
+${settingBlock(world)}${playerBlock(playerRole)}
 
 THE WHOLE CAST, oldest first. The number in front of a member is her key in your answer:
 ${ladderRows(ladder, byId, isTarget, true)}
@@ -541,10 +559,10 @@ export function isUsableDetail(detail) {
  */
 export async function generateWorldDetail({
   member, world, language = "zh", apiKey, modelId = "deepseek",
-  aliyun = null, reasoningEnabled = false, cast = [],
+  aliyun = null, reasoningEnabled = false, cast = [], playerRole = "",
 } = {}) {
   if (!member?.name || !world) return { ok: false, detail: {}, reason: "bad_request" };
-  const prompt = buildWorldDetailPrompt(member, world, language, cast);
+  const prompt = buildWorldDetailPrompt(member, world, language, cast, playerRole);
   const usable = (content) => {
     try { return isUsableDetail(parseWorldDetail(content)); } catch { return false; }
   };
@@ -586,7 +604,7 @@ export async function generateWorldDetail({
  */
 export async function generateCastDetail({
   members = [], world, language = "zh", apiKey, modelId = "deepseek",
-  aliyun = null, onProgress = null,
+  aliyun = null, onProgress = null, playerRole = "",
 } = {}) {
   const todo = members.filter((m) => m?.name && !isUsableDetail(m));
   if (!todo.length || !world) {
@@ -598,7 +616,7 @@ export async function generateCastDetail({
   const detailById = {};
   let castCall = "ok";
   try {
-    const prompt = buildCastDetailPrompt(members, world, language, targetIds);
+    const prompt = buildCastDetailPrompt(members, world, language, targetIds, playerRole);
     // AT LEAST ONE member, not all of them. validateContent fires bad_response and
     // retries when it returns false, so demanding the full set would spend two
     // retries on a response that is mostly right and then fall back for everybody.
@@ -625,7 +643,7 @@ export async function generateCastDetail({
   const missing = todo.filter((m) => !detailById[m.id]);
   const results = await Promise.all(missing.map(async (m) => {
     const res = await generateWorldDetail({
-      member: m, world, language, apiKey, modelId, aliyun, cast: placed,
+      member: m, world, language, apiKey, modelId, aliyun, cast: placed, playerRole,
     });
     onProgress?.(++done, todo.length);
     return [m.id, res];

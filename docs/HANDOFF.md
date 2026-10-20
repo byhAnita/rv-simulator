@@ -6,7 +6,7 @@ contents rather than appending a log.
 ---
 
 **Last updated:** 2026-10-20 by Claude Opus 5.5 (main VS Code session)
-**Handing to:** **Yuhan** - one decision (campus), then the last two zh blocks
+**Handing to:** **Yuhan** - morning read of the overnight fix-and-measure run
 
 ---
 
@@ -18,13 +18,14 @@ contents rather than appending a log.
   counterpart of an edit is retranslated (ko **not native-reviewed**). Goldens regenerated and
   the diff read.
 - Campus `prof_of_cast` is now a **cafe owner** near campus (id kept for saves). Members address
-  her as 老板 / Boss / 사장님 (`kr` 사장님), still to_player, so the smoke fixture that pins
+  her as 老板 / sajang-nim / 사장님 (`kr` 사장님), still to_player, so the smoke fixture that pins
   `prof_of_cast` is unchanged. The kpop 财阀 background now reads `{name}组合所在公司`, no `{org}`.
 
 ## The task in flight
 
-1. **Nothing in flight.** The zh review is closed and the live test below is done. The next
-   decision is Yuhan's: whether the Seulgi finding is worth a multi-run measurement.
+1. **Overnight, autonomous on Yuhan's instruction (2026-10-20):** the Seulgi leak and the Joy
+   barista collision are fixed, en `Boss` is `sajang-nim`, and the multi-run measurement is
+   running. Results go in the section below as they land.
 
 ## Live test, 2026-10-20 (`deepseek-flash`, after the push)
 

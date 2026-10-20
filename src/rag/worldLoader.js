@@ -384,6 +384,12 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
 export const getIdentity = (world, id) =>
   world?.identities?.find((i) => i.id === id) || null;
 
+// The player's position in words: the world's own name for a declared identity, or
+// the text itself for one she typed (formForRound has already swapped "H" for it).
+// A stored id is never shown, because ids are Chinese in every language.
+export const identityName = (world, id) =>
+  getIdentity(world, id)?.name || String(id || "").trim();
+
 // The rule carries its own `[Story Mode: X]` prefix, exactly as the pace rule
 // carried `[Pace: X]`, so the caller adds no label of its own.
 export const getModeRule = (world, id) => world?.modes?.[id] || "";

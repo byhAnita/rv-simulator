@@ -3,7 +3,7 @@ import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
-import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
+import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles, identityName } from "./rag/worldLoader";
 import {
   resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor,
   applyWorldDetail, WORLD_DETAIL_KEY,
@@ -970,6 +970,7 @@ export default function App() {
       showNotif(t.cast.restaging(cast.length));
       const { detailById } = await generateCastDetail({
         members: cast, world, language, apiKey, modelId: selectedModel, aliyun: aliyunOptions(),
+        playerRole: identityName(world, formForRound().identity),
       });
       roundRoster = withCastDetail(builtRoster, detailById, world.id);
       roundMembers = cast.map(m => applyWorldDetail(detailById[m.id]
@@ -1907,6 +1908,7 @@ export default function App() {
           fontScale={fontScale}
           apiKey={apiKey} modelId={selectedModel}
           aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
+          playerRole={identityName(world, formForRound().identity)}
           onStart={(r) => startNewGame(r)}
           onBack={() => { setPendingRoster(null); setPhase("playerInfo"); }}
           notify={showNotif}

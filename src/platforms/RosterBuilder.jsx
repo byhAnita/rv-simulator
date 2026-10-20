@@ -57,7 +57,7 @@ const ROSTER_MAX = 20;
 
 export default function RosterBuilder({
   language = "zh", theme = "dark", t, world, fontScale = 1,
-  apiKey, modelId, aliyun,
+  apiKey, modelId, aliyun, playerRole = "",
   onStart, onBack, notify,
 }) {
   const isLight = theme === "light";
@@ -619,6 +619,7 @@ export default function RosterBuilder({
           member={editing} isNew={Boolean(editing.isNew)}
           language={language} theme={theme} t={t} fontScale={fontScale}
           apiKey={apiKey} modelId={modelId} aliyun={aliyun} world={world}
+          playerRole={playerRole}
           photo={photos[editing.id]}
           onPhotoChange={(d) => setPhotoFor(editing.id, d)}
           wall={walls[editing.id]}

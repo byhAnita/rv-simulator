@@ -1597,6 +1597,47 @@ they hold.
 holds the title**, and it has to be read against the *form* - not checked for being one of two
 legal values.
 
+### A fully restaged cast still had its real namesakes, and the restaging never saw the player
+
+**Found by reading the live run of 2026-10-20, fixed the same night on Yuhan's instruction.**
+Two defects, one per restaging boundary.
+
+**1. In a chaebol run with all five members restaged, Seulgi remembered being a trainee.**
+`这家的牛骨汤，我练习生时候常吃`, `我练舞练到凌晨`, sheet music in her bag - and the rendered
+prompt held none of it. The model was completing her from **what it knows about the real
+Seulgi**. §22.1's interim rule narrows to un-restaged members, so a fully restaged cast was the
+one case with nothing in the prompt saying these people are not idols. A restaged profile
+fixes the *data*; it cannot reach the model's own knowledge.
+
+So the caveat is **split into two rules with one subject each**:
+
+| rule | renders when | says |
+| --- | --- | --- |
+| `NO ONE IN THIS CAST IS AN IDOL` | `useRole` is false, **always** | not the real performers who share the names; never draw on what you know of them; no stage, debut, trainee past, idol training, album or group rank (with the zh forms, now including 练习生 and 出道); what they have is `castLife.theirs` |
+| `READ THOSE THREE FIELDS FOR TRAITS` | some member is un-restaged | how to read idol-authored prose, and whose lines are literal |
+
+The rank list moved into the world rule and is **stated once** - a guard counts it - and the
+restaging law names the same list, as smoke already required. *"Dance or vocal practice"* was
+narrowed to *idol* training before commit: a campus member may well be in a dance club.
+
+**2. A café-owner player got Joy restaged as a "campus cafe barista".** The restaging prompts
+were given the world and the cast and **never the player**, so there was nothing to avoid -
+`[Rounds Absent]`'s lesson once more: a rule is inert when the fact it needs is not stated.
+Both builders now take `playerRole` (the world's own `identity.name`, or her typed text for
+`H`, via `identityName` in `worldLoader.js`) and render a `THE PLAYER` block: the position is
+hers alone and no member holds it, shares it or works under her in it. **Every restaging call
+site passes it** - the Start sweep, the editor, the sweep's own fallback pass and the harness -
+and the guard counts them, because one of four is the `extractStoryText` failure. With no role
+to give, the block renders nothing.
+
+**And en `Boss` is `sajang-nim`.** The café owner's en title was the one localized English
+noun in a table of transliterations (`sunbae-nim`, `Manager-nim`); 사장님 is what customers in
+Korea actually call a shop owner, and the address-form rule here is *transliterate, never
+localize*. Yuhan offered *chef*, which names a different job.
+
+**12 mutations, 12 RED**, tree restored byte-identical. The three non-idol goldens moved by
+exactly the split and the diff was read; the three idol goldens did not move.
+
 ### The platforms a non-idol world declares, and step 6 rendering for real
 
 `campus`, `office` and `chaebol` declare **Instagram and KakaoTalk only** (Yuhan's call,
@@ -4185,14 +4226,16 @@ Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` 
   **1719 -> 1724**. See *The secretary called the heiress by her own title*.
 - ◩ **Her second pass closes the review: 620 of 620 approved, 0 owed, 2026-10-20.** Campus
   `prof_of_cast` is now a **cafe owner** near campus - a professor was wrong for a dating game,
-  her call - addressed as 老板 / Boss / 사장님, still to_player; the **id stays** for saves. The
+  her call - addressed as 老板 / sajang-nim / 사장님, still to_player; the **id stays** for saves. The
   kpop 财阀 background names `{name}组合所在公司` instead of the `{org}` backgrounds cannot
   render. The zh name is 咖啡馆老板; en/ko say Café owner / 카페 사장. **Live, 2026-10-20:**
   campus/en café owner and chaebol/zh new employee, **4/4 clean each, 0 drifts, 89.7% cache**.
   Reading the zh prose found Seulgi citing her trainee years and dance practice in a family
   company, with none of it in the prompt - the model's own knowledge of the real person - and a
-  fully restaged cast is the one case where §22.1's rule is not rendered. n=1, not fixed;
-  `docs/HANDOFF.md` has it and the measurement that would settle it.
+  fully restaged cast is the one case where §22.1's rule is not rendered. **Fixed the same night**
+  with a world-level `NO ONE IN THIS CAST IS AN IDOL` rule, plus the player's role in the
+  restaging prompts (Joy had been made a barista in the player's own café) - see *A fully
+  restaged cast still had its real namesakes*. The measurement is in `docs/HANDOFF.md`.
 - ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
   `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
   and no world file does any more - the dead-field shape this file tracks seven times, with the

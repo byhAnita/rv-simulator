@@ -403,10 +403,27 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // with useRole:true renders byte-identically - not even a newline moves - and it sits
   // BEFORE the profiles, because a rule about how to read the prose has to reach the
   // model before the prose does.
+  // WORLD-LEVEL, and it renders whenever useRole is false - restaged or not. Found by
+  // the live run of 2026-10-20: a chaebol cast restaged five of five, so the reading
+  // rule below was (correctly) absent, and Seulgi still said she ate this soup as a
+  // trainee and practised dance until dawn, carrying sheet music. NONE of that was in
+  // the prompt; the model supplied it from what it knows of the real person. A restaged
+  // profile fixes the DATA and says nothing about the model's own knowledge, so the fact
+  // that nobody here is an idol cannot depend on who was restaged. It names the real
+  // performers explicitly, because the defect is the model completing a member from her
+  // namesake - the same leak composed lore closes for the group, one level down.
+  //
+  // The enumeration lives HERE now and not in the reading rule, so the two never state
+  // one list twice. zh forms are named because the model copies tokens out of Chinese
+  // prose; ko forms are not, because there the word for maknae is the ordinary word for
+  // the youngest of any group and has no neutral substitute.
+  const notIdols = world.castLore.useRole ? "" : `
+NO ONE IN THIS CAST IS AN IDOL, and this story is not about the real performers some of them share a name with. Never draw on anything you know about those people - their careers, their pasts, their colleagues, their habits: none of it happened here. No member has a stage, a debut, a comeback, a fandom, a trainee past, idol dance or vocal training, an album, or a rank in a performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185, \u7ec3\u4e60\u751f, \u51fa\u9053. What they have instead is ${world.castLife.theirs}; their pasts, their routines and what they talk about come from there.`;
+
   const untranslated = members.filter((m) => !m.world_position);
   const literalOnes = untranslated.length === members.length ? "" : ` This applies to ${untranslated.map((m) => m.name).join(", ")} and to no one else: every other member's three fields were rewritten for this world and are literal.`;
-  const textureCaveat = (world.castLore.useRole || untranslated.length === 0) ? "" : `
-READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting and this story is not one. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through: here she has no stage, no debut, no comeback, no fandom, and no rank in a performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185. What she has instead is ${world.castLife.theirs}. Where a line describes her through idol work, keep the trait and restage it there.${literalOnes}`;
+  const textureCaveat = notIdols + ((world.castLore.useRole || untranslated.length === 0) ? "" : `
+READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting. Take from them who she IS \u2014 how she carries herself, what she shows and what she hides, how she behaves while she is being watched \u2014 and never the circumstances they describe it through. Where a line describes her through idol work, keep the trait and restage it in ${world.castLife.theirs}.${literalOnes}`);
 
   // One context for both renderers, so a catalog entry that needs a world-varying
   // value cannot get it in one list and not the other.

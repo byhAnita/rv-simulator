@@ -4783,6 +4783,47 @@ async function layerI() {
       check("...and says nothing about whom when nobody has been translated, so no golden moves",
         !/and to no one else/.test(none) && !/are literal/.test(none),
         "every fixture is in this state; a clause here would move three goldens");
+
+      // THE OTHER HALF, and the reason the reading rule is not enough on its own.
+      // Live, 2026-10-20: a chaebol cast restaged five of five - so the rule above
+      // was correctly absent - and Seulgi still remembered her trainee years and her
+      // dance practice, none of which was in the prompt. That is the model's own
+      // knowledge of the real person, and a restaged profile cannot reach it. So the
+      // statement that nobody here is an idol is a fact about the WORLD and must not
+      // depend on who was restaged: all three states carry it.
+      const NOT_IDOLS = /NO ONE IN THIS CAST IS AN IDOL/;
+      check("the not-an-idol rule stays when every member has been restaged",
+        NOT_IDOLS.test(all) && NOT_IDOLS.test(some) && NOT_IDOLS.test(none),
+        "a fully restaged cast is the one case the reading rule leaves silent");
+      check("...and tells the model not to complete a member from her real namesake",
+        /real performers/.test(all) && /Never draw on anything you know/.test(all),
+        "the defect it exists for is knowledge the prompt never supplied");
+      // ONE list, stated once. Before this split the enumeration lived in the reading
+      // rule; if both carried it, a rank added to one would be a rank the other
+      // treats as unconstrained.
+      check("...and the rank list is stated once, not in both rules",
+        (all.match(/performing group such as/g) || []).length === 1
+          && (none.match(/performing group such as/g) || []).length === 1,
+        "two copies of one list is how they come to disagree");
+    }
+    {
+      const placement = [];
+      for (const [id, byLang] of Object.entries(allWorlds)) {
+        const w = byLang.en;
+        if (!w) continue;
+        const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+          members.map((m) => m.id));
+        const cast = await fromDisk(() => loader.resolveRoster(roster, "en", w));
+        const restaged = cast.members.map((m) => ({ ...m, world_position: "restaged" }));
+        const pr = buildSystemPrompt(form({ identity: w.identities[0].id }), restaged,
+          "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", w);
+        const head = pr.slice(pr.indexOf("CRITICAL: \u2605"), pr.indexOf("\n  Age: "));
+        const wants = w.castLore.useRole === false;
+        if (/NO ONE IN THIS CAST IS AN IDOL/.test(pr) !== wants) placement.push(id + ": wrong side");
+        else if (wants && !/NO ONE IN THIS CAST IS AN IDOL/.test(head)) placement.push(id + ": after the profiles");
+      }
+      check("...in every non-idol world and no idol one, before the profiles",
+        placement.length === 0, placement.join(" | "));
     }
   }
 
@@ -6936,6 +6977,55 @@ async function layerI() {
     check("...and names each rank in the scripts the game actually writes in",
       missing.length === 0,
       "an English-only list is followed and still broken: " + missing.join(" "));
+
+    // THE PLAYER'S POSITION. Live, 2026-10-20: a campus player who OWNS the cafe got
+    // a cast in which Joy was restaged as a campus cafe barista - a member staffing
+    // the player's own business. The restaging prompt never said who the player was.
+    if (w) {
+      const two = [
+        { id: "a", name: "Joy", birthday: "1996-09-03", public_image: "the maknae" },
+        { id: "b", name: "Yeri", birthday: "1999-03-05", public_image: "the youngest" },
+      ];
+      const ROLE = "Owner of the campus cafe";
+      const castP = cg.buildCastDetailPrompt(two, w, "en", null, ROLE);
+      const oneP = cg.buildWorldDetailPrompt(two[0], w, "en", two, ROLE);
+      check("the restaging prompts carry the player's position and keep every member out of it",
+        [castP, oneP].every((p) => p.includes(ROLE) && /hers alone/.test(p) && /nobody in the cast is its staff/.test(p)),
+        "a member cast into the player's own job is a premise nobody can play");
+      check("...and render nothing about her when there is no position to give",
+        !/THE PLAYER, who is NOT/.test(cg.buildCastDetailPrompt(two, w, "en"))
+          && !/THE PLAYER, who is NOT/.test(cg.buildWorldDetailPrompt(two[0], w, "en", two)),
+        "an empty 'position:' line is a blank the model fills");
+    }
+    // COUNTED, not sampled: every call that restages - the Start sweep, the editor,
+    // the sweep's own fallback pass, and the harness that mirrors the sweep - must
+    // hand the position on. One of four is the extractStoryText failure.
+    {
+      const files = [];
+      const walk = (dir) => {
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+          const p = join(dir, e.name);
+          if (e.isDirectory()) walk(p);
+          else if (/\.(js|jsx)$/.test(e.name)) files.push(p);
+        }
+      };
+      walk(join(ROOT, "src"));
+      files.push(join(ROOT, "test", "playthrough.mjs"));
+      const calls = [];
+      for (const f of files) {
+        const code = readFileSync(f, "utf8");
+        const re = /generate(?:Cast|World)Detail\(\{/g;
+        let m;
+        while ((m = re.exec(code))) {
+          const body = code.slice(m.index, code.indexOf("})", m.index));
+          calls.push({ f: f.slice(ROOT.length + 1), ok: /playerRole/.test(body) });
+        }
+      }
+      const without = calls.filter((c) => !c.ok).map((c) => c.f);
+      check("every restaging call site passes the player's position",
+        calls.length >= 4 && without.length === 0,
+        calls.length + " call sites; missing in: " + without.join(", "));
+    }
   }
   // ---------------------------------------- the cast block, and why it exists
   //
