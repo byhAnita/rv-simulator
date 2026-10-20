@@ -491,3 +491,72 @@ argument wearing a correctness costume until something shows the model mis-readi
 **What would settle it.** A round where the model attributes an event to the wrong round number, or
 treats the summary block as something other than earlier history. Worth watching for; not worth
 looking for.
+
+---
+
+## 9. A hidden feeling basis, revealed after round 20
+
+**Written 2026-10-20, from Yuhan's design doc (§五.2). Agreed for a version after v1.4.4.**
+
+**What.** At setup each romanceable member draws a hidden reason she is drawn to the player. The
+design doc's list:
+- she really likes the player;
+- each takes what she needs from the other;
+- a passing impulse;
+- she is using the relationship to work out her own orientation;
+- a hidden motive, such as distracting herself or escaping another relationship.
+
+The draw is never stated. From round 20 it shows through small details only.
+
+**Why.** It is the main source of depth after the confession: two runs with the same affection
+curve would read differently.
+
+**Cost.**
+- The draw must be seeded from setup fields (`backstorySeed`), because it lives in the cached
+  prefix. A `Math.random()` here is the 26.7-point cache defect again.
+- It needs a rule for "revealed only through detail". The model's habit is to say it outright.
+
+**What would settle it.** Blind read: from round 20, can Yuhan tell which basis a run drew, from the
+prose alone, more often than chance? Never would mean it is invisible. Always by round 21 would
+mean it is announced rather than shown.
+
+---
+
+## 10. An intimate-moment opportunity every 4 rounds
+
+**Written 2026-10-20, from Yuhan's design doc (§五.1 and §十.5). Agreed for a version after
+v1.4.4.**
+
+**What.** Every 4th round, the tail tells the model to offer the player one option that opens an
+intimate moment. Its weight depends on the stage: at 陌生人 it might be sharing an umbrella, at
+确认关系 something more. It is offered as an option, never forced into the prose.
+
+**Why.** Pacing. Without it, a run can go long stretches with no closeness to choose.
+
+**Cost.** A tail line on one round in four, so nothing cached. It interacts with P3 of
+`docs/V144_PLAN.md` (stage-unlocked events) and with P8 (random events), so it waits until both
+have been measured. Three changes at once would make each one unmeasurable.
+
+**What would settle it.** Over 3 runs of 24 rounds, count the rounds with an intimate option,
+with and without the rule, and Yuhan reads whether those options fit the stage.
+
+---
+
+## 11. The player posts, and replies to the cast's posts
+
+**Written 2026-10-20, from Yuhan's design doc (§八). Deferred by her from v1.4.4: "no big new
+features".**
+
+**What.**
+- A composer for the player's own Instagram post.
+- Replies to a member's post.
+- Free-text replies in KakaoTalk. §八 says the chat goes one line each, and the model never writes
+  the player's line.
+
+**Cost.** This is a new input surface and a new kind of round, not a prompt rule. It needs a
+schema, a place in the ledger (a post is history), and a decision on whether a post costs a round.
+`docs/V140_PLAN.md` §8 already sketches the KKT and IG composers.
+
+**What would settle it.** Nothing measurable decides whether to build it; it is a feature. What
+settles the design is whether a posted line visibly changes the next round. Test it with a
+sentinel post, then read the round that follows.

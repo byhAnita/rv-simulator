@@ -3,9 +3,27 @@
 Source: Yuhan's requests of 2026-10-20 and her original design doc
 (`docs/.dating-simulator.txt`, gitignored, private). v1.4.4 is bumped on `dev` and not released;
 everything here ships in the same release. **No big new features**: fixes and improvements only.
-Player-side social posting (design doc §八) is deferred.
+Player-side social posting (design doc §八) is deferred, see `docs/PROPOSALS.md` §11.
 
-Status: **PROPOSED, waiting for Yuhan's confirmation.** Nothing below is implemented.
+Status:
+- **P2 and P4-P8 are CONFIRMED** (Yuhan, 2026-10-20).
+- **P1 was redesigned** on her direction, and **P3 was replaced** by her idea. Both wait for her OK.
+- **P9 is new**, from her play.
+- Nothing is implemented yet.
+
+---
+
+## Decisions taken, 2026-10-20
+
+| Q | Decision |
+| --- | --- |
+| Q1 | The **whole** chaebol cast is one family, NPC members included. The family takes the **main member's surname** (`裴氏` for Irene). |
+| Q2 | In non-idol worlds members go by their **Korean given name** (`珠泫`), not their stage name. Members whose given name cannot be derived get a researched fallback (P1b). |
+| Q3 | The P4 clamp numbers are accepted. |
+| Q4 | Answered by her new idea: typical events move out of the static background and into the tail, unlocked by stage (P3). |
+| — | **Address forms only inside quotation marks.** Narration says `裴珠泫`, never `裴代表nim` (a bug from her play). |
+| — | **No named strangers.** Supporting characters outside the cast get no personal name and no detailed description (P9, from her play). |
+| — | The hidden feeling basis and the intimacy beat every 4 rounds go to a later version: `docs/PROPOSALS.md` §9 and §10. |
 
 ---
 
@@ -13,118 +31,201 @@ Status: **PROPOSED, waiting for Yuhan's confirmation.** Nothing below is impleme
 
 Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 
-### F1. The new employee calls Irene 欧尼 because the prompt says to, twice as loudly
-
-Each member's **Address** line is computed from birth year alone:
-`安添 -> "Irene欧尼"`. The work title (`代表nim`) is one sentence in section 6's REGISTER block,
-labelled "Work override", far from the member it applies to. A specific per-member line beats a
-general note somewhere else; this repo has seen that failure five times. REGISTER also says the
-age direction "NEVER reverses, at any affection level" and that a near-age member "is already
-casual while the score is still low", which is the opposite of what Yuhan wants.
-
-### F2. Irene is caring on day one because the background tells her to be
-
-The `lawyer` (新人职员) background, which Yuhan approved on 2026-10-20, says
-`集团继承人{name}似乎有意或无意地关照你` and lists typical events: afternoon tea sent to your
-desk, she covers for your mistake, she takes you to a society event. Nothing says those happen
-**later**. Most other backgrounds list "typical events" the same way, so this is a general
-defect, not just this identity's. **The Chinese is Yuhan's.** The fix proposed is an English
-rule (P3), not an edit to her text. She may also want to reword the line.
-
-### F3. Stage names mean nothing to the model's behaviour
-
-Section 9 lists `0-15 陌生人 … 91-100 考验期` as names and ranges only. The design doc's §九 gives
-each stage a **behaviour** ("陌生人: only politeness, brief help, work contact"), plus the
-prohibitions "禁止让成员无缘无故喜欢上玩家" and "禁止跳过暧昧过程". None of that reaches the
-prompt.
-
-### F4. 起承转合 is in the prompt, but unlabelled, with no beats and no "you are here"
-
-Section 3 prints all four phase lines every round. The model has to work out which one applies
-from `Round:` in the tail. The design doc's end-of-phase beats ("成员第一次主动记住玩家的名字",
-"一次小危机") are missing. `getChapterByRound` already computes the chapter and shows it in the
-stats box, but **never tells the model**.
-
-### F5. Affection can outrun the phase
-
-The main member starts at 12 (Stranger ends at 15), the prompt asks for ±1..±10 per round, and
-the clamp is ±8. So round 1 can already reach 有印象 and round 3 产生兴趣, inside a phase that
-says "No romantic moves". Nothing ties the rate to the phase.
-
-### F6. The chaebol cast is several families, in both templates
-
-`castLore.composed`: "each of them an heir of a **different** chaebol house". `castLore.subset`
-(the classic door): "heirs of chaebol houses". This is the blur Yuhan sees.
-
-### F7. Smaller ones found on the way
-
-- **The new-employee `because`** says "every member of the circle is an heir she is expected to
-  defer to". Per Yuhan, they are the company's **executives**.
-- **Stage names in non-idol worlds.** Yuhan's example address is `珠泫xi`, a Korean given name,
-  but every Address line uses the stage name (`Irene`). A chaebol daughter named "Winter" reads
-  oddly. See open question Q2.
-- **No point-of-view rule.** The design doc forbids showing other characters' inner thoughts
-  (无上帝视角). The prompt does not say this.
-- **No appearance rule.** The design doc's core requirement is that every round renders the
-  member's outfit, hair, makeup, expression and gestures. The current style line only says
-  "sensory details".
+- **F1. The new employee calls Irene 欧尼 because the prompt says to.** Each member's Address line
+  is computed from birth year alone (`安添 -> "Irene欧尼"`). The work title `代表nim` is one
+  sentence in section 6's REGISTER block, far from the member it applies to, and a specific
+  per-member line beats a general note. REGISTER also says the age direction "NEVER reverses, at
+  any affection level", and that a near-age member "is already casual while the score is still
+  low". Both are the opposite of what Yuhan wants.
+- **F2. Irene is caring on day one because the background tells her to be.** Every identity
+  background lists its `典型事件` in the static prompt from round 1. Yuhan wrote them as beats for
+  **later** stages, including the intimate ones, and nothing says so. The `lawyer` background's
+  `集团继承人{name}似乎有意或无意地关照你` sits in `[身份背景]` itself, not in the event list.
+- **F3. Stage names carry no behaviour.** Section 9 lists names and ranges only. The design doc's
+  §九 behaviour per stage and its prohibitions (`禁止让成员无缘无故喜欢上玩家`, `禁止跳过暧昧过程`)
+  never reach the prompt.
+- **F4. 起承转合 has no labels, no end beats, and no "you are here".** Section 3 prints all four
+  phase lines every round. `getChapterByRound` computes the chapter for the stats box, but the
+  model is never told it.
+- **F5. Affection can outrun the phase.** The main member starts at 12, the clamp is ±8, so
+  round 1 can reach 有印象 inside a phase that says "No romantic moves".
+- **F6. The chaebol cast is several families in both templates.** `composed` says "a
+  **different** chaebol house", and `subset` says "heirs of chaebol houses".
+- **F7. Smaller ones:**
+  - the new-employee `because` says "heir", where Yuhan means "executive";
+  - stage names are used in non-idol worlds;
+  - there is no point-of-view rule (design doc: 无上帝视角);
+  - there is no appearance rule (design doc §一's core requirement).
+- **F8. Address forms leak into narration** (`裴代表nim走了过来`). The SPEAKER CONTRACT already
+  says address forms are spoken, but its example of correct narration is the **stage name**
+  (`Irene正站在窗边`). In a non-idol world that example contradicts the `NO ONE IN THIS CAST IS AN
+  IDOL` rule. So the model had no proper name to narrate with, and reached for a name-shaped title.
+  **Hypothesis, unverified.** P1 removes the condition either way.
+- **F9. Strangers get names, although the rule forbids it.** Section 3's UNKNOWN CHARACTER RULE
+  says only cast members "may appear by name". Read literally, it permits inventing a name for an
+  outsider, who then does not "appear by" a cast name.
 
 ---
 
-## Proposed changes, one commit each
+## Proposed changes, one commit each, in this order
 
 | # | Change | Where | Cache | Goldens |
 | --- | --- | --- | --- | --- |
-| P1 | Address ladder by affection stage | `mainAgent.js` Address line + REGISTER rewrite | static, fixed at setup | all 6 move |
-| P2 | Stage behaviour + 起承转合 beats | section 9, world `phases` (English), tail `[Chapter]` | rule static, fact in tail | all 6 move |
-| P3 | "Typical events are spread across the run" rule | section 6 ROLE CONTRACT | static | all 6 move |
-| P4 | Affection rate tied to the phase | `validateAndFixOutput` clamp, by chapter | none | none |
-| P5 | Chaebol = one family; per-world cast/player positions | `chaebol` castLore (en text), `because` | static | `chaebol-zh` moves |
-| P6 | Opening narrator prologue, round 1 only | `buildTailRules` (tail) | none (tail) | none |
-| P7 | One atmosphere sentence + appearance + POV rules | `_registers/*` `prose.openWith` / `style` | static | all 6 move |
-| P8 | Random events by story mode | schema `event` field, mode rules, UI block | static schema | all 6 move |
+| P9 | No named or detailed strangers | section 3 UNKNOWN CHARACTER RULE | static | all 6 move |
+| P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves |
+| P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move |
+| P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move |
+| P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildDynamicTail` | rule static, events in tail | all 6 move |
+| P4 | Affection rate tied to the chapter | `validateAndFixOutput` clamp | none | none |
+| P6 | Narrator prologue, round 1 only | `buildTailRules` | none (tail) | none |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move |
+| P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
 
-### P1. The address ladder
+P9 and P5 come first because they are small and P1 builds on P5's family.
 
-The Address line states three rungs, chosen by the stage `[Affections]` already reports each round
-(fact in the tail, rule in the static part):
+### P1. The address ladder: age × position × closeness
 
-| Stages | Player -> older member | Player -> same-age / younger member |
+**Three inputs, all of which the prompt already has:**
+- **age**, from the two birth years (fixed at setup);
+- **position**, from the identity's work title and its direction (fixed at setup);
+- **closeness**, from her own score in `[Affections]` (in the tail, every round).
+
+The code computes the ladder per member, and her Address line states it outright. The model never
+derives a form, it reads one. **Direction stays hard:** only the younger of the two ever says
+`欧尼`, and only the junior in position uses the title.
+
+The ladder has three rungs, chosen by **her** stage:
+
+| Rung | Her stage |
+| --- | --- |
+| R1 distant | 陌生人, 有印象 (0-30) |
+| R2 warming | 产生兴趣, 暧昧期 (31-65) |
+| R3 close | 确认关系 and above (66+) |
+
+**What the player calls her** (example: Irene, `珠泫`):
+
+| Position | R1 | R2 | R3 |
+| --- | --- | --- | --- |
+| she is senior (to_cast title, e.g. 新人职员) | title: `代表nim` | in private: `欧尼` if she is older, `珠泫` otherwise. In front of others: still the title | in private: `珠泫`, or a couple's word. In front of others: the R2 public form |
+| peers, she is older | `珠泫xi` | `欧尼` / `珠泫欧尼` | `珠泫`, or a couple's word. In front of others: `欧尼` |
+| peers, same year or she is younger | `珠泫xi` | `珠泫` | `珠泫`, or a couple's word |
+| the player is senior (to_player title) | `珠泫xi` | as peers | as peers |
+
+**What she calls the player** is the mirror image:
+- **R1:** the title, if the player holds one (`会长nim`, `老板`, `室长`); otherwise `<player>xi`.
+- **R2:** `欧尼` if the player is older; otherwise the player's name. Any title the player holds
+  stays in front of others.
+- **R3:** the name, or a couple's word.
+
+The rest of the design:
+
+- **A couple's word is the player's language's own**: 宝贝 / 亲爱的, babe / honey, 자기야. It is
+  never a Korean term transliterated into Chinese, because nothing in fan vocabulary covers it.
+  This is the one place the "transliterate, never localize" rule does not apply. The model picks
+  the word, so no Chinese is authored.
+- **Each step happens on screen, as a beat.** For example, she says `别叫我代表nim了` or `말 놓을까요?`.
+  It never happens silently. Who moves first, and how soon after the score allows, is her Private
+  Personality. That is where the old "blend" survives.
+- **A rung is never skipped**, and the step never comes before the score allows it.
+- **Going back up a rung is allowed only as a deliberate cold move.** For example, after a fight
+  one of them returns to `代表nim` or `珠泫xi`, and both of them hear it.
+- **Public versus private ties into secrecy.** At R3, in front of anyone else, the earlier public
+  form holds. A slip is a secrecy risk the story may use.
+- **Age texture stays as texture.** A wide gap keeps a trace of deference even at R3.
+
+**Names: who is called what, and where.**
+- **Address forms only inside quotation marks.** That includes titles: `代表nim`, `前辈nim`, `老板`.
+- **Narration, idol world:** her stage name (unchanged).
+- **Narration, non-idol worlds:** her full name `裴珠泫` or her given name `珠泫`. Never the stage
+  name, and never a title. The SPEAKER CONTRACT's narration example follows the world, so it stops
+  teaching `Irene` in a chaebol run (F8).
+- **Dialogue, non-idol worlds:** the given name, as in the ladder above.
+
+**P1b. Given names.** These are derived from `name_kr` by dropping the surname: the first
+character in zh, the part after the space in en, the first syllable in ko. This is the derivation
+`membersNamedIn` already uses, factored out so the prompt and the matcher cannot disagree. An
+optional `given_name` field (added to the `parseGroupConfig` whitelist) overrides the derivation
+where it gives the wrong answer:
+
+| Member | Derivation gives | `given_name` (zh / en / ko) |
 | --- | --- | --- |
-| 陌生人, 有印象 (0-30) | work title if the identity has one (`代表nim`), else `<given name>xi` | `<given name>xi` |
-| 产生兴趣, 暧昧期 (31-65) | `欧尼` | given name |
-| 确认关系 and up (66+) | given name | given name |
+| Momo, Sana, Mina (Japanese) | 井桃, 纱夏, 井南 | Momo / Momo / 모모, likewise Sana, Mina |
+| Rei (Japanese) | 井怜 | Rei / Rei / 레이 |
+| Giselle (Japanese-Korean) | 永枝利 | Aeri / Aeri / 애리 |
+| Lisa (Thai) | 莉莎·马诺班 | Lisa / Lisa / 리사 |
+| Lily (Korean-Australian, 朴珍) | 珍 (one character) | Lily / Lily / 릴리 |
+| Ningning (Chinese) | 艺卓 | Ningning / Ningning / 닝닝, the name she is called by in Korea |
+| Tzuyu (Taiwanese) | zh 子瑜 is right, ko 우쯔위 is wrong | ko only: 쯔위 |
 
-The member's address to the player uses the same ladder in mirror image. What stays hard is the
-**direction**: a younger member never calls the player 欧尼. The REGISTER block is rewritten
-rather than appended to (the two current sentences that contradict this are deleted), and the
-Private Personality blend survives as *how fast* she moves between rungs. It no longer decides
-*which* rung she starts on. A `to_player` work title (`会长nim`, `经纪人nim`, `组长nim`) is rung 1
-of the member's side.
+**Assumed: a member known in Korea by her stage name keeps it as her given name.** The table is
+names, not prose, but Layer Z still puts each one in front of Yuhan. Custom members derive from
+`name_kr` if it is present, and fall back to `name`. `membersNamedIn` learns `given_name`, so
+`[Rounds Absent]` still sees her when the prose writes `Aeri`.
+
+**Deleted, not added beside:**
+- REGISTER's "NEVER reverses, at any affection level";
+- REGISTER's "already casual while the score is still low";
+- the separate "Work override" sentence, now folded into each member's line;
+- the stage-name narration example in non-idol worlds.
 
 ### P2. Stage behaviour, chapters, beats
 
-- Section 9 gets one behaviour line per stage, written in English from the design doc's §九. It
-  also gets the prohibitions: no unearned attraction, no skipped ambiguity, not every round sweet.
-- The world `phases` lines are renamed 起 / 承 / 转 / 合 and gain the design doc's end-of-phase
-  beat, in English. These are world data in all four worlds and three languages, and the rule
-  text is English, so no Chinese is authored.
-- The tail gains `[Chapter] 承 (rounds 7-14)`, from `getChapterByRound`. This is the fact the
-  phase rule needs. The tail is the always-miss message, so it adds no cache cost.
+- **Section 9:** one behaviour line per stage, in English from the design doc's §九, plus its
+  prohibitions: no unearned attraction, no skipped ambiguity, not every round sweet.
+- **The world `phases`:** relabelled 起 / 承 / 转 / 合, each with the design doc's end-of-phase
+  beat, in English.
+- **The tail:** gains `[Chapter] 承 (rounds 7-14)` from `getChapterByRound`.
 
-### P3. Typical events are a menu for the whole run
+### P3. Typical events unlock by stage, carried in the tail (replaces "a rule")
 
-This is one English line beside the ROLE CONTRACT: "the typical events in her identity background
-are things that may happen across the run, as the relationship stage allows. They are never
-round 1's premise, and a member at 陌生人 does not single her out." It fixes F2 for every identity
-without touching Yuhan's Chinese.
+Yuhan's idea. It is better than the rule it replaces, because a rule leaves the intimate events
+in front of the model from round 1 and asks it not to use them. **A model shown a beat it is
+forbidden to use gets primed by it anyway.**
 
-### P4. Affection rate tied to the phase
+- **Data.** Each identity's `典型事件` list moves out of `background` into
+  `events: [{from: <stage>, text}]`, in all three languages, by script.
+  - **Not a word of the Chinese changes**, and that is checked by comparing the joined text before
+    and after.
+  - `background` keeps `[身份背景]`, `优势/劣势` and `[初见]`.
+  - The format is uniform enough to split mechanically: `典型事件：` up to `优势：`, separated by
+    `；`. The en and ko equivalents get the same treatment. Any identity that does not fit is
+    reported, not guessed at.
+- **Stage tags.** Each event gets the earliest stage at which it may happen, judged against the
+  **main member's** score (the events name `{name}`, the main member). I propose a first tagging
+  and Yuhan corrects it, because the tags are design. Examples:
 
-The clamp becomes per chapter, for example +4 in 起, +6 in 承 and +8 from 转, with falls
-unrestricted at -8. This follows the existing ±8 reasoning: pacing belongs to the game, not the
-model. **Measure first.** `scripts/analyze-prose.mjs` already reports affection pacing, so record
-round-6 and round-14 scores on 3 runs before and after. The exact numbers are Yuhan's call.
+  | Event (`lawyer`) | `from` |
+  | --- | --- |
+  | 走错董事专属电梯 | 陌生人 |
+  | 送来整组的下午茶 | 有印象 |
+  | 失误时她帮你解围 | 有印象 |
+  | 带你出席财阀圈社交活动 | 产生兴趣 |
+
+- **The tail** gains `[Possible events] (her stage: 有印象)`, listing the events unlocked so far.
+  The rule sits in static section 6: these may happen across the run when the story is ready, at
+  most one per round; nothing from a later stage exists yet. **Fact in the tail, rule in the
+  static part.**
+- **Cost:** about 60-150 uncached tail tokens per round. **Calculated** from the event lengths,
+  not measured.
+- **Tie-in with P8:** outside free mode, a random event may be an unlocked typical event.
+- **The `lawyer` arc clause** `集团继承人{name}似乎有意或无意地关照你` describes the relationship's
+  arc, and sits in the static `[身份背景]`. **Proposed default:** move that clause verbatim into
+  the event list at 有印象. The alternative is that Yuhan rewords it. Either way, a scan of the
+  other 27 backgrounds for the same kind of arc sentence comes first, and anything found is listed
+  for her rather than moved silently.
+- **Layer Z:** the moved strings get new keys, so they show as pending in her review sheet. That
+  is the review step for the tags too.
+
+### P4. Affection rate tied to the chapter
+
+| Chapter | Max rise per round |
+| --- | --- |
+| 起 | +4 |
+| 承 | +6 |
+| 转 and later | +8 |
+
+Falls stay at -8 in every chapter. Before and after the change, record the round-6 and round-14
+scores on 3 runs each with `scripts/analyze-prose.mjs`.
 
 ### P5. Positions per world, stated once and checked
 
@@ -133,67 +234,73 @@ round-6 and round-14 scores on 3 runs before and after. The exact numbers are Yu
 | kpop_idol | one idol group | unchanged |
 | campus | undergraduates in the same year | junior = a year below; café owner = outside, near campus; TA = staff |
 | office | one team at one company | new hire / report = below them; manager = above; contractor, HR = outside the team |
-| chaebol | **daughters of one chaebol family**, the house the org name names | rival heir = a competing house, against all of them; new employee = they are the company's executives; secretary / bodyguard = employed by the main member; journalist = investigating this family; fallen heir = outside, formerly an equal |
+| chaebol | **one family, the house of the main member's surname** (`裴氏`), NPCs included | rival heir = a competing house, against all of them; new employee = they are the company's executives; secretary / bodyguard = employed by the main member; journalist = investigating this family; fallen heir = outside, formerly an equal |
 
-The chaebol `composed` and `subset` templates are rewritten in English. Families have ranks, so
-the restaging ladder already in place (birth year → eldest first) gives 장녀/차녀 naturally. Each
-identity is checked against this table; F7's `because` is the one known mismatch so far.
+**One Korean-family detail needs a rule, or the model will trip on it.** Korean children take the
+father's surname, so 裴珠泫 and 姜涩琪 cannot be sisters. The template therefore says: the house
+is `{family}`; a member who shares that surname is a daughter of the house; a member with another
+surname is a cousin through one of the house's daughters. The whole-cast restaging already does
+this: its live output had `会长长女` beside `副会长次女`. `{family}` is a new template placeholder,
+filled from the main member's surname (zh `裴`, en `Bae`, ko `배`).
 
 ### P6. Narrator prologue
 
-On round 1 only, the tail tells the model to open with a short second-person prologue in the
-narrator's voice. It is 2-4 sentences covering the world, who she is in it, and who these women
-are to her, and ends at the moment the first scene begins. It sits in the tail because a round-1
-rule in the static prompt would change the cached prefix on round 2. It is generated per run
-rather than authored, so there is no Chinese for Yuhan to write.
+On round 1 only, the tail asks for a short second-person prologue in the narrator's voice:
+- 2-4 sentences: the world, who she is in it, and who these women are to her;
+- it ends where the first scene begins;
+- it is generated per run, so no Chinese is authored.
 
 ### P7. Atmosphere, appearance, point of view
 
-- `openWith`: "Open with ONE sentence of atmosphere — light, weather, sound, the time of day —
-  then a person doing or saying something by the second sentence."
-- `style`: adds "every round shows the member's appearance: what she is wearing, her hair, her
-  makeup, her expression and hands".
-- New: "First-person view only. Never narrate a member's thoughts. The player learns what she
-  sees and hears."
+- `openWith`: one sentence of atmosphere, then a person by the second sentence.
+- `style`: also asks for the member's outfit, hair, makeup, expression and hands.
+- New rule: first-person view only. Never narrate a member's thoughts.
 
-**Risk, stated plainly.** Blind read 5 measured the person-first opening improving 翻译腔 from 6 to
-3 of 12. The deleted Chinese place blurbs were the other half of that fix. Yuhan's reading is
-that the blurbs were the cause, and she is the instrument. The verdict should still come from a
-**blind read of 6 rounds**, comparing this change against the current build, before release.
+**Risk:** blind read 5 credited the person-first opening with improving the machine-translated
+feel, so this change gets a **blind read of 6 rounds** before release.
 
 ### P8. Random events, generated rather than pooled
 
-- The schema gains `"event"` after `story` and before `summary`: a string or null. If present, it
-  is a short scene that happens to her this round. It follows from the world, the chapter, the
-  stage and the stats, and the four options respond to it.
-- The story-mode rules (tail, no cache cost) set the rate. `free`: always null. `romance`: about
-  1 round in 3, light. `pressure`: about 1 round in 2, press and obligation. `dramatic`: about 1
-  round in 2, rivalry and comedy.
-- The client renders it below the story under a `【随机事件】` header (an i18n string). It is
-  appended to the history entry so the model remembers it. Export keeps it as a paragraph.
-- Generated rather than pooled, as Yuhan suggested. A pool is Chinese prose she would have to
-  write, and it repeats. Generated events can read the state, which a pool cannot.
-- Grader: `playthrough.mjs` flags an event in free mode, and a mode whose event rate is 0 over 8
-  rounds.
+- **Schema:** a new `"event"` field (a string or null), placed after `story` and before `summary`.
+- **Rate, set by the story-mode rules:**
+
+  | Mode | Event rate |
+  | --- | --- |
+  | free | always null |
+  | romance | about 1 round in 3 |
+  | pressure | about 1 round in 2 |
+  | dramatic | about 1 round in 2 |
+
+- **Context:** the event follows from the chapter, the stage and the stats. It may be an unlocked
+  typical event from P3.
+- **Display:** shown under `【随机事件】`, appended to the history entry, and kept by the export.
+- **Grader:** flags an event in free mode.
+
+### P9. No named or detailed strangers
+
+The UNKNOWN CHARACTER RULE is rewritten as an ownership statement, not a permission:
+- A character outside MEMBER PROFILES has **no personal name**: no given name, no surname, no
+  nickname. She also gets **no description beyond one visible detail**.
+- She is her role: `秘书`, `一位董事`, `那个司机`.
+- **The substitute:** a recurring outsider is still nameless, and is referred to by role plus that
+  one detail. A prohibition with no substitute gets routed around.
+
+**Before writing it,** grep the rendered goldens for anything that hands the model a stranger's
+name (an example, a background), and delete it. **Measurement:** read the live runs. A zh name
+detector would cry wolf, so it is deliberately not built.
 
 ---
 
-## Open questions for Yuhan
-
-- **Q1. Does the whole chaebol cast form one family, including the NPC members?** Assumed yes,
-  because one family is simpler and NPCs then have a reason to be at the table.
-- **Q2. In non-idol worlds, do members go by their Korean given name** (`珠泫`, `涩琪`) in
-  dialogue and narration? The idol world would keep stage names. This affects every non-idol
-  run. Non-Korean members (宁艺卓, 内永枝利, the TWICE Japanese members) need a rule too. The
-  proposal is: their given name from `name_kr` if it parses, otherwise the stage name.
-- **Q3. The P4 clamp numbers.**
-- **Q4. The `lawyer` background's `关照你` line**: keep it with P3 governing it, or reword it?
-
 ## Measurement plan before release
 
-1. Offline: smoke plus mutation-verify every new guard. Read all six golden diffs.
-2. Live, `deepseek-flash`: chaebol / zh / new employee, 8 rounds × 3 runs, recording:
-   - the address form used per round against the stage;
+1. **Offline:**
+   - smoke, plus mutation-verify every new guard;
+   - read all six golden diffs;
+   - for P3, compare the joined event text before and after the move.
+2. **Live, `deepseek-flash`:** chaebol / zh / new employee, 8 rounds × 3 runs, recording:
+   - the address form used per round against her stage;
+   - any address form in narration;
    - affection at round 6;
-   - the event rate per mode.
-3. Yuhan's blind read for P7.
+   - the event rate per mode;
+   - named strangers, by reading.
+3. **Yuhan's blind read** for P7.
