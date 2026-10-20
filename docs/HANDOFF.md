@@ -5,72 +5,59 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-20 by Claude Opus 5.5 (main VS Code session)
-**Handing to:** **Yuhan** - morning read of the overnight fix-and-measure run
+**Last updated:** 2026-10-20 (overnight) by Claude Opus 5.5 (main VS Code session)
+**Handing to:** **Yuhan** - morning read; nothing is blocked on anyone
 
 ---
 
 ## Project state
 
 - **v1.4.3 is released**, deployed 2026-10-02, tagged on `adf19b9`. `dev` carries unreleased work.
-- `npm run build` clean (bundle unchanged, `index-CbS1KJjv.js`); `node test/smoke.mjs` **1724 / 0**.
-- Yuhan's zh review is complete: **620 of 620 strings approved, 0 owed, 0 drafts.** Every en/ko
-  counterpart of an edit is retranslated (ko **not native-reviewed**). Goldens regenerated and
-  the diff read.
-- Campus `prof_of_cast` is now a **cafe owner** near campus (id kept for saves). Members address
-  her as 老板 / sajang-nim / 사장님 (`kr` 사장님), still to_player, so the smoke fixture that pins
-  `prof_of_cast` is unchanged. The kpop 财阀 background now reads `{name}组合所在公司`, no `{org}`.
+- `dev` = `origin/dev` after the last commit of the night (check `git log origin/dev..dev`).
+- `npm run build` clean; `node test/smoke.mjs` **1737 / 0**.
+- Yuhan's zh review is complete: 620 of 620 approved. Campus `prof_of_cast` is a cafe owner,
+  addressed 老板 / **sajang-nim** / 사장님.
 
-## The task in flight
+## What the overnight run did (autonomous, on Yuhan's instruction)
 
-1. **Overnight, autonomous on Yuhan's instruction (2026-10-20):** the Seulgi leak and the Joy
-   barista collision are fixed, en `Boss` is `sajang-nim`, and the multi-run measurement is
-   running. Results go in the section below as they land.
+Three commits, each validated (build + smoke + mutation) and pushed to `dev`:
 
-## Live test, 2026-10-20 (`deepseek-flash`, after the push)
+1. **`bf0cc4e`** - a world-level `NO ONE IN THIS CAST IS AN IDOL` rule for every non-idol world,
+   independent of restaging; the restaging prompts learn the player's role so no member is cast
+   into it (the Joy barista); en `Boss` -> `sajang-nim`. 12 mutations RED.
+2. **`cd4da85`** - three fixes the live measurement found:
+   - the player-role block **framed** the cast (a chaebol family became the company's staff);
+     reworded and moved, re-measured clean;
+   - a **total parse failure passed the retry probe** and would have shown raw JSON (7 of 64
+     rounds in one window, a stray `}`); `isUsableRound` now rejects it - PROPOSALS §7's fix;
+   - a grader false positive (self-introduction read as address).
+   10 mutations RED.
+3. The docs commit with the A/B report.
 
-| run | rounds | cache | drifts | prefix breaks |
-| --- | --- | --- | --- | --- |
-| `campus` / en / `prof_of_cast` (café owner) | **4/4 clean** | 89.7% | 0 | 0 of 1 |
-| `chaebol` / zh / `lawyer` (new employee) | **4/4 clean** | 89.7% | 0 | 0 of 1 |
+## Measured, `deepseek-flash`
 
-Both premises land in the prose: the café scenes are set behind the counter with members as
-regulars, and the new employee says 「对不起，代表nim」 to the heiress in the director's lift
-(代表nim 4 times in 4 rounds, all from the player - the to_cast direction holds). Restaging 5/5
-in both, 0 idol words in the restaged fields. Reports: `test/.out/playthrough-1792455888460.json`
-(en), `-1792455936102.json` (zh).
-
-**What reading the prose found, none of it fixed (each is n=1):**
-
-- **zh chaebol: Seulgi brings her real idol past into a family company.** 「这家的牛骨汤，我练习生
-  时候常吃」, 「我练舞练到凌晨」, and she carries 乐谱. The rendered prompt holds **none** of
-  this - checked offline, the only hit is the prohibition list - so the model supplied it from what
-  it knows about the real Seulgi. And because all five members were restaged, the §22.1 interim
-  rule (*read for traits; no stage, no debut*) is **not rendered at all** - by design, since it
-  narrows to un-restaged members. So a fully restaged cast is the one case with nothing telling the
-  model these people are not idols here, other than the ROLE CONTRACT's `castLife`. Settling it
-  needs several runs counting idol-fact sentences in the **prose** per world, restaged against
-  `--no-restage`; a fix would be a world-level line that does not depend on who was restaged, and
-  it moves the three non-idol goldens.
-- **en campus: the restaging made Joy a "campus cafe barista"** while the player owns the café. It
-  did not surface in four rounds, but the restaging prompt does not see the player's identity, so
-  a member can be cast into the player's own role.
-- **en campus: round 4 switched from present to past tense** and dropped contractions ("I am not
-  usually this forgetful"), after three present-tense rounds. Register; Yuhan's to judge.
-- **zh chaebol: narration names members 裴珠泫/姜涩琪 in rounds 1-3 and Irene/Seulgi in round 4.**
-  Both are allowed; the switch mid-run is not consistent.
-- The café owner's title (Boss) was never spoken in four rounds; Irene went straight to
-  "Summer-ssi... Summer". Within the relaxing rule, early.
+- **The not-an-idol rule:** idol facts in the prose of **1 of 30 runs with it, 7 of 30 without**
+  (chaebol/zh/lawyer, 8 rounds a run, arms alternated, every hit read).
+  `test/reports/2026-10-20-not-idols-ab.md`.
+- **The Joy fix:** 0 of 50 restaged campus positions at the player's café (en, 10 runs) and
+  no meta text in ko after the rewording.
+- **ko:** 6 runs, campus café owner / campus `junior_student` / chaebol `lawyer`, **6/6 clean,
+  0 drifts, 0 prefix breaks, 88-90% cache** - the first live ko rounds on the reviewed text.
+- **sajang-nim** used in 1 of 5 en café runs, both times from a member to the player.
 
 ## Not verified
 
-- **ko has had no live round** on the new text, and is not native-reviewed.
-- The secretary and kpop 财阀 identities were rendered offline only.
+- **The parse-failure retry has not been seen firing live** - the stray-brace failures stopped
+  recurring after the fix landed. Verified offline against the verbatim response.
+- **Social posts are not scanned** for idol facts; one control caption read 「练习室结束」.
+- ko is still **not native-reviewed**; the ko runs were read for positions and graders only.
+- The A/B is one world, one identity, one language, one model.
 
 ## Next command
 
-None owed. If the Seulgi finding is pursued: several `--world chaebol --lang zh --rounds 8` runs,
-with and without `--no-restage`, counting idol-fact sentences in the prose.
+None owed. Yuhan's calls, if any:
+- whether `sajang-nim` reads right to her in en (it follows the transliteration table);
+- whether to scan social posts too (the harness would need to store their text).
 
 ---
 
@@ -78,6 +65,9 @@ with and without `--no-restage`, counting idol-fact sentences in the prose.
 
 *(Add anything you notice but were not asked to fix. Do not fix it.)*
 
+- **Restaged positions do not always hold in the prose.** en campus: Irene restaged as an art
+  history student said "I teach the intro seminar" (one run) and was "the senior who runs the
+  student council" in another, a post another member held. n=2 of 10, not acted on.
+- en tense shift and zh real-name/stage-name switching: Yuhan's call 2026-10-20 - keep.
 - Place ids `greenhouse`, `back_seat` (chaebol) and `hoesik` (office) no longer describe their
-  places (now the family company offices, the van, the company canteen). Ids are internal and
-  `draws` has no reader, so nothing breaks.
+  places. Ids are internal and `draws` has no reader, so nothing breaks.

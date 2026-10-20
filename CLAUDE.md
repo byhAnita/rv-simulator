@@ -1658,12 +1658,14 @@ back (1 secretary in 25 positions), 0 of 25 campus positions at the café, no me
 **A fact handed to a generator for avoidance is also a fact it builds on**, so say what it
 is for.
 
-**And the world rule, measured on the final code: 0 idol-fact rounds in 64 with it, against
-leaks in 2 of 8 runs (11 sentences) without it** - `chaebol`/zh/`lawyer`, 8 runs of 8 rounds
-per arm, the control being the same build with only that one line disabled; the scanner was
-checked against the original Seulgi run first (5 of 5 found). The second control leak was
-Seulgi again: *练舞练到凌晨*. Directional, not yet significant; the extension to 30 runs per
-arm is in `docs/HANDOFF.md`.
+**And the world rule, measured: idol facts in the prose of 1 run in 30 with it, 7 in 30
+without it** (Fisher exact p = 0.026 one-sided; the one treatment run is ambiguous, and
+counted clean it is p = 0.011 two-sided). `chaebol`/zh/`lawyer`, 8 rounds a run, the control
+being the same build with only that one line disabled, arms alternated run by run; the scanner
+was checked against the original Seulgi run first (5 of 5 found) and every hit was read. A
+control leak was Seulgi again, nearly verbatim: *练舞练到凌晨*. One world, one identity, one
+language, one model - `test/reports/2026-10-20-not-idols-ab.md` has the method and what it
+does not cover (social posts are not scanned).
 
 **12 mutations, 12 RED**, tree restored byte-identical. The three non-idol goldens moved by
 exactly the split and the diff was read; the three idol goldens did not move.
@@ -4265,7 +4267,7 @@ Reports: `test/.out/playthrough-1791299892214.json` (en), `-1791299933720.json` 
   fully restaged cast is the one case where §22.1's rule is not rendered. **Fixed the same night**
   with a world-level `NO ONE IN THIS CAST IS AN IDOL` rule, plus the player's role in the
   restaging prompts (Joy had been made a barista in the player's own café) - see *A fully
-  restaged cast still had its real namesakes*. The measurement is in `docs/HANDOFF.md`.
+  restaged cast still had its real namesakes*: 7/30 runs leaked without the rule, 1/30 with it.
 - ✅ **`place.desc` was a reader with no data - DELETED 2026-10-06, on `dev`, unreleased.**
   `mainAgent.js` section 11 and `MapOverlay.jsx` rendered a description when a place carried one,
   and no world file does any more - the dead-field shape this file tracks seven times, with the
