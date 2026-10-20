@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Idol Dating Sim v1.4.3** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
+**Idol Dating Sim v1.4.4** — LLM-Agent-driven K-pop idol yuri dating simulator. Single-page React/Vite PWA, mobile-first (390x844px), all inline styles (no CSS framework). Multi-group support via JSON RAG configs.
 
 Active branches:
 - `main` — stable production, served by GitHub Pages + Vercel
@@ -478,7 +478,7 @@ Smoke **Layer K** covers the meter and the pricing arithmetic offline.
 
 ---
 
-## Add-on Features (v1.4.3)
+## Add-on Features (v1.4.4)
 
 | Feature | State | Persisted as | Wiring |
 | --- | --- | --- | --- |
@@ -1665,7 +1665,8 @@ being the same build with only that one line disabled, arms alternated run by ru
 was checked against the original Seulgi run first (5 of 5 found) and every hit was read. A
 control leak was Seulgi again, nearly verbatim: *练舞练到凌晨*. One world, one identity, one
 language, one model - `test/reports/2026-10-20-not-idols-ab.md` has the method and what it
-does not cover (social posts are not scanned).
+does not cover. **Social posts and Kakao, checked the next day** once the harness stored their
+text: 0 of 8 runs leaked with the rule, 2 of 8 without (Seulgi's 练习室 captions).
 
 **12 mutations, 12 RED**, tree restored byte-identical. The three non-idol goldens moved by
 exactly the split and the diff was read; the three idol goldens did not move.

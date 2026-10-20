@@ -1,8 +1,8 @@
-# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.3
+# 🎮 嫂嫂模拟器 (Idol Dating Simulator) v1.4.4
 
 > An immersive LLM-Agent-driven yuri dating simulator featuring K-pop girl groups.
 
-![Version](https://img.shields.io/badge/version-1.4.3-e887b0)
+![Version](https://img.shields.io/badge/version-1.4.4-e887b0)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20PWA-blue)
 
@@ -66,7 +66,7 @@
 
 ---
 
-## 💰 API Cost & Performance (v1.4.3)
+## 💰 API Cost & Performance (v1.4.4)
 
 **Reading time per round:** ~5 min (story ~2 min + socials ~2 min + choosing ~1 min). One full playthrough = 40 rounds ≈ **3h20min**.
 
@@ -177,6 +177,17 @@ A ✎ also sits beside your last choice. Tapping it lets you reword what you did
 > Both edit buttons appear only on the newest round, and only after you have played a round in this session — right after loading a save there is nothing to edit yet. Editing the newest story is free in cache terms, because the model has not read it yet. ↺ Retry after an edit discards the edit, since it regenerates from before the round.
 
 ---
+
+## 🎉 What's New in v1.4.4
+
+The campus, office and chaebol worlds are now about the people in them, not the idols they share a name with.
+
+* 🎭 **Nobody in a non-idol world is an idol** — in a campus, office or chaebol run, no member remembers a trainee past, a debut, dance practice or a stage. The model used to borrow those from what it knows about the real performers, even when every member had been rewritten for the world. Measured over 30 runs a side: such a fact reached the story in 7 of 30 runs before the fix and 1 of 30 after.
+* ☕ **The cast stays out of your job** — when the cast is placed in the world at the start of a run, nobody is given your position or put to work under you. A café owner no longer finds a member restaged as her own barista.
+* ✍️ **Every world's text was rewritten by a native speaker** — the backgrounds, the identities, the first meeting and the group profiles, in Chinese, with the English and Korean retranslated to match. The campus professor is now a café owner near campus, and the chaebol identities read the way that world actually works.
+* 🧩 **No raw JSON in the story** — a reply with one stray bracket used to be shown as a block of code. It is now retried like any other unusable reply.
+
+> 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. The Korean text has not been read by a native speaker.
 
 ## 🎉 What's New in v1.4.3
 
@@ -370,7 +381,7 @@ A naive sliding-window memory rewrites the prompt prefix every round, so **every
 |  +-------------------------------------------------------+ |
 |  |                       [heart]                         | |
 |  |                  Idol Dating Sim                      | |
-|  |              LLM Text Adventure . v1.4.3              | |
+|  |              LLM Text Adventure . v1.4.4              | |
 |  |                                                       | |
 |  |  [RV] [TWICE] [aespa] [NMIXX] [IVE] [ITZY] ...        | |
 |  |              [ZH] [EN] [KO]   [day/night]             | |
@@ -473,7 +484,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +---------------------------------------------------------------------+
-|          Idol Dating Sim  v1.4.3 - Architecture                     |
+|          Idol Dating Sim  v1.4.4 - Architecture                     |
 |        LLM Agent x Stepped Window Memory x Multi-Group              |
 +---------------------------------------------------------------------+
 |                                                                     |
@@ -530,7 +541,7 @@ npm run deploy                  # build + patch index.html + push main
 
 ```
 +-----------------------------------------------------------------+
-|                    v1.4.3 Round Flow                            |
+|                    v1.4.4 Round Flow                            |
 +-----------------------------------------------------------------+
 |                                                                 |
 |  Previous round ends (Player chose ABCD / custom)               |
