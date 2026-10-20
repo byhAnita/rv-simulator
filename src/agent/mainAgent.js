@@ -792,9 +792,12 @@ function parseLLMOutput(text) {
     return validateAndFixOutput(r);
   } catch (e4) { console.log("[parse] Regex fix fail:", e4.message); }
 
-  // Fallback
+  // Fallback. MARKED, so the retry probe can tell it from a story: its `story` is
+  // the first 500 characters of raw JSON, which is longer than any length floor
+  // and was therefore passing as usable. See isUsableRound.
   console.log("[parse] ALL FAILED - using fallback");
   return {
+    parseFailed: true,
     statChanges: { selfId: 1, secrecy: 0, mood: 1 },
     affectionChanges: {},
     socialContent: {},
@@ -802,6 +805,29 @@ function parseLLMOutput(text) {
     story: text.substring(0, 500) || "The story continues...",
     options: ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"],
   };
+}
+
+// The retry probe callLLM consults: false means bad_response, so the round is
+// retried and, in free mode, moved to another model, instead of rendered.
+//
+// A response that parses but carries no real story is a wasted round - and so,
+// worse, is one that does NOT parse. That case used to pass: on a total failure
+// parseLLMOutput returns the first 500 characters of raw JSON as the story, and
+// 500 clears every length floor, so the one output least fit to show a player was
+// the one the retry could never catch (docs/PROPOSALS.md section 7). Live, 2026-10-20:
+// 7 of 64 deepseek-flash rounds in one window, each a COMPLETE response (finish:
+// stop) with one stray closing brace after an Instagram object - the player would
+// have read raw JSON under four English buttons. Rejecting the marked fallback is
+// the fix section 7 named; it needs no threshold, because it asks the parser what it did
+// instead of measuring what it returned.
+export function isUsableRound(content) {
+  try {
+    const parsed = parseLLMOutput(content);
+    if (!parsed || parsed.parseFailed) return false;
+    return String(parsed.story || "").trim().length >= MIN_STORY_CHARS;
+  } catch {
+    return false;    // unparseable is the client's problem to retry, not ours
+  }
 }
 
 export function validateAndFixOutput(result) {
@@ -975,19 +1001,7 @@ export async function executeRound({
     { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
-  // A response that parses but carries no real story is a wasted round. Rather
-  // than let validateAndFixOutput quietly swap in a placeholder, tell the client
-  // it is unusable so it retries and, in free mode, moves to another model.
-  const hasUsableStory = (content) => {
-    try {
-      const story = parseLLMOutput(content)?.story || "";
-      return story.trim().length >= MIN_STORY_CHARS;
-    } catch {
-      return false;    // unparseable is the client's problem to retry, not ours
-    }
-  };
-
-  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, hasUsableStory);
+  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);
   const parsed = parseLLMOutput(llmOutput);
 
   // Step 3: Compute

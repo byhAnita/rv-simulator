@@ -89,6 +89,14 @@ const SELF_NAMING = [
   "自己的名字", "自己的名", "她的名字", "自己的全名",        // zh
   "her own name", "her full name", "her real name",          // en
   "자신의 이름", "자기 이름", "본인의 이름",                  // ko
+  // ...or she says it herself in the line that continues the quote. SEVENTH false
+  // positive, live 2026-10-20, en: `"Bae Ju-hyun," she said, after the first sip.
+  // "Everyone calls me Irene."` The attribution names no act; the next sentence
+  // of her own speech does. Phrases that only a self-introduction says - not
+  // `I'm`, which opens half of all English lines.
+  "calls me", "call me", "my name",                          // en
+  "我叫", "叫我", "我的名字",                                  // zh
+  "제 이름", "라고 불러",                                      // ko
 ];
 
 export function selfNameErrors(story, cast) {

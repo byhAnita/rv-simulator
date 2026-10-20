@@ -381,6 +381,16 @@ rather than differently shaped:
 
 **Written 2026-09-27, during v1.4.0 step 7.**
 
+> **2026-10-20: the probe half is DONE.** `rawResponse` was read, as this entry asked: 7 of 64
+> `deepseek-flash` rounds in one window were complete responses (`finish: stop`) with **one
+> stray `}`** after an Instagram object, which closes `socialContent` early. The fallback is
+> now marked `parseFailed` and `isUsableRound` rejects it, so `bad_response` retries instead of
+> rendering raw JSON - the fix stated below, with no threshold involved. The English buttons
+> are therefore no longer reachable from `executeRound`. **Still open:** `MIN_STORY_CHARS` (40)
+> against a truncated-but-parseable story, the first case below, which is a threshold
+> judgement; and whether a stray-brace repair level is worth having, which retry rate on a
+> real route would decide.
+
 **What is true today.** `validateAndFixOutput` pads a short option list with `"D. Custom"`, and
 `parseLLMOutput`'s level-4 fallback returns `["A. Continue", "B. Change topic", "C. Stay silent",
 "D. Custom"]`. Both are English literals. So a Chinese or Korean player whose round fails to parse is

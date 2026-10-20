@@ -485,6 +485,33 @@ async function layerD() {
   const clamped = (changes) =>
     validateAndFixOutput({ story: "x".repeat(60), affectionChanges: changes }).affectionChanges;
 
+  // --- The retry probe and a response that does not parse -------------
+  // docs/PROPOSALS.md §7. On a total parse failure the parser returns the first
+  // 500 characters of RAW JSON as the story, and the probe measured that length -
+  // so it passed, and the one output least fit to show a player was the one the
+  // retry could never catch. The fixture is a live response VERBATIM (2026-10-20,
+  // deepseek-flash, finish: stop): complete, with one stray closing brace after an
+  // Instagram object. 7 of 64 rounds in one window.
+  {
+    const pm = await import("./fixtures/prompts.mjs").then(m => m.loadPromptModules(OUT));
+    const stray = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "response-stray-brace-zh.json"), "utf8")).raw;
+    check("the retry probe rejects a response no parse level could read",
+      pm.isUsableRound(stray) === false,
+      "a 500-char slice of raw JSON passed as a story; the player saw it under four English buttons");
+    // The other half, or a probe that rejects everything passes the line above.
+    const good = JSON.stringify({ scene: "x", statChanges: {}, affectionChanges: {},
+      story: "y".repeat(120), summary: "s", socialContent: {}, kktMessages: {},
+      options: ["A. a", "B. b", "C. c", "D. d"] });
+    check("...and still accepts a response that parses",
+      pm.isUsableRound(good) === true && pm.isUsableRound(good.replace("y".repeat(120), "short")) === false,
+      "and keeps rejecting a parsed story under the length floor");
+    // The probe is only a fix if it is the one callLLM is handed.
+    const agentCode = readFileSync(join(ROOT, "src", "agent", "mainAgent.js"), "utf8");
+    check("...and it is the probe executeRound hands callLLM",
+      /callLLM\([^)]*isUsableRound\)/.test(agentCode),
+      "a correct probe nobody calls is decoration");
+  }
+
   check("a runaway positive delta is clamped to +8",
     clamped({ irene: 30 }).irene === 8, `got ${clamped({ irene: 30 }).irene}`);
   check("a runaway negative delta is clamped to -8",
@@ -6990,12 +7017,21 @@ async function layerI() {
       const castP = cg.buildCastDetailPrompt(two, w, "en", null, ROLE);
       const oneP = cg.buildWorldDetailPrompt(two[0], w, "en", two, ROLE);
       check("the restaging prompts carry the player's position and keep every member out of it",
-        [castP, oneP].every((p) => p.includes(ROLE) && /hers alone/.test(p) && /nobody in the cast is its staff/.test(p)),
+        [castP, oneP].every((p) => p.includes(ROLE) && /hers alone/.test(p) && /nobody in the cast is its\s+staff/.test(p)),
         "a member cast into the player's own job is a premise nobody can play");
       check("...and render nothing about her when there is no position to give",
-        !/THE PLAYER, who is NOT/.test(cg.buildCastDetailPrompt(two, w, "en"))
-          && !/THE PLAYER, who is NOT/.test(cg.buildWorldDetailPrompt(two[0], w, "en", two)),
+        !/ONE CHECK BEFORE YOU ANSWER/.test(cg.buildCastDetailPrompt(two, w, "en"))
+          && !/ONE CHECK BEFORE YOU ANSWER/.test(cg.buildWorldDetailPrompt(two[0], w, "en", two)),
         "an empty 'position:' line is a blank the model fills");
+      // A CONSTRAINT, NOT A FRAME - measured. Placed after the setting with no
+      // disclaimer, a new-employee player turned a chaebol family into its staff
+      // (board secretary 3 of 5 runs, against 0 of 5 with the role withheld). So
+      // the block must say her position describes nobody else, come AFTER the law,
+      // and keep her out of the fields (a ko run wrote "not at your cafe" into one).
+      check("...as a constraint that frames nobody: after the law, disclaiming the cast, and out of the fields",
+        [castP, oneP].every((p) => p.indexOf("ONE CHECK BEFORE YOU ANSWER") > p.indexOf("KEEP WHO SHE IS")
+          && /says nothing about what the\s+cast are/.test(p) && /Mention her in none of the fields/.test(p)),
+        "a player position read before the cast is written becomes the cast's frame");
     }
     // COUNTED, not sampled: every call that restages - the Start sweep, the editor,
     // the sweep's own fallback pass, and the harness that mirrors the sweep - must
@@ -9406,6 +9442,19 @@ async function layerL() {
   // The narrowing is scoped to a BARE name, so the bug it was built for survives: a
   // real name used to address someone stays a violation however the narration
   // describes it.
+  // SEVENTH, live 2026-10-20 in en, verbatim: she names herself and the NEXT LINE
+  // of her own speech says so. The counter-case is the bug this grader exists for,
+  // split by an attribution the same way: it must still fire.
+  const enCast = { members: [{ id: "irene", name: "Irene", name_kr: "Bae Ju-hyun" }] };
+  const enSelfIntro = "When you slid the cup toward her, she wrapped both hands around it.\n\n"
+    + "\"Bae Ju-hyun,\" she said, after the first sip. \"Everyone calls me Irene. I teach the "
+    + "intro seminar in the humanities building, so I'll be in here more than you'd like.\"";
+  check("...nor a member naming herself when her next line says it is her name",
+    none(g.selfNameErrors(enSelfIntro, enCast)),
+    JSON.stringify(g.selfNameErrors(enSelfIntro, enCast)));
+  check("...while the same shape carrying a message is still flagged",
+    g.selfNameErrors("\"Bae Ju-hyun,\" she said. \"Thanks for the coffee.\"", enCast).length > 0,
+    "an attribution splitting a vocative from its message must not buy the exemption");
   check("...and the narrowing does not excuse a name with a message attached",
     g.selfNameErrors("“裴珠泫，你听我说。”她说，用的是自己的名字。", cast).length > 0,
     "a span carrying a message is a vocative whatever the attribution claims");

@@ -1277,10 +1277,21 @@ this drifts, read `test/fixtures/*.txt` and copy.
 
 ### JSON Parsing Pipeline (4-level fallback)
 
-1. Direct `JSON.parse` on the LLM response
-2. Strip markdown fences, retry `JSON.parse`
-3. Regex field extraction (the story regex handles `summary` sitting between `story` and `options`)
-4. Return safe defaults — never crash the round
+**Corrected 2026-10-20: this list used to name a "regex field extraction" level that does not
+exist.** What the code does: a pre-pass escapes raw newlines inside `story` and auto-closes a
+truncated object, then four `JSON.parse` attempts (direct; outermost `{...}`; fences stripped;
+unquoted keys and trailing commas fixed), then a **fallback marked `parseFailed`**, whose
+`story` is the first 500 characters of the raw text.
+
+**That fallback never reaches the player any more.** `isUsableRound` is the probe `callLLM`
+retries on, and it rejects `parseFailed` outright - before 2026-10-20 it measured the
+fallback's 500-character slice against a 40-character floor and passed it, so the one output
+least fit to show was the one the retry could not catch. Measured live the night it was
+fixed: **7 of 64** `deepseek-flash` rounds in one window, each a complete response
+(`finish: stop`) with one stray `}` after an Instagram object. They now cost a retry
+(`bad_response`: two same-model retries, then the next route model or the error notice).
+The verbatim response is `test/fixtures/response-stray-brace-zh.json`; see
+`docs/PROPOSALS.md` §7.
 
 `validateAndFixOutput()` post-parse repairs: unescape `\n`, `\"`, `\/`, `\\` in the story field; fill a missing `summary` with `""`; and clamp every `affectionChanges` delta to ±`AFFECTION_MAX_DELTA` — see below.
 
@@ -1634,6 +1645,25 @@ to give, the block renders nothing.
 noun in a table of transliterations (`sunbae-nim`, `Manager-nim`); 사장님 is what customers in
 Korea actually call a shop owner, and the address-form rule here is *transliterate, never
 localize*. Yuhan offered *chef*, which names a different job.
+
+**The first wording of the player block was a FRAME, and measuring caught it.** Placed
+straight after the setting with *"place every member around her"*, it told a chaebol run that
+the player is a new employee, and the cast came back as the company's staff: board secretary
+in 3 of 5 runs, assistants, specialists. With the role withheld it was eldest daughter,
+vice-chair and youngest of the family, 0 secretaries in 5 (restaging-only runs, read by hand).
+The shipped block **sits after the restaging law**, says in words that her position *"says
+nothing about what the cast are"*, and forbids mentioning her in any field, because a ko run
+had written *"(but not at your café)"* into a member's position. Re-measured: family framing
+back (1 secretary in 25 positions), 0 of 25 campus positions at the café, no meta text in ko.
+**A fact handed to a generator for avoidance is also a fact it builds on**, so say what it
+is for.
+
+**And the world rule, measured on the final code: 0 idol-fact rounds in 64 with it, against
+leaks in 2 of 8 runs (11 sentences) without it** - `chaebol`/zh/`lawyer`, 8 runs of 8 rounds
+per arm, the control being the same build with only that one line disabled; the scanner was
+checked against the original Seulgi run first (5 of 5 found). The second control leak was
+Seulgi again: *练舞练到凌晨*. Directional, not yet significant; the extension to 30 runs per
+arm is in `docs/HANDOFF.md`.
 
 **12 mutations, 12 RED**, tree restored byte-identical. The three non-idol goldens moved by
 exactly the split and the diff was read; the three idol goldens did not move.

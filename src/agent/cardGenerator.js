@@ -324,16 +324,27 @@ function settingBlock(world) {
 // was, so there was nothing to avoid; carry the fact and state the rule beside it.
 // Empty when the caller has no identity to give (a screen before player info), so
 // the prompt is then exactly what it was.
+//
+// IT IS A CONSTRAINT AND MUST NOT BE A FRAME - measured, the first wording was one.
+// Placed right after the setting and saying "place every member around her", it told
+// a chaebol run that the player is a new employee, and the cast came back as the
+// company's staff: board secretary three times in five, assistants, specialists -
+// against eldest daughter, vice-chair and youngest of the family with the block
+// withheld (n=5 each, read by hand). So it now says in words that her position
+// describes nobody else, sits AFTER the law so the cast is already framed by the
+// setting when the model reads it, and forbids mentioning her - a ko run had written
+// "(but not at your cafe)" into a member's position, an instruction leaking into data.
 function playerBlock(playerRole) {
   const role = String(playerRole || "").trim();
   if (!role) return "";
   return `
 
-THE PLAYER, who is NOT one of the cast
-- Her position in this setting: ${role}
-That position is hers alone. No member holds it, shares it, or works under her in
-it - if she owns or runs a place, nobody in the cast is its staff. Place every
-member around her, never in her place.`;
+ONE CHECK BEFORE YOU ANSWER. The player is not one of the cast. Her position is
+${role} - given ONLY so that nobody takes it, and it says nothing about what the
+cast are: their positions come from the setting above, exactly as they would if she
+were never mentioned. That position is hers alone. No member holds it, shares it,
+or works under her in it - if she owns or runs a place, nobody in the cast is its
+staff. Mention her in none of the fields you write.`;
 }
 
 // Her existing lines go in as the SOURCE, not as an example: a restaging with
@@ -397,13 +408,13 @@ not the junior of a younger one. Write only her; the others are named so that yo
 do not collide with them.` : "";
   return `You are restaging one cast member of a dating sim into a different setting.
 
-${settingBlock(world)}${playerBlock(playerRole)}${castBlock}
+${settingBlock(world)}${castBlock}
 
 HER, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
 - Name: ${member?.name || ""}
 ${sourceLines(member)}
 
-${restageLaw(lang)}
+${restageLaw(lang)}${playerBlock(playerRole)}
 
 Output ONLY valid JSON, no markdown fences, with exactly these keys:
 
@@ -450,7 +461,7 @@ export function buildCastDetailPrompt(members = [], world, language = "zh", targ
 
   return `You are restaging the cast of a dating sim into a different setting.
 
-${settingBlock(world)}${playerBlock(playerRole)}
+${settingBlock(world)}
 
 THE WHOLE CAST, oldest first. The number in front of a member is her key in your answer:
 ${ladderRows(ladder, byId, isTarget, true)}
@@ -465,7 +476,7 @@ EACH MEMBER YOU ARE WRITING, AS SHE WAS WRITTEN FOR A DIFFERENT SETTING
 
 ${blocks}
 
-${restageLaw(lang)}
+${restageLaw(lang)}${playerBlock(playerRole)}
 
 Output ONLY valid JSON, no markdown fences. The top level is an object whose keys are
 exactly these numbers and no others: ${keys.join(", ")}. Each value is an object with
