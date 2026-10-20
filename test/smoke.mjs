@@ -7701,10 +7701,15 @@ async function layerI() {
   // a 34px chip in a two-button row whose other button WIPES THE CAST. A
   // destructive control and the best thing on the screen should not be the same
   // shape. Reported from hand play, 2026-09-29.
-  const imagesAt = builderSrc.indexOf("onClick={() => setShowImages(true)}");
-  const imagesBtn = builderSrc.slice(imagesAt, builderSrc.indexOf("</button>", imagesAt));
+  // The card is ONE definition since the classic door gained it too
+  // (CastImagesCard in CastImageSheet.jsx), so its shape is read there and the
+  // builder is asserted to render it.
+  const imgSheetSrc = readFileSync(join(ROOT, "src/platforms/CastImageSheet.jsx"), "utf8");
+  const cardAt = imgSheetSrc.indexOf("export function CastImagesCard");
+  const cardDef = cardAt < 0 ? "" : imgSheetSrc.slice(cardAt, imgSheetSrc.indexOf("</button>", cardAt));
+  const imagesAt = builderSrc.indexOf("<CastImagesCard");
   check("the cast-images entry is a full-width card, like the main-member slot",
-    /width: "100%"/.test(imagesBtn) && /minHeight: 62/.test(imagesBtn),
+    imagesAt >= 0 && /width: "100%"/.test(cardDef) && /minHeight: 62/.test(cardDef),
     "the main-member slot is the size this screen uses for `the thing to tap`");
   // The two used to be siblings in one flex row, which is what made the bigger-
   // looking half the one that wipes the cast. The card closes before the row
@@ -7712,7 +7717,7 @@ async function layerI() {
   // read on its own looks fine.
   const betweenBtns = builderSrc.slice(imagesAt, builderSrc.indexOf("{c.clearCast}"));
   check("...and it no longer shares a row with the control that wipes the cast",
-    /<\/button>[\s\S]*<div style=\{\{ display: "flex"[\s\S]*<button/.test(betweenBtns),
+    /^<CastImagesCard[\s\S]*?\/>\s*<div style=\{\{ display: "flex"[\s\S]*<button/.test(betweenBtns),
     "a mis-tap between adjacent targets was what made the previous builder unusable");
   // A number the player can see beats a cap that only speaks when it refuses -
   // which the save slots and the member palette each cost a bug to learn.
@@ -7725,8 +7730,55 @@ async function layerI() {
   check("...and it says how many of the members who CAN show a face have one",
     /facedIds = roster\.entries\.filter\(\(e\) => e\.slot !== "npc"\)/.test(builderSrc)
       && /const withPhoto = facedIds\.filter/.test(builderSrc)
-      && /castCount\?\.\(withPhoto, facedIds\.length\)/.test(builderSrc),
+      && /withPhoto=\{withPhoto\} total=\{facedIds\.length\}/.test(builderSrc)
+      && /castCount\?\.\(withPhoto, total\)/.test(cardDef),
     "an NPC has no surface that draws her, so counting her is counting nothing");
+
+  // THE CLASSIC DOOR GIVES FACES TOO (Yuhan's design, 2026-10-20): the same card
+  // on the one-page setup, below the identities, for the main and subs chosen -
+  // and nothing else from the builder. Asserted on the setup branch's own slice,
+  // so a card rendered on some other page does not satisfy it.
+  {
+    const appS = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+    const setupAt = appS.indexOf('if (phase === "setup") {');
+    const setupEnd = appS.indexOf("// ── Game Main Screen ──", setupAt);
+    const setupSrc = setupAt < 0 ? "" : appS.slice(setupAt, setupEnd);
+    const gridAt = setupSrc.indexOf("{renderIdentityGrid()}");
+    const cardAtApp = setupSrc.indexOf("<CastImagesCard");
+    // Gated on the main member and nothing else: presence alone passed against a
+    // card wrapped in `{false && (...)}`, which is written and never reachable.
+    check("the classic door's setup page offers the cast-images card, below the identities",
+      gridAt >= 0 && cardAtApp > gridAt && /<CastImageSheet/.test(setupSrc)
+        && /\{form\.mainMember && \(\s*<CastImagesCard/.test(setupSrc),
+      "a prebuilt group's player had no way to give her cast faces");
+    // Main and subs, never an NPC - the builder's rule, for the builder's reason.
+    // Derived from what the rows are built from: form.mainMember and
+    // form.subMembers, and nothing that lists the whole group.
+    check("...offering the main and the subs she chose, and no NPC",
+      /const classicFaced = \[form\.mainMember, \.\.\.\(form\.subMembers \|\| \[\]\)\]/.test(setupSrc)
+        && /rows=\{classicFaced\.map/.test(setupSrc)
+        && /total=\{classicFaced\.length\}/.test(setupSrc),
+      "an NPC's photo has no reader in the running game and still spends a capped slot");
+    // ONE WRITER SEQUENCE. Two screens now write the stores, and the refuse /
+    // save / notify sequence around putPhoto lives once, in useCastImages.
+    // Derived over src/: no other file may call putPhoto, so a third screen
+    // cannot grow a copy.
+    const strip = (src) => src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const putters = [];
+    const walkPut = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { walkPut(p); continue; }
+        if (!/\.(js|jsx)$/.test(e.name) || /imageStore\.js$/.test(e.name)) continue;
+        if (/\bputPhoto\(/.test(strip(readFileSync(p, "utf8")))) putters.push(e.name);
+      }
+    };
+    walkPut(join(ROOT, "src"));
+    check("the photo stores have ONE writer sequence, and both doors use it",
+      putters.length === 1 && putters[0] === "useCastImages.js"
+        && /useCastImages\(/.test(builderSrc) && /useCastImages\(/.test(appS),
+      `putPhoto called from: ${putters.join(", ") || "nowhere"}`);
+  }
   check("...and the sheet it opens offers an upload for exactly those members",
     /rows=\{facedIds\.map/.test(builderSrc),
     "a row offering something no screen can ever show");
@@ -8323,8 +8375,8 @@ async function layerI() {
   // line from the delete path left the guard green. That is this file's own
   // "count the call sites, do not test presence" rule, failed by its own guard.
   check("deleting a custom member drops her photo and her wallpaper",
-    /if \(photos\[id\]\) \{[^}]*removePhoto\(photos, id\)/.test(builderSrc)
-      && /if \(walls\[id\]\) \{[^}]*removePhoto\(walls, id\)/.test(builderSrc),
+    /if \(photos\[id\]\) setPhotoFor\(id, null\)/.test(builderSrc)
+      && /if \(walls\[id\]\) setWallFor\(id, null\)/.test(builderSrc),
     "her wallpaper outlives her otherwise, in a store capped at 8");
   // Comments stripped first: this guard is about what the builder DOES, and the
   // source carries a comment naming the call precisely so nobody puts it back.

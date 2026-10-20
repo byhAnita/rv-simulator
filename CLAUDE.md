@@ -5457,6 +5457,20 @@ budget moves from ~2.1 MB to ~2.4 MB typical against the ~5 MB quota, worst case
 cannot be encoded outside a browser, so none of that can be measured offline — which is why the sheet
 prints `N KB used`. A number nobody can observe is a number nobody can trust.
 
+**The classic door gained the same entry, 2026-10-20, Yuhan's design.** A prebuilt group's
+player had no way to give her cast faces: the card lived only in the custom door's builder.
+The one-page setup now renders it below the identity grid once a main is chosen, for the main
+and subs only (the builder's rule - an NPC's photo has no reader), with no cast editing so the
+classic door stays the fast one. **It is one card and one writer, not a second copy:**
+`CastImagesCard` is exported from `CastImageSheet.jsx`, and the refuse / save / notify sequence
+around `putPhoto` moved out of the builder into `useCastImages.js`, which App and the builder
+both call. Smoke scans `src/` and fails if any other file calls `putPhoto`. **8 mutations, 8
+RED** - one only after a fix: the presence check passed against a card wrapped in
+`{false && (...)}`, so it now asserts the `form.mainMember` gate. **Height cost is
+calculated, not measured:** ~72px, which takes a 5-member classic page from 651px to roughly
+723 against the 704px budget of an iPhone 13 mini, so the page now scrolls a little there once
+a main is picked.
+
 ### Four of those six surfaces were wrong on a phone — the second hand test
 
 The feature reached the game and then had to survive being looked at. None of the four is a logic

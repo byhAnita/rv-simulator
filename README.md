@@ -185,6 +185,7 @@ The campus, office and chaebol worlds are now about the people in them, not the 
 * 🎭 **Nobody in a non-idol world is an idol** — in a campus, office or chaebol run, no member remembers a trainee past, a debut, dance practice or a stage. The model used to borrow those from what it knows about the real performers, even when every member had been rewritten for the world. Measured over 30 runs a side: such a fact reached the story in 7 of 30 runs before the fix and 1 of 30 after.
 * ☕ **The cast stays out of your job** — when the cast is placed in the world at the start of a run, nobody is given your position or put to work under you. A café owner no longer finds a member restaged as her own barista.
 * ✍️ **Every world's text was rewritten by a native speaker** — the backgrounds, the identities, the first meeting and the group profiles, in Chinese, with the English and Korean retranslated to match. The campus professor is now a café owner near campus, and the chaebol identities read the way that world actually works.
+* 📷 **Photos on the classic door too** — starting from a ready-made group, the New Game page now has the same optional photo and wallpaper upload as a custom cast, for the main and sub members you chose.
 * 🧩 **No raw JSON in the story** — a reply with one stray bracket used to be shown as a block of code. It is now retried like any other unusable reply.
 
 > 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. The Korean text has not been read by a native speaker.

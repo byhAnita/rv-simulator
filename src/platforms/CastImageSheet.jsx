@@ -173,3 +173,33 @@ export default function CastImageSheet({
     </div>
   );
 }
+
+// The entry point to the sheet: ONE definition, rendered by both doors - the
+// custom door's cast builder and the classic door's one-page setup.
+//
+// A CARD, THE SIZE OF THE MAIN-MEMBER SLOT, not a pill. Giving the cast faces is
+// the single biggest thing a player can do to how the game reads - every overlay,
+// the top bar and the chat wallpapers all draw from it - and it was first a 34px
+// chip in a row of two, the smaller-looking of which wiped the cast. Reported
+// from hand play, 2026-09-29.
+//
+// It carries the count for the reason the save slots and the palette both had to
+// learn: a number the player can see beats a cap that only speaks when it refuses.
+export function CastImagesCard({ onClick, withPhoto = 0, total = 0, theme = "dark", t, fontScale = 1, style }) {
+  const k = castTokens(theme === "light");
+  const fs = (px) => scaleFont(px, fontScale);
+  const c = t?.cast || {};
+  return (
+    <button onClick={onClick}
+      style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", padding: 11, minHeight: 62, borderRadius: 12, border: `1px solid ${k.accent}`, background: k.tint, color: k.textMain, cursor: "pointer", textAlign: "left", ...style }}>
+      <span style={{ fontSize: fs(24), lineHeight: 1, flexShrink: 0 }}>{"📷"}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: fs(13), color: k.accent, fontWeight: 700 }}>{c.castImages}</span>
+        <span style={{ display: "block", fontSize: fs(11), color: k.textFaint, marginTop: 2, lineHeight: 1.35 }}>
+          {c.photo} {c.castCount?.(withPhoto, total)}
+        </span>
+      </span>
+      <span aria-hidden style={{ color: k.textFaint, fontSize: fs(14), flexShrink: 0 }}>{"›"}</span>
+    </button>
+  );
+}

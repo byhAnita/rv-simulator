@@ -26,9 +26,9 @@
 export const RELEASE_NOTES = [
   {
     version: "1.4.4",
-    zh: "校园、职场和财阀世界里，成员不再是偶像：不会再提练习生、出道、练舞或舞台；开局为成员安排世界内身份时，也不会把你的职位给她们。所有世界的设定文字都由母语者重写（校园的教授改成了学校附近的咖啡馆老板）。偶尔出现的一整段代码不会再显示给你，而是自动重试。",
-    en: "In the campus, office and chaebol worlds the cast are no longer idols: nobody mentions a trainee past, a debut, dance practice or a stage, and when the cast is placed in the world at the start, nobody is given your job. Every world's text was rewritten by a native speaker (the campus professor is now a café owner near campus). A reply that would have shown up as a block of code is now retried instead.",
-    ko: "캠퍼스·직장·재벌 세계에서 멤버들은 더 이상 아이돌이 아니에요. 연습생 시절, 데뷔, 춤 연습, 무대 이야기가 나오지 않고, 시작할 때 멤버를 세계 안에 배치하면서 당신의 직책을 주지도 않아요. 모든 세계의 설정 문장을 원어민이 다시 썼어요(캠퍼스의 교수는 학교 근처 카페 사장으로 바뀌었어요). 코드 덩어리처럼 보이던 응답은 이제 자동으로 다시 시도해요.",
+    zh: "校园、职场和财阀世界里，成员不再是偶像：不会再提练习生、出道、练舞或舞台；开局为成员安排世界内身份时，也不会把你的职位给她们。所有世界的设定文字都由母语者重写（校园的教授改成了学校附近的咖啡馆老板）。偶尔出现的一整段代码不会再显示给你，而是自动重试。选现成女团开局时，也能在开始新游戏页为主线和副线成员上传头像和壁纸了。",
+    en: "In the campus, office and chaebol worlds the cast are no longer idols: nobody mentions a trainee past, a debut, dance practice or a stage, and when the cast is placed in the world at the start, nobody is given your job. Every world's text was rewritten by a native speaker (the campus professor is now a café owner near campus). A reply that would have shown up as a block of code is now retried instead. Starting with a ready-made group, you can now give your main and sub members a photo and a wallpaper right on the New Game page.",
+    ko: "캠퍼스·직장·재벌 세계에서 멤버들은 더 이상 아이돌이 아니에요. 연습생 시절, 데뷔, 춤 연습, 무대 이야기가 나오지 않고, 시작할 때 멤버를 세계 안에 배치하면서 당신의 직책을 주지도 않아요. 모든 세계의 설정 문장을 원어민이 다시 썼어요(캠퍼스의 교수는 학교 근처 카페 사장으로 바뀌었어요). 코드 덩어리처럼 보이던 응답은 이제 자동으로 다시 시도해요. 기존 그룹으로 시작할 때도 새 게임 화면에서 메인·서브 멤버의 프로필 사진과 배경화면을 올릴 수 있어요.",
   },
   {
     version: "1.4.3",

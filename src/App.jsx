@@ -16,7 +16,7 @@ import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
 import { getFreeRouteStatus, resolvePaidModel, resetFreeRoute } from "./tools/aliyunRoute";
 import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "./config/constants";
-import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
+import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime, displayNameIn } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
 import BubbleOverlay from "./platforms/BubbleOverlay";
@@ -32,7 +32,8 @@ import RosterBuilder from "./platforms/RosterBuilder";
 import DebugPanel from "./platforms/DebugPanel";
 import MemberFace from "./platforms/memberFace";
 import YearWheel, { DEFAULT_YEAR } from "./platforms/YearWheel";
-import { loadPhotos, loadWalls } from "./utils/imageStore";
+import { useCastImages } from "./platforms/useCastImages";
+import CastImageSheet, { CastImagesCard } from "./platforms/CastImageSheet";
 import { debugEnabled } from "./tools/debugConsole";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
@@ -397,9 +398,14 @@ export default function App() {
   // Re-read on entering the game rather than only at mount: the roster builder
   // writes to localStorage synchronously, so a photo added while choosing the
   // cast must be on screen in the game that starts immediately after.
-  const [castPhotos, setCastPhotos] = useState(() => loadPhotos());
-  const [castWalls, setCastWalls] = useState(() => loadWalls());
-  const refreshCastImages = () => { setCastPhotos(loadPhotos()); setCastWalls(loadWalls()); };
+  //
+  // The same hook the cast builder uses, because the classic door's setup page
+  // WRITES them too - one writer sequence for both doors.
+  // `showNotif` is declared further down, so it is reached through a closure.
+  const {
+    photos: castPhotos, walls: castWalls, setPhotoFor, setWallFor, refresh: refreshCastImages,
+  } = useCastImages({ notify: (msg, type) => showNotif(msg, type), c: t.cast });
+  const [showCastImages, setShowCastImages] = useState(false);
   // On the phase rather than in startNewGame and loadSave, because that is a
   // two-entry list somebody has to remember to extend. Every route into the game
   // passes through here.
@@ -1923,6 +1929,10 @@ export default function App() {
     // It is fetched on mount and the player cannot reach this screen faster
     // than that, but a start with no world would throw rather than degrade.
     const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && world;
+    // The members the photo sheet offers: main first, then subs in the order
+    // chosen. The custom door's sheet is likewise main + subs.
+    const classicFaced = [form.mainMember, ...(form.subMembers || [])]
+      .map((id) => members.find((m) => m.id === id)).filter(Boolean);
     // ...and since step 3 the page RENDERS from it too: the identity grid is the
     // world's list and the cast field's label is the world's noun. A world switch
     // nulls it for the length of one fetch, so this is a real state and not only
@@ -2037,6 +2047,20 @@ export default function App() {
           {renderPlayerFields()}
           {renderIdentityGrid()}
 
+          {/* PHOTOS ON THE CLASSIC DOOR, and nothing else from the builder.
+              Yuhan's design: a prebuilt group's player gets the same entry the
+              custom door has - for the main and the subs she has chosen - with no
+              cast editing, so this door stays the fast one. Main and subs only,
+              for the builder's reason: an NPC posts no social and sends no Kakao,
+              so her photo has no reader in the running game. Shown once a main is
+              chosen, because a photo is something you give a member you have
+              already picked. */}
+          {form.mainMember && (
+            <CastImagesCard onClick={() => setShowCastImages(true)}
+              withPhoto={classicFaced.filter((m) => castPhotos[m.id]).length} total={classicFaced.length}
+              theme={theme} t={t} style={{ marginTop: 10 }} />
+          )}
+
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             {/* Back is ONE step, and since §22.10 that step is the cover: this page
                 holds every question the classic door asks, so there is no page
@@ -2053,6 +2077,18 @@ export default function App() {
           </div>
           </div>
         </div>
+        {showCastImages && (
+          <CastImageSheet
+            rows={classicFaced.map((m) => ({ id: m.id, name: displayNameIn(m, language) || m.id, member: m }))}
+            photos={castPhotos} walls={castWalls}
+            onPickPhoto={setPhotoFor} onPickWall={setWallFor}
+            onClearPhoto={(id) => setPhotoFor(id, null)}
+            onClearWall={(id) => setWallFor(id, null)}
+            language={language} theme={theme} t={t}
+            notify={showNotif}
+            onClose={() => setShowCastImages(false)}
+          />
+        )}
       </div>
     );
   }
