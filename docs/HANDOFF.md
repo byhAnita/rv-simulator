@@ -23,12 +23,8 @@ contents rather than appending a log.
 
 ## The task in flight
 
-1. **The zh NAME of `prof_of_cast` still reads 教授.** Her pass changed the background and the
-   title, not `identities[prof_of_cast].name`, so a zh campus prompt prints
-   `Summer's identity: 教授` above a cafe-owner background. en/ko already say Café owner /
-   카페 사장. Hers: edit that block in `docs/zh-review/worlds-campus.md`, tick, `sync`; then
-   the agent settles or retranslates en/ko and reruns the goldens.
-2. **Live test** the new world text after she pushes `dev`.
+1. **Live test** the new world text after she pushes `dev`. The zh review itself is closed:
+   the café owner's zh name is 咖啡馆老板 (en/ko Café owner / 카페 사장).
 
 ## Not verified
 

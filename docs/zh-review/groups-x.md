@@ -28,7 +28,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### members[irene].public_image
 <!-- zh-review key="groups/x#members[irene].public_image" base="d889a2aa71e1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude d7bfc82 2026-10-20
 ~~~~
 清冷神颜，高冷优雅，是成员们的定海神针，克制、体面且滴水不漏. 她是所有成员最尊敬的姐姐和领袖.
 ~~~~

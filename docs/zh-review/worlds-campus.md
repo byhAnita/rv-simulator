@@ -41,22 +41,22 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[prof_of_cast].name
-<!-- zh-review key="worlds/campus#identities[prof_of_cast].name" base="456e01f92061" -->
-- [x] approved - Claude 4c8e1f8 2026-09-29
+<!-- zh-review key="worlds/campus#identities[prof_of_cast].name" base="801602ae6458" -->
+- [x] approved - uncommitted
 ~~~~
-教授
+咖啡馆老板
 ~~~~
 
 ### identities[prof_of_cast].background
 <!-- zh-review key="worlds/campus#identities[prof_of_cast].background" base="ffb8135f5ce1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude d7bfc82 2026-10-20
 ~~~~
 [身份背景] 你是{name}所在大学的咖啡店老板，她们经常来你的咖啡馆买咖啡/自习/小组讨论/聚会。 典型事件：早上她们来买咖啡，你暗自记下了{name}的口味； 周末她们来咖啡馆聚会玩游戏，{name}邀请你加入一起； {name}点单时你和她闲聊了解她的生活。 优势：你与她们有自然的日常接触机会。劣势：你总是只能在咖啡店等她来，缺少主动见她的理由。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
 
 ### identities[prof_of_cast].workTitle.form
 <!-- zh-review key="worlds/campus#identities[prof_of_cast].workTitle.form" base="04060a0dcdb9" -->
-- [x] approved - uncommitted
+- [x] approved - Claude d7bfc82 2026-10-20
 ~~~~
 老板
 ~~~~
@@ -105,7 +105,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[junior_student].background
 <!-- zh-review key="worlds/campus#identities[junior_student].background" base="06c639fa8336" -->
-- [x] approved - uncommitted
+- [x] approved - Claude d7bfc82 2026-10-20
 ~~~~
 [身份背景] 你是比成员们低一届的学妹，你新生入学时自然相识，她是系里你最先记住名字的前辈。 典型事件：她把自己的笔记毫无保留给了你； 社团里她替你挡下了不该你做的杂事； 聚餐时你被灌酒，她把杯子拿走了； 你熬夜赶作业，她在自习室陪到最后。 优势：向前辈求助是最自然的接近方式 劣势：也正因为如此，前后辈的身份让情感越线小心翼翼   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
