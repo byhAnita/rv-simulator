@@ -107,7 +107,7 @@
   ],
   "modes": {
     "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: what is said in front of staff, what is said in the car, what is never said at the table. No rushing into relationship.",
-    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt once their own stage in [Affections] allows it (section 9), never before.",
     "pressure": "[Story Mode: Pressure] Press attention and family obligation higher, secrecy changes doubled. Being seen together carries weight: a photographer outside a hotel, a line in a business column, an engagement someone else has already agreed to.",
     "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
   },

@@ -949,9 +949,13 @@ shared past. All three are reworded to hold for both kinds of start (*distance a
 and that is pre-existing. `[Chapter]` says *this is round N* so the model is not left to reconcile
 the two; changing the Round line is a separate change.
 
-**Known and not fixed:** the four story-mode rules say *"Members flirt during Flirting stage"* in
-English in every language, while a zh tail prints 暧昧期 - two names for one stage, the
-`[Stage Changes]` id-vs-name shape. It is in the always-miss tail, so fixing it moves no golden.
+**Fixed in P11:** every world's romance rule said *"Members flirt during Flirting stage"* in
+English in all three languages, while a zh tail prints 暧昧期 - two names for one stage, the
+`[Stage Changes]` id-vs-name shape, and a second copy of a rule section 9 now states. It now says
+*"Members flirt once their own stage in [Affections] allows it (section 9), never before"*: it
+names no stage, so no language can disagree, and it points at the rule instead of copying it. A
+guard derived over every world, language and mode fails on any stage name from another language's
+ladder; 4 mutations RED. Tail only, so no golden moved.
 
 All six goldens moved by exactly these lines and the diff was read. 18 mutations, 18 RED, one only
 after a fix: dropping a stage's behaviour line CRASHED the suite twice - first in the prompt builder,

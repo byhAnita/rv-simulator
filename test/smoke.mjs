@@ -4561,6 +4561,28 @@ async function layerI() {
       && /\uae30\uc5c5/.test(allWorlds.chaebol?.ko?.castLore?.orgHint || ""),
     "`X Group` is right for a chaebol and wrong for a bare family noun");
 
+  // ── v1.4.4 P11: a story-mode rule names no stage in another language ───
+  // Every romance rule said "Members flirt during Flirting stage" in English in all
+  // three languages, beside a tail that prints that stage as its localized name -
+  // one stage under two names, the [Stage Changes] id-vs-name shape. Derived over
+  // every world, language and mode, so a fifth world or a fifth mode is covered.
+  {
+    const { STAGE_NAMES } = await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+    const foreign = [];
+    for (const [wid, byLang] of Object.entries(allWorlds)) {
+      for (const lang of ["zh", "en", "ko"]) {
+        const others = Object.entries(STAGE_NAMES).filter(([l]) => l !== lang).flatMap(([, names]) => names);
+        for (const mode of loader.MODE_IDS) {
+          const rule = buildTailRules(byLang[lang], mode, "default");
+          const hit = others.filter((name) => new RegExp(`(^|[^A-Za-z])${name}([^A-Za-z]|$)`).test(rule));
+          if (hit.length) foreign.push(`${wid}/${lang}/${mode}: ${hit.join(",")}`);
+        }
+      }
+    }
+    check("a story-mode rule names no stage from another language's ladder",
+      foreign.length === 0, foreign.join(" | "));
+  }
+
   // ── v1.4.4 P5: the chaebol cast is ONE family, named for the main member ─
   // Yuhan's decision, 2026-10-20. Both templates used to say each member was an
   // heir of a DIFFERENT house, so a new employee deferred to five families. The

@@ -109,7 +109,7 @@
   ],
   "modes": {
     "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: the same seats, the same walk back, a semester passing. No rushing into relationship.",
-    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt once their own stage in [Affections] allows it (section 9), never before.",
     "pressure": "[Story Mode: Pressure] Department gossip and social visibility higher, secrecy changes doubled. Being seen together carries weight: a classmate's photo, a club group chat, a name that travels faster than the syllabus.",
     "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
   },

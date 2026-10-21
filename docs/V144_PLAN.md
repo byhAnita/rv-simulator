@@ -81,9 +81,17 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move |
 | P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
+| P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
+| P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none |
 
 P9 and P5 come first because they are small and P1 builds on P5's family. P10 was added by
 Yuhan on 2026-10-20 and is independent of the rest, so it is done next, before P1.
+
+**P11 and P12 were found while building P2 and added on 2026-10-21, Yuhan's call; the order is
+mine.** They go **after P2 and before P3**: both are small, both touch only the tail and the
+ledger, and P3 adds another tail line that names her stage and reads the round, so the stage
+vocabulary and the round number should be settled before it lands. Order from here: **P11, P12,
+P3, P4, P6, P7, P8.**
 
 **Release notes** (`src/config/releaseNotes.js`, three languages) are written once, after the
 last item, so the entry describes what shipped. README gains its bullet in each commit.
@@ -310,6 +318,41 @@ The UNKNOWN CHARACTER RULE is rewritten as an ownership statement, not a permiss
 **Before writing it,** grep the rendered goldens for anything that hands the model a stranger's
 name (an example, a background), and delete it. **Measurement:** read the live runs. A zh name
 detector would cry wolf, so it is deliberately not built.
+
+### P11. The romance rule names a stage in English in every language
+
+Every world's `modes.romance` ends *"Members flirt during Flirting stage."*, the same English in
+all three language files. A zh tail prints that stage as `暧昧期` and a ko tail as `썸`, so the tail
+names one stage twice in two vocabularies, which is the `[Stage Changes]` id-vs-name shape. It is
+also a second copy of a rule section 9 now states, since P2 says what each stage allows.
+
+**The fix deletes the copy and points at the rule:** *"Members flirt once their own stage in
+[Affections] allows it (section 9), never before."* No stage is named, so no language can disagree,
+and no placeholder machinery is needed. All twelve files, both mirrors. The tail is the always-miss
+message, so no golden moves.
+
+**Guard, derived:** across every world, language and mode, a rendered story-mode rule names no
+stage from another language's ladder.
+
+### P12. One round number for the model, and `R1` means one thing
+
+The model sees three numberings of one round:
+- the **ledger** labels a stored round by its index from 0 (`R0:`, `=== Round 4 ===` for the fifth);
+- **`[Player Status] Round:`** prints the rounds completed, one behind the round being written;
+- **`[Chapter]`** says *this is round N*, from 1, which is also what the stats box shows the player.
+
+And since P1, **`R1` / `R2` / `R3` are the address ladder's rungs** in section 6, while the ledger
+writes a round-1 summary as `R1: ...`. Two quantities under one label.
+
+**The fix:** the ledger renders the player's number (`h.round + 1`) and writes summaries as
+`Round N:` like its full entries; `Round:` leaves `[Player Status]`, because `[Chapter]` already
+carries the round and one fact belongs in one place. The **stored** `round` values do not change:
+`[Rounds Absent]`, `memberAppearances` and the map read them, and they are consistent with each
+other.
+
+**Cost:** every existing save's ledger misses the cache once on the first round after the update.
+A summary line grows by about one token, up to 45 of them, cached after that. No golden moves,
+because goldens are system prompts.
 
 ### P10. A new round scrolls to its own top
 
