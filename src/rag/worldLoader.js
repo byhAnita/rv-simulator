@@ -495,19 +495,22 @@ export function renderIdentityBackground(world, identityId, mainMemberName, seed
 }
 
 /**
- * The identity's typical events the main member's stage has unlocked (v1.4.4 P3),
- * rendered exactly as the background is. `stageIdx` is HER stage index; an event
- * unlocks at its `from` and stays available after. [] for an identity with none,
- * including a custom one, so the caller sends no line at all.
+ * The identity's typical events at the given positions (v1.4.4 P3), rendered
+ * exactly as the background is, as [{idx, text}] in list order. WHICH positions is
+ * not decided here: src/agent/eventSchedule.js picks them from her stage and what
+ * has already been staged (P3b). [] for an identity with none, including a custom
+ * one, so the caller sends no line at all.
  *
- * These go in the dynamic TAIL, never the static prompt: the list grows as she
+ * These go in the dynamic TAIL, never the static prompt: the list changes as she
  * warms, and a model shown a beat it may not use yet is primed by it anyway.
  */
-export function renderIdentityEvents(world, identityId, mainMemberName, stageIdx, seed = 0) {
+export function renderIdentityEvents(world, identityId, mainMemberName, indices, seed = 0) {
   const entry = getIdentity(world, identityId);
+  const want = new Set(indices || []);
   return (entry?.events || [])
-    .filter((ev) => ev.from <= stageIdx)
-    .map((ev) => renderIdentityText(entry, ev.text, mainMemberName, seed));
+    .map((ev, idx) => ({ idx, ev }))
+    .filter(({ idx }) => want.has(idx))
+    .map(({ idx, ev }) => ({ idx, text: renderIdentityText(entry, ev.text, mainMemberName, seed) }));
 }
 
 // One substitution for every piece of identity text, so an event and the

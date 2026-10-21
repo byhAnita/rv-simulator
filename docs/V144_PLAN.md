@@ -466,6 +466,56 @@ round (scratchpad `events-report.mjs`):
 and use round of each event, plus any repeat. Re-run the same two configs and compare echo length
 (template folder: 6 rounds) and use-on-unlock (4 of 4 here).
 
+#### P3b. Yuhan's decision and the design (2026-10-21)
+
+**Build 1-4 now, before P4; 5 stays hers.** And her question goes further than the proposals:
+the events were added as **examples of a direction**, not a plot. Moving them from the static
+prompt to the tail puts them at the **end** of the context, one at a time, which may make the
+model lean on them harder than when they sat in a background paragraph. So the fix ships with a
+**three-arm comparison**, and one arm has no events at all. If that arm is no worse, the events
+are not earning their place and are better removed.
+
+**Design, all tail-side except one schema key:**
+
+- `src/agent/eventSchedule.js`, pure: `planEvents(events, stageIdx, state, round)` returns
+  `{due, offered}` and `recordEvents(state, due, used, round)` returns the next state.
+  `memory.events = {seen: {idx: round}, used: {idx: round}}`, written only by `updateMemory`.
+  An old save has none, which reads as empty; there is no migration.
+- **Window:** an event is due while her stage is in `[from, from + 1]`.
+- **Not on the round it first comes due:** it is offered from the round after it is first seen,
+  which also means round 1 opens on `[初见]` alone.
+- **Cooldown:** no line for 3 rounds after an event is staged.
+- **Used once:** a staged event is never offered again.
+- **Numbering is stable:** `E<n>` is the event's position in the identity's list, so the number
+  the model reports maps back without a per-round table.
+- **Schema:** `"event"` comes after `summary`, so it is written after the prose and cannot bleed
+  into it. It renders only for an identity with events, like `EVENTS_RULE`. A reported number is
+  untrusted text: it counts only if it was offered this round.
+- **Rule:** the events are examples of the kind of beat, not a plot. Most rounds stage none, an
+  absent line means none, and once staged an event is history: the story may refer back to it but
+  never stages it again or keeps returning to its object.
+
+**The comparison**, harness-only (`playthrough.mjs --events tail|static|none`); the app always
+plays `tail`:
+
+| arm | what the model sees |
+| --- | --- |
+| `tail` | the design above |
+| `static` | the v1.4.3 shape: every event in the background paragraph from round 1, with no rule and no schema key |
+| `none` | no events anywhere |
+
+Run on the same two configs as the live check (chaebol `journalist`, office `new_hire`; zh,
+romance, `deepseek-flash`, 14 rounds), **3 replicates per arm**, because two runs of identical
+code have differed by more than any arm gap on this harness. That is 18 runs.
+
+**What is measured, with no verdict line:** per round, which authored event (if any) the story
+stages, read from the English summaries; exact repeats; a first-meeting beat after Interest;
+echo length; and **cross-run sameness**, meaning how alike two games of the same identity are
+(character 4-gram overlap between replicates, plus the plot beats read side by side). That
+last one is her "many similar stories" question, and it is the number the `none` arm can
+answer too. Whether the `none` arm drifts aimlessly is a reading, not a number, and is reported
+as one.
+
 ### P4. Affection rate tied to the chapter
 
 | Chapter | Max rise per round |

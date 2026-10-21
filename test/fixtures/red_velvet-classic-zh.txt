@@ -144,7 +144,7 @@ Main Member: Irene(裴珠泫)
 Sub Members: Seulgi, Wendy
 NPC Members: Joy, Yeri (non-romanceable, must appear in background)
 [身份背景] 你是其他公司的kpop女idol, 与Irene因合作机会相识。 优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次见面开始：第一回合之前，你和Irene没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
-Typical events: this identity comes with a few typical events, and the [Possible events] line in [CURRENT STATE] lists the ones the main member's stage has unlocked so far. Use at most one per round, only when the story is ready for it, and write it your own way - it is a beat, not a checklist. An event that is not in that line has not happened and cannot happen yet.
+Typical events: this identity comes with a few typical events. They are examples of the kind of moment this relationship can have, not a plot to follow. When [CURRENT STATE] has a [Possible events] line, it lists the ones available this round; when it has none, stage none. Most rounds stage none: let the story find its own moments first. Stage at most one per round, only when the story is already heading there, and write it your own way. Once staged, an event is history: refer back to it at most, never stage it again, and do not keep returning to its object or detail in later rounds. An event that has never been listed has not happened.
 
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
@@ -251,6 +251,7 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
   "affectionChanges": { "irene": 0, "seulgi": 0, "wendy": 0 },
   "story": "Story text in Chinese (Simplified) (350-450 words). Pure story, NO stat bars, NO options.",
   "summary": "ONE sentence, 100-150 characters, in English: who appeared and what emotionally shifted.",
+  "event": "E<n> of the [Possible events] item this story staged, or null",
   "socialContent": {
     "irene": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null},
     "seulgi": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null},"wendy": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null}
@@ -271,6 +272,7 @@ RULES:
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
+- event: the E<n> number of the one [Possible events] item this round's story staged, or null. Most rounds are null, and so is every round with no [Possible events] line. It comes after the story on purpose: report what you wrote, do not plan the story around it.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in Chinese (Simplified). summary is always in English.
 - For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.

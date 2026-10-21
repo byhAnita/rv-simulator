@@ -58,6 +58,9 @@
 //                                                   # whenever castLore.useRole is false, so a
 //                                                   # run that skipped it graded a prompt no
 //                                                   # player gets. Costs one call per member
+//   node test/playthrough.mjs --events none        # where the typical events go: tail (the
+//                                                   # app), static (the v1.4.3 shape, zh) or
+//                                                   # none. An experiment lever (v1.4.4 P3b)
 //   node test/playthrough.mjs --mode pressure      # one of the 4 story modes:
 //                                                   #   free  romance  pressure  dramatic
 //                                                   # This was --pace, a setup field, until
@@ -119,6 +122,19 @@ const ROUTE_MODE = has("route");
 // buildSystemPrompt, so pinning one to 练习生 meant 7 of the 8 were never played
 // live by anything.
 const IDENTITY = arg("identity", "练习生");
+// Where the identity's typical events reach the model (v1.4.4 P3b). An EXPERIMENT
+// lever, never an app setting: the app always plays `tail`. Yuhan's question was
+// whether the events earn their place at all, so the comparison needs an arm with
+// none, and an arm with the v1.4.3 shape (all of them in the static background from
+// round 1, no rule, no schema key) to compare the move itself against.
+//   tail    the app: the [Possible events] line, scheduled by eventSchedule.js
+//   static  every event in the background paragraph, zh only (that is the shape it had)
+//   none    no events anywhere
+const EVENTS_ARM = arg("events", "tail");
+if (!["tail", "static", "none"].includes(EVENTS_ARM)) {
+  console.error(`unknown --events "${EVENTS_ARM}" - expected tail, static or none`);
+  process.exit(1);
+}
 // The world. THE FOURTH FIELD OF THIS SHAPE, and CLAUDE.md predicted it: after
 // identity, pace and provider it said to assume there was a fourth and go
 // looking rather than wait for it to cost a release. There was. `kpop_idol` was
@@ -539,6 +555,22 @@ async function runWorker(model) {
   const report = { model, world: WORLD, identity: IDENTITY, storyMode: MODE, rounds: [], notes: [], gradersSkipped: [], collapses: 0, prefixBreaks: [], systemDrift: [] };
   try {
     const world = await loadWorld(WORLD, LANG);
+    report.eventsArm = EVENTS_ARM;
+    if (EVENTS_ARM !== "tail") {
+      // A copy of the one identity, so nothing else in the loaded world moves. With
+      // no `events` the tail line, the section 6 rule and the schema key all go,
+      // because every one of them renders only for an identity that has events.
+      world.identities = world.identities.map((i) => {
+        if (i.id !== IDENTITY) return i;
+        const evs = i.events || [];
+        if (EVENTS_ARM === "none" || evs.length === 0) return { ...i, events: [] };
+        if (LANG !== "zh") throw new Error("--events static reproduces the zh background only");
+        const at = i.background.indexOf("优势");
+        if (at < 0) throw new Error(`--events static: no 优势 in the ${IDENTITY} background to insert before`);
+        const list = `典型事件：${evs.map((e) => e.text).join("； ")}  `;
+        return { ...i, events: [], background: i.background.slice(0, at) + list + i.background.slice(at) };
+      });
+    }
 
     // An identity id is a position INSIDE one world, and the four worlds share
     // exactly one id (the ex-girlfriend). So `--world campus --identity 练习生`
@@ -901,6 +933,9 @@ async function runWorker(model) {
             typeof f.weverse === "string" ? f.weverse : f.weverse?.content || "",
           ].filter(Boolean)])),
           summaryText: res.updatedMemory.history.at(-1)?.summary || "",
+          // What the [Possible events] line offered and which one the model said it
+          // staged (P3b), as indices into the identity's list. Absent in the other arms.
+          events: res.events || null,
         },
       });
 

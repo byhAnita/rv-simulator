@@ -4618,7 +4618,9 @@ async function layerI() {
   {
     const SC = await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
     const STATIC_LIST = /典型事件|Typical events:|주요 이벤트:/;
+    const ES = await import(pathToFileURL(join(ROOT, "src/agent/eventSchedule.js")).href);
     const stillStatic = [], disagree = [], early = [], missing = [], unresolved = [], badHead = [], ruleOff = [], wrongName = [];
+    const keyOff = [], badNum = [], stale = [];
     for (const [wid, byLang] of Object.entries(allWorlds)) {
       for (const ident of byLang.zh.identities) {
         const per = ["zh", "en", "ko"].map((l) => byLang[l].identities.find((i) => i.id === ident.id)?.events || []);
@@ -4639,7 +4641,14 @@ async function layerI() {
           const evs = ident.events || [];
           const pr = buildSystemPrompt(form({ identity: ident.id }), library.red_velvet[lang], "irene", ["seulgi"],
             { groupLore: "lore" }, "", "qwen", lang, w);
-          const hasRule = pr.includes("the [Possible events] line in [CURRENT STATE]");
+          const hasRule = pr.includes("When [CURRENT STATE] has a [Possible events] line");
+          // P3b: the schema's `event` key, after `summary` so it is written after the
+          // prose, and its RULES line - for exactly the identities the rule is for.
+          const sum = pr.indexOf('  "summary":'), key = pr.indexOf('  "event":');
+          const hasKey = key > sum && sum > 0 && pr.indexOf('  "socialContent":') > key;
+          if (hasKey !== evs.length > 0 || pr.includes("\n- event: ") !== evs.length > 0) {
+            keyOff.push(`${where} key:${hasKey} events:${evs.length}`);
+          }
           if ((ident.background || "").includes("{name}")) {
             const head = ident.background.slice(0, ident.background.indexOf("{"));
             const at = pr.indexOf(head);
@@ -4648,20 +4657,33 @@ async function layerI() {
             if (!bg.includes(want) || bg.includes(wrong)) wrongName.push(`${where} background`);
           }
           if (hasRule !== evs.length > 0) ruleOff.push(`${where} rule:${hasRule} events:${evs.length}`);
+          // Every event seen long ago and none staged, so `offered` is exactly the stage
+          // window - the requirement is about the window, not about the delay rules,
+          // which have their own checks below.
+          const allSeen = { seen: Object.fromEntries(evs.map((_, n) => [n, 0])), used: {} };
           for (let idx = 0; idx < SC.DEFAULT_STAGE_THRESHOLDS.length - 1; idx++) {
-            const line = buildEventsLine(w, ident.id, irene, SC.DEFAULT_STAGE_THRESHOLDS[idx], lang, 0);
-            const due = evs.filter((e) => e.from <= idx);
+            const plan = ES.planEvents(evs, idx, allSeen, 10);
+            const line = buildEventsLine(w, ident.id, irene, SC.DEFAULT_STAGE_THRESHOLDS[idx], lang, 0, plan.offered);
+            const due = evs.filter((e) => e.from <= idx && idx <= e.from + ES.EVENT_WINDOW);
             if (due.length === 0) {
-              if (line !== "") early.push(`${where}@${idx} sent a line with nothing unlocked`);
+              if (line !== "") early.push(`${where}@${idx} sent a line with nothing in its window`);
               continue;
             }
             const items = line.split("\n").filter((l) => l.startsWith("- "));
             if (items.length < due.length) missing.push(`${where}@${idx} ${items.length}/${due.length}`);
             if (items.length > due.length) early.push(`${where}@${idx} ${items.length}/${due.length}`);
-            // A later event's own words must not be there, whatever the count says.
-            // zh and en only: a ko particle is resolved, so its text is not verbatim.
+            // Each item carries the number the schema's `event` key reports back: the
+            // event's own position in the list, so it means the same thing every round.
+            const want_n = evs.map((e, n) => (e.from <= idx && idx <= e.from + ES.EVENT_WINDOW ? `- E${n + 1}. ` : null)).filter(Boolean);
+            if (items.some((it, n) => !it.startsWith(want_n[n]))) badNum.push(`${where}@${idx} ${items.map((i) => i.slice(0, 6)).join(",")}`);
+            // An out-of-window event's own words must not be there, whatever the count
+            // says: neither one her stage has not reached, nor a first-meeting beat she
+            // is long past. zh and en only: a ko particle is resolved, so not verbatim.
             if (lang !== "ko") for (const e of evs.filter((x) => x.from > idx)) {
               if (line.includes(e.text.split("{name}").join(want))) early.push(`${where}@${idx} ${e.text.slice(0, 20)}`);
+            }
+            if (lang !== "ko") for (const e of evs.filter((x) => idx > x.from + ES.EVENT_WINDOW)) {
+              if (line.includes(e.text.split("{name}").join(want))) stale.push(`${where}@${idx} ${e.text.slice(0, 20)}`);
             }
             const named = items.filter((_, n) => due[n]?.text.includes("{name}")).join("\n");
             if (named && (!named.includes(want) || named.includes(wrong))) wrongName.push(`${where}@${idx} events`);
@@ -4677,8 +4699,12 @@ async function layerI() {
       disagree.length === 0, disagree.join(" | "));
     check("the tail lists no event before the main member's stage unlocks it",
       early.length === 0, early.slice(0, 5).join(" | "));
-    check("...and every event her stage has unlocked, which stay unlocked after",
+    check("...and none she is more than one stage past, so a first-meeting beat is not offered at Confirmed",
+      stale.length === 0, stale.slice(0, 5).join(" | "));
+    check("...and every event in her stage window",
       missing.length === 0, missing.slice(0, 5).join(" | "));
+    check("...each numbered E<n> by its own place in the identity's list",
+      badNum.length === 0, badNum.slice(0, 5).join(" | "));
     check("...rendered like the background: {name} and Korean particles resolved",
       unresolved.length === 0, unresolved.slice(0, 5).join(", "));
     check("...under her name and her stage, named in the story's language",
@@ -4687,16 +4713,58 @@ async function layerI() {
       wrongName.length === 0, wrongName.slice(0, 5).join(" | "));
     check("section 6 carries the events rule exactly for an identity that has events",
       ruleOff.length === 0, ruleOff.slice(0, 5).join(" | "));
+    check("...and the schema asks for `event` after `summary`, with its RULES line, for exactly those identities",
+      keyOff.length === 0, keyOff.slice(0, 5).join(" | "));
+
+    // P3b's schedule, behaviourally. The live check found an event staged on the round
+    // it unlocked (4 of 4), a staged one echoing for six rounds, and nothing recording
+    // that an event had happened.
+    const evs3 = [{ from: 0 }, { from: 0 }, { from: 1 }];
+    const r0 = ES.planEvents(evs3, 0, undefined, 0);
+    let st = ES.recordEvents(undefined, r0.due, null, 0);
+    const r1 = ES.planEvents(evs3, 0, st, 1);
+    check("an event is not offered on the round it first comes due, and is the round after",
+      r0.offered.length === 0 && r0.due.join() === "0,1" && r1.offered.join() === "0,1",
+      `r0 ${JSON.stringify(r0)} r1 ${JSON.stringify(r1)}`);
+    st = ES.recordEvents(st, r1.due, ES.stagedEvent("E2", r1.offered), 1);
+    const cool = [2, 3, 4].map((r) => ES.planEvents(evs3, 1, ES.recordEvents(st, [2], null, r), r).offered.length);
+    st = ES.recordEvents(st, [2], null, 2);
+    const after = ES.planEvents(evs3, 1, st, 1 + ES.EVENT_COOLDOWN + 1).offered;
+    check("...nothing is offered for the cooldown after an event is staged",
+      cool.every((n) => n === 0) && after.length > 0, `cooldown ${cool} after ${after}`);
+    check("...and a staged event is never offered again",
+      !after.includes(1) && after.join() === "0,2", `after ${after}`);
+    const keepFirst = ES.recordEvents({ seen: { 0: 3 }, used: {} }, [0], null, 9);
+    check("...an event's first-due round is kept, so a stage that falls and rises does not restart its delay",
+      keepFirst.seen[0] === 3, JSON.stringify(keepFirst));
+    const reads = [ES.stagedEvent("E1", [0]), ES.stagedEvent(2, [1]), ES.stagedEvent(" e3 ", [2]),
+      ES.stagedEvent("E3", [0, 1]), ES.stagedEvent("the folder", [0]), ES.stagedEvent(null, [0]), ES.stagedEvent("E0", [0])];
+    check("the model's `event` counts only as the number of an event offered THIS round",
+      JSON.stringify(reads) === "[0,1,2,null,null,null,null]", JSON.stringify(reads));
+    // Through the real writer: updateMemory must hand the round to recordEvents, or
+    // nothing is ever seen and every later round offers nothing at all.
+    const evMem = updateMemory(createEmptyMemory(), { events: { due: [0, 1], used: 1, round: 4 } });
+    check("updateMemory records the round's due and staged events in memory.events",
+      evMem.events?.seen?.[0] === 4 && evMem.events?.seen?.[1] === 4 && evMem.events?.used?.[1] === 4,
+      JSON.stringify(evMem.events));
     // executeRound builds the tail and cannot run here without a model, so the guard
     // is on its one call: the MAIN member's affection, the save's seed, and the line
     // actually placed in [CURRENT STATE].
     const agentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
     const call = (agentSrc.match(/const eventsLine\s*=\s*buildEventsLine\(([\s\S]*?)\);/) || ["", ""])[1].replace(/\s+/g, " ");
+    const plan = (agentSrc.match(/const eventPlan\s*=\s*planEvents\(([\s\S]*?)\);/) || ["", ""])[1].replace(/\s+/g, " ");
     const tailSite = (agentSrc.match(/content: `\[CURRENT STATE\][^\n]*/) || [""])[0];
-    check("executeRound judges the events by the main member's affection and puts the line in the tail",
-      call === "world, form.identity, members.find(m => m.id === mainId), memory.affections?.[mainId], language, backstorySeed(form, mainId)"
+    check("executeRound plans the events from the main member's stage, the save's record and this round",
+      plan === "getIdentity(world, form.identity)?.events, getStageIdx(memory.affections?.[mainId] || 0), memory.events, roundNum",
+      plan);
+    check("...lists what the plan offers, in the tail",
+      call === "world, form.identity, members.find(m => m.id === mainId), memory.affections?.[mainId], language, backstorySeed(form, mainId), eventPlan.offered"
         && tailSite.includes("${eventsLine}"),
       `${call} / ${tailSite.slice(0, 160)}`);
+    check("...and records what the model staged, checked against that same offer",
+      /const staged = stagedEvent\(parsed\.event, eventPlan\.offered\);/.test(agentSrc)
+        && /events: \{ due: eventPlan\.due, used: staged, round: roundNum \}/.test(agentSrc),
+      "stagedEvent / updateMemory events");
   }
 
   // ── v1.4.4 P11: a story-mode rule names no stage in another language ───
@@ -10350,6 +10418,13 @@ async function layerL() {
   check("...and --mode reaches it",
     /const MODE = arg\("mode",/.test(harness),
     "MODE must come from arg('mode', ...)");
+  // v1.4.4 P3b: `--events` is an experiment lever and must default to what the app
+  // plays, or every ordinary run grades a prompt no player gets; and the transcript
+  // must keep what was offered and staged, or the use rate the comparison is about
+  // cannot be read back.
+  check("the harness plays the app's events by default and records them per round",
+    /const EVENTS_ARM = arg\("events", "tail"\);/.test(harness) && /events: res\.events \|\| null,/.test(harness),
+    "EVENTS_ARM default / transcript events");
   // `form.pace` stays in the harness form as an EMPTY STRING rather than being
   // deleted: backstorySeed still hashes it, and a form that omits the key hashes
   // `undefined` where the app hashes "" - two seeds for one setup.

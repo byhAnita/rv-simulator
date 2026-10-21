@@ -984,6 +984,23 @@ yet listed. Since the same day, identity text (background and events) names her 
 `narrationNameOf`: her real name outside the idol world, as P1's narration rule says, where it
 used to print `集团继承人Irene` in every world.
 
+**P3b: an event is offered once, near its stage, and not on cue.** The live check showed an
+event staged the very round it unlocked (4 of 4), a staged one echoing for six rounds, and a
+first-meeting beat still offered at Confirmed, because nothing recorded use.
+`src/agent/eventSchedule.js` (pure) now decides what the tail offers:
+- an event is offered only while her stage is in `[from, from + 1]`;
+- not on the round it first comes due;
+- nothing for 3 rounds after one is staged;
+- never again once staged.
+
+The line numbers each item `E<n>` by its place in the list. The schema gains `"event"` after
+`summary`, for identities with events only. `stagedEvent` accepts the number only if it was
+offered this round. `memory.events = {seen, used}` is written by `updateMemory` alone, and an
+old save reads as empty. Four goldens moved by the rule, the key and its RULES line; 14
+mutations RED. Whether the events earn their place at all is measured by `playthrough.mjs
+--events tail|static|none`, an experiment lever (the app always plays `tail`): see
+`docs/V144_PLAN.md` P3b.
+
 All six goldens moved by exactly these lines and the diff was read. 18 mutations, 18 RED, one only
 after a fix: dropping a stage's behaviour line CRASHED the suite twice - first in the prompt builder,
 then in the guard itself (`STAGE_BEHAVIOUR[i].split` with no null-safety, the trap recorded under

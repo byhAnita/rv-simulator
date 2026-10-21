@@ -2,6 +2,7 @@
 // 1-Tier Stepped Window: single append-only history ledger for KV prefix cache optimization
 
 import { stageNameIn } from "../config/stageConfig";
+import { recordEvents } from "./eventSchedule";
 import { HISTORY_FULL_MAX, HISTORY_PRUNE_BATCH, KKT_MAX, KKT_THRESHOLD } from "../config/constants";
 
 export function createEmptyMemory() {
@@ -23,6 +24,10 @@ export function createEmptyMemory() {
     // would invalidate the whole ~5,500-token cached prefix. A discovered place reaches
     // the model only as the text of a choice the player tapped. docs/V140_PLAN.md 6.1.
     places:            [],
+    // Typical events (v1.4.4 P3b): {seen: {idx: round}, used: {idx: round}}, idx being
+    // the event's position in the identity's list. Read by planEvents, which decides
+    // what the tail offers; an old save has no key and reads as empty.
+    events:            { seen: {}, used: {} },
   };
 }
 
@@ -92,7 +97,7 @@ export function collapseHistoryIfNeeded(memory) {
 export function updateMemory(memory, updates) {
   const {
     playerStats, affections, historyEntry,
-    kktMessages, stageChanges, memberAppearances, discoveredPlace,
+    kktMessages, stageChanges, memberAppearances, discoveredPlace, events,
   } = updates;
 
   if (playerStats) memory.playerStats = playerStats;
@@ -131,6 +136,7 @@ export function updateMemory(memory, updates) {
   // model wrote and this function is the single writer of memory. Deriving it in App.jsx
   // instead would make two writers of one record, which is how the tail's member lines
   // came to disagree with each other.
+  if (events) memory.events = recordEvents(memory.events, events.due, events.used, events.round);
   if (discoveredPlace?.name) {
     memory.places = recordPlace(memory.places, discoveredPlace.name, discoveredPlace.round);
   }
