@@ -73,7 +73,8 @@ authority on progress.
   mutations RED, no golden moved.
 - **P12 is done** (ledger numbers rounds from 1 and writes `Round N:`; `Round:` left `[Player
   Status]`); 6 mutations RED, no golden moved; existing saves miss the ledger cache once.
-- **Next: P3, typical events unlock by stage, carried in the tail** (V144_PLAN P3).
+- **Next: P3, typical events unlock by stage.** The proposed stage tags and five scan findings are
+  in V144_PLAN, "P3 proposed tagging"; **waiting on Yuhan to correct them** before any code.
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,

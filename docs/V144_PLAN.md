@@ -246,6 +246,122 @@ forbidden to use gets primed by it anyway.**
 - **Layer Z:** the moved strings get new keys, so they show as pending in her review sheet. That
   is the review step for the tags too.
 
+#### P3 proposed tagging - Yuhan corrects before any code (2026-10-21)
+
+Scanned with a script over all four worlds x three languages. **23 of 28 identities carry an
+event list, with the same count in zh, en and ko for every one.** `from` is judged against the
+**main member's** stage. Change any cell; a tag is the earliest stage, so an event stays available
+after it unlocks.
+
+| identity | event (zh, verbatim) | proposed `from` |
+| --- | --- | --- |
+| kpop 练习生 | 在练习室与成员一起排练，向成员请教唱歌和舞蹈技巧 | 陌生人 |
+| | 在组合宿舍厨房客厅互动 | 有印象 |
+| | 深夜疲惫时互相袒露心声 | 产生兴趣 |
+| | 作为组合新成员与成员们一起参与打歌舞台签售会活动等 | 陌生人 |
+| kpop Staff | 去练习室探班关心成员们带下午茶…受宠若惊 | 陌生人 |
+| | 深夜开车送{name}下班回宿舍，接纳她的脆弱疲惫关心她 | 产生兴趣 |
+| | 签售打歌后台关心{name}状态督促她吃饭等 | 有印象 |
+| kpop 韩娱艺人 | 你和{name}两人私下排练合作舞台，逐渐熟悉和默契 | 有印象 |
+| | 你和{name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析 | 陌生人 |
+| | 你和{name}的综艺同框被剪辑成暧昧视频广泛流传等 | 有印象 |
+| kpop 粉丝 | 打歌舞台你抢到前排，{name}的眼神似乎在你身上多停留了一秒 | 陌生人 |
+| | 签售会{name}注意到你换了发型/装扮/风格主动提及 | 有印象 |
+| | 你在{name}的bubble粉丝留言板发了条普通的消息… | 有印象 |
+| | 粉丝活动你和{name}拍双人拍立得时{name}凑近搭上了你的肩 | 产生兴趣 |
+| kpop 财阀 | 与{name}所在女团开回归企划讨论会… | 陌生人 |
+| | 借关心成员们的名义亲自去探班制造和{name}相处机会 | 有印象 |
+| | 你心疼{name}辛苦于是让秘书给整个组合带薪放假、发奖金等 | 产生兴趣 |
+| campus 咖啡馆老板 | 早上她们来买咖啡，你暗自记下了{name}的口味 | 陌生人 |
+| | 周末她们来咖啡馆聚会玩游戏，{name}邀请你加入一起 | 有印象 |
+| | {name}点单时你和她闲聊了解她的生活 | 有印象 |
+| campus 同届学生 | 被分到同一个小组作业，一起喝咖啡熬通宵完成 | 陌生人 |
+| | 上课时她在旁边的座位上睡着，头一点一点地靠过来 | 有印象 |
+| | 考试结束那天，全系都在庆祝，你们却先走了 | 产生兴趣 |
+| campus 学姐 | 成员们作为新生报道，你被派去引导 | 陌生人 |
+| | 她拿着选课表来问玩家哪门课值得选 | 陌生人 |
+| | 社团聚餐结束，玩家送她回宿舍 | 有印象 |
+| | 她第一次做展示紧张到手抖，玩家给她鼓励 | 有印象 |
+| campus 学妹 | 她把自己的笔记毫无保留给了你 | 有印象 |
+| | 社团里她替你挡下了不该你做的杂事 | 有印象 |
+| | 聚餐时你被灌酒，她把杯子拿走了 | 产生兴趣 |
+| | 你熬夜赶作业，她在自习室陪到最后 | 产生兴趣 |
+| campus 助教 | 你在她的报告边上写了比普通评语更长的一段话 | 有印象 |
+| | 答疑时间只剩你们两个人，话题早就与课程无关 | 产生兴趣 |
+| | 她把作业拖到最后一刻交，你没有追问 | 有印象 |
+| | 你批改作业时一眼认出了她的笔迹 | 有印象 |
+| campus 交换生 | 小组讨论你跟不上语速，她放慢了语速并帮玩家翻译理解 | 陌生人 |
+| | 她带你去只有本地学生才知道的那家店 | 有印象 |
+| | 你把一个词说错，她笑了很久，然后教正确的说法 | 有印象 |
+| | 你们聊到你什么时候走，两个人都换了话题 | 暧昧期 |
+| office 同事 | 深夜在工位你们一同通宵改项目方案，一起吃夜宵 | 有印象 |
+| | 组里工作出现失误，她替你挡下了本该你背的那个锅 | 产生兴趣 |
+| | 聚餐散场你们顺路，走了很长一段夜路 | 产生兴趣 |
+| office 组长 | 你把最难的那个客户留给自己，而不是分给她 | 陌生人 |
+| | 一对一面谈的二十分钟里，你们有十分钟没在谈工作 | 产生兴趣 |
+| | 她的方案被上面打回来，你在会上支持她 | 有印象 |
+| | 年末评价你必须给全组排序，而你知道自己犹豫了多久 | 产生兴趣 |
+| office 组员 | 你交上去的东西被她打回修改，她留下比普通批注更长的修改指导 | 陌生人 |
+| | 她知道你的一个客户很难对接，她主动接手你那个最难的客户 | 有印象 |
+| | 你加班到很晚，她的工位灯也还亮着 | 有印象 |
+| | 考核面谈，她在工作问题中夹杂了几个私人问题 | 产生兴趣 |
+| office 新人 | 第一周你把会议室订错了，是她去道的歉 | 陌生人 |
+| | 她把自己的模板文件夹整个共享给了你 | 有印象 |
+| | 聚餐上有人一直给你倒酒，她把杯子拿开了 | 产生兴趣 |
+| | 她知道你的一个客户很难对接，她主动接手你那个最难的客户 | 有印象 |
+| office 外部合作方 | 你在她们的食堂不能刷卡，她帮你买饭买水 | 陌生人 |
+| | 她在电梯里叫住你，问的不是工作 | 产生兴趣 |
+| | 项目即将结束，大家喜悦之余也意味着工作交集走到尾声 | 产生兴趣 |
+| office 人事 | 客户不满她们组的工作，你从中调解 | 陌生人 |
+| | 一对一面谈登记个人信息，你在公司的问题中夹杂了几个私人问题 | 有印象 |
+| chaebol 对家继承人 | 同一场宴会上你们被安排在相邻的位置，全场都在看你们说什么 | 陌生人 |
+| | 两家在同一个项目上竞标，你在会议室对面看着她 | 陌生人 |
+| | 记者问你对她家的评价，你说了一句滴水不漏的话 | 有印象 |
+| | 散场后她在停车场等你，问的不是生意 | 产生兴趣 |
+| chaebol 落魄名门之女 | 宴会上有人记得你的名字，语气里带着同情 | 陌生人 |
+| | 你穿着两季以前的衣服，她什么都没说，只是站得离你近了一点 | 有印象 |
+| | 有人当着你的面谈起你家族当年的事，她换了话题 | 有印象 |
+| | 你需要一份工作，而能给的人就坐在对面 | 有印象 |
+| chaebol 新人职员 (`lawyer`) | 你走错了董事专属电梯，电梯门打开她正站在里面 | 陌生人 |
+| | 下午你在工位工作，总裁办员工送来了整组的下午茶 | 有印象 |
+| | 你因缺少职场经验在工作中失误，她帮你解围 | 有印象 |
+| | 她带你出席财阀圈社交活动 | 产生兴趣 |
+| | *(moved from `[身份背景]`)* 集团继承人{name}似乎有意或无意地关照你 | 有印象 |
+| chaebol 室长 | 深夜的保姆车上只有你们两个，你在后视镜里看见她卸下面具后的疲惫脆弱 | 有印象 |
+| | 她在商业上遇到困难，你越过工作的界限关心帮她一起解决 | 产生兴趣 |
+| | 她带你一起去她的私下行程 | 暧昧期 |
+| chaebol 贴身保镖 | 宴会后你脱下西装外套披上她身上单薄的礼服裙 | 有印象 |
+| | 她的正式行程，你提前准备了平底鞋在她累时让她换下高跟鞋 | 有印象 |
+| | 她甩掉行程一个人跑出去，你默契地找到她，却没有上报 | 产生兴趣 |
+| | 凌晨送她回家，她在车里问你累不累——这是第一次有人问 | 产生兴趣 |
+| chaebol 记者 | 你混进财阀圈宴会，她一眼认出你不属于这里 | 陌生人 |
+| | 你在与她的接触中逐渐得知了她家不为人知地信息 | 有印象 |
+| | 她知道你是谁之后没有叫保镖，而是坐下来问你想知道什么 | 产生兴趣 |
+| | 截稿日一天天近了，你开始删自己写下的内容 | 暧昧期 |
+
+**No event is tagged past 暧昧期.** These are the beats that build a relationship, and nothing in
+any list describes one already confirmed. The tail therefore shows the whole list from 暧昧期 on.
+
+#### Found by the scan, listed for Yuhan rather than changed
+
+- **Two more arc sentences in a `[身份背景]`, the same kind as `lawyer`'s.**
+  - kpop `粉丝`: *粉丝活动中她似乎对你有超过其他粉丝的特殊对应* - it tells the model she already
+    treats the player specially, from round 1.
+  - kpop `留学生`: *后作为成员的素人朋友自然接触* - it says the friendship happens. This identity
+    has no event list at all, so the clause has nowhere to move to.
+  - Proposed: move the 粉丝 clause into its list at 有印象, as `lawyer`'s is, and leave 留学生's
+    alone. Yuhan decides both.
+- **The four `主线成员前女友` backgrounds** carry *随着游戏推进，可能复合也可能各自前行*. That is
+  the premise of the identity, not an arc the score has to earn, so it stays.
+- **kpop `韩娱艺人` (zh) uses ASCII `:` and `;`** where every other identity uses `：` and
+  `；`. The splitter accepts both rather than the text being normalised, because normalising is
+  editing Chinese.
+- **`学姐` and `交换生` (zh) say `玩家` inside events** (*问玩家哪门课值得选*, *帮玩家翻译理解*)
+  where every other event says `你`. In the tail they read as a third person. Yuhan's text, so
+  not changed.
+- **`office/new_hire` event 4 is word for word `office/report_to_cast` event 2.**
+- **`chaebol/journalist` event 2 has `不为人知地信息`**, where `的` is meant.
+
 ### P4. Affection rate tied to the chapter
 
 | Chapter | Max rise per round |
