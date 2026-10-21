@@ -85,7 +85,9 @@ authority on progress.
 - **P3b is built** (`d6b1b68`: an event is offered once, near its stage, with a cooldown) and
   **measured against a version with no events at all** (V144_PLAN "P3b results"). In 18 runs, the
   events changed neither cross-game sameness nor plot direction; the tail version staged them on a
-  four-round clock. **Recommendation: remove the typical events. That is Yuhan's call, and it is open.**
+  four-round clock.
+- **Typical events REMOVED (Yuhan's call, 2026-10-21)**, data, code, checks and the harness lever
+  together; V144_PLAN "P3 removed". The comparison stays as the record.
 - **Next: P4** (V144_PLAN P4, design written; baseline R6 mean 39 and R14 mean 75 from P3b's runs). It is
   independent of the events decision.
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on

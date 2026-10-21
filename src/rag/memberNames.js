@@ -39,7 +39,7 @@ export function givenNameOf(m) {
 // The name narration uses for her (v1.4.4 P1, Q2). In the idol world her stage
 // name is her name; in every other world no one in the cast is an idol, so she is
 // her real name, falling back to `name` for a member without one (a custom member
-// with no `name_kr`). Identity backgrounds and their typical events are narration
+// with no `name_kr`). Identity backgrounds are narration
 // about her, so they render through this too - they used to print the stage name
 // in every world (`集团继承人Irene`), against the narration rule two sections on.
 export function narrationNameOf(m, idolWorld) {

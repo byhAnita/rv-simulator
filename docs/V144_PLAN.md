@@ -569,6 +569,29 @@ proxies are crude. No blind read was done.
 - **P4 baseline:** main member R6 = 33-43 (mean 39), R14 = 64-83 (mean 75), over 18 runs. 16
   of 18 reach Confirmed (66+) by R14.
 
+#### P3 removed (2026-10-21)
+
+**Yuhan's decision: remove the typical events.** Everything P3 and P3b added for them is gone:
+`identity.events` in all twelve world files (82 strings, pruned from the zh-review ledger by
+`sync`), `renderIdentityEvents`, `buildEventsLine` and the `[Possible events]` tail line,
+`EVENTS_RULE`, the schema's `event` key and its RULES line, `src/agent/eventSchedule.js`,
+`memory.events`, and the harness's `--events` lever. The four goldens that P3b moved by three
+lines move back.
+
+- **`parseWorld` now throws on an `events` field**, rather than ignoring it, so the data cannot
+  come back without a reader. A smoke guard feeds a sentinel event into a world and asserts it
+  reaches none of the three prompt messages.
+- **Kept from P3:** the background split (`[身份背景]`, 优势/劣势, `[初见]`), and identity text
+  naming her through `narrationNameOf`.
+- **Kept as the record:** P3, P3b and their results above. The comparison is the evidence for
+  this removal, and the next person to propose "give the model some example beats" should read
+  it first.
+- **Verified:** the four goldens lost exactly the rule, the key and its RULES line; smoke
+  **1807 -> 1789** (20 P3/P3b checks out, 2 in); **6 mutations, 6 RED**, two of them reachable
+  only by the sentinel guard, because no data on disk carries events any more.
+- **P8 still plans a schema `event` field**, a generated random event. That is a different
+  mechanism (a rate set by the story mode, no authored pool), and it no longer draws on P3.
+
 ### P4. Affection rate tied to the chapter
 
 | Chapter | Max rise per round |
@@ -637,8 +660,9 @@ feel, so this change gets a **blind read of 6 rounds** before release.
   | pressure | about 1 round in 2 |
   | dramatic | about 1 round in 2 |
 
-- **Context:** the event follows from the chapter, the stage and the stats. It may be an unlocked
-  typical event from P3.
+- **Context:** the event follows from the chapter, the stage and the stats. (It used to say "it
+  may be an unlocked typical event from P3"; the typical events were removed on 2026-10-21. Read
+  "P3 removed" before reintroducing any authored pool: a line in the tail reads as a cue.)
 - **Display:** shown under `【随机事件】`, appended to the history entry, and kept by the export.
 - **Grader:** flags an event in free mode.
 

@@ -1015,6 +1015,18 @@ background), `mainAgent.js#buildEventsLine` and `EVENTS_RULE`, `parseWorld`'s va
 
 **Short form.** Withhold what the state has not unlocked; don't show it and then forbid it.
 
+**REMOVED on 2026-10-21, and the reason is the useful part.** The gating worked as gating: no
+event reached round 1 early. What it could not fix is that **a line in the dynamic tail reads as
+a cue**. Unlocked by stage, an event was staged the round it unlocked (4 of 4). Offered once with
+a 3-round cooldown, it was staged the round it was offered in 4 of 6 runs, so the events landed
+on a four-round clock. A rule saying "most rounds stage none" did not hold against a line sitting
+at the end of the context. And a three-arm comparison (tail / static / none, 18 runs) found the
+events bought nothing: cross-game sameness was the same in every arm, and the `none` arm still
+had direction from the background and `[Chapter]`. So the content was deleted rather than
+re-gated. The technique stands for content the model *must* eventually use. For optional
+inspiration, the tail is the wrong place, because the position itself is an instruction.
+See `docs/V144_PLAN.md`, *P3b results* and *P3 removed*.
+
 ---
 
 ## To backfill

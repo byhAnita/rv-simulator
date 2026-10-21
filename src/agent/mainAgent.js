@@ -10,8 +10,7 @@ import { givenNameOf, narrationNameOf } from "../rag/memberNames";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
-import { planEvents, stagedEvent } from "./eventSchedule";
-import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderIdentityEvents, renderProse } from "../rag/worldLoader";
+import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderProse } from "../rag/worldLoader";
 import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
@@ -55,28 +54,6 @@ export function buildChapterLine(round) {
   const last = c.to === round ? ", the last round of this chapter" : "";
   return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}`;
 }
-
-// The identity's typical events on offer this round (v1.4.4 P3, P3b). They used to
-// sit in the static background, all of them from round 1, so the intimate ones were
-// in front of the model before anything had earned them - and a model shown a beat
-// it may not use yet is primed by it anyway. Fact in the tail, rule in section 6
-// (EVENTS_RULE), rule pointing at the fact. `offered` comes from planEvents
-// (eventSchedule.js), which judges by the MAIN member's stage and by what has
-// already been staged; each item carries its stable number `E<n>`, which is what the
-// schema's `event` key reports back. "" when nothing is offered, so no empty line
-// is ever sent.
-export function buildEventsLine(world, identityId, mainMember, affection, language, seed, offered) {
-  const idx = getStageIdx(affection || 0);
-  const events = renderIdentityEvents(world, identityId, narrationNameOf(mainMember, !!world.castLore?.useRole), offered, seed);
-  if (events.length === 0) return "";
-  const who = mainMember?.name || "the main member";
-  return `\n[Possible events] (${who}'s stage: ${stageNamesFor(language)[idx]})\n${events.map((e) => `- E${e.idx + 1}. ${e.text}`).join("\n")}`;
-}
-
-// Section 6's half of P3. It renders only for an identity that has events, so the
-// static prompt is still a function of the save alone. P3b rewrote it after the live
-// check: the events are examples of a direction, and they were being ticked off.
-const EVENTS_RULE = "Typical events: this identity comes with a few typical events. They are examples of the kind of moment this relationship can have, not a plot to follow. When [CURRENT STATE] has a [Possible events] line, it lists the ones available this round; when it has none, stage none. Most rounds stage none: let the story find its own moments first. Stage at most one per round, only when the story is already heading there, and write it your own way. Once staged, an event is history: refer back to it at most, never stage it again, and do not keep returning to its object or detail in later rounds. An event that has never been listed has not happened.";
 
 // ============================================================
 // Build System Prompt
@@ -176,9 +153,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // already made. Anything that puts a mode rule back in here silently charges
   // full price for ~5,500 tokens on the round after every toggle.
   const identityName = getIdentity(world, form.identity)?.name || form.identity;
-  // One test for the three places P3/P3b render only for an identity with events:
-  // the section 6 rule, the schema's `event` key, and its RULES line.
-  const hasEvents = !!getIdentity(world, form.identity)?.events?.length;
 
   // Korean seniority is a birth-year boundary, not a gap in years: a 1994 and a
   // 1995 idol are not peers even though they may be months apart. Direction is
@@ -223,7 +197,6 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
       ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)`
       : "",
     identityBg,
-    hasEvents ? EVENTS_RULE : "",
   ].filter(Boolean).join("\n");
 
   // The setting is South Korea, so Korean address forms are transliterated into
@@ -677,8 +650,7 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
   "affectionChanges": { "${mainId}": 0${subIds.map(id => `, "${id}": 0`).join("")} },
   "story": "Story text in ${lr.lang} (350-450 words). Pure story, NO stat bars, NO options.",
   "summary": "ONE sentence, 100-150 characters, in English: who appeared and what emotionally shifted.",
-${hasEvents ? `  "event": "E<n> of the [Possible events] item this story staged, or null",
-` : ""}  "socialContent": {
+  "socialContent": {
     ${mainSocial}${subIds.length > 0 ? ",\n    " + subSocials : ""}
   },
   "kktMessages": {
@@ -694,8 +666,7 @@ RULES:
 ${platformFormatRules}
 - story: ${P("storyRule")}
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
-${hasEvents ? `- event: the E<n> number of the one [Possible events] item this round's story staged, or null. Most rounds are null, and so is every round with no [Possible events] line. It comes after the story on purpose: report what you wrote, do not plan the story around it.
-` : ""}- options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
+- options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
 - For Chinese/English: ${plat.social[0]?.promptName || "social"}/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
@@ -985,7 +956,7 @@ export function validateAndFixOutput(result) {
   // Covers: ,"summary":"...", ,"options":[...], and similar key-value tails.
   if (result.story) {
     result.story = result.story
-      .replace(/,?\s*"(?:summary|event|options|scene|statChanges|affectionChanges|socialContent|kktMessages)"\s*:[\s\S]*$/i, "")
+      .replace(/,?\s*"(?:summary|options|scene|statChanges|affectionChanges|socialContent|kktMessages)"\s*:[\s\S]*$/i, "")
       .trim();
   }
   // Secondary: strip if summary text itself was appended as plain prose
@@ -1106,13 +1077,6 @@ export async function executeRound({
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
   const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
-  // Which typical events are on offer is decided BEFORE the call, from the main
-  // member's stage and what earlier rounds staged (P3b); the model's `event` field is
-  // checked against exactly this list afterwards.
-  const eventPlan     = planEvents(getIdentity(world, form.identity)?.events,
-    getStageIdx(memory.affections?.[mainId] || 0), memory.events, roundNum);
-  const eventsLine    = buildEventsLine(world, form.identity, members.find(m => m.id === mainId),
-    memory.affections?.[mainId], language, backstorySeed(form, mainId), eventPlan.offered);
 
   // Step 1.5: Init round variables
   let roundNotifs = [];
@@ -1122,7 +1086,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${eventsLine}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);
@@ -1225,7 +1189,6 @@ export async function executeRound({
   // round's scene when the model omits the field, and a round that produced no scene has
   // discovered nothing.
   const foundPlace = discoveredPlaceIn(parsed.scene, world);
-  const staged = stagedEvent(parsed.event, eventPlan.offered);
 
   // Update memory — append new full-story entry to history ledger
   const updatedMemory = updateMemory(memory, {
@@ -1236,7 +1199,6 @@ export async function executeRound({
     stageChanges,
     memberAppearances: Object.fromEntries(namedInStory.map(id => [id, [roundNum]])),
     discoveredPlace: foundPlace ? { name: foundPlace, round: roundNum } : null,
-    events: { due: eventPlan.due, used: staged, round: roundNum },
   });
 
   return {
@@ -1253,8 +1215,5 @@ export async function executeRound({
     specialEvent,
     relationshipEvent,
     achievement,
-    // What the events line offered and what the model said it staged, for the harness:
-    // the use rate is unmeasurable without it.
-    events: { offered: eventPlan.offered, staged },
   };
 }

@@ -2810,26 +2810,6 @@
       "ko": "61fafe326ff3"
     }
   },
-  "worlds/campus#identities[exchange_student].events[0].text": {
-    "hash": "7a7b5ea0ee03",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[exchange_student].events[1].text": {
-    "hash": "54908115e7ce",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[exchange_student].events[2].text": {
-    "hash": "a3c1f585c562",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[exchange_student].events[3].text": {
-    "hash": "4b1c6471a5ef",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/campus#identities[exchange_student].name": {
     "hash": "17b1e9d112e2",
     "status": "approved",
@@ -2837,26 +2817,6 @@
   },
   "worlds/campus#identities[junior_student].background": {
     "hash": "f5674b88d1db",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[junior_student].events[0].text": {
-    "hash": "d467b7f9a5d9",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[junior_student].events[1].text": {
-    "hash": "438402b733fb",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[junior_student].events[2].text": {
-    "hash": "e65d6aec7b42",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[junior_student].events[3].text": {
-    "hash": "7b806d10f542",
     "status": "approved",
     "approved": "2026-10-21"
   },
@@ -2879,21 +2839,6 @@
       "ko": "46ee01bf6df8"
     }
   },
-  "worlds/campus#identities[peer_student].events[0].text": {
-    "hash": "30fc75f96a6a",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[peer_student].events[1].text": {
-    "hash": "34c821d44c97",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[peer_student].events[2].text": {
-    "hash": "934bd64fdeac",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/campus#identities[peer_student].name": {
     "hash": "19eb1b2d68ad",
     "status": "approved",
@@ -2907,21 +2852,6 @@
       "en": "3af0af54f44b",
       "ko": "45045f6fddbb"
     }
-  },
-  "worlds/campus#identities[prof_of_cast].events[0].text": {
-    "hash": "e1cac57e4356",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[prof_of_cast].events[1].text": {
-    "hash": "37b1be919727",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[prof_of_cast].events[2].text": {
-    "hash": "dbf8157b8655",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/campus#identities[prof_of_cast].name": {
     "hash": "801602ae6458",
@@ -2946,26 +2876,6 @@
       "ko": "594c44a7982f"
     }
   },
-  "worlds/campus#identities[senior_student].events[0].text": {
-    "hash": "cdfd4a745ea2",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[senior_student].events[1].text": {
-    "hash": "c199c82486c5",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[senior_student].events[2].text": {
-    "hash": "5eeb72793a61",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[senior_student].events[3].text": {
-    "hash": "ff0d470cb3fa",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/campus#identities[senior_student].name": {
     "hash": "f7a51a50f497",
     "status": "approved",
@@ -2984,26 +2894,6 @@
       "en": "05634f3e9405",
       "ko": "21c7984f54d6"
     }
-  },
-  "worlds/campus#identities[ta].events[0].text": {
-    "hash": "d7a73b0a81e6",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[ta].events[1].text": {
-    "hash": "38f443eb6013",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[ta].events[2].text": {
-    "hash": "2fa635510ace",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/campus#identities[ta].events[3].text": {
-    "hash": "b0f21abbe0be",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/campus#identities[ta].name": {
     "hash": "8c5ac79b144a",
@@ -3164,30 +3054,6 @@
       "ko": "46ed812bedfa"
     }
   },
-  "worlds/chaebol#identities[bodyguard].events[0].text": {
-    "hash": "8e7f1fa71326",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[bodyguard].events[1].text": {
-    "hash": "0b1a6080dc15",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[bodyguard].events[2].text": {
-    "hash": "6d899c8cfa02",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[bodyguard].events[3].text": {
-    "hash": "755167c3fc68",
-    "status": "approved",
-    "approved": "2026-10-21",
-    "owed": {
-      "en": "e6392f90b89a",
-      "ko": "8138935e3991"
-    }
-  },
   "worlds/chaebol#identities[bodyguard].name": {
     "hash": "ef243a7c444a",
     "status": "approved",
@@ -3206,26 +3072,6 @@
       "ko": "30f56badb770"
     }
   },
-  "worlds/chaebol#identities[heiress_fallen].events[0].text": {
-    "hash": "418eb87c0f6f",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[heiress_fallen].events[1].text": {
-    "hash": "cfcc8b488e36",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[heiress_fallen].events[2].text": {
-    "hash": "65acc288c6c6",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[heiress_fallen].events[3].text": {
-    "hash": "64decc74a9cf",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/chaebol#identities[heiress_fallen].name": {
     "hash": "8f78197f04e1",
     "status": "approved",
@@ -3240,26 +3086,6 @@
       "ko": "71c7c3600985"
     }
   },
-  "worlds/chaebol#identities[journalist].events[0].text": {
-    "hash": "5a178073f46d",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[journalist].events[1].text": {
-    "hash": "125156ba8045",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[journalist].events[2].text": {
-    "hash": "3f732e8323b2",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[journalist].events[3].text": {
-    "hash": "5a6541662e5a",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/chaebol#identities[journalist].name": {
     "hash": "5df8707c1e58",
     "status": "approved",
@@ -3273,31 +3099,6 @@
       "en": "5a18dd46f45f",
       "ko": "672fd99323c8"
     }
-  },
-  "worlds/chaebol#identities[lawyer].events[0].text": {
-    "hash": "0d78fe29b042",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[lawyer].events[1].text": {
-    "hash": "6c4b4a314f21",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[lawyer].events[2].text": {
-    "hash": "0b2222500ee8",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[lawyer].events[3].text": {
-    "hash": "9f6238f30765",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[lawyer].events[4].text": {
-    "hash": "74d724a53a84",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/chaebol#identities[lawyer].name": {
     "hash": "b965ca1730f7",
@@ -3326,26 +3127,6 @@
       "ko": "90787b5f22bf"
     }
   },
-  "worlds/chaebol#identities[rival_heiress].events[0].text": {
-    "hash": "fc0e52ce0a3a",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[rival_heiress].events[1].text": {
-    "hash": "3aa155a85545",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[rival_heiress].events[2].text": {
-    "hash": "ce922e4c5b13",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[rival_heiress].events[3].text": {
-    "hash": "af02f4ae0409",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/chaebol#identities[rival_heiress].name": {
     "hash": "5b89523e9220",
     "status": "approved",
@@ -3359,21 +3140,6 @@
       "en": "b263907edc96",
       "ko": "dac1a685889b"
     }
-  },
-  "worlds/chaebol#identities[secretary].events[0].text": {
-    "hash": "e0b333416273",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[secretary].events[1].text": {
-    "hash": "210903282cb4",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/chaebol#identities[secretary].events[2].text": {
-    "hash": "fc8d011ba281",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/chaebol#identities[secretary].name": {
     "hash": "5b1abd6143f5",
@@ -3566,21 +3332,6 @@
       "ko": "fe3af771e0e8"
     }
   },
-  "worlds/kpop_idol#identities[Staff].events[0].text": {
-    "hash": "a1f2a60a77fb",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[Staff].events[1].text": {
-    "hash": "3df1aaa614d9",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[Staff].events[2].text": {
-    "hash": "e9ef8af63ea2",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/kpop_idol#identities[Staff].name": {
     "hash": "650a8d0f8e79",
     "status": "approved",
@@ -3668,26 +3419,6 @@
       "ko": "b9c17a0538e0"
     }
   },
-  "worlds/kpop_idol#identities[粉丝].events[0].text": {
-    "hash": "0a5a24919828",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[粉丝].events[1].text": {
-    "hash": "ad0516319042",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[粉丝].events[2].text": {
-    "hash": "c288ff1b211a",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[粉丝].events[3].text": {
-    "hash": "bd723a8dae24",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/kpop_idol#identities[粉丝].name": {
     "hash": "261c51c9f1cd",
     "status": "approved",
@@ -3695,26 +3426,6 @@
   },
   "worlds/kpop_idol#identities[练习生].background": {
     "hash": "520317b2be20",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[练习生].events[0].text": {
-    "hash": "34f09e599f8b",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[练习生].events[1].text": {
-    "hash": "c4c75b7707ed",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[练习生].events[2].text": {
-    "hash": "c9f114ce95a6",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[练习生].events[3].text": {
-    "hash": "f4276c97fa0f",
     "status": "approved",
     "approved": "2026-10-21"
   },
@@ -3737,21 +3448,6 @@
       "ko": "342354121d6a"
     }
   },
-  "worlds/kpop_idol#identities[财阀].events[0].text": {
-    "hash": "e7fe0fa72ec6",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[财阀].events[1].text": {
-    "hash": "1998e7a6ea96",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[财阀].events[2].text": {
-    "hash": "e8d6d3aa7de7",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/kpop_idol#identities[财阀].name": {
     "hash": "679753784a2a",
     "status": "approved",
@@ -3770,21 +3466,6 @@
       "en": "3018f3b3864b",
       "ko": "eb0ad544f43b"
     }
-  },
-  "worlds/kpop_idol#identities[韩娱艺人].events[0].text": {
-    "hash": "0e6d09104f23",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[韩娱艺人].events[1].text": {
-    "hash": "88b9a17410c2",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/kpop_idol#identities[韩娱艺人].events[2].text": {
-    "hash": "b4d4faa8d5e0",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/kpop_idol#identities[韩娱艺人].name": {
     "hash": "4438fdac3d5f",
@@ -3886,21 +3567,6 @@
       "ko": "4fffc6ef76bf"
     }
   },
-  "worlds/office#identities[contractor].events[0].text": {
-    "hash": "e82dffcae287",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[contractor].events[1].text": {
-    "hash": "67f2820f108e",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[contractor].events[2].text": {
-    "hash": "0442b0e58057",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/office#identities[contractor].name": {
     "hash": "261bbe800a1f",
     "status": "approved",
@@ -3915,16 +3581,6 @@
       "ko": "2257f6600d1a"
     }
   },
-  "worlds/office#identities[hr].events[0].text": {
-    "hash": "43e31aa7f98e",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[hr].events[1].text": {
-    "hash": "e02ec626d743",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/office#identities[hr].name": {
     "hash": "6ac380cbd716",
     "status": "approved",
@@ -3938,26 +3594,6 @@
       "en": "962f1bb350ba",
       "ko": "6239446d8d20"
     }
-  },
-  "worlds/office#identities[manager_of_cast].events[0].text": {
-    "hash": "55a786a8ca27",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[manager_of_cast].events[1].text": {
-    "hash": "a2da30e02c03",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[manager_of_cast].events[2].text": {
-    "hash": "b1b21c6bbf72",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[manager_of_cast].events[3].text": {
-    "hash": "2ce911ff64de",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/office#identities[manager_of_cast].name": {
     "hash": "c182421398c0",
@@ -3978,21 +3614,6 @@
       "ko": "ea9fceac18f4"
     }
   },
-  "worlds/office#identities[new_hire].events[0].text": {
-    "hash": "14256ff795b2",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[new_hire].events[1].text": {
-    "hash": "4601688942cb",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[new_hire].events[2].text": {
-    "hash": "7d3a7e62043d",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/office#identities[new_hire].name": {
     "hash": "e87070afef32",
     "status": "approved",
@@ -4012,21 +3633,6 @@
       "ko": "ff7ef0994ded"
     }
   },
-  "worlds/office#identities[peer_colleague].events[0].text": {
-    "hash": "3f497fb2bb51",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[peer_colleague].events[1].text": {
-    "hash": "c8b2cb07c697",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[peer_colleague].events[2].text": {
-    "hash": "e8ba1644d91b",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
   "worlds/office#identities[peer_colleague].name": {
     "hash": "6ae62af4619f",
     "status": "approved",
@@ -4040,26 +3646,6 @@
       "en": "c5982612f14e",
       "ko": "89c7d4c18d9b"
     }
-  },
-  "worlds/office#identities[report_to_cast].events[0].text": {
-    "hash": "63926eb62c9f",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[report_to_cast].events[1].text": {
-    "hash": "d2b4cc5df608",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[report_to_cast].events[2].text": {
-    "hash": "b96bd485f337",
-    "status": "approved",
-    "approved": "2026-10-21"
-  },
-  "worlds/office#identities[report_to_cast].events[3].text": {
-    "hash": "635f8c68b125",
-    "status": "approved",
-    "approved": "2026-10-21"
   },
   "worlds/office#identities[report_to_cast].name": {
     "hash": "986608686c50",

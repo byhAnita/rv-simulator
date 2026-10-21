@@ -13,9 +13,6 @@
 // reason imageStore.js names its own import "../utils.js".
 import { SOCIAL_PLATFORM_IDS, PRIVATE_PLATFORM_IDS } from "../config/platformConfig.js";
 import { CHAPTER_IDS } from "../config/chapters.js";
-import { DEFAULT_STAGE_THRESHOLDS } from "../config/stageConfig.js";
-
-const STAGE_COUNT = DEFAULT_STAGE_THRESHOLDS.length - 1;
 
 const base = () => import.meta.env.BASE_URL;
 
@@ -319,19 +316,12 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
       throw new Error(`world ${where}: identity "${ident.id}" has workTitle.because with no direction, which nothing renders`);
     }
   }
-  // Typical events (v1.4.4 P3): `from` is the earliest stage, as an INDEX into the
-  // stage ladder, so one number means the same stage in every language. An event
-  // with a bad `from` would silently never unlock, or unlock on round 1.
+  // Typical events were REMOVED in v1.4.4 (docs/V144_PLAN.md, "P3 removed"): a line
+  // in the tail read as a cue and the events bought nothing measurable. A world file
+  // that brings the field back would be data with no reader, so it is refused.
   for (const ident of identities) {
-    if (ident?.events === undefined) continue;
-    if (!Array.isArray(ident.events) || ident.events.length === 0) {
-      throw new Error(`world ${where}: identity "${ident.id}" has "events" that is not a non-empty array`);
-    }
-    for (const ev of ident.events) {
-      if (!Number.isInteger(ev?.from) || ev.from < 0 || ev.from >= STAGE_COUNT
-          || typeof ev.text !== "string" || !ev.text.trim()) {
-        throw new Error(`world ${where}: identity "${ident.id}" has an event without a stage index 0-${STAGE_COUNT - 1} and a text: ${JSON.stringify(ev)}`);
-      }
+    if (ident?.events !== undefined) {
+      throw new Error(`world ${where}: identity "${ident.id}" has "events", which nothing reads (typical events were removed in v1.4.4)`);
     }
   }
   // The register is resolved HERE rather than carried in the world file, so
@@ -494,27 +484,8 @@ export function renderIdentityBackground(world, identityId, mainMemberName, seed
   return renderIdentityText(entry, entry.background, mainMemberName, seed);
 }
 
-/**
- * The identity's typical events at the given positions (v1.4.4 P3), rendered
- * exactly as the background is, as [{idx, text}] in list order. WHICH positions is
- * not decided here: src/agent/eventSchedule.js picks them from her stage and what
- * has already been staged (P3b). [] for an identity with none, including a custom
- * one, so the caller sends no line at all.
- *
- * These go in the dynamic TAIL, never the static prompt: the list changes as she
- * warms, and a model shown a beat it may not use yet is primed by it anyway.
- */
-export function renderIdentityEvents(world, identityId, mainMemberName, indices, seed = 0) {
-  const entry = getIdentity(world, identityId);
-  const want = new Set(indices || []);
-  return (entry?.events || [])
-    .map((ev, idx) => ({ idx, ev }))
-    .filter(({ idx }) => want.has(idx))
-    .map(({ idx, ev }) => ({ idx, text: renderIdentityText(entry, ev.text, mainMemberName, seed) }));
-}
-
-// One substitution for every piece of identity text, so an event and the
-// background cannot resolve `{name}` or a Korean particle two different ways.
+// The substitution for identity text: `{name}`, the ex-girlfriend's variants, then
+// Korean particles.
 function renderIdentityText(entry, text, mainMemberName, seed) {
   let out = text.replaceAll("{name}", mainMemberName || "her");
   const v = entry.variants;

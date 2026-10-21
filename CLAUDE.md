@@ -650,8 +650,6 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     Irene: hey are you free tonight | you okay?
   + "[Chapter] 承 development (rounds 7-14): this is round 7" — buildChapterLine, the
     chapter of the round being GENERATED (v1.4.4 P2)
-  + "[Possible events] (Irene's stage: 有印象)\n- …" — buildEventsLine, the identity's
-    typical events the MAIN member's stage has unlocked; absent when none (v1.4.4 P3)
   + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
   + optional "[Time Speed] slow|fast ..." line, only when it is not the default
   (both from buildTailRules, which is the only thing allowed to place them)
@@ -969,37 +967,35 @@ names no stage, so no language can disagree, and it points at the rule instead o
 guard derived over every world, language and mode fails on any stage name from another language's
 ladder; 4 mutations RED. Tail only, so no golden moved.
 
-**P3: typical events unlock by stage.** Each identity's `典型事件` list sat in its static
-`[身份背景]`, so every event, the intimate ones included, was in front of the model from round 1
-beside a Stranger score. **A model shown a beat it may not use yet is primed by it anyway**, so
-the events are withheld rather than forbidden: they are `identity.events: [{from, text}]` in the
-world data, `from` a **stage index** (one number, every language), and the tail's
-`[Possible events]` line lists the ones the **main** member's stage has unlocked. Section 6 gains
-one rule, only for an identity with events: at most one per round, and nothing outside the line
-has happened. The data was split by script with a no-text-lost proof, and the backgrounds keep
-`[身份背景]`, 优势/劣势 and `[初见]`. **The zh review saw it as 105 strings to re-tick**, and it
-found two bugs in `zh-review.mjs sync` (see `docs/ZH_REVIEW.md`, *Conflicts*). Four goldens
-moved, diff read; 18 mutations RED. **Not verified live**: whether a model holds back what is not
-yet listed. Since the same day, identity text (background and events) names her through
-`narrationNameOf`: her real name outside the idol world, as P1's narration rule says, where it
-used to print `集团继承人Irene` in every world.
+**Typical events were REMOVED on 2026-10-21 (Yuhan's call, after a measured comparison).**
+Each identity used to carry a `典型事件` list: examples of the kind of moment the relationship
+can have, meant as a direction rather than a plot. They went through three shapes, and each one
+produced its own kind of sameness:
 
-**P3b: an event is offered once, near its stage, and not on cue.** The live check showed an
-event staged the very round it unlocked (4 of 4), a staged one echoing for six rounds, and a
-first-meeting beat still offered at Confirmed, because nothing recorded use.
-`src/agent/eventSchedule.js` (pure) now decides what the tail offers:
-- an event is offered only while her stage is in `[from, from + 1]`;
-- not on the round it first comes due;
-- nothing for 3 rounds after one is staged;
-- never again once staged.
+- **In the static background** (v1.4.3 and before), every event, the intimate ones included,
+  was in front of the model from round 1. A model shown a beat is primed by it: a live run
+  staged the new employee's template folder in **round 1 in 3 of 3** runs.
+- **In the tail, unlocked by stage** (P3), an event was staged the very round it unlocked, 4 of
+  4, and then echoed for up to six rounds.
+- **In the tail, offered once with a cooldown** (P3b, `eventSchedule.js`), the model took
+  every offer the round it appeared in 4 of 6 runs, so events landed on R2, R6, R10 and R14: a
+  clock set by the cooldown. **A line at the end of the context reads as a cue**, whatever the
+  rule beside it says.
 
-The line numbers each item `E<n>` by its place in the list. The schema gains `"event"` after
-`summary`, for identities with events only. `stagedEvent` accepts the number only if it was
-offered this round. `memory.events = {seen, used}` is written by `updateMemory` alone, and an
-old save reads as empty. Four goldens moved by the rule, the key and its RULES line; 14
-mutations RED. Whether the events earn their place at all is measured by `playthrough.mjs
---events tail|static|none`, an experiment lever (the app always plays `tail`): see
-`docs/V144_PLAN.md` P3b.
+**And removing them cost nothing measurable.** 18 runs of 14 rounds, three arms: cross-game
+4-gram overlap was 0.045-0.053 in every arm, and the `none` arm read as directed stories. The
+identity background, `[Chapter]` and the stage rules supply the direction; what makes two games
+of one identity alike is the identity premise, which all three arms share. See
+`docs/V144_PLAN.md`, *P3b results* and *P3 removed*.
+
+So `identity.events`, the `[Possible events]` tail line, section 6's events rule, the schema's
+`event` key and its RULES line, `eventSchedule.js` and `memory.events` are all gone, and the
+82 event strings left the world files. **`parseWorld` throws on an `events` field**, because a
+field with no reader is the shape this file tracks seven times; a smoke guard also feeds a
+sentinel event through the prompt builders. An old save may still carry `memory.events`;
+nothing reads it. What stays from P3 is the background split (`[身份背景]`, 优势/劣势,
+`[初见]`) and `narrationNameOf` in identity text: her real name outside the idol world, as
+P1's narration rule says, where it used to print `集团继承人Irene` in every world.
 
 All six goldens moved by exactly these lines and the diff was read. 18 mutations, 18 RED, one only
 after a fix: dropping a stage's behaviour line CRASHED the suite twice - first in the prompt builder,
