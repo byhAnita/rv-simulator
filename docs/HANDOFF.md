@@ -78,8 +78,11 @@ authority on progress.
   mutations RED. **Smoke is RED by design on one check, Layer Z:** 105 world strings (23 changed
   backgrounds, 82 new events) await Yuhan's ticks in `docs/zh-review/worlds-*.md`. Everything else
   passes. **Do not "fix" that red by editing the ledger or ticking.**
-- **Next: P4, affection rate tied to the chapter** (V144_PLAN P4). An open question for Yuhan from
-  P3: identity text uses the stage name in non-idol worlds (V144_PLAN, "Found, NOT fixed").
+- Layer Z is green again: Yuhan ticked the 105 P3 strings (`162380b`). Identity text now narrates
+  her real name outside the idol world (`10a0ad1`).
+- **P3 live check (V144_PLAN, "P3 live check"):** events fire on the unlock round, a used event
+  echoes for up to 6 rounds, and nothing removes one. Five proposals await Yuhan's call.
+- **Next: P4, affection rate tied to the chapter** (V144_PLAN P4), unless Yuhan picks P3 follow-ups first.
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,

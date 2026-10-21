@@ -415,6 +415,57 @@ each (`강슬기는` resolves its particle now, being Hangul), diff read; 4 muta
 appear, and uses at most one per round, needs a playthrough. The tail's ~60-150 tokens is
 calculated.
 
+#### P3 live check, and what it found (2026-10-21)
+
+Yuhan's questions: is an event removed once used, can an early-stage event come back at an
+intimate stage, and does the list make stories alike? **Answers from the code:** nothing is ever
+removed. The line is recomputed every round as every event with `from <= stage`, so a used event
+stays offered, and a stage-0 first-meeting beat is still offered at Confirmed. Nothing records
+that an event happened.
+
+**Measured:** two 14-round zh runs on `deepseek-flash`, romance mode: chaebol `journalist`
+(`test/.out/playthrough-1792562329430.json`) and office `new_hire` (`-1792562421700.json`).
+Both 14/14 clean, 0 drifts, 0 prefix breaks, 90-91% cache. Read against the offered line each
+round (scratchpad `events-report.mjs`):
+
+- **An event is used the round it unlocks.** Event 0 in R1 and event 1 in R2, in both runs. Stage 1
+  unlocks after one round (12 -> 16), so the stage-1 event fires in R2 every time. That is the
+  "checklist" reading the rule was written against.
+- **A used event echoes for rounds.** new_hire's template folder (event 1, R2) is in the prose of
+  **R2-R7, six rounds running**. The journalist's family secret runs R3-R4.
+- **Not every event is forced.** new_hire's drinking-party event was offered R6-R14 and never used.
+  The journalist's stage-3 event (deleting the draft) landed in R13, four rounds after it unlocked.
+  Both are the intended behaviour.
+- **No early event came back late in these runs.** It is still offered, so the risk is real and
+  unmeasured at n=2.
+- **The bigger sameness is not the events.** A member leaving food or a note (`汤 / 饭 / 便签`)
+  appears in 11 of 14 rounds of each run. That beat is the Kakao rule's substitute (*"she leaves
+  something: a note under the door, food in the fridge"*), so the prompt's own example is being
+  reused every round. Seulgi's jealousy closes almost every round too.
+- **Affection runs fast:** about +4-5 per round, so Flirting comes by R9-R11 and Confirmed by
+  R12-R14. P4 is the fix for that, and it also slows how fast events unlock.
+
+**Proposals, not built; Yuhan decides:**
+
+1. **A window, not a floor.** Offer an event only while the stage is in `[from, from + 1]`. A
+   first-meeting beat then cannot be offered at Confirmed. Pure tail logic, no data change.
+2. **Record use.** Number the items in the line (`E1.`). Add one schema key, `"event": number |
+   null`, placed after `summary`. Keep `memory.eventsUsed` and drop used ones from the line. This
+   is the only way to stop an exact repeat, and it also makes the usage rate measurable. It is a
+   tail-only fact, so it costs no cache. The price is one more schema key, and a key-order change
+   needs the `parseLevel` check that the KKT reorder had.
+3. **A cooldown, and no use on the unlock round.** Send no line in the round a stage is reached,
+   or for 3 rounds after an event is used. That breaks the "unlocked -> used at once" pattern and
+   caps events at about one in four rounds.
+4. **Rule wording:** *"Most rounds use none. Once used, an event is history: refer back to it at
+   most, never stage it again."*
+5. **Separate from P3:** vary or trim the Kakao substitute's examples, which a static prompt
+   carries as a template. This is a register question, so it needs Yuhan's read.
+
+**Measurement that settles 1-3:** with proposal 2 in place, the harness reports the unlock round
+and use round of each event, plus any repeat. Re-run the same two configs and compare echo length
+(template folder: 6 rounds) and use-on-unlock (4 of 4 here).
+
 ### P4. Affection rate tied to the chapter
 
 | Chapter | Max rise per round |
