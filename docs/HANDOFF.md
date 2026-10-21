@@ -71,7 +71,9 @@ authority on progress.
   all six goldens moved, diff read; 18 mutations RED; smoke **1778 / 0**. **Not played live.**
 - **P11 is done** (the romance rule points at section 9 instead of naming a stage in English); 4
   mutations RED, no golden moved.
-- **Next: P12, one round number for the model** (V144_PLAN P12); then P3.
+- **P12 is done** (ledger numbers rounds from 1 and writes `Round N:`; `Round:` left `[Player
+  Status]`); 6 mutations RED, no golden moved; existing saves miss the ledger cache once.
+- **Next: P3, typical events unlock by stage, carried in the tail** (V144_PLAN P3).
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,

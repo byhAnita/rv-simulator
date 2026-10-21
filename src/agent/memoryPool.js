@@ -138,19 +138,25 @@ export function updateMemory(memory, updates) {
 }
 
 // Serializes the append-only history ledger — this block is cacheable across consecutive rounds.
+//
+// A stored `round` is the round's index from 0; the label is the PLAYER'S number
+// (index + 1), which is what her stats box showed for that round and what the
+// tail's [Chapter] line counts in (v1.4.4 P12). Summaries say "Round N:", not
+// "RN:", because R1/R2/R3 are the address ladder's rungs in section 6.
 export function buildHistoryLedger(memory) {
   if (!memory.history?.length) return "";
   const parts = [];
   memory.history.forEach(h => {
+    const n = h.round + 1;
     if (h.type === 'summary') {
-      parts.push(`R${h.round}: ${h.text}`);
+      parts.push(`Round ${n}: ${h.text}`);
     } else {
       // The Choice line is omitted rather than rendered empty: `Choice: ` with a
       // trailing space is the same invisible byte that has cost the cached prefix
       // before, and this block is the cacheable one. Every path in App.jsx supplies
       // a choice (round 1 sends "Game start"), so this is defence at the renderer
       // for a legacy or hand-built entry, not a case the app produces.
-      parts.push(`=== Round ${h.round} ===\n${h.text}`
+      parts.push(`=== Round ${n} ===\n${h.text}`
         + (h.choice ? `\nChoice: ${h.choice}` : ""));
     }
   });
@@ -168,7 +174,9 @@ export function buildDynamicTail(memory, members, roundMemberIds = [], language 
 
   if (memory.playerStats) {
     const s = memory.playerStats;
-    parts.push(`[Player Status] SelfId:${s.selfId} Secrecy:${s.secrecy} Mood:${s.mood} Round:${s.week} Scene:${s.scene}`);
+    // No Round field: it printed the rounds COMPLETED, one behind the round being
+    // written, and [Chapter] states that round already (v1.4.4 P12).
+    parts.push(`[Player Status] SelfId:${s.selfId} Secrecy:${s.secrecy} Mood:${s.mood} Scene:${s.scene}`);
   }
 
   const affMap = memory.affections || {};

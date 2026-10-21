@@ -82,7 +82,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
-| P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none |
+| P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none | ✅ 6 mutations RED |
 
 P9 and P5 come first because they are small and P1 builds on P5's family. P10 was added by
 Yuhan on 2026-10-20 and is independent of the rest, so it is done next, before P1.

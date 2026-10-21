@@ -3822,6 +3822,32 @@ async function layerI() {
     ledger.includes(EDIT), ledger.slice(0, 200));
   check("unedited stories still collapse to their summaries",
     !ledger.includes("story zero") && ledger.includes("summary of round 0"), ledger.slice(0, 200));
+  // v1.4.4 P12: the model sees ONE numbering of a round. The ledger used to label
+  // a round by its index from 0, [Player Status] printed the rounds completed, and
+  // [Chapter] counts from 1 like the player's stats box - three numbers for one
+  // round. Asserted as agreement: the ledger's labels run 1..k with no gap, and the
+  // round [Chapter] names is the one after the last of them. And `R1:` is a rung of
+  // the address ladder, so no ledger line may use that shape.
+  {
+    const mem = { history: [], affections: {}, kktMessages: {} };
+    // As play goes: collapse at the start of each round, then append. Five rounds
+    // leave three summaries and two full stories, so both label shapes are present.
+    for (let r = 0; r < 5; r++) { collapseHistoryIfNeeded(mem); play(mem, r, `story ${r}`); }
+    collapseHistoryIfNeeded(mem);
+    mem.playerStats = { selfId: 50, secrecy: 90, mood: 70, week: 5, scene: "x" };
+    const led = buildHistoryLedger(mem);
+    const labels = [...led.matchAll(/^(?:=== )?Round (\d+)/gm)].map((x) => Number(x[1]));
+    const chapterRound = Number((buildChapterLine(mem.playerStats.week + 1).match(/this is round (\d+)/) || [])[1]);
+    check("the ledger numbers rounds as the player does, and [Chapter] names the next one",
+      labels.length === 5 && labels.every((n, i) => n === i + 1) && chapterRound === labels.at(-1) + 1
+        && /^=== Round/m.test(led) && /^Round \d+:/m.test(led),
+      `ledger ${labels.join(",")} / chapter ${chapterRound}`);
+    check("...and no ledger line is labelled like an address-ladder rung",
+      !/^R\d+:/m.test(led), led.slice(0, 120));
+    const tail = buildDynamicTail(mem, [{ id: "irene", name: "Irene", emoji: "" }], ["irene"], "en");
+    check("...and [Player Status] carries no second round number",
+      tail.includes("[Player Status]") && !/\bRound\s*:/.test(tail), tail.split("\n")[0]);
+  }
   // The ledger is the cacheable block, so an empty `Choice: ` line is the same
   // invisible trailing byte that has cost the whole prefix before. Every App.jsx
   // path supplies a choice — round 1 sends "Game start" — so this guards the

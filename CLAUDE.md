@@ -628,8 +628,8 @@ Message 1 - system (STATIC, 100% cache hit after R1):
 
 Message 2 - user (HISTORY LEDGER, append-only):
   "[HISTORY]\n" + buildHistoryLedger(memory) ->
-    R1: <~100-char summary>
-    R2: <~100-char summary>
+    Round 1: <~100-char summary>      (the player's number, index + 1 - v1.4.4 P12)
+    Round 2: <~100-char summary>
     ...
     === Round 4 ===
     <350-450 word full story>
@@ -641,7 +641,7 @@ Message 2 - user (HISTORY LEDGER, append-only):
 
 Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
   "[CURRENT STATE]\n" + buildDynamicTail(memory, members, roundMemberIds, language) ->
-    [Player Status] SelfId:38 Secrecy:97 Mood:82 Round:6 Scene:practice room
+    [Player Status] SelfId:38 Secrecy:97 Mood:82 Scene:practice room
     [Affections] 🐰Irene:24(Acquaintance) | 🐻Seulgi:12(Stranger)
     [Stage Changes] 🐰Irene: Stranger→Acquaintance
     [Rounds Absent] 🐰Irene:0 | 🐻Seulgi:4 | 🐥Joy(npc):6
@@ -945,9 +945,19 @@ and 有印象 said *starts remembering her name* - all false for the one identit
 shared past. All three are reworded to hold for both kinds of start (*distance at the start*;
 *reaches toward her of her own accord*; *keeps track of her*), so no identity check was needed.
 
-**`[Player Status] Round:` prints the last COMPLETED round**, one behind the round being written,
-and that is pre-existing. `[Chapter]` says *this is round N* so the model is not left to reconcile
-the two; changing the Round line is a separate change.
+**Fixed in P12: the model saw three numberings of one round.** The ledger labelled a round by its
+stored index from 0 (`R0:`, `=== Round 4 ===` for the fifth), `[Player Status] Round:` printed
+the rounds COMPLETED, one behind the round being written, and `[Chapter]` counts from 1 like the
+player's stats box. And since P1, `R1`/`R2`/`R3` are the address ladder's rungs, while the
+ledger wrote a round's summary as `R1: ...` - two quantities under one label. Now the ledger
+renders the player's number (`h.round + 1`) and summaries read `Round N:` like full entries, and
+`Round:` is gone from `[Player Status]`, since `[Chapter]` already carries the round. **The
+stored `round` values are unchanged**, because `[Rounds Absent]`, `memberAppearances` and the
+map read them and agree with each other. Every existing save's ledger misses the cache once, on its
+first round after the update. Asserted as agreement - the ledger's labels run 1..k and `[Chapter]`
+names k+1 - on a ledger built the way play builds it, with both summaries and full entries: the
+first fixture collapsed everything to summaries, and a mutation of the full-entry label stayed GREEN
+until it was rebuilt. 6 mutations RED.
 
 **Fixed in P11:** every world's romance rule said *"Members flirt during Flirting stage"* in
 English in all three languages, while a zh tail prints 暧昧期 - two names for one stage, the
