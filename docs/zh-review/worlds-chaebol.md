@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[rival_heiress].background
 <!-- zh-review key="worlds/chaebol#identities[rival_heiress].background" base="d5d415c037bc" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是另一个财阀家族的女儿，你家和{name}家在同一个行业里正面竞争。 优势：身份对等——你是这个圈子里少数不需要仰视她的人。劣势：你们之间的每一次互动都先被当作商业行为，包括真心的那些。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -63,7 +63,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[heiress_fallen].background
 <!-- zh-review key="worlds/chaebol#identities[heiress_fallen].background" base="2077f413296e" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你的家族曾经也在这个财阀圈子里，几年前失去了一切。现在你还要面对财阀圈的社交，但地位已经不一样了。 优势：你比谁都懂这个圈子的规则，因为你也曾经在圈子里。劣势：所有人都知道你现在的地位，包括你自己——她给的任何东西，看起来都像施舍。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -119,7 +119,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[bodyguard].background
 <!-- zh-review key="worlds/chaebol#identities[bodyguard].background" base="31b065f89efd" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是{name}家族{name}的新任贴身保镖，你负责{name}的安全，寸步不离。 优势：物理距离最近，你几乎和她寸步不离。劣势：身份差距、工作内容和情感的边界 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -133,7 +133,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[journalist].background
 <!-- zh-review key="worlds/chaebol#identities[journalist].background" base="d05dff6d90cf" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是记者，刚接到的工作是调查这个家族。你接近她是为了一篇爆料稿子，至少一开始是。 优势：你不属于财阀圈，所以你敢问别人不敢问的话。劣势：你们关系的起点是一场欺骗——无论后来变成什么，那总是一个埋在心里的结 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~

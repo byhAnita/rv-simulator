@@ -49,7 +49,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[peer_colleague].background
 <!-- zh-review key="worlds/office#identities[peer_colleague].background" base="63c1a18045e2" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是刚被调入和成员们同一个组、同一个级别的同事，工位只隔着一块挡板，在工作中自然接触。 优势：平级、同组，待在一起不需要任何理由。劣势：难以分辨互动里有多少是职务，接近有多少是工作之外 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -126,7 +126,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[contractor].background
 <!-- zh-review key="worlds/office#identities[contractor].background" base="2f81f1d347e3" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是其他公司的员工，因与成员们所在公司的一个合作项目相识。 优势：你不在她们公司的体系里，同事的舆论不影响恋情。劣势：项目结束意味着你们工作交集的结束。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -140,7 +140,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[hr].background
 <!-- zh-review key="worlds/office#identities[hr].background" base="838e11f99c13" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是人事部的职工，成员们的考核、投诉、奖金、假期等事务，都经过你的手。 优势：你比任何人都清楚她的信息。劣势：你清楚办公室恋情曝光的舆论代价  [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~

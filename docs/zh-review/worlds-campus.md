@@ -70,7 +70,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[peer_student].background
 <!-- zh-review key="worlds/campus#identities[peer_student].background" base="b3d8a49baac1" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你和{name}是成员们同一届、同一个系的学生，入学自然相识。 优势：距离最近，见面理由最多。劣势：也正因为如此，爱情和友情的界限模糊   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -126,7 +126,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[ta].background
 <!-- zh-review key="worlds/campus#identities[ta].background" base="4a5d83c88340" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是成员们这学期新课的助教，你指导成员们课程项目、课后答疑、作业批改等，在课程中自然相识。优势：位置暧昧——你有一点权力并可以提供帮助，接近她变得容易。劣势：作为助教的公正不偏袒的规则   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -140,7 +140,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### identities[exchange_student].background
 <!-- zh-review key="worlds/campus#identities[exchange_student].background" base="6d8650f6c60c" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是刚来大学交换一学期的留学生，成为成员们同一届、同一个系的交换生同学，你对韩语和韩国不熟悉。优势：留学生的身份让这段关系关注度低 舆论压力小 劣势：所有人都知道你会走，包括她——这件事从第一天起就是你们都知道的前提 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~

@@ -91,7 +91,7 @@ kpop偶像
 
 ### identities[韩娱艺人].background
 <!-- zh-review key="worlds/kpop_idol#identities[韩娱艺人].background" base="6267acd127fa" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是其他公司的kpop女idol, 与{name}因合作机会相识。 优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
@@ -105,7 +105,7 @@ kpop偶像
 
 ### identities[粉丝].background
 <!-- zh-review key="worlds/kpop_idol#identities[粉丝].background" base="e6f49f4ce658" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 1a7b4ea 2026-10-21
 ~~~~
 [身份背景] 你是{name}的粉丝，需通过特殊事件才能与成员建立私下联系。 优势：对{name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，你是第一次参加组合的线下活动。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
 ~~~~
