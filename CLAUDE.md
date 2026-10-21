@@ -980,7 +980,9 @@ has happened. The data was split by script with a no-text-lost proof, and the ba
 `[身份背景]`, 优势/劣势 and `[初见]`. **The zh review saw it as 105 strings to re-tick**, and it
 found two bugs in `zh-review.mjs sync` (see `docs/ZH_REVIEW.md`, *Conflicts*). Four goldens
 moved, diff read; 18 mutations RED. **Not verified live**: whether a model holds back what is not
-yet listed.
+yet listed. Since the same day, identity text (background and events) names her through
+`narrationNameOf`: her real name outside the idol world, as P1's narration rule says, where it
+used to print `集团继承人Irene` in every world.
 
 All six goldens moved by exactly these lines and the diff was read. 18 mutations, 18 RED, one only
 after a fix: dropping a stage's behaviour line CRASHED the suite twice - first in the prompt builder,

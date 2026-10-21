@@ -6,7 +6,7 @@ import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMe
 // where pickPrimaryMember used to be called, and docs/PROPOSALS.md §4.
 import { getStageIdx, stageNameIn, stageNamesFor, rungStagesFor, STAGE_BANDS, STAGE_BEHAVIOUR } from "../config/stageConfig";
 import { CHAPTERS, chapterForRound, chapterRange } from "../config/chapters";
-import { givenNameOf } from "../rag/memberNames";
+import { givenNameOf, narrationNameOf } from "../rag/memberNames";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
@@ -64,7 +64,7 @@ export function buildChapterLine(round) {
 // no events, a custom one included, so no empty line is ever sent.
 export function buildEventsLine(world, identityId, mainMember, affection, language, seed = 0) {
   const idx = getStageIdx(affection || 0);
-  const events = renderIdentityEvents(world, identityId, mainMember?.name, idx, seed);
+  const events = renderIdentityEvents(world, identityId, narrationNameOf(mainMember, !!world.castLore?.useRole), idx, seed);
   if (events.length === 0) return "";
   const who = mainMember?.name || "the main member";
   return `\n[Possible events] (${who}'s stage: ${stageNamesFor(language)[idx]})\n${events.map((e) => `- ${e}`).join("\n")}`;
@@ -152,7 +152,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Identity background. The seed is what keeps this stable round to round —
   // see backstorySeed below, and "buildSystemPrompt must be a pure function of
   // the save" in CLAUDE.md.
-  const identityBg = renderIdentityBackground(world, form.identity, mainMember?.name, backstorySeed(form, mainId));
+  const identityBg = renderIdentityBackground(world, form.identity, narrationNameOf(mainMember, !!world.castLore?.useRole), backstorySeed(form, mainId));
 
   // The identity and the pace both reached the model as their raw ids, which are
   // authored in Chinese for every language — so an English player's prompt said

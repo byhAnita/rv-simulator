@@ -401,11 +401,15 @@ text exists:
   a draft (23 drafts offering the old events list back for a tick). See `docs/ZH_REVIEW.md`.
 - 18 mutations RED (14 for P3, 4 for the sync fixes).
 
-**Found, NOT fixed (a separate change):** identity text renders `{name}` as the **stage** name in
+**Found, then FIXED 2026-10-21 on Yuhan's call (it joins v1.4.4):** identity text rendered `{name}` as the **stage** name in
 every world (`集团继承人Irene`), while P1's Q2 rule says a non-idol world narrates her **real**
 name. Pre-existing for the backgrounds since v1.4.1, and now true of the events too. The fix is
-passing the real name in non-idol worlds; it moves the non-idol goldens. Yuhan decides whether it
-joins v1.4.4.
+passing the real name in non-idol worlds. **As built:** `narrationNameOf(m, idolWorld)` in
+`memberNames.js` - stage name in the idol world, `name_kr` elsewhere, `name` for a member with
+none - feeds both the background and the events. The three non-idol goldens moved by one name
+each (`강슬기는` resolves its particle now, being Hangul), diff read; 4 mutations RED. The
+`[Possible events]` header keeps the stage name, because it is a key that must match
+`[Affections]`, not narration.
 
 **Not verified:** no live round. Whether a model holds the intimate events back until they
 appear, and uses at most one per round, needs a playthrough. The tail's ~60-150 tokens is

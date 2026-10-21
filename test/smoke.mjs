@@ -4618,7 +4618,7 @@ async function layerI() {
   {
     const SC = await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
     const STATIC_LIST = /典型事件|Typical events:|주요 이벤트:/;
-    const stillStatic = [], disagree = [], early = [], missing = [], unresolved = [], badHead = [], ruleOff = [];
+    const stillStatic = [], disagree = [], early = [], missing = [], unresolved = [], badHead = [], ruleOff = [], wrongName = [];
     for (const [wid, byLang] of Object.entries(allWorlds)) {
       for (const ident of byLang.zh.identities) {
         const per = ["zh", "en", "ko"].map((l) => byLang[l].identities.find((i) => i.id === ident.id)?.events || []);
@@ -4629,6 +4629,10 @@ async function layerI() {
       for (const lang of ["zh", "en", "ko"]) {
         const w = byLang[lang];
         const irene = library.red_velvet[lang].find((m) => m.id === "irene");
+        // The name identity text narrates her by: the stage name in the idol world, her
+        // real name everywhere else (P1's Q2 rule), and never the other one.
+        const idol = w.castLore.useRole;
+        const want = idol ? irene.name : irene.name_kr, wrong = idol ? irene.name_kr : irene.name;
         for (const ident of w.identities) {
           const where = `${wid}/${lang}/${ident.id}`;
           if (STATIC_LIST.test(ident.background || "")) stillStatic.push(where);
@@ -4636,6 +4640,13 @@ async function layerI() {
           const pr = buildSystemPrompt(form({ identity: ident.id }), library.red_velvet[lang], "irene", ["seulgi"],
             { groupLore: "lore" }, "", "qwen", lang, w);
           const hasRule = pr.includes("the [Possible events] line in [CURRENT STATE]");
+          if ((ident.background || "").includes("{name}")) {
+            const head = ident.background.slice(0, ident.background.indexOf("{"));
+            const at = pr.indexOf(head);
+            // As many lines as the background has: the ex-girlfriend's runs over four.
+            const bg = at < 0 ? "" : pr.slice(at).split("\n").slice(0, ident.background.split("\n").length).join("\n");
+            if (!bg.includes(want) || bg.includes(wrong)) wrongName.push(`${where} background`);
+          }
           if (hasRule !== evs.length > 0) ruleOff.push(`${where} rule:${hasRule} events:${evs.length}`);
           for (let idx = 0; idx < SC.DEFAULT_STAGE_THRESHOLDS.length - 1; idx++) {
             const line = buildEventsLine(w, ident.id, irene, SC.DEFAULT_STAGE_THRESHOLDS[idx], lang, 0);
@@ -4650,8 +4661,10 @@ async function layerI() {
             // A later event's own words must not be there, whatever the count says.
             // zh and en only: a ko particle is resolved, so its text is not verbatim.
             if (lang !== "ko") for (const e of evs.filter((x) => x.from > idx)) {
-              if (line.includes(e.text.split("{name}").join("Irene"))) early.push(`${where}@${idx} ${e.text.slice(0, 20)}`);
+              if (line.includes(e.text.split("{name}").join(want))) early.push(`${where}@${idx} ${e.text.slice(0, 20)}`);
             }
+            const named = items.filter((_, n) => due[n]?.text.includes("{name}")).join("\n");
+            if (named && (!named.includes(want) || named.includes(wrong))) wrongName.push(`${where}@${idx} events`);
             if (/\{name\}|\{reason\}|\{keepsake\}|이\/가|은\/는|을\/를|과\/와|으로\/로/.test(line)) unresolved.push(`${where}@${idx}`);
             if (!line.startsWith(`\n[Possible events] (Irene's stage: ${SC.stageNamesFor(lang)[idx]})\n`)) badHead.push(`${where}@${idx} ${line.split("\n")[1]}`);
           }
@@ -4670,6 +4683,8 @@ async function layerI() {
       unresolved.length === 0, unresolved.slice(0, 5).join(", "));
     check("...under her name and her stage, named in the story's language",
       badHead.length === 0, badHead.slice(0, 5).join(" | "));
+    check("identity text narrates the main member by her real name outside the idol world, and by her stage name in it",
+      wrongName.length === 0, wrongName.slice(0, 5).join(" | "));
     check("section 6 carries the events rule exactly for an identity that has events",
       ruleOff.length === 0, ruleOff.slice(0, 5).join(" | "));
     // executeRound builds the tail and cannot run here without a model, so the guard

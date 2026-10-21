@@ -104,7 +104,7 @@ Main Member: Karina(刘知珉)
 Sub Members: Winter
 NPC Members: Giselle, Ningning (non-romanceable, must appear in background)
 [特殊身份背景-主线成员前女友]
-- 你和Karina曾是恋人，几年前因当年那场风波分手
+- 你和刘知珉曾是恋人，几年前因当年那场风波分手
 - 你至今保留着她写给你的信
 - 现在两家的生意又让你们重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离
 - 圈子里的人可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行
