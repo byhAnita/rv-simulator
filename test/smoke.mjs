@@ -2703,9 +2703,13 @@ async function layerI() {
   const addressOfIn = (text, name) => {
     const lines = text.split("\n");
     const i = lines.findIndex((l) => l.includes(`${name}(`));
-    return i === -1 ? "" : lines.slice(i, i + 3).join("\n").replace(/\n/g, " / ");
+    // Header, Age, and the two Address lines (v1.4.4 P1: one per direction).
+    return i === -1 ? "" : lines.slice(i, i + 4).join("\n").replace(/\n/g, " / ");
   };
   const addressOf = (name) => addressOfIn(p, name);
+  // One direction of one member's ladder, as a single line.
+  const ladderOf = (text, name, dir) => addressOfIn(text, name).split(" / ")
+    .find((l) => l.trim().startsWith(dir === "toHer" ? "Address, Summer -> her:" : "Address, she -> Summer:")) || "";
 
   // --- age direction. The old code printed the player's relative age inside
   //     the member's profile, so every line read backwards.
@@ -2723,23 +2727,28 @@ async function layerI() {
 
   // --- direction is asymmetric. This is the bug the player reported: both
   //     sides calling each other unnie.
+  // v1.4.4 P1: the forms are a ladder of three rungs, so unnie appears from R2 on.
+  // The DIRECTION is what these pin, and it is the same at every rung.
   check("player calls the older member unnie",
-    /Summer -> "Irene-unnie"/.test(irene), irene);
+    /R2 "unnie" or "Irene-unnie"/.test(ladderOf(p, "Irene", "toHer")), irene);
   check("older member is forbidden from calling the player unnie",
-    /She must NEVER call Summer "unnie"/.test(irene), irene);
+    /She must NEVER call Summer "unnie"/.test(irene)
+      && !/-unnie"/.test(ladderOf(p, "Irene", "toPlayer")), irene);
   check("younger member calls the player unnie",
-    /She -> "Summer-unnie"/.test(yeri), yeri);
+    /R2 "unnie" or "Summer-unnie"/.test(ladderOf(p, "Yeri", "toPlayer")), yeri);
   check("player is forbidden from calling the younger member unnie",
-    /Summer must NEVER call her "unnie"/.test(yeri), yeri);
+    /Summer must NEVER call her "unnie"/.test(yeri)
+      && !/unnie"/.test(ladderOf(p, "Yeri", "toHer")), yeri);
   check("no member is told both to use and to avoid unnie",
-    !/She -> "Summer-unnie"[\s\S]{0,200}She must NEVER call Summer "unnie"/.test(p));
+    !members.some((m) => /She must NEVER call Summer/.test(addressOf(m.name))
+      && /"unnie" or|-unnie"/.test(ladderOf(p, m.name, "toPlayer"))));
 
   // --- same birth year. Age 32 => born 1994, same as Seulgi and Wendy.
   const peer = prompt(form({ age: "32" }));
   const peerLines = peer.split("\n");
   const peerBlock = (name) => {
     const i = peerLines.findIndex((l) => l.includes(`${name}(`));
-    return i === -1 ? "" : peerLines.slice(i, i + 3).join("\n");
+    return i === -1 ? "" : peerLines.slice(i, i + 4).join("\n");
   };
   check("same birth year produces no unnie in either direction",
     peerLines.filter((l) => /same birth year as Summer/.test(l)).length === 2,
@@ -2747,9 +2756,10 @@ async function layerI() {
   check("same-age member's own block offers no unnie form",
     !/-unnie"/.test(peerBlock("Seulgi")), peerBlock("Seulgi").replace(/\n/g, " / "));
   check("same-age member is still given an address form",
-    /plain given name/.test(peerBlock("Seulgi")), peerBlock("Seulgi"));
+    /Summer -> her: R1 "Seulgi-ssi" \| R2 "Seulgi" \| R3 "Seulgi"/.test(peerBlock("Seulgi")),
+    peerBlock("Seulgi"));
   check("a genuinely older member in the same cast still gets unnie",
-    peerBlock("Irene").includes('Summer -> "Irene-unnie"'), peerBlock("Irene"));
+    peerBlock("Irene").includes('"unnie" or "Irene-unnie"'), peerBlock("Irene"));
 
   // --- birth year is collected, not derived (v1.4.0 step 4).
   //
@@ -2786,12 +2796,17 @@ async function layerI() {
   // stripped because those are supposed to move with the birth year; nothing
   // else may.
   const stripSeniority = (s) => s.split("\n")
-    .filter((l) => !/^ {2}(Age|Address): /.test(l)).join("\n")
+    .filter((l) => !/^ {2}(Age|Address)\b/.test(l)).join("\n")
     .replace(/age \d+, born \d{4}/, "");
+  const seniorityFree = (y) => stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: y })));
+  const firstDiff = (a, b) => {
+    const [x, y] = [a.split("\n"), b.split("\n")];
+    const i = x.findIndex((l, k) => l !== y[k]);
+    return i === -1 ? "" : `${x[i]} -> ${y[i]}`.slice(0, 200);
+  };
   check("a birth year cannot re-roll the identity backstory",
-    stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "1990" })))
-    === stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "2000" }))),
-    "the backstory seed moved with the birth year");
+    seniorityFree("1990") === seniorityFree("2000"),
+    `the backstory seed moved with the birth year: ${firstDiff(seniorityFree("1990"), seniorityFree("2000"))}`);
 
   // --- the member profile section ------------------------------------------
   // The member profile section only, so an unrelated block cannot mask or
@@ -2855,7 +2870,7 @@ async function layerI() {
     !bare.includes("undefined"),
     bare.split("\n").filter((l) => l.includes("undefined")).slice(0, 3).join(" | "));
   check("...and renders only the lines she actually has",
-    bareBlock.split("\n").length === 4
+    bareBlock.split("\n").length === 5
       && /^Lin Xia \[SUB - Romanceable\]$/.test(bareBlock.split("\n")[0])
       && bareBlock.includes("\n  Private: expresses affection"),
     JSON.stringify(bareBlock));
@@ -2955,7 +2970,15 @@ async function layerI() {
 
   // --- the self-naming bug: a member thanking the player with her own name.
   check("member's own name is ruled out as an address form for the player",
-    p.includes('"Irene" and "Bae Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");
+    p.includes('"Irene", "Bae Ju-hyun", "Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");
+  // A custom main with no `name_kr` printed `"undefined"` there until v1.4.4 P1.
+  const customMainContract = buildSystemPrompt(form(),
+    [{ id: "c_9", name: "Haru", birthday: "1997-03-02", private_personality: "quiet" }, members[1]],
+    "c_9", [], GROUP, "", "qwen", "en", worldFor.en);
+  check("...and a main with no real name lists only the name she has",
+    customMainContract.includes('When Haru speaks, "Haru" refer to herself')
+      && !/refer to herself[^\n]*undefined/.test(customMainContract),
+    (customMainContract.split("\n").find((l) => l.includes("refer to herself")) || "").slice(0, 160));
   check("speaker contract defines I/you inside quotation marks",
     /Inside quotation marks, "I"\/"me"\/"my" = the character who is speaking/.test(p));
   check("speaker contract binds the player's own choice text",
@@ -3367,36 +3390,83 @@ async function layerI() {
   // The work override points the title in opposite directions for a trainee and
   // for everyone else, so the shared "it relaxes toward her given name" clause
   // named the wrong person in one of the two.
-  const overrideOf = (identity) => prompt(form({ identity })).split("\n")
-    .find((l) => l.startsWith("Work override:")) || "";
-  check("the staff work override relaxes toward the PLAYER's name",
-    /relaxing toward "Summer" as they grow close/.test(overrideOf("Staff")),
-    overrideOf("Staff"));
-  check("the trainee work override relaxes toward the MEMBER's name",
-    /relaxing toward a member's plain name/.test(overrideOf("练习生"))
-      && !/toward "Summer"/.test(overrideOf("练习生")),
-    overrideOf("练习生"));
+  //
+  // v1.4.4 P1 folded that sentence into every member's ladder: Yuhan's new employee
+  // called her CEO 欧尼 from round 1 because the per-member line named only the age
+  // form and the title sat in one general note far away. So what is asserted now is
+  // that the title is ON THE LADDER, on the junior's side, for EVERY member - and
+  // absent from the other side. Counted over the cast, not sampled from one member.
+  const ladderSides = (identity) => {
+    const pr = prompt(form({ identity }));
+    return members.map((m) => ({ id: m.id,
+      toHer: ladderOf(pr, m.name, "toHer"), toPlayer: ladderOf(pr, m.name, "toPlayer") }));
+  };
+  const staffSides = ladderSides("Staff"), traineeSides = ladderSides("练习生");
+  check("a title pointed at the PLAYER opens every member's ladder toward her",
+    staffSides.every((s) => /^\s*Address, she -> Summer: R1 "Manager-nim"/.test(s.toPlayer)
+      && /in front of others "Manager-nim"/.test(s.toPlayer)),
+    staffSides.filter((s) => !/R1 "Manager-nim"/.test(s.toPlayer)).map((s) => s.id).join(", "));
+  check("...and never appears on the player's side of it",
+    staffSides.every((s) => s.toHer && !/Manager-nim/.test(s.toHer)),
+    staffSides.map((s) => s.toHer).join(" | ").slice(0, 200));
+  check("a title pointed at the CAST opens every ladder from the player",
+    traineeSides.every((s) => /^\s*Address, Summer -> her: R1 "sunbae-nim"/.test(s.toHer)
+      && /in front of others "sunbae-nim"/.test(s.toHer)),
+    traineeSides.filter((s) => !/R1 "sunbae-nim"/.test(s.toHer)).map((s) => s.id).join(", "));
+  check("...and never appears on the member's side of it",
+    traineeSides.every((s) => s.toPlayer && !/sunbae-nim/.test(s.toPlayer)),
+    traineeSides.map((s) => s.toPlayer).join(" | ").slice(0, 200));
   check("...and neither leaves the ambiguous shared clause behind",
-    !/It relaxes toward her given name/.test(p + overrideOf("Staff") + overrideOf("练习生")),
+    !/It relaxes toward her given name/.test(prompt(form({ identity: "Staff" })) + prompt(form({ identity: "练习生" }))),
     "whose given name was never stated");
 
-  // --- register is soft and blended, not a per-stage lookup.
-  for (const cue of ["Age gap", "Closeness", "Private Personality"]) {
-    check(`register blends ${cue}`, p.includes(cue));
+  // --- register: a ladder of three rungs, read off her stage (v1.4.4 P1).
+  // Deleted, not added beside: three sentences the ladder contradicts.
+  const registerOf = (src) => src.slice(src.indexOf("REGISTER:"), src.indexOf("KOREAN ADDRESS FORMS"));
+  for (const [what, re] of [
+    ["the direction never reverses at any affection level", /NEVER reverses, at any affection level/],
+    ["a near-age member is casual while the score is low", /already casual while the score is still low/],
+    ["the separate Work override sentence", /Work override/],
+  ]) {
+    check(`the old register line is gone: ${what}`,
+      !re.test(prompt(form({ identity: "Staff" }))) && !re.test(p), re.source);
   }
-  check("register states the direction never reverses",
-    /NEVER reverses, at any affection level/.test(p));
-  // The tail emits Chinese stage labels, so the register text must not key off
-  // English stage names it will never see.
-  check("register does not name stages the dynamic tail never emits",
-    !/\b(Flirting|Lovers|Stranger stage)\b/.test(p.slice(p.indexOf("REGISTER:"), p.indexOf("7. SOCIAL"))));
+  // The rungs are named by STAGE, and must be named by exactly the stage labels the
+  // tail prints beside her score, in her language - the [Stage Changes] lesson: two
+  // vocabularies for one scale with nothing saying they correspond.
+  const { rungStagesFor, RUNG_FIRST_STAGE, DEFAULT_STAGE_THRESHOLDS: TH, stageNamesFor: namesFor } =
+    await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+  check("the rungs break at 31 and 66, as Yuhan's ladder says",
+    TH[RUNG_FIRST_STAGE[1]] === 31 && TH[RUNG_FIRST_STAGE[2]] === 66 && RUNG_FIRST_STAGE[0] === 0,
+    `${TH[RUNG_FIRST_STAGE[1]]}, ${TH[RUNG_FIRST_STAGE[2]]}`);
+  for (const lang of ["zh", "en", "ko"]) {
+    const reg = registerOf(prompt(form(), lang));
+    const [a, b, c] = rungStagesFor(lang);
+    check(`[${lang}] the rungs are named by the stage labels the tail emits`,
+      reg.includes(`R1 = ${a.join(", ")} | R2 = ${b.join(", ")} | R3 = ${c.join(", ")}`)
+        && [...a, ...b, ...c].join() === namesFor(lang).join(),
+      reg.split("\n").find((l) => l.includes("R1 =")) || "no rung line");
+  }
+  check("every step happens on screen, paced by her Private Personality",
+    /Every step down happens ON SCREEN/.test(registerOf(p)) && /Private Personality decides who moves first/.test(registerOf(p)));
+  check("...a rung is never skipped, and moving back up is a deliberate cold move",
+    /A rung is never skipped/.test(registerOf(p)) && /deliberate cold move/.test(registerOf(p)));
+  check("...an NPC member, who has no score, never reaches R3",
+    /An NPC member has no score[^\n]*never R3/.test(registerOf(p)));
+  // A couple's word is the player's language's own. In ko that language IS Korean,
+  // so "never a Korean word transliterated" would forbid the very word it asks for.
+  check("a couple's word is the story language's own, and ko is not told to avoid Korean",
+    /native to English, your choice, never a Korean word transliterated/.test(registerOf(prompt(form(), "en")))
+      && /native to Korean, your choice\./.test(registerOf(prompt(form(), "ko")))
+      && !/never a Korean word/.test(registerOf(prompt(form(), "ko"))),
+    registerOf(prompt(form(), "ko")).split("\n").find((l) => l.includes("couple's word is")) || "");
 
   // --- Korean address forms stay transliterated in every output language.
   //     Localizing 언니 to the Chinese 姐 reads as a family drama and throws
   //     away the setting the whole game rests on.
   const zhP = prompt(form(), "zh"), enP = prompt(form(), "en"), koP = prompt(form(), "ko");
   check("[zh] the older member is addressed as 欧尼, not 姐",
-    /Summer -> "Irene欧尼"/.test(zhP), addressOfIn(zhP, "Irene"));
+    /R2 "欧尼" or "Irene欧尼"/.test(ladderOf(zhP, "Irene", "toHer")), addressOfIn(zhP, "Irene"));
   check("[zh] 姐 is banned by name so the model cannot default to it",
     zhP.includes('NEVER "姐"'), "the ban has to be explicit — the model reaches for 姐 otherwise");
   // --- 야 is the one form transliteration cannot carry into Chinese.
@@ -3408,7 +3478,12 @@ async function layerI() {
   // Scoped to the Address lines: the prompt deliberately QUOTES the wrong
   // pattern as a counter-example, so a whole-prompt search would match the very
   // text doing the forbidding.
-  const addressLinesOf = (src) => src.split("\n").filter(l => l.trim().startsWith("Address:")).join("\n");
+  // `Address, ` since v1.4.4 P1. It read `Address:` before, and a filter matching no
+  // line makes every check below it pass on an empty string - so the count is asserted.
+  const addressLinesOf = (src) => src.split("\n").filter(l => l.trim().startsWith("Address, ")).join("\n");
+  check("[zh] the Address-line scan reads two lines per member",
+    addressLinesOf(zhP).split("\n").length === 2 * members.length,
+    `${addressLinesOf(zhP).split("\n").length} lines for ${members.length} members`);
   check("[zh] no member is offered a name+呀 vocative",
     !/呀/.test(addressLinesOf(zhP)), addressLinesOf(zhP));
   check("[zh] 呀 is still taught as a standalone exclamation",
@@ -3417,10 +3492,13 @@ async function layerI() {
   check("[zh] the wrong pattern is banned by example, not just omitted",
     /NEVER as a suffix on a name/.test(zhP));
   // en and ko are unaffected: English has no competing 呀, Korean is native.
+  // At R3 only, and only from the elder: Irene may say it to Summer, Summer not to Irene.
   check("[en] the -ya vocative survives, since English has no competing form",
-    /"Summer-ya" once close/.test(enP), addressOfIn(enP, "Irene"));
+    /R3 "Summer", "Summer-ya" or a couple's word/.test(ladderOf(enP, "Irene", "toPlayer"))
+      && !/-ya"/.test(ladderOf(enP, "Irene", "toHer")), addressOfIn(enP, "Irene"));
   check("[ko] the 야 vocative survives in its native language",
-    /"Summer 야" once close/.test(koP), addressOfIn(koP, "Irene"));
+    /R3 "Summer", "Summer 야" or a couple's word/.test(ladderOf(koP, "Irene", "toPlayer")),
+    addressOfIn(koP, "Irene"));
 
   // --- address forms are spoken, never narrated.
   // "Irene欧尼正站在窗边" — the SPEAKER CONTRACT scoped pronouns to narration
@@ -3443,23 +3521,27 @@ async function layerI() {
   check("[zh] a Chaebol player's work title uses Latin nim",
     prompt(form({ identity: "财阀" }), "zh").includes("会长nim"));
   check("[en] the older member is addressed as unnie",
-    /Summer -> "Irene-unnie"/.test(enP), addressOfIn(enP, "Irene"));
+    /R2 "unnie" or "Irene-unnie"/.test(ladderOf(enP, "Irene", "toHer")), addressOfIn(enP, "Irene"));
   check("[en] English kinship words are banned by name",
     /NEVER "big sister"/.test(enP));
   check("[ko] the forms are written natively",
-    /Summer -> "Irene 언니"/.test(koP), addressOfIn(koP, "Irene"));
+    /R1 "Irene 씨" \| R2 "언니" or "Irene 언니"/.test(ladderOf(koP, "Irene", "toHer")), addressOfIn(koP, "Irene"));
   check("no prompt offers 姐 as an address form in any language",
-    ![zhP, enP, koP].some((x) => /-> "[^"]*姐"/.test(x)));
+    ![zhP, enP, koP].some((x) => /"[^"]*姐[^"]*"/.test(addressLinesOf(x))));
 
-  // --- identity override outranks age, and only for the identities that have one.
+  // --- the work title's REASON is stated once; the title itself is on every ladder.
   const staff = prompt(form({ identity: "Staff" }));
   check("Staff player is addressed by work title regardless of age",
-    /Manager-nim/.test(staff) && /Work override/.test(staff));
-  check("work override appears once, not once per member",
-    (staff.match(/Work override/g) || []).length === 1,
-    `${(staff.match(/Work override/g) || []).length} occurrences`);
-  check("identity without a work title gets no override line",
-    !/Work override/.test(p));
+    /^Title: they address Summer as "Manager-nim" \(매니저님\) on the job, whatever their ages\.$/m.test(staff),
+    (staff.split("\n").find((l) => l.startsWith("Title:")) || "no Title line"));
+  check("the title's reason appears once, not once per member",
+    (staff.match(/^Title: /gm) || []).length === 1,
+    `${(staff.match(/^Title: /gm) || []).length} occurrences`);
+  check("identity without a work title gets no Title line",
+    !/^Title: /m.test(p));
+  check("a title is spoken, never narrated",
+    /"unnie", "nim", "ssi", "Manager-nim", every title and every form on an Address line belong INSIDE quotation marks/.test(staff),
+    (staff.split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(0, 200));
   check("Chaebol player is addressed as chairwoman",
     /Chairwoman-nim/.test(prompt(form({ identity: "财阀" }))));
 
@@ -3469,7 +3551,7 @@ async function layerI() {
     check(`[${lang}] player's birth year is given to the model`,
       /THE PLAYER: Summer .* born 1995/.test(lp));
     check(`[${lang}] address protocol survives the language switch`,
-      lp.includes(`Summer -> "${form_}"`), addressOfIn(lp, "Irene"));
+      ladderOf(lp, "Irene", "toHer").includes(`"${form_}"`), addressOfIn(lp, "Irene"));
   }
 
   // --- a member with no birthday must not crash or invent seniority.
@@ -4527,6 +4609,68 @@ async function layerI() {
       "Yuhan's lawyer rewrite made her a new employee at the main member's family company");
   }
 
+  // ── v1.4.4 P1: given names, and which name each world speaks and narrates ─
+  // A member is addressed by her Korean given name outside the idol world (Q2), and
+  // the name comes from ONE helper that the address ladder and `membersNamedIn` both
+  // read. `given_name` overrides the derivation where it is wrong - the table in
+  // docs/V144_PLAN.md P1b - and is read from `library`, which is loaded through
+  // loadGroupConfig, so a field the whitelist drops fails here and not in a game.
+  {
+    const { givenNameOf } = await import(pathToFileURL(join(ROOT, "src/rag/memberNames.js")).href);
+    const GIVEN = [
+      ["twice", "momo", "zh", "Momo"], ["twice", "sana", "zh", "Sana"], ["twice", "mina", "zh", "Mina"],
+      ["x", "sana", "zh", "Sana"], ["x", "mina", "zh", "Mina"], ["ive", "rei", "zh", "Rei"],
+      ["aespa", "giselle", "zh", "Aeri"], ["blackpink", "lisa", "zh", "Lisa"],
+      ["blackpink", "lisa", "en", "Lisa"], ["blackpink", "lisa", "ko", "리사"],
+      ["nmixx", "lily", "zh", "Lily"], ["nmixx", "lily", "en", "Lily"], ["nmixx", "lily", "ko", "릴리"],
+      ["aespa", "ningning", "zh", "Ningning"], ["aespa", "ningning", "en", "Ningning"],
+      ["aespa", "ningning", "ko", "닝닝"], ["twice", "tzuyu", "ko", "쯔위"],
+    ];
+    const wrong = GIVEN.filter(([g, id, lang, want]) =>
+      givenNameOf(library[g]?.[lang]?.find((m) => m.id === id)) !== want);
+    check("every given-name override reaches the loaded member",
+      wrong.length === 0,
+      wrong.map(([g, id, lang, want]) => `${g}/${id}/${lang}: ${givenNameOf(library[g]?.[lang]?.find((m) => m.id === id))} != ${want}`).join(", "));
+    const rv = (lang) => library.red_velvet[lang].find((m) => m.id === "irene");
+    check("...and the derivation still serves everyone without one",
+      givenNameOf(rv("zh")) === "珠泫" && givenNameOf(rv("en")) === "Ju-hyun" && givenNameOf(rv("ko")) === "주현",
+      ["zh", "en", "ko"].map((l) => givenNameOf(rv(l))).join(" / "));
+    // `[Rounds Absent]` must see her by the name the ladder teaches, or a round that
+    // calls her Aeri records her absent - a false fact in the tail.
+    check("the appearance matcher sees a member by her given-name override",
+      membersNamedIn("Aeri推开了会议室的门。", library.aespa.zh).includes("giselle")
+        && membersNamedIn("릴리가 웃었다.", library.nmixx.ko).includes("lily"),
+      `${JSON.stringify(membersNamedIn("Aeri推开了会议室的门。", library.aespa.zh))} ${JSON.stringify(membersNamedIn("릴리가 웃었다.", library.nmixx.ko))}`);
+
+    const cast = library.aespa.zh;
+    const promptIn = (worldZh, identity) => buildSystemPrompt(form({ identity }), cast, "karina", ["giselle"],
+      { groupLore: "lore" }, "", "qwen", "zh", worldZh);
+    const chaebolP = promptIn(allWorlds.chaebol.zh, "主线成员前女友");
+    const idolP = promptIn(worldFor.zh, "主线成员前女友");
+    const toHerIn = (pr, m) => (pr.split("\n").find((l, i, all) =>
+      l.startsWith("  Address, Summer -> her:") && all.slice(Math.max(0, i - 3), i).some((h) => h.includes(`${m.name}(`))) || "");
+    const offNames = cast.filter((m) => {
+      const line = toHerIn(chaebolP, m);
+      return !line.includes(`R1 "${givenNameOf(m)}xi"`)
+        || (givenNameOf(m) !== m.name && line.includes(`"${m.name}`));
+    });
+    check("in a non-idol world every member is addressed by her given name, never her stage name",
+      offNames.length === 0, offNames.map((m) => `${m.id}: ${toHerIn(chaebolP, m)}`).join(" | ").slice(0, 300));
+    const idolOff = cast.filter((m) => !toHerIn(idolP, m).includes(`R1 "${m.name}xi"`));
+    check("...while the idol world keeps her stage name",
+      idolOff.length === 0, idolOff.map((m) => `${m.id}: ${toHerIn(idolP, m)}`).join(" | ").slice(0, 300));
+    // F8: the narration example taught the stage name in every world, against NO ONE
+    // IN THIS CAST IS AN IDOL. Outside the idol world it is her real name, with the
+    // stage name and a title both shown as the wrong answer.
+    check("the narration example follows the world: her real name outside the idol world",
+      /In narration a member is her real name[^\n]*"刘知珉正站在窗边", NEVER "Karina正站在窗边"/.test(chaebolP)
+        && /In narration a member is her name alone: "Karina正站在窗边"/.test(idolP),
+      (chaebolP.split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(0, 300));
+    check("...and a title is shown as a wrong way to narrate her",
+      /NEVER "Karina正站在窗边", "代表nim正站在窗边"/.test(promptIn(allWorlds.chaebol.zh, "lawyer")),
+      (promptIn(allWorlds.chaebol.zh, "lawyer").split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(-200));
+  }
+
   // ── round 1 is a first meeting ───────────────────────────────────────────
   // Every member starts at Stranger, and the step-7 identities described a
   // relationship already under way - she had already covered for you, you were
@@ -4947,7 +5091,13 @@ async function layerI() {
     const overrideFor = (identity) => {
       const pr = buildSystemPrompt(form({ identity }), campusCast.members, "irene", ["seulgi"],
         campusCast.groupConfig, "", "qwen", "en", campusWorld);
-      return pr.split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+      return pr.split(String.fromCharCode(10)).find((l) => l.startsWith("Title:")) || "";
+    };
+    // ...and the ladders it decides, which is where a backwards title would show.
+    const campusLadder = (identity, dir) => {
+      const pr = buildSystemPrompt(form({ identity }), campusCast.members, "irene", ["seulgi"],
+        campusCast.groupConfig, "", "qwen", "en", campusWorld);
+      return pr.split(String.fromCharCode(10)).filter((l) => l.trim().startsWith(dir)).join(" | ");
     };
     // In a ko world file `form` is already Hangul, so the gloss would translate a
     // word into itself: `"선배님" (선배님)`. Invisible in zh and en, which is
@@ -4956,18 +5106,23 @@ async function layerI() {
     const koOverride = buildSystemPrompt(
       form({ identity: "junior_student", name: "Nari" }), campusCast.members, "irene", ["seulgi"],
       campusCast.groupConfig, "", "qwen", "ko", koCampus)
-      .split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+      .split(String.fromCharCode(10)).find((l) => l.startsWith("Title:")) || "";
     check("[campus/ko] a work title whose gloss would repeat it is printed once",
       koOverride.includes('"선배님"')
         && !koOverride.includes('"선배님" (선배님)'),
       koOverride);
-    check("[campus] a title pointed at the player relaxes toward HER name",
-      /she addresses Summer as .*relaxing toward "Summer"/.test(overrideFor("prof_of_cast")),
-      overrideFor("prof_of_cast"));
-    check("[campus] a title pointed at the cast relaxes toward the MEMBER name",
-      /Summer also uses .* for them/.test(overrideFor("junior_student"))
-        && /relaxing toward a member.s plain name/.test(overrideFor("junior_student")),
-      overrideFor("junior_student"));
+    // A non-idol world: the ladder calls her by her GIVEN name, and the title sits
+    // on the junior's side - the cast's side for a cafe owner, hers for a junior.
+    check("[campus] a title pointed at the player opens the members' ladders, on given names",
+      /they address Summer as "sajang-nim"/.test(overrideFor("prof_of_cast"))
+        && /Address, she -> Summer: R1 "sajang-nim"/.test(campusLadder("prof_of_cast", "Address, she ->"))
+        && /Address, Summer -> her: R1 "Ju-hyun-ssi"/.test(campusLadder("prof_of_cast", "Address, Summer ->")),
+      campusLadder("prof_of_cast", "Address, ").slice(0, 240));
+    check("[campus] a title pointed at the cast opens the player's ladders",
+      /^Title: Summer .*, so Summer uses "sunbae-nim" \(선배님\) for them on campus\.$/.test(overrideFor("junior_student"))
+        && /Address, Summer -> her: R1 "sunbae-nim"[^|]*\| R2 [^|]*"Ju-hyun-unnie" in private/.test(campusLadder("junior_student", "Address, Summer ->"))
+        && !/sunbae-nim/.test(campusLadder("junior_student", "Address, she ->")),
+      campusLadder("junior_student", "Address, ").slice(0, 240));
     check("[campus] ...and both are set on campus rather than on the job",
       /on campus/.test(overrideFor("prof_of_cast"))
         && /on campus/.test(overrideFor("junior_student"))
@@ -6359,12 +6514,12 @@ async function layerI() {
     const p5 = promptOf(f);
     const lines = p5.slice(p5.indexOf("5. MEMBER PROFILES")).split("\n");
     const i = lines.findIndex((l) => l.includes("Sana("));
-    const j = lines.slice(i, i + 14).findIndex((l) => l.startsWith("  Address: "));
-    return i === -1 || j === -1 ? "" : lines[i + j];
+    const j = lines.slice(i, i + 14).findIndex((l) => l.startsWith("  Address, "));
+    return i === -1 || j === -1 ? "" : `${lines[i + j]} / ${lines[i + j + 1]}`;
   };
   check("...and flips the honorific direction it decides",
     /Sana-unnie/.test(sanaAt(migrated.form))
-      && !/-unnie/.test(sanaAt(corrected)) && /plain given name/.test(sanaAt(corrected)),
+      && !/-unnie/.test(sanaAt(corrected)) && /Neither ever calls the other "unnie"/.test(sanaAt(corrected)),
     `${sanaAt(migrated.form)} -> ${sanaAt(corrected)}`);
   // Everything that is not seniority must stay byte-identical, or correcting a
   // year silently rewrites the run's premise as well as its honorifics.
@@ -6376,7 +6531,7 @@ async function layerI() {
   // and a check that cannot fail is not a check — the fixture's own identity is
   // one of those, which is why the form is overridden here.
   const stripAges = (s) => s.split("\n")
-    .filter((l) => !/^ {2}(Age|Address): /.test(l)).join("\n")
+    .filter((l) => !/^ {2}(Age|Address)\b/.test(l)).join("\n")
     .replace(/age \d+, born \d{4}/, "");
   const exForm = { ...migrated.form, identity: "主线成员前女友" };
   check("...and moves nothing else in the prompt, backstory included",

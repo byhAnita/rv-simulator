@@ -28,3 +28,10 @@ function split(m) {
 export function familyNameOf(m) {
   return String(m?.family_name || "").trim() || split(m).family;
 }
+
+// What she is called by her given name: the address ladder's name in a non-idol
+// world (v1.4.4 P1) and one of the forms `membersNamedIn` looks for in the prose.
+// One function for both, so the name the prompt teaches is the name the matcher sees.
+export function givenNameOf(m) {
+  return String(m?.given_name || "").trim() || split(m).given;
+}

@@ -28,7 +28,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Story length: 350 - 450 words in Chinese (Simplified)
 - Style: emotional, sensory details (sight/sound/touch/smell), native Chinese romance novel style.
 - Open on a person doing or saying something, never on a description of the place.
-- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and 安添. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: house staff member, driver, executive, or reporter. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 - HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up 安添's screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
@@ -60,7 +60,8 @@ NO ONE IN THIS CAST IS AN IDOL, and this story is not about the real performers 
 READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through. Where a line describes her through idol work, keep the trait and restage it in board dinners, the family calendar, the family company and their seats in it, the one house they all grew up in.
 🐱 Karina(刘知珉) [MAIN - Core Romance Line]
   Age: b.2000 — 1 yr YOUNGER than 安添 (b.1999). 安添 is her unnie (언니).
-  Address: She -> "安添欧尼". 安添 -> "Karina". 安添 must NEVER call her "欧尼".
+  Address, 安添 -> her: R1 "知珉xi" | R2 "知珉" | R3 "知珉" or a couple's word
+  Address, she -> 安添: R1 "安添xi" | R2 "欧尼" or "安添欧尼" | R3 "安添" or a couple's word; in front of others "欧尼". 安添 must NEVER call her "欧尼".
   Animal: 猫咪 — AI女神, 台下软萌撒娇大姐姐
   Public: 代表性的AI神颜, 拥有不真实的精致五官和完美的身材比例. 气场全开, 是绝对的视觉中心。
   Private: 外表高冷, 内心是热情黏人的ENFP快乐小狗. 说话软糯爱撒娇, 和外表判若两人. 责任感极强, 但私下里是成员们宠爱的单纯大姐姐. 对成员的保护欲爆棚, 被称为最可靠的里兜.
@@ -68,7 +69,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🦄 Giselle(内永枝利) [NPC - Non-romanceable, must appear in background]
   Age: b.2000 — 1 yr YOUNGER than 安添 (b.1999). 安添 is her unnie (언니).
-  Address: She -> "安添欧尼". 安添 -> "Giselle". 安添 must NEVER call her "欧尼".
+  Address, 安添 -> her: R1 "Aerixi" | R2 "Aeri" | R3 "Aeri" or a couple's word
+  Address, she -> 安添: R1 "安添xi" | R2 "欧尼" or "安添欧尼" | R3 "安添" or a couple's word; in front of others "欧尼". 安添 must NEVER call her "欧尼".
   Animal: 独角兽 — 潮流Rapper, 文艺又叛逆的深邃灵魂
   Public: 拥有流利英日韩三语能力的国际化背景, 个人风格独特且带有高级感. 从被低估到被认可的逆袭代表. 时尚感出众
   Private: 灵魂深处是深邃的INFJ提倡者. 看似洒脱随性, 实则心思细腻, 情感丰富. 喜欢阅读和写作, 拥有文艺少女的一面. 对自己要求严格, 曾默默流泪但从不放弃. 是成员们的精神支柱.
@@ -76,7 +78,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🐶 Winter(金旼炡) [SUB - Romanceable]
   Age: b.2001 — 2 yr YOUNGER than 安添 (b.1999). 安添 is her unnie (언니).
-  Address: She -> "安添欧尼". 安添 -> "Winter". 安添 must NEVER call her "欧尼".
+  Address, 安添 -> her: R1 "旼炡xi" | R2 "旼炡" | R3 "旼炡" or a couple's word
+  Address, she -> 安添: R1 "安添xi" | R2 "欧尼" or "安添欧尼" | R3 "安添" or a couple's word; in front of others "欧尼". 安添 must NEVER call her "欧尼".
   Animal: 狗狗 — 清冷少年感, 外冷内热的四次元王子
   Public: 拥有清冷少年感和甜美嗓音的反差魅力, 气质独特清澈, 工作干净利落. 短发造型深入人心, 呆萌可爱.
   Private: 冷静独立的ISTP鉴赏家. 私下话少, 享受独处, 喜欢打游戏和拼乐高. 外表看起来冷淡, 但实际非常重感情. 对待专业极度认真, 是典型的努力派. 偶尔会流露出令人爆笑的四次元思维, 是成员们又爱又捉弄的对象.
@@ -84,7 +87,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🐱 Ningning(宁艺卓) [NPC - Non-romanceable, must appear in background]
   Age: b.2002 — 3 yr YOUNGER than 安添 (b.1999). 安添 is her unnie (언니).
-  Address: She -> "安添欧尼". 安添 -> "Ningning". 安添 must NEVER call her "欧尼".
+  Address, 安添 -> her: R1 "Ningningxi" | R2 "Ningning" | R3 "Ningning" or a couple's word
+  Address, she -> 安添: R1 "安添xi" | R2 "欧尼" or "安添欧尼" | R3 "安添" or a couple's word; in front of others "欧尼". 安添 must NEVER call her "欧尼".
   Animal: 猫咪 — 专业天才忙内, 傲娇又黏人的小猫咪
   Public: 来自中国的专业天才忙内, 自信闪耀和拥有丰沛的情感表达力, 私下却是可爱傲娇的小猫咪.
   Private: 感性浪漫的INFP艺术家. 拥有天马行空的想象力和丰富的内心世界. 爱撒娇也爱生气, 情绪都写在脸上, 是成员们宠爱的可爱忙内. 但在工作上有着超越年龄的成熟和执着, 对自己的要求近乎苛刻.
@@ -107,23 +111,27 @@ NPC Members: Giselle, Ningning (non-romanceable, must appear in background)
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
 - In the player's choice text, "I" is always 安添 and "you" is the member being addressed. Do not swap them when you continue the scene.
-- A character's own name is never a way to address someone else. When Karina speaks, "Karina" and "刘知珉" refer to herself — she cannot use either to address 安添. Thanking 安添 by speaking her own name is always wrong.
+- A character's own name is never a way to address someone else. When Karina speaks, "Karina", "刘知珉", "知珉" refer to herself — she cannot use any of them to address 安添. Thanking 安添 by speaking her own name is always wrong.
 - No member ever addresses 安添 by another member's name. 安添 is the only character who may be addressed as "安添".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "欧尼", "nim", "xi" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "Karina正站在窗边", NEVER "Karina欧尼正站在窗边".
+- Address forms are SPOKEN, not narrated. "欧尼", "nim", "xi", every title and every form on an Address line belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her real name, the one in brackets in MEMBER PROFILES, in full or her given name alone (a member with nothing in brackets is her name alone) - never the name before the brackets, and never a title or an address form: "刘知珉正站在窗边", NEVER "Karina正站在窗边" or "知珉xi正站在窗边".
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - 安添's identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names 安添 alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
 - The members' working life — board dinners, the family calendar, the family company and their seats in it, the one house they all grew up in — is THEIRS. 安添 does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no seat at their family's table and no name on any of it, and no member reminds her of one.
 - When the scene needs somewhere for 安添 to be, or something for her to be doing, take it from her identity — never from theirs.
 
--- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and 安添 and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.
-How much of that formality she actually speaks is a blend of three things, none of which decides alone:
-  1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
-  2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
-  3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
-A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
+-- REGISTER: a ladder of three rungs --
+Each member's two Address lines give the exact forms between her and 安添, in both directions, at each rung. Read one; do not derive one. Her rung is her stage in [Affections] in CURRENT STATE:
+  R1 = 陌生人, 有印象 | R2 = 产生兴趣, 暧昧期 | R3 = 确认关系, 热恋期, 考验期
+- Direction is fixed. Only the younger of the two ever says "欧尼", and only the junior in position uses a title. Neither form ever points the other way.
+- Every step down happens ON SCREEN, as a beat: one of them says to drop the title, or asks to speak casually. Never silently. Her Private Personality decides who moves first and how soon after her stage allows it: a blunt member offers it the moment it opens, a reserved one well after.
+- A rung is never skipped, and no step comes before her stage allows it.
+- Going back up a rung is only a deliberate cold move: after a fight one of them returns to the R1 form, and both of them hear it.
+- "In front of others" means anyone but the two of them. There the public form holds even at R3, and a slip is a secrecy risk the story may use.
+- A couple's word is a term of endearment native to Chinese (Simplified), your choice, never a Korean word transliterated.
+- A wide age gap keeps a trace of deference even at R3. That trace is texture, not distance.
+- An NPC member has no score. She stays at R1 until the story has made the two of them familiar, then R2, never R3.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in Chinese (Simplified) as transliterations, because swapping them for a native equivalent throws away the setting.
 Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.

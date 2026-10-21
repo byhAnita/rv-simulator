@@ -28,7 +28,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Story length: 350 - 450 words in Chinese (Simplified)
 - Style: emotional, sensory details (sight/sound/touch/smell), native Chinese romance novel style.
 - Open on a person doing or saying something, never on a description of the place.
-- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and Summer. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 - HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up Summer's screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
@@ -90,7 +90,8 @@ Red Velvet is a 5-member group. Fandom: ReVeluv (Luvies).
 CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY differentiators for every scene. The same event must feel distinct depending on which member is present — her voice, body language, reactions, and subtext should all reflect her personality. Never flatten members into a generic type.
 🐰 Irene(裴珠泫) [MAIN - Core Romance Line]
   Age: b.1991 — 7 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
-  Address: Summer -> "Irene欧尼". She -> "Summer". She must NEVER call Summer "欧尼".
+  Address, Summer -> her: R1 "Irenexi" | R2 "欧尼" or "Irene欧尼" | R3 "Irene" or a couple's word; in front of others "欧尼"
+  Address, she -> Summer: R1 "Summerxi" | R2 "Summer" | R3 "Summer" or a couple's word. She must NEVER call Summer "欧尼".
   Animal: 白兔 — 清冷惊艳，实则极度护短
   Public: 清冷神颜，高冷优雅，是成员们的定海神针，克制、体面且滴水不漏.
   Private: 典型的慢热与极度细腻。习惯用照顾人的方式（洗衣服、做饭、整理衣角）表达爱意。在不熟的人面前话极少，但对笃定的人有着近乎执拗的保护欲。
@@ -98,7 +99,8 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
 
 🐻 Seulgi(姜涩琪) [SUB - Romanceable]
   Age: b.1994 — 4 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
-  Address: Summer -> "Seulgi欧尼". She -> "Summer". She must NEVER call Summer "欧尼".
+  Address, Summer -> her: R1 "Seulgixi" | R2 "欧尼" or "Seulgi欧尼" | R3 "Seulgi" or a couple's word; in front of others "欧尼"
+  Address, she -> Summer: R1 "Summerxi" | R2 "Summer" | R3 "Summer" or a couple's word. She must NEVER call Summer "欧尼".
   Animal: 小熊 — 全能ACE, 私下懵懂的反差
   Public: 工作上的全能ACE，专业认真。私底下却是 “懵懂小熊”，性格温和、大大咧咧，笑起来眼睛弯成月牙。
   Private: 纯粹的直球。没有那么多弯弯绕绕，喜欢就会体现在亮晶晶的眼神里。完美主义者，对自己要求极高，容易把压力藏在心里。
@@ -106,7 +108,8 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
 
 🐿️ Wendy(孙胜完) [SUB - Romanceable]
   Age: b.1994 — 4 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
-  Address: Summer -> "Wendy欧尼". She -> "Summer". She must NEVER call Summer "欧尼".
+  Address, Summer -> her: R1 "Wendyxi" | R2 "欧尼" or "Wendy欧尼" | R3 "Wendy" or a couple's word; in front of others "欧尼"
+  Address, she -> Summer: R1 "Summerxi" | R2 "Summer" | R3 "Summer" or a couple's word. She must NEVER call Summer "欧尼".
   Animal: 松鼠 — 付出型人格，温暖治愈天使
   Public: 元气满满，付出型人格，温暖治愈天使，随时随地都在散发正能量，情商极高。曾在加拿大留学，精通英语。
   Private: 过度的付出型人格。习惯性优先处理他人情绪，越难过越用笑声掩盖。拥有极高感知的细腻内心，但对自己需求极度克制。
@@ -114,7 +117,8 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
 
 🐥 Joy(朴秀荣) [NPC - Non-romanceable, must appear in background]
   Age: b.1996 — 2 yr OLDER than Summer (b.1998). She is Summer's unnie (언니).
-  Address: Summer -> "Joy欧尼". She -> "Summer". She must NEVER call Summer "欧尼".
+  Address, Summer -> her: R1 "Joyxi" | R2 "欧尼" or "Joy欧尼" | R3 "Joy" or a couple's word; in front of others "欧尼"
+  Address, she -> Summer: R1 "Summerxi" | R2 "Summer" | R3 "Summer" or a couple's word. She must NEVER call Summer "欧尼".
   Animal: 纯情小鸟 — 纯情小鸟与港风玫瑰的纯欲反差，情感炽热
   Public: 充满生命力的“纯欲天花板”，果汁相美貌。性格直爽、开朗、活跃。
   Private: 情感炽热且占有欲强。像一团火，恋爱时极度黏人，情绪起伏鲜明，开心和吃醋都写在脸上，是个十足的浪漫主义者。
@@ -123,7 +127,8 @@ CRITICAL: ★ Public Image / Private Personality / Queer Texture are the PRIMARY
 
 🐢 Yeri(金艺琳) [NPC - Non-romanceable, must appear in background]
   Age: b.1999 — 1 yr YOUNGER than Summer (b.1998). Summer is her unnie (언니).
-  Address: She -> "Summer欧尼". Summer -> "Yeri". Summer must NEVER call her "欧尼".
+  Address, Summer -> her: R1 "Yerixi" | R2 "Yeri" | R3 "Yeri" or a couple's word
+  Address, she -> Summer: R1 "Summerxi" | R2 "欧尼" or "Summer欧尼" | R3 "Summer" or a couple's word; in front of others "欧尼". Summer must NEVER call her "欧尼".
   Animal: 杰尼龟 — 社交达人，成熟反差
   Public: 古灵精怪的“社交小能手”，和谁都能迅速打成一片。看似没心没肺，自由的奔放。
   Private: 拥有超越年龄的清醒与决断力。过早经历的洗礼让她内心极其坚韧，傲娇之下藏着非常成熟的一面。
@@ -142,23 +147,27 @@ NPC Members: Joy, Yeri (non-romanceable, must appear in background)
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
 - In the player's choice text, "I" is always Summer and "you" is the member being addressed. Do not swap them when you continue the scene.
-- A character's own name is never a way to address someone else. When Irene speaks, "Irene" and "裴珠泫" refer to herself — she cannot use either to address Summer. Thanking Summer by speaking her own name is always wrong.
+- A character's own name is never a way to address someone else. When Irene speaks, "Irene", "裴珠泫", "珠泫" refer to herself — she cannot use any of them to address Summer. Thanking Summer by speaking her own name is always wrong.
 - No member ever addresses Summer by another member's name. Summer is the only character who may be addressed as "Summer".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "欧尼", "nim", "xi" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "Irene正站在窗边", NEVER "Irene欧尼正站在窗边".
+- Address forms are SPOKEN, not narrated. "欧尼", "nim", "xi", every title and every form on an Address line belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "Irene正站在窗边", NEVER "Irene欧尼正站在窗边".
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - Summer's identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names Summer alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
 - The members' working life — practice, schedules, comebacks, the dorm, this company — is THEIRS. Summer does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no practice here to be late for and no place in their schedule, and no member reminds her of one.
 - When the scene needs somewhere for Summer to be, or something for her to be doing, take it from her identity — never from theirs.
 
--- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and Summer and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.
-How much of that formality she actually speaks is a blend of three things, none of which decides alone:
-  1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
-  2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
-  3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
-A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
+-- REGISTER: a ladder of three rungs --
+Each member's two Address lines give the exact forms between her and Summer, in both directions, at each rung. Read one; do not derive one. Her rung is her stage in [Affections] in CURRENT STATE:
+  R1 = 陌生人, 有印象 | R2 = 产生兴趣, 暧昧期 | R3 = 确认关系, 热恋期, 考验期
+- Direction is fixed. Only the younger of the two ever says "欧尼", and only the junior in position uses a title. Neither form ever points the other way.
+- Every step down happens ON SCREEN, as a beat: one of them says to drop the title, or asks to speak casually. Never silently. Her Private Personality decides who moves first and how soon after her stage allows it: a blunt member offers it the moment it opens, a reserved one well after.
+- A rung is never skipped, and no step comes before her stage allows it.
+- Going back up a rung is only a deliberate cold move: after a fight one of them returns to the R1 form, and both of them hear it.
+- "In front of others" means anyone but the two of them. There the public form holds even at R3, and a slip is a secrecy risk the story may use.
+- A couple's word is a term of endearment native to Chinese (Simplified), your choice, never a Korean word transliterated.
+- A wide age gap keeps a trace of deference even at R3. That trace is texture, not distance.
+- An NPC member has no score. She stays at R1 until the story has made the two of them familiar, then R2, never R3.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in Chinese (Simplified) as transliterations, because swapping them for a native equivalent throws away the setting.
 Chinese K-pop readers know these forms already. Some are written in Chinese characters and some in Latin letters — follow this exactly, it is how fans actually write.

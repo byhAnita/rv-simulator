@@ -28,7 +28,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - Story length: 350 - 450 words in Korean
 - Style: emotional, sensory details (sight/sound/touch/smell), native Korean romance novel style.
 - Open on a person doing or saying something, never on a description of the place.
-- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and Nari. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: professor, classmate, club member, or campus staff member. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 - HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up Nari's screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
@@ -60,7 +60,8 @@ NO ONE IN THIS CAST IS AN IDOL, and this story is not about the real performers 
 READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through. Where a line describes her through idol work, keep the trait and restage it in classes, deadlines, club activities, the dorm.
 🐰 Irene(배주현) [NPC - Non-romanceable, must appear in background]
   Age: b.1991 — 11 yr OLDER than Nari (b.2002). She is Nari's unnie (언니).
-  Address: Nari -> "Irene 언니". She -> "Nari", or "Nari 야" once close. She must NEVER call Nari "언니".
+  Address, Nari -> her: R1 "선배님" | R2 "언니" or "주현 언니" in private, "선배님" in front of others | R3 "주현" or a couple's word; in front of others "선배님"
+  Address, she -> Nari: R1 "Nari 씨" | R2 "Nari" | R3 "Nari", "Nari 야" or a couple's word. She must NEVER call Nari "언니".
   Animal: 토끼 — 차갑고 아름답지만 실은 엄청난 보호 본능
   Public: 청초하고 신 같은 미모, 도도하고 우아하며, 멤버들의 중심을 잡아주는 절제되고 완벽한 모습.
   Private: 전형적인 천천히 친해지는 스타일에 극도로 섬세함. 빨래, 요리, 옷매무새 정리 등 돌보는 방식으로 애정을 표현한다. 낯선 사람 앞에서는 말이 적지만, 마음을 연 사람에게는 거의 완고할 정도의 보호 본능을 보인다.
@@ -68,7 +69,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🐻 Seulgi(강슬기) [MAIN - Core Romance Line]
   Age: b.1994 — 8 yr OLDER than Nari (b.2002). She is Nari's unnie (언니).
-  Address: Nari -> "Seulgi 언니". She -> "Nari", or "Nari 야" once close. She must NEVER call Nari "언니".
+  Address, Nari -> her: R1 "선배님" | R2 "언니" or "슬기 언니" in private, "선배님" in front of others | R3 "슬기" or a couple's word; in front of others "선배님"
+  Address, she -> Nari: R1 "Nari 씨" | R2 "Nari" | R3 "Nari", "Nari 야" or a couple's word. She must NEVER call Nari "언니".
   Animal: 곰 — 만능 ACE, 사적으로는 순수한 반전 매력
   Public: 일에서는 만능 ACE, 진지하고 실력 있다. 하지만 사적으로는 '순수한 작은 곰' — 온화하고 털털하며, 웃으면 눈이 초승달처럼 휘어진다.
   Private: 순수한 직진형. 복잡한 머리 싸움 없이, 좋아하면 반짝이는 눈빛으로 드러난다. 완벽주의자로 자신에게 매우 엄격하며, 스트레스를 마음 깊이 숨기는 경향이 있다.
@@ -76,7 +78,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🐿️ Wendy(손승완) [NPC - Non-romanceable, must appear in background]
   Age: b.1994 — 8 yr OLDER than Nari (b.2002). She is Nari's unnie (언니).
-  Address: Nari -> "Wendy 언니". She -> "Nari", or "Nari 야" once close. She must NEVER call Nari "언니".
+  Address, Nari -> her: R1 "선배님" | R2 "언니" or "승완 언니" in private, "선배님" in front of others | R3 "승완" or a couple's word; in front of others "선배님"
+  Address, she -> Nari: R1 "Nari 씨" | R2 "Nari" | R3 "Nari", "Nari 야" or a couple's word. She must NEVER call Nari "언니".
   Animal: 다람쥐 — 베풂형 성격, 따뜻한 치유의 천사
   Public: 에너지가 넘치고 아낌없이 주는 성격, 따뜻하고 힐링되는 천사로 어디서나 긍정적인 에너지를 발산한다. 감성 지능이 매우 높다. 캐나다 유학 경험이 있으며 영어에 능통하다.
   Private: 과도한 베풂형 성격. 습관적으로 타인의 감정을 먼저 챙기고, 슬플수록 웃음으로 가린다. 매우 섬세한 감수성을 지녔지만, 자신의 욕구에는 극도로 절제한다.
@@ -84,7 +87,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🐥 Joy(박수영) [NPC - Non-romanceable, must appear in background]
   Age: b.1996 — 6 yr OLDER than Nari (b.2002). She is Nari's unnie (언니).
-  Address: Nari -> "Joy 언니". She -> "Nari", or "Nari 야" once close. She must NEVER call Nari "언니".
+  Address, Nari -> her: R1 "선배님" | R2 "언니" or "수영 언니" in private, "선배님" in front of others | R3 "수영" or a couple's word; in front of others "선배님"
+  Address, she -> Nari: R1 "Nari 씨" | R2 "Nari" | R3 "Nari", "Nari 야" or a couple's word. She must NEVER call Nari "언니".
   Animal: 순수한 새 — 순수한 소녀와 홍콩 장미의 반전 매력, 뜨거운 감정
   Public: 생동감 넘치는 '순수-섹시의 정점', 주스 같은 미모. 솔직하고 밝으며 활발한 성격.
   Private: 감정이 뜨겁고 소유욕이 강하다. 불꽃처럼, 연애할 때는 극도로 애정 표현이 많고, 감정 기복이 뚜렷하며, 기쁨과 질투가 얼굴에 그대로 드러난다. 완전한 로맨티스트.
@@ -93,7 +97,8 @@ READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a pe
 
 🐢 Yeri(김예림) [SUB - Romanceable]
   Age: b.1999 — 3 yr OLDER than Nari (b.2002). She is Nari's unnie (언니).
-  Address: Nari -> "Yeri 언니". She -> "Nari", or "Nari 야" once close. She must NEVER call Nari "언니".
+  Address, Nari -> her: R1 "선배님" | R2 "언니" or "예림 언니" in private, "선배님" in front of others | R3 "예림" or a couple's word; in front of others "선배님"
+  Address, she -> Nari: R1 "Nari 씨" | R2 "Nari" | R3 "Nari", "Nari 야" or a couple's word. She must NEVER call Nari "언니".
   Animal: 꼬북이 — 소셜 달인, 성숙한 반전 매력
   Public: 누구와도 금방 친해지는 엉뚱발랄 '소셜 버터플라이'. 겉보기에는 무심하고 자유분방하다.
   Private: 나이를 뛰어넘는 냉철함과 결단력을 지녔다. 너무 일찍 겪은 시련 덕분에 내면은 극도로 단단하며, 츤데레 외면 아래 매우 성숙한 일면을 숨기고 있다.
@@ -112,24 +117,28 @@ NPC Members: Irene, Wendy, Joy (non-romanceable, must appear in background)
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
 - In the player's choice text, "I" is always Nari and "you" is the member being addressed. Do not swap them when you continue the scene.
-- A character's own name is never a way to address someone else. When Seulgi speaks, "Seulgi" and "강슬기" refer to herself — she cannot use either to address Nari. Thanking Nari by speaking her own name is always wrong.
+- A character's own name is never a way to address someone else. When Seulgi speaks, "Seulgi", "강슬기", "슬기" refer to herself — she cannot use any of them to address Nari. Thanking Nari by speaking her own name is always wrong.
 - No member ever addresses Nari by another member's name. Nari is the only character who may be addressed as "Nari".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "언니", "님", "씨" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "Seulgi의 시선이 창가로 향했다", NEVER "Seulgi 언니의 시선이 창가로 향했다".
+- Address forms are SPOKEN, not narrated. "언니", "님", "씨", "선배님", every title and every form on an Address line belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her real name, the one in brackets in MEMBER PROFILES, in full or her given name alone (a member with nothing in brackets is her name alone) - never the name before the brackets, and never a title or an address form: "강슬기의 시선이 창가로 향했다", NEVER "Seulgi의 시선이 창가로 향했다", "선배님의 시선이 창가로 향했다" or "슬기 씨의 시선이 창가로 향했다".
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - Nari's identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names Nari alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
 - The members' working life — classes, deadlines, club activities, the dorm — is THEIRS. Nari does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has no class here to be late for and no place on their timetable, and no member reminds her of one.
 - When the scene needs somewhere for Nari to be, or something for her to be doing, take it from her identity — never from theirs.
 
--- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and Nari and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.
-Work override: Nari is a year below them and every member is her senior, so Nari also uses "선배님" for them on campus, relaxing toward a member's plain name as that member grows close to her.
-How much of that formality she actually speaks is a blend of three things, none of which decides alone:
-  1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
-  2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
-  3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
-A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
+-- REGISTER: a ladder of three rungs --
+Each member's two Address lines give the exact forms between her and Nari, in both directions, at each rung. Read one; do not derive one. Her rung is her stage in [Affections] in CURRENT STATE:
+  R1 = 남남, 안면 | R2 = 관심, 썸 | R3 = 연인, 열애, 시험기
+Title: Nari is a year below them and every member is her senior, so Nari uses "선배님" for them on campus.
+- Direction is fixed. Only the younger of the two ever says "언니", and only the junior in position uses a title. Neither form ever points the other way.
+- Every step down happens ON SCREEN, as a beat: one of them says to drop the title, or asks to speak casually. Never silently. Her Private Personality decides who moves first and how soon after her stage allows it: a blunt member offers it the moment it opens, a reserved one well after.
+- A rung is never skipped, and no step comes before her stage allows it.
+- Going back up a rung is only a deliberate cold move: after a fight one of them returns to the R1 form, and both of them hear it.
+- "In front of others" means anyone but the two of them. There the public form holds even at R3, and a slip is a secrecy risk the story may use.
+- A couple's word is a term of endearment native to Korean, your choice.
+- A wide age gap keeps a trace of deference even at R3. That trace is texture, not distance.
+- An NPC member has no score. She stays at R1 until the story has made the two of them familiar, then R2, never R3.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in Korean as transliterations, because swapping them for a native equivalent throws away the setting.
   언니 / 씨 / 님 / 야 / 아 / 선배님 을 그대로 쓴다. 존댓말과 반말의 차이를 어미로 드러낸다.

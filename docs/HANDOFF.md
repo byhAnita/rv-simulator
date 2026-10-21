@@ -6,7 +6,7 @@ contents rather than appending a log.
 ---
 
 **Last updated:** 2026-10-21 by Claude Opus 5.5 (main VS Code session)
-**Handing to:** the next session - continue `docs/V144_PLAN.md` at **P1**
+**Handing to:** the next session - continue `docs/V144_PLAN.md` at **P2**
 
 ---
 
@@ -63,9 +63,10 @@ authority on progress.
 - Done, local, unpushed: **P9** (`35ef7f7`, no named strangers) and **P5** (`ea95dbf`, the
   chaebol cast is one family), and **P10** (`c57adaa`, a new round scrolls to its own top). Build
   clean, smoke **1754 / 0**. P10 has not been seen on a phone.
-- **Next: P1, the address ladder** - per-member Address line by stage rung, REGISTER and SPEAKER
-  CONTRACT rewrite, `given_name` overrides (the table in P1b) via `src/rag/memberNames.js`, and
-  `membersNamedIn` switched to the same helper. All six goldens move.
+- **P1 is done** (the address ladder, given names, narration names): all six goldens moved, diff
+  read; 17 mutations RED; smoke **1772 / 0**. **Not played live** - whether a model walks the
+  ladder and steps down on screen is the next live measurement, best taken with P2/P3.
+- **Next: P2, stage behaviour + 起承转合 beats + `[Chapter]`** (V144_PLAN P2).
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,

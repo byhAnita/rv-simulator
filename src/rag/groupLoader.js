@@ -74,6 +74,9 @@ function parseGroupConfig(config) {
     // only where that derivation is wrong (a two-character Japanese surname in zh).
     // On the whitelist in the same commit as the data, or it is dropped here.
     family_name: m.family_name || "",
+    // ...and for the given name, which v1.4.4 P1 uses for dialogue in non-idol
+    // worlds and `membersNamedIn` uses to see her in the prose (Lily, Ningning).
+    given_name: m.given_name || "",
     color: m.color,
     accent: m.accent,
     animal: m.animal,

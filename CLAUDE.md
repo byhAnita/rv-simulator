@@ -186,7 +186,7 @@ Player choice
 | `src/rag/groupLoader.js` | `loadGroupIndex()`, `loadGroupConfig(id, lang)`, `getNpcMembers()` — the **cast** library |
 | `src/rag/worldLoader.js` | `loadWorldIndex()`, `loadWorld(id, lang)`, `parseWorld`, `MODE_IDS`, `getIdentity`, `getPaceRule`, `renderIdentityBackground`, `resolveKoreanParticles` — the **setting**: country, identities, paces, story modes, phase beats, places, and the address register it resolves |
 | `src/rag/rosterResolver.js` | `resolveRoster(roster, lang, world)`, `buildClassicRoster()`, `composeRosterLore()`, `renderCastLore()` — turns "who is in this run" into the `members[]` the prompt consumes, and section 4 into lore about the cast rather than about a group. **`world` is required and has no default**, the same rule `buildSystemPrompt` follows: since v1.4.1 step 4 the world owns section 4's wording |
-| `src/rag/memberNames.js` | `familyNameOf` — a member's surname from `name_kr`, with the `family_name` override where the derivation is wrong. One derivation so every reader agrees; P1 adds the given name |
+| `src/rag/memberNames.js` | `familyNameOf` — a member's surname from `name_kr`, with the `family_name` override where the derivation is wrong. `givenNameOf` — her given name, with the `given_name` override; the address ladder and `membersNamedIn` both read it, so the name the prompt teaches is the name the matcher sees (v1.4.4 P1) |
 | `src/rag/customCast.js` | the player-authored member **palette**: `upsertMember`, `removeMember`, `sanitizeProfile`, `rosterFromPicks`, `birthYearOf`/`birthdayFromYear`. A palette, not a dependency — see Cast, world, roster |
 | `src/agent/cardGenerator.js` | `generateCard` — one `callLLM` call turning a one-line description into a member card. **An accelerator, never a gate**: every failure returns a blank profile |
 | `src/utils/imageStore.js` | cast photos: `downscale` (canvas, browser only) split from the quota rules, which are pure and unit-tested |
@@ -854,9 +854,62 @@ Three failures shipped together here, and they look like one bug to a player:
 
 The fix is a per-member **Address** line computed from birth years plus the player's identity, and a `CAST IDENTITY & ADDRESS` section carrying the speaker contract. Both are derived from data fixed at game start, so they sit in the static system prompt and cost nothing per round.
 
-**Direction is hard, register is soft — this distinction is the whole design.** Which titles exist between two people, and which way they point, is decided by birth year and never flips: if the player calls her *unnie*, she never calls the player *unnie*. How much of that formality is actually spoken is a blend of three things the prompt hands over together — the age gap, the current stage from `[Affections]` in the dynamic tail, and her Private Personality. A same-age member is already informal at Stranger; a blunt member drops honorifics early where a reserved one keeps them well past Flirting; a wide age gap leaves a trace of deference even at Lovers. Prescribing a form per stage would flatten exactly the texture that makes members feel different, so the prompt states the inputs and lets the model blend them.
+**Superseded in v1.4.4 by the address ladder, below; kept as the design it replaced.** **Direction is hard, register is soft — this distinction is the whole design.** Which titles exist between two people, and which way they point, is decided by birth year and never flips: if the player calls her *unnie*, she never calls the player *unnie*. How much of that formality is actually spoken is a blend of three things the prompt hands over together — the age gap, the current stage from `[Affections]` in the dynamic tail, and her Private Personality. A same-age member is already informal at Stranger; a blunt member drops honorifics early where a reserved one keeps them well past Flirting; a wide age gap leaves a trace of deference even at Lovers. Prescribing a form per stage would flatten exactly the texture that makes members feel different, so the prompt states the inputs and lets the model blend them.
 
 Korean workplace register overrides age where it genuinely would: a **Staff** player is `매니저님` and a **Chaebol** player `회장님` regardless of who was born first, softening toward her name as they get close.
+
+### The address ladder: age x position x closeness (v1.4.4 P1)
+
+**The blend above shipped a new employee calling her CEO 欧尼 from round 1**, found in Yuhan's
+chaebol play. Each member's Address line was computed from birth year alone, the work title was one
+"Work override" sentence in REGISTER far from the members it applied to, and a specific per-member
+line beats a general note. REGISTER also said the direction "NEVER reverses, at any affection
+level" and that a near-age member "is already casual while the score is still low" - the opposite
+of a relationship that has to be earned. All three sentences are **deleted, not added beside**.
+
+**Now the code computes the forms and the model reads one.** Every member has two Address lines,
+one per direction, each with three rungs chosen by HER stage in `[Affections]`:
+
+```
+  Address, 新人 -> her: R1 "代表nim" | R2 "欧尼" or "珠泫欧尼" in private, "代表nim" in front of others | R3 "珠泫" or a couple's word; in front of others "代表nim"
+  Address, she -> 新人: R1 "新人xi" | R2 "新人" | R3 "新人" or a couple's word. She must NEVER call 新人 "欧尼".
+```
+
+- **R1 = 0-30, R2 = 31-65, R3 = 66+**, named in REGISTER by the localized stage labels the tail
+  prints (`rungStagesFor` in `stageConfig.js`), so the rule and the fact use one vocabulary.
+- **Direction stays hard:** only the younger ever says unnie, only the junior in position uses a
+  title. A title sits on the junior's side at R1 and stays the public form at every rung, which is
+  where secrecy comes in: a private form slipping out in front of others is a risk the story may use.
+- **Every step happens on screen, as a beat**, never silently; a rung is never skipped; going back
+  up is a deliberate cold move. Her Private Personality decides who moves first and how soon -
+  that is where the old blend survives.
+- **A couple's word is the story language's own** (the one place "transliterate, never localize"
+  does not apply). The clause forbidding a transliterated Korean word renders only outside ko,
+  because in ko the native word IS Korean - the ko fixture showed it on the first read.
+- **An NPC has no score**: R1, then R2 once the story makes them familiar, never R3.
+- What is left of the work title in REGISTER is one `Title:` line giving its reason (`because`,
+  `addressContext`), since no ladder says why the title exists.
+
+**Names: given names outside the idol world (Q2).** In `kpop_idol` a member is her stage name in
+dialogue and narration, as before. Elsewhere NO ONE IN THIS CAST IS AN IDOL, so dialogue uses her
+Korean **given name** (`珠泫`, `Ju-hyun`, `주현`) and narration her **real name**, full or given.
+The SPEAKER CONTRACT's narration example used to teach the stage name in every world, which in a
+chaebol run contradicted the not-an-idol rule two sections earlier: the one name the example taught
+was the one the prose must not use, so the model narrated with a title (`裴代表nim走了过来`). It now
+follows the world and shows the stage name and the title as the wrong answers.
+
+`givenNameOf` (`memberNames.js`) derives the given name from `name_kr` exactly as `membersNamedIn`
+always did, and a `given_name` field overrides it for the 17 (member, language) pairs where that is
+wrong - the Japanese members in zh, Lisa, Lily, Ningning, Tzuyu in ko (`docs/V144_PLAN.md` P1b).
+It is on `parseGroupConfig`'s whitelist in the same commit, and `membersNamedIn` reads the same
+helper, so `[Rounds Absent]` sees a member the prose calls `Aeri`. Like `family_name`, it is a fact
+and sits outside the zh review.
+
+**Found on the way:** the own-name rule printed `"undefined"` for a custom main with no `name_kr`.
+
+All six goldens moved by exactly these lines and the diff was read. 17 mutations, 17 RED. **Not
+verified live**: whether models actually walk the ladder, and step down on screen, is a playthrough
+question, and the next measurement for it.
 
 ### Whose life is whose — the ROLE CONTRACT
 
@@ -1064,8 +1117,9 @@ v1.3.9 by a native speaker, which is the only way this class of bug is ever foun
 test and throws no error.
 
 **Address forms are spoken, not narrated.** `欧尼` / `nim` / `xi` and every per-member Address
-line belong **inside quotation marks**. In narration a member is her stage name alone:
-`Irene正站在窗边`, never `Irene欧尼正站在窗边`. The SPEAKER CONTRACT scoped *pronouns* to narration
+line belong **inside quotation marks**, titles included. In narration a member is her stage name alone:
+`Irene正站在窗边`, never `Irene欧尼正站在窗边` - in the idol world; since v1.4.4 P1 every other world
+narrates her real name (see *The address ladder*). The SPEAKER CONTRACT scoped *pronouns* to narration
 from v1.3.6 but said nothing about address forms, and the token examples carried no scope marker,
 so the model reasonably applied them everywhere. Also reported from hand play in v1.3.9.
 

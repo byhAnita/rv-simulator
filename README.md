@@ -189,6 +189,7 @@ The campus, office and chaebol worlds are now about the people in them, not the 
 * 🧩 **No raw JSON in the story** — a reply with one stray bracket used to be shown as a block of code. It is now retried like any other unusable reply.
 * 🏛️ **The chaebol cast is one family** — every member belongs to one house, named for your main member's family name; members with another surname are cousins, the way Korean families actually work.
 * 👤 **Strangers stay strangers** — a driver, a secretary or a director outside the cast is called by their role and is never given an invented name.
+* 🪜 **What she calls you has to be earned** — every member's forms of address now climb a three-step ladder with your relationship: a title or a polite name at first, then unnie or her name in private, then her name or a couple's word once you are together. Titles hold in front of other people, and each step happens on screen. Outside the idol world members are called by their Korean given names, and the narration uses their real names.
 * 📜 **A new round opens at its beginning** — when a round arrives, the story scrolls to its status box and first line instead of its last, so you start reading without scrolling back up.
 
 > 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. The Korean text has not been read by a native speaker.

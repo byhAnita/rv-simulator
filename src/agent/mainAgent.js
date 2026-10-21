@@ -4,7 +4,8 @@ import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 // `probabilityEngine` is deliberately NOT imported any more — see the note beside
 // where pickPrimaryMember used to be called, and docs/PROPOSALS.md §4.
-import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/stageConfig";
+import { getStageIdx, stageNameIn, stageNamesFor, rungStagesFor, STAGE_BANDS } from "../config/stageConfig";
+import { givenNameOf } from "../rag/memberNames";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
@@ -208,10 +209,16 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   //     did, and every English prompt emitted "Alex--ya" from v1.3.6 to v1.3.9.
   const tk = world.addressForms.tokens;
   const call = (name, token) => `${name}${tk.sep}${token}`;
-  // The casual form only exists where the language has a vocative particle that
-  // survives transliteration. zh does not (see the token table), so the clause
-  // is dropped rather than rendered as a duplicate of the plain name.
-  const casually = (name) => tk.ya ? `, or "${call(name, tk.ya)}" once close` : "";
+
+  // WHICH NAME a member goes by (v1.4.4 P1). In the idol world her stage name is her
+  // name, in narration and in dialogue alike. In every other world NO ONE IN THIS CAST
+  // IS AN IDOL, so the stage name is the one name the prose must not use: dialogue
+  // calls her by her Korean given name (`珠泫`) and narration by her real name, in full
+  // or given. Yuhan's play found `裴代表nim走了过来`: with the stage name ruled out and
+  // nothing else offered, the model narrated with the only name-shaped thing it had,
+  // a title. A member with no real name (a custom one without `name_kr`) keeps `name`.
+  const idolWorld = !!world.castLore?.useRole;
+  const spokenName = (m) => (idolWorld ? m?.name : (givenNameOf(m) || m?.name)) || "";
 
   // The narration example in the SPEAKER CONTRACT, one clause per language. The ko
   // frame is possessive on purpose: the natural "<name>는 창가에 서 있다" hardcodes a
@@ -222,6 +229,17 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const stoodByTheWindow = language === "zh" ? "正站在窗边"
     : language === "ko" ? "의 시선이 창가로 향했다"
     : " was standing by the window";
+  // ...and since v1.4.4 P1 the example follows the WORLD (F8). It used to name the
+  // stage name in every world, which in a chaebol run contradicted NO ONE IN THIS CAST
+  // IS AN IDOL two sections earlier: the one name the example taught was the one name
+  // the prose must not use. Outside the idol world she is narrated by her real name,
+  // and the stage name and a title are both shown as the wrong answer.
+  const mainStage = mainMember?.name || "She";
+  const mainReal = !idolWorld && mainMember?.name_kr ? mainMember.name_kr : "";
+  // A function: it names the work title, which is declared further down.
+  const narrationRule = () => mainReal
+    ? `In narration a member is her real name, the one in brackets in MEMBER PROFILES, in full or her given name alone (a member with nothing in brackets is her name alone) - never the name before the brackets, and never a title or an address form: "${mainReal}${stoodByTheWindow}", NEVER "${mainStage}${stoodByTheWindow}"${titleForCast ? `, "${titleForCast}${stoodByTheWindow}"` : ""} or "${call(spokenName(mainMember), tk.ssi)}${stoodByTheWindow}".`
+    : `In narration a member is her name alone: "${mainStage}${stoodByTheWindow}", NEVER "${call(mainStage, tk.unnie)}${stoodByTheWindow}"${titleForCast ? ` or "${titleForCast}${stoodByTheWindow}"` : ""}.`;
 
   // Round-phase beats and the archetypes an unnamed supporting role may be.
   // Both are English rule text in every language file, so the three world files
@@ -294,27 +312,67 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // `because` carries the identity-specific reason and `addressContext` the world's
   // register - a student does not address her professor "on the job". Both are
   // English, like the rest of section 6, so both sit in the language-invariant half.
-  const identityAddress = !workTitle ? null
-    : WORK_TITLE.direction === "to_cast"
-      ? `${playerName} ${WORK_TITLE.because}, so ${playerName} also uses ${workTitle} for them ${world.addressContext.toCast}, relaxing toward a member's plain name as that member grows close to her`
-      : `she addresses ${playerName} as ${workTitle} ${world.addressContext.toPlayer} whatever their ages, relaxing toward "${playerName}" as they grow close`;
+  //
+  // v1.4.4 P1: this was the "Work override" sentence, one line in REGISTER far from
+  // the members it applied to, while each member's own Address line named only the
+  // age form. A specific per-member line beats a general note, so a new employee
+  // called her CEO 欧尼 from round 1. The title now sits on every member's ladder
+  // below, and what is left here is only WHY the title exists, which no ladder says.
+  // The "relaxing toward ..." clauses are gone: how a title relaxes is the ladder.
+  const TO_CAST = WORK_TITLE?.direction === "to_cast";
+  const titleReason = !workTitle ? ""
+    : TO_CAST
+      ? `\nTitle: ${playerName} ${WORK_TITLE.because}, so ${playerName} uses ${workTitle} for them ${world.addressContext.toCast}.`
+      : `\nTitle: they address ${playerName} as ${workTitle} ${world.addressContext.toPlayer}, whatever their ages.`;
+  // The title the player uses FOR a member, and the one a member uses for HER.
+  const titleForCast = workTitle && TO_CAST ? WORK_TITLE.form : null;
+  const titleForPlayer = workTitle && !TO_CAST ? WORK_TITLE.form : null;
+
+  // One direction of the address ladder: what the speaker calls `toName` at each rung.
+  //   title     - the work title the speaker uses for her, or null
+  //   toOlder   - she was born in an earlier year, so the speaker may say unnie
+  //   toYounger - she was born later, so the speaker may add the casual vocative at R3
+  // Direction stays hard: unnie only ever points at the elder, a title only at the
+  // senior in position. What moves with the rung is how much of that is spoken, and
+  // "in front of others" is where the earlier, public form holds (secrecy).
+  const q = (s) => `"${s}"`;
+  const ladder = (toName, title, toOlder, toYounger) => {
+    const r1 = title ? q(title) : q(call(toName, tk.ssi));
+    const r2Private = toOlder ? `${q(tk.unnie)} or ${q(call(toName, tk.unnie))}` : q(toName);
+    const publicForm = title ? q(title) : toOlder ? q(tk.unnie) : "";
+    const r2 = title ? `${r2Private} in private, ${publicForm} in front of others` : r2Private;
+    // The casual vocative exists only where the language has one that survives
+    // transliteration. zh does not (see the token table), so it is simply absent.
+    const r3Forms = [q(toName), ...(toYounger && tk.ya ? [q(call(toName, tk.ya))] : [])].join(", ");
+    const r3 = `${r3Forms} or a couple's word${publicForm ? `; in front of others ${publicForm}` : ""}`;
+    return `R1 ${r1} | R2 ${r2} | R3 ${r3}`;
+  };
+  // Every name the main member answers to, for the SPEAKER CONTRACT's own-name rule.
+  // It printed `"undefined"` for a custom main with no `name_kr`.
+  const ownNames = [...new Set([mainMember?.name, mainMember?.name_kr, givenNameOf(mainMember)]
+    .filter(Boolean))].map(q).join(", ");
+  const [rungDistant, rungWarming, rungClose] = rungStagesFor(language);
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
     // Positive => born earlier => the member is the elder.
     const memberIsOlderBy = playerBirthYear - memberBirthYear;
 
-    let ageLine, addressLine;
+    let ageLine, never;
     if (memberIsOlderBy > 0) {
       ageLine = `b.${memberBirthYear} — ${memberIsOlderBy} yr OLDER than ${playerName} (b.${playerBirthYear}). She is ${playerName}'s unnie (언니).`;
-      addressLine = `${playerName} -> "${call(m.name, tk.unnie)}". She -> "${playerName}"${casually(playerName)}. She must NEVER call ${playerName} "${tk.unnie}".`;
+      never = `She must NEVER call ${playerName} "${tk.unnie}".`;
     } else if (memberIsOlderBy < 0) {
       ageLine = `b.${memberBirthYear} — ${Math.abs(memberIsOlderBy)} yr YOUNGER than ${playerName} (b.${playerBirthYear}). ${playerName} is her unnie (언니).`;
-      addressLine = `She -> "${call(playerName, tk.unnie)}". ${playerName} -> "${m.name}"${casually(m.name)}. ${playerName} must NEVER call her "${tk.unnie}".`;
+      never = `${playerName} must NEVER call her "${tk.unnie}".`;
     } else {
       ageLine = `b.${memberBirthYear} — same birth year as ${playerName}. 동갑, no unnie in either direction.`;
-      addressLine = `Both use the plain given name; 반말 comes easily after a few meetings.`;
+      never = `Neither ever calls the other "${tk.unnie}".`;
     }
+    const toHer = ladder(spokenName(m), titleForCast, memberIsOlderBy > 0, memberIsOlderBy < 0);
+    const toPlayer = ladder(playerName, titleForPlayer, memberIsOlderBy < 0, memberIsOlderBy > 0);
+    const addressLines = `Address, ${playerName} -> her: ${toHer}
+  Address, she -> ${playerName}: ${toPlayer}. ${never}`;
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
@@ -345,7 +403,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     const krPart = m.name_kr ? `(${m.name_kr})` : "";
     return `${emojiPart}${m.name}${krPart} ${role}
   Age: ${ageLine}
-  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Hidden Conflict", m.hidden_conflict)}`;
+  ${addressLines}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
   // JSON schema. Written without the spaces a formatter would add: the schema is
@@ -467,7 +525,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - ${P("length")}
 - ${P("style")}
 - ${P("openWith")}
-- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and ${playerName}. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: ${archetypeList}. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 - HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up ${playerName}'s screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
@@ -496,23 +554,27 @@ ${castLines}
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
 - In the player's choice text, "I" is always ${playerName} and "you" is the member being addressed. Do not swap them when you continue the scene.
-- A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
+- A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, ${ownNames} refer to herself — she cannot use any of them to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}"${workTitle ? `, ${q(WORK_TITLE.form)}` : ""}, every title and every form on an Address line belong INSIDE quotation marks, where one character is speaking to another. ${narrationRule()}
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
 - The members' working life — ${world.castLife.theirs} — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has ${world.castLife.notHers}, and no member reminds her of one.
 - When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from theirs.
 
--- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}.` : ""}
-How much of that formality she actually speaks is a blend of three things, none of which decides alone:
-  1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
-  2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
-  3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
-A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
+-- REGISTER: a ladder of three rungs --
+Each member's two Address lines give the exact forms between her and ${playerName}, in both directions, at each rung. Read one; do not derive one. Her rung is her stage in [Affections] in CURRENT STATE:
+  R1 = ${rungDistant.join(", ")} | R2 = ${rungWarming.join(", ")} | R3 = ${rungClose.join(", ")}${titleReason}
+- Direction is fixed. Only the younger of the two ever says "${tk.unnie}", and only the junior in position uses a title. Neither form ever points the other way.
+- Every step down happens ON SCREEN, as a beat: one of them says to drop the title, or asks to speak casually. Never silently. Her Private Personality decides who moves first and how soon after her stage allows it: a blunt member offers it the moment it opens, a reserved one well after.
+- A rung is never skipped, and no step comes before her stage allows it.
+- Going back up a rung is only a deliberate cold move: after a fight one of them returns to the R1 form, and both of them hear it.
+- "In front of others" means anyone but the two of them. There the public form holds even at R3, and a slip is a secrecy risk the story may use.
+- A couple's word is a term of endearment native to ${lr.lang}, your choice${language === "ko" ? "" : ", never a Korean word transliterated"}.
+- A wide age gap keeps a trace of deference even at R3. That trace is texture, not distance.
+- An NPC member has no score. She stays at R1 until the story has made the two of them familiar, then R2, never R3.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in ${lr.lang} as transliterations, because swapping them for a native equivalent throws away the setting.
 ${world.addressForms.guide}
@@ -650,8 +712,9 @@ export function membersNamedIn(story, members = []) {
   const found = [];
   const aliases = (m) => {
     const kr = m?.name_kr || "";
-    // One syllable of surname in Korean and in its zh/en renderings alike.
-    const given = kr.includes(" ") ? kr.slice(kr.indexOf(" ") + 1) : kr.slice(1);
+    // The same given name the address ladder teaches (v1.4.4 P1), so the name the
+    // prompt asks for is the name this sees: `Aeri`, `Lily`, `Ningning` included.
+    const given = givenNameOf(m);
     // Two characters minimum for either real-name form. A single CJK character occurs
     // inside ordinary words constantly — the same reason the prose analyzer stopped
     // counting a bare 아 as an address form after it reported 194 of them in 20 rounds.

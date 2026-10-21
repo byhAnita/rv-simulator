@@ -25,6 +25,15 @@ export const DEFAULT_STAGE_NAMES = STAGE_NAMES.zh;
 // same seven in the same order.
 export const stageNamesFor = (language) => STAGE_NAMES[language] || STAGE_NAMES.zh;
 
+// The address ladder's three rungs (v1.4.4 P1), as the stages that make them up:
+// R1 distant 0-30, R2 warming 31-65, R3 close 66+. Named by STAGE, not by score,
+// because the stage label is what [Affections] in the tail prints beside her score.
+export const RUNG_FIRST_STAGE = [0, 2, 4];
+export const rungStagesFor = (language) => {
+  const names = stageNamesFor(language);
+  return RUNG_FIRST_STAGE.map((lo, i) => names.slice(lo, RUNG_FIRST_STAGE[i + 1]));
+};
+
 // "0-15", "16-30", … derived from the thresholds rather than typed out beside
 // them. Section 9 of the system prompt prints these, and a hand-written copy is
 // how the prompt ends up describing a scale the code does not implement.
