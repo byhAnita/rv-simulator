@@ -1477,7 +1477,7 @@ so the two are independent and a clamped delta still cannot push a member out of
 
 **v1.4.4 P4: the rise is also capped by the chapter.** ±8 bounds the speed of any one round;
 it says nothing about the shape of a run, and the P3b baseline reached Confirmed (66+) by round
-14 in 16 of 18 runs - the end of 承, where the design doc wants the two of them only beginning
+14 in 17 of 18 runs - the end of 承, where the design doc wants the two of them only beginning
 to notice. Each `CHAPTERS` entry now carries `maxRise` (起 +4, 承 +6, 转 and 合 +8), and
 `capAffectionRise(changes, round)` caps positive deltas to it in `executeRound`, after the ±8
 and before the deltas are added. **Falls are never capped**: a cold move must stay as sharp as

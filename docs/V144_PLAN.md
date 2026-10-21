@@ -566,8 +566,8 @@ proxies are crude. No blind read was done.
 - **The summary came back in Chinese in 5 of 252 rounds** (2%), against "summary is always in
   English". It is still a usable collapse target, so it is harmless to the ledger. It is
   recorded rather than tuned on n=5.
-- **P4 baseline:** main member R6 = 33-43 (mean 39), R14 = 64-83 (mean 75), over 18 runs. 16
-  of 18 reach Confirmed (66+) by R14.
+- **P4 baseline:** main member R6 = 33-43 (mean 39), R14 = 64-83 (mean 75), over 18 runs. 17
+  of 18 reach Confirmed (66+) by R14 (corrected from 16: one run ends at exactly 66).
 
 #### P3 removed (2026-10-21)
 
@@ -624,6 +624,43 @@ scores on 3 runs each with `scripts/analyze-prose.mjs`.
   `mainAgent.js`, applied in `executeRound` to `parsed.affectionChanges` before the deltas are
   added. `round` is `roundNum + 1`, the same number `[Chapter]` prints, so the cap the model is
   told and the cap applied cannot be two chapters' caps.
+
+#### P4 as built, and measured (2026-10-21)
+
+Built in `055be21`: smoke 1789 -> 1794, 9 mutations RED, six goldens moved by the one RULES
+line. One guard drives the real `executeRound` with a stubbed provider. It is the only check
+that catches the cap applied one chapter early (`roundNum` instead of `roundNum + 1`).
+
+Live, 6 runs after against the 6 `none`-arm runs before. Same flags, all `deepseek-flash`,
+82/84 rounds clean, cache 90.9-91.3%, 0 static-prompt drifts, 0 ledger prefix breaks.
+
+| main member | before (none arm, n=6) | after (P4, n=6) |
+| --- | --- | --- |
+| round 6 | 33-43, mean 39.5 | **30-35, mean 32.3** |
+| round 14 | 64-81, mean 76.0 | **65-74, mean 69.3** |
+| Confirmed (66+) by round 14 | 5 of 6 | 5 of 6 |
+| mean rise per round, 起 / 承 | 4.6 / 4.6 | **3.4** / 4.6 |
+| falls | 0 | 0 |
+
+- **起 works, and not only by clamping.** Every run is at or under the +4 ceiling (max 36 at
+  R6), and the mean applied rise is 3.4. That is below the cap, so the model, told the cap in
+  `[Chapter]`, also asks for less.
+- **承's +6 almost never binds.** The model's own pace there is about +4.6 a round, so the cap
+  changes nothing in 承. Round 14 drops only by the 起 deficit carried forward. Confirmed still
+  arrives by R14 in 5 of 6 runs. It now lands on R13-14 (65, 66, 67, 70, 74, 74) instead of
+  R11-12, but it is still inside 承. The design doc ends 承 with both *beginning to notice*.
+- **Yuhan's call: is Confirmed by the end of 承 acceptable?** If not, the lever is 承's cap.
+  Calculated, not measured: at +4 in 承, R14 is at most 32 + 8 x 4 = 64, under Confirmed. The
+  cost is that the cap then binds most 承 rounds, so the pace becomes the game's number rather
+  than the story's.
+- **Not changed by P4, and still open:** 0 falls in 84 rounds (`docs/PROPOSALS.md` §1).
+- **Two flags, both read, neither caused by P4:**
+  - `kkt-transcribed-in-story`: Irene says three lines aloud in the scene, then the round's Kakao
+    repeats them. This is the reverse of the defect the rule targets, a Kakao copying the
+    prose. Recorded only (n=1).
+  - `real-name-vocative`: in an office run, someone tells Seulgi "姜涩琪，你那份排期表，中午前发我".
+    Outside the idol world a real name in dialogue is correct (P1, Q2). So this is most likely
+    the grader not knowing the world rule. **Unverified**, and not fixed here.
 
 ### P5. Positions per world, stated once and checked
 

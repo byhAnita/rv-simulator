@@ -88,8 +88,13 @@ authority on progress.
   four-round clock.
 - **Typical events REMOVED (Yuhan's call, 2026-10-21)**, data, code, checks and the harness lever
   together; V144_PLAN "P3 removed". The comparison stays as the record.
-- **Next: P4** (V144_PLAN P4, design written; baseline R6 mean 39 and R14 mean 75 from P3b's runs). It is
-  independent of the events decision.
+- **P4 is done** (`055be21`: rise capped +4/+6/+8 by chapter; V144_PLAN "P4 as built, and
+  measured"). R6 mean 39.5 -> 32.3, R14 76.0 -> 69.3; Confirmed still by R14 in 5 of 6 runs,
+  because the model already rises below 承's +6. **Open, Yuhan's call:** lower 承 to +4?
+- **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
+  dialogue, where P1's Q2 rule makes it correct. Check `test/playthrough.mjs` before trusting
+  that flag outside `kpop_idol`.
+- **Next: P6** (narrator prologue), then P7, P8, then release notes.
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,
