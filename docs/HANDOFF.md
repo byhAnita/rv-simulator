@@ -82,7 +82,12 @@ authority on progress.
   her real name outside the idol world (`10a0ad1`).
 - **P3 live check (V144_PLAN, "P3 live check"):** events fire on the unlock round, a used event
   echoes for up to 6 rounds, and nothing removes one. Five proposals await Yuhan's call.
-- **Next: P4, affection rate tied to the chapter** (V144_PLAN P4), unless Yuhan picks P3 follow-ups first.
+- **P3b is built** (`d6b1b68`: an event is offered once, near its stage, with a cooldown) and
+  **measured against a version with no events at all** (V144_PLAN "P3b results"). In 18 runs, the
+  events changed neither cross-game sameness nor plot direction; the tail version staged them on a
+  four-round clock. **Recommendation: remove the typical events. That is Yuhan's call, and it is open.**
+- **Next: P4** (V144_PLAN P4, design written; baseline R6 mean 39 and R14 mean 75 from P3b's runs). It is
+  independent of the events decision.
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,

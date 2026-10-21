@@ -516,6 +516,59 @@ last one is her "many similar stories" question, and it is the number the `none`
 answer too. Whether the `none` arm drifts aimlessly is a reading, not a number, and is reported
 as one.
 
+#### P3b results (2026-10-21): the events are not earning their place
+
+18 runs, 252 rounds, all clean, cache 90.5-91.5%, built from `d6b1b68`. The log of runs and
+the analysis script are scratchpad files: `arms.log` and `arms-report.mjs`. Event mentions are
+keyword proxies on the zh prose; staging is the model's own report (tail arm only). The plot
+reading is mine, from the English summaries. It is a plot-level read, **not a register
+judgement**.
+
+| per config, mean of 3 | cross-run 4-gram overlap | same, rounds 1-3 | food/note rounds of 14 | distinct scenes |
+| --- | --- | --- | --- | --- |
+| journalist tail | 0.049 | 0.020 | 7.3 | 12.0 |
+| journalist static | 0.046 | 0.021 | 5.7 | 12.7 |
+| journalist none | 0.045 | 0.022 | 3.0 | 12.0 |
+| new_hire tail | 0.048 | 0.022 | 9.0 | 12.3 |
+| new_hire static | 0.053 | 0.024 | 7.7 | 11.7 |
+| new_hire none | 0.049 | 0.021 | 7.7 | 12.7 |
+
+- **Sameness across games does not move with the events.** Two games of one identity overlap
+  about as much with the events as without them (0.045-0.053, no arm separated). What makes two
+  journalist games alike is the identity premise: archive, draft, "read it before you publish".
+  That premise is there in all three arms.
+- **The `none` arm is not aimless.** Every `none` run reads as a directed story: an
+  investigation and a promise about the draft (journalist), and a client visit plus a rival
+  senior's insecurity (new_hire). The background, `[Chapter]` and the stage rules give the
+  direction. Several first-meeting beats appear with no event asking for them: the banquet in
+  2 of 3 journalist runs, because it is the chaebol world's natural opening.
+- **`static` front-loads, as Yuhan suspected of a list in plain view.** new_hire stages the
+  template folder in **round 1 in 3 of 3** runs, twice together with the meeting-room apology.
+  Journalist opens on the banquet event 3 of 3.
+- **`tail` (fixed) turned the events into a metronome.** 17 stagings in 33 offered rounds. In
+  4 of 6 runs every offer was taken the round it appeared, so events landed on R2, R6, R10 and
+  R14: a four-round clock set by the cooldown. "Most rounds stage none" held only because most
+  rounds now have no line. A line in the tail reads as a cue.
+- **Echo is not fixed by retiring the event.** The template folder still appears in about 6
+  rounds of each tail run (3.0 in `none`, where it is just office life). The keyword is generic,
+  so this number overstates the echo.
+
+**Recommendation: remove the typical events** (the `none` arm). Removing them lost nothing
+measurable and nothing visible in the reading. Each way of keeping them has its own shape of
+sameness: all-at-once in `static`, on-the-clock in `tail`. A middle course, such as offering
+an event with a probability, adds machinery for a benefit nobody has shown. **Yuhan decides.**
+The events are her design, and her register read is the instrument this cannot replace.
+
+**Not shown:** n=3 per arm, one model, zh only, 14 rounds, so nothing past 承. The keyword
+proxies are crude. No blind read was done.
+
+**Found on the way, not fixed:**
+- **The summary came back in Chinese in 5 of 252 rounds** (2%), against "summary is always in
+  English". It is still a usable collapse target, so it is harmless to the ledger. It is
+  recorded rather than tuned on n=5.
+- **P4 baseline:** main member R6 = 33-43 (mean 39), R14 = 64-83 (mean 75), over 18 runs. 16
+  of 18 reach Confirmed (66+) by R14.
+
 ### P4. Affection rate tied to the chapter
 
 | Chapter | Max rise per round |
@@ -526,6 +579,19 @@ as one.
 
 Falls stay at -8 in every chapter. Before and after the change, record the round-6 and round-14
 scores on 3 runs each with `scripts/analyze-prose.mjs`.
+
+**Design (2026-10-21):**
+- `maxRise` goes on each entry of `CHAPTERS` (`src/config/chapters.js`). That table is the one
+  place a chapter's numbers live, and the stats box and `[Chapter]` already read it.
+- `executeRound` clamps each positive delta to the cap of the chapter being generated, after
+  `validateAndFixOutput`'s ±8. Negative deltas are untouched.
+- The fact goes in the tail: `[Chapter]` gains *"affection rises at most +4 a round in this
+  chapter"*. The rule goes in the static part: the RULES line keeps *+/-1 to +/-10* and adds
+  *"never above the rise [Chapter] allows"*. So the rule points at the fact, and two numbers for
+  one quantity never sit side by side. That one static line moves all six goldens.
+- **Baseline:** P3b's 18 comparison runs are the "before". Each records the main member's score
+  every round, and nothing in P3b touches affection. The "after" is 3 runs per config with the
+  same flags.
 
 ### P5. Positions per world, stated once and checked
 
