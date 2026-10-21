@@ -321,9 +321,12 @@ function honorificErrors(story, cast) {
 function gradeRound({ res, parseLevel, memberIds, lang, mode, story, options, cast, outsiders }) {
   const bad = [];
   if (parseLevel !== "direct") bad.push(`parse:${parseLevel}`);
-  // Free mode's [Random Events] line says none (v1.4.4 P8). The app does not delete
-  // such an event, because the prose carries it either way, so this is where it shows.
+  // [Random Events] says yes or no each round, drawn by executeRound (v1.4.4 P8).
+  // The app does not delete an event written on a "no" round, because the prose
+  // carries it either way, so this is where it shows; free mode never draws one.
   if (mode === "free" && res.event) bad.push("event-in-free-mode");
+  else if (res.event && !res.eventDrawn) bad.push("event-not-drawn");
+  if (res.eventDrawn && !res.event) bad.push("drawn-event-missing");
   if (!story || story.length < 80) bad.push(`story-short:${story?.length ?? 0}`);
   if (!languageOk(story || "", lang)) bad.push("wrong-language");
   if (/<think>|<\/think>|reasoning_content/i.test(story || "")) bad.push("cot-leak");
@@ -905,6 +908,7 @@ async function runWorker(model) {
           ].filter(Boolean)])),
           summaryText: res.updatedMemory.history.at(-1)?.summary || "",
           event: res.event || null,
+          eventDrawn: !!res.eventDrawn,
         },
       });
 

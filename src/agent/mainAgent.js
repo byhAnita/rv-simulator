@@ -14,14 +14,27 @@ import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderPro
 import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
 import { getTranslations } from "../i18n";
 
-// How often a round carries a random event, by story mode (v1.4.4 P8). Rendered in
-// the tail by buildTailRules; section 2's RULES line points at it.
-export const EVENT_RATES = {
-  free: "none in this story mode: event is null every round.",
-  romance: "about one round in three; the rest are null.",
-  pressure: "about one round in two; the rest are null.",
-  dramatic: "about one round in two; the rest are null.",
-};
+// The chance that a round carries a random event, by story mode (v1.4.4 P8).
+// executeRound draws it before the call and the tail says yes or no; the model is
+// never asked to keep a rate itself, because asked for one it overshot every time
+// (docs/V144_PLAN.md, P8 A/B). Section 2's RULES line points at the tail line.
+export const EVENT_RATES = { free: 0, romance: 1 / 3, pressure: 1 / 2, dramatic: 1 / 2 };
+
+// Whether round `round` (the player's number, from 1) carries an event. Round 1
+// never does: it opens with the prologue, and an event before the story has said
+// where she is has nothing to happen to. `rng` is injectable for the tests.
+export function drawEvent(storyMode, round, rng = Math.random) {
+  const rate = EVENT_RATES[MODE_IDS.includes(storyMode) ? storyMode : "free"];
+  return round > 1 && rng() < rate;
+}
+
+// The tail line's text for one round.
+export function eventLine(storyMode, hasEvent) {
+  if (!EVENT_RATES[MODE_IDS.includes(storyMode) ? storyMode : "free"]) return "none in this story mode: event is null.";
+  return hasEvent
+    ? "this round has one. Something unplanned happens to the people in the scene, inside the story; event names it (see RULES)."
+    : "none this round: event is null.";
+}
 
 // The paragraph headings the app puts in front of an event, in every language.
 const EVENT_LABELS = ["zh", "en", "ko"].map((l) => getTranslations(l).game.randomEvent);
@@ -737,7 +750,7 @@ RULES:
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10), and never above the rise [Chapter] allows. Values are numbers.
 ${platformFormatRules}
 - story: ${P("storyRule")}
-- event: a random event is something unplanned that happens TO the people in the scene, which they then have to deal with. It is never something one of them chooses to do: a member's gesture, confession or decision is the story, not an event. [Random Events] in CURRENT STATE says how often a round has one; when it says none, event is null. When this round has one, it is written into the story itself, and this field names it afterwards in ONE short sentence in ${lr.lang}: it reports what the story already contains, never something the story left out. It follows from where the story is: the chapter in [Chapter], each member's stage in [Affections], and the stats in [Player Status]. Never repeat one that has already happened.
+- event: a random event is something unplanned that happens TO the people in the scene, which they then have to deal with. It is never something one of them chooses to do: a member's gesture, confession or decision is the story, not an event. [Random Events] in CURRENT STATE says whether this round has one; when it says none, event is null. When this round has one, it is written into the story itself, and this field names it afterwards in ONE short sentence in ${lr.lang}: it reports what the story already contains, never something the story left out. It follows from where the story is: the chapter in [Chapter], each member's stage in [Affections], and the stats in [Player Status]. Never repeat one that has already happened.
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
 - ALL story/event/social/option content MUST be in ${lr.lang}. summary is always in English.
@@ -1120,14 +1133,14 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 // The value comes from localStorage, so it can hold anything a previous build or
 // a hand edit left there, and the failure to avoid is a game that silently stops
 // driving its own plot.
-export function buildTailRules(world, storyMode, timeSpeed) {
+export function buildTailRules(world, storyMode, timeSpeed, hasEvent = false) {
   const lines = [];
   const mode = MODE_IDS.includes(storyMode) ? storyMode : "free";
   // The rule carries its own "[Story Mode: X]" prefix, exactly as the pace rule
   // carried "[Pace: X]", so nothing is prepended here.
   const rule = getModeRule(world, mode);
   if (rule) lines.push(rule);
-  lines.push(`[Random Events] ${EVENT_RATES[mode]}`);
+  lines.push(`[Random Events] ${eventLine(mode, hasEvent)}`);
   if (timeSpeed === "slow") {
     lines.push("[Time Speed] slow — stay in this moment, don't advance time much this round");
   } else if (timeSpeed === "fast") {
@@ -1165,6 +1178,9 @@ export async function executeRound({
   const historyLedger = buildHistoryLedger(memory);
   const prologueLine = buildPrologueLine(roundNum + 1);
   const prologue = prologueLine ? `\n${prologueLine}` : "";
+  // Drawn per call, so ↺ Retry draws again. The tail is the always-miss message,
+  // so a random draw here costs no cache.
+  const hasEvent = drawEvent(storyMode, roundNum + 1);
   const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
 
   // Step 1.5: Init round variables
@@ -1175,7 +1191,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${prologue}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${prologue}${buildTailRules(world, storyMode, timeSpeed, hasEvent)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);
@@ -1297,6 +1313,7 @@ export async function executeRound({
     // The normalised sentence on its own, for the harness: the rate per mode is
     // uncountable from the prose.
     event: parsed.event,
+    eventDrawn: hasEvent,
     options: parsed.options || ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"],
     roundNotifs,
     updatedMemory,

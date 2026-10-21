@@ -5,47 +5,55 @@ contents rather than appending a log.
 
 ---
 
-## Pick up here — 2026-10-21 (evening)
+## Pick up here — 2026-10-21 (night)
 
 **Written by:** Claude Code (Opus 5.5, main VS Code session).
-**Branch:** `dev`. **Last commit:** this handoff, on top of `2d17033` (release notes) and
-`100a2a6` (P8). **Unpushed:** every commit since `origin/dev` (`git log --oneline
-origin/dev..dev`). Pushing is Yuhan's. **Uncommitted:** nothing.
+**Branch:** `dev`. **Last commit:** the P8 draw commit on top of `8ee95cc`. **Unpushed:** every
+commit since `origin/dev` (`git log --oneline origin/dev..dev`). Pushing is Yuhan's.
+**Uncommitted:** nothing.
+
+### Done this session (Yuhan's answers of 2026-10-21 night)
+
+- **P8 readings confirmed by Yuhan:** the rate lives in code; "appended to the history entry" is
+  the story log the player reads, not the model's ledger.
+- **Event rate: live A/B, then built.** Described "one in four" vs drawn in code at 1/4,
+  deepseek-flash, zh, 3 x 12 rounds per mode per arm. Described: pressure 22/33 (16
+  back to back). Drawn: 17/17 drawn rounds followed, 2 events on 49 undrawn rounds, 0 gestures.
+  **Built the draw** at the plan's rates (romance 1/3, pressure and dramatic 1/2):
+  `drawEvent`/`eventLine` in `mainAgent.js`, graders `event-not-drawn`/`drawn-event-missing`.
+  Goldens moved by one phrase, diff read. `docs/V144_PLAN.md`, *P8 A/B*; PROPOSALS §13 BUILT.
+- **P7 blind read is a private page:** https://claude.ai/artifact/FyYBsJBpXPVEDBeryRENR8 . Built
+  from `p7-blind-packet.md` only. Her ratings land in that artifact's `ratings` collection (one
+  doc per sample, `rating`, `stiff` sentence keys, `stiffText`, `note`); read them with
+  ArtifactData `list`, then unblind with `test/.out/p7-blind/p7-blind-key.json`, **only after
+  she says she is done.**
 
 ### Verified
 
-- `npm run build` clean; `node test/smoke.mjs` **1813 passed / 0 failed**.
-- **P8 done** (`100a2a6`): schema `event` between story and summary, `EVENT_RATES` ->
-  `[Random Events]` tail line, the event shown under `t.game.randomEvent` on screen only (the
-  ledger keeps the plain story). 19 mutations RED; all six goldens moved by five lines, diff read.
-  Live (deepseek-flash, zh): free 0/6 events, 34/34 rounds clean, 0 drifts, 0 prefix breaks.
-  `docs/V144_PLAN.md`, P8 design / first live check / as built.
-- **Release notes rewritten once for v1.4.4** (`2d17033`), P1-P8.
+- `npm run build` clean; `node test/smoke.mjs` **1815 passed / 0 failed**; 17 new mutations RED,
+  files byte-identical after the run.
+- 144 live rounds in the A/B: all parsed directly, 0 drifts, 0 prefix breaks.
 
 ### Owed by Yuhan (all gate the v1.4.4 release)
 
-- **The P7 blind read** (unchanged): `test/.out/p7-blind/p7-blind-packet.md`; **do not open
-  `p7-blind-key.json` or show it to her before she rates.** 自然 / 一般 / 翻译腔, plus where.
+- **The P7 blind read**, on the page above. Do not open the key before she finishes.
 - **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
-- **Confirm the P8 readings:** the rate lives in code, not in 48 world-file sentences; "appended
-  to the history entry" = the round's entry in the story log the player reads, not the model's
-  ledger (V144_PLAN, P8 design).
-- **Decide PROPOSALS §13:** the model overshoots the event rate (romance 7/14 vs ~1/3, pressure
-  11/14 vs ~1/2). Keep it, or draw the event rounds in code.
-- **Read the zh and ko release-notes text** in `src/config/releaseNotes.js` (agent-written; ko
-  not native-reviewed), and the ko event heading `【돌발 이벤트】`.
+- **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`: she reviews them just before
+  the release.
 - **Phone test of v1.4.4** (P10 scroll, the event heading), then the push and the release.
 
 ### The exact next action
 
-**Nothing is queued for an agent.** v1.4.4's feature list (P1-P12) is done. Wait for Yuhan's
-blind read and decisions above. If she accepts §13, it is a new P-item: plan first.
+When Yuhan says the blind read is done: read the `ratings` collection, unblind with the key,
+write the result into `docs/V144_PLAN.md` under *P7*, and fix what it points at. Otherwise
+nothing is queued for an agent.
 
 ### Not verified
 
 - P1 (address ladder) and P2 (stage behaviour, chapters) have **not been played live** for
   whether the model walks the ladder or holds a Stranger at a distance.
-- P8 in **en and ko**: not played. The heading on a phone: not seen.
+- P8 in **en and ko**: not played. Whether a drawn event lands at a bad moment: not read by
+  Yuhan. The heading on a phone: not seen.
 - P10 not seen on a phone; zh/ko prologues (P6) unread by Yuhan; ko is not native-reviewed.
 - **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
   dialogue, where P1's Q2 rule makes it correct.

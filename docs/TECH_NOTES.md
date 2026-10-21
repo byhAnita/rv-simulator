@@ -1047,14 +1047,51 @@ screen showed it twice.
 **What it costs.** Two texts for one round: the message log carries the heading, the ledger does
 not, so `saveStoryEdit` has to strip it before writing an edit to the ledger (`splitEvent`, the
 same function the validator uses as a backstop). The model also loses an explicit marker of when
-the last event was, which a rate rule could have used; whether it matters is
-`docs/PROPOSALS.md` §13.
+the last event was, which a rate rule could have used; the rate is drawn in code since, so
+nothing needs it (next entry).
 
 **Where it lives.** `withEvent`, `splitEvent`, `normalizeEvent` in `src/agent/mainAgent.js`;
 `saveStoryEdit` in `src/App.jsx`.
 
 **Short form.** Anything added to text for the UI's sake stays out of what is fed back to the
 model: a label in the history is a format it continues, and a rule against it loses.
+
+---
+
+### A frequency drawn in code, not asked of the model — v1.4.4 P8
+
+**What it is.** Random events should come on about one round in three (romance) or two
+(pressure, dramatic). Instead of telling the model that rate and trusting it to keep it,
+`executeRound` rolls a die before each call (`drawEvent`) and the tail says, for this round
+only, "this round has one" or "none this round". The model decides what the event is; the code
+decides whether there is one.
+
+**What it replaced.** The first build sent the rate as a sentence (`about one round in two`) and
+let the model choose each round. It overshot in both modes, and when Yuhan asked for the
+obvious fix, a lower number, a live A/B showed the number barely mattered: told "one in four",
+pressure mode still ran 22 events in 33 rounds, 16 of them back to back. The model has no
+counter. It cannot see that the last three rounds had events, and pressure's own mode rule asks
+for scrutiny incidents, which it then labelled as events. A rate is a property of many rounds;
+each call sees one.
+
+**What it bought.** The frequency is the draw's by construction, and the model followed it:
+17 of 17 drawn rounds carried an event, 2 of 49 undrawn ones did. The events also changed kind:
+none of the 19 events in the drawn arm was a member's own gesture, against 5 of 32 in the described arm.
+A yes seems to send the model looking for something that happens to the scene; a rate let it
+relabel a beat it was writing anyway. Measurement: `docs/V144_PLAN.md`, *P8 A/B*.
+
+**What it costs.** The model no longer chooses *when* an event fits, so one can land at a bad
+moment; none of the 17 did in that run, but nobody has read for it on purpose. ↺ Retry draws
+again, so a player can retry an event away (or into existence). `Math.random()` is safe only
+because the line is in the dynamic tail, the always-miss message; the same draw in the static
+prompt would cost the whole cached prefix every round.
+
+**Where it lives.** `EVENT_RATES`, `drawEvent`, `eventLine` and `buildTailRules` in
+`src/agent/mainAgent.js`; the graders `event-not-drawn` and `drawn-event-missing` in
+`test/playthrough.mjs`.
+
+**Short form.** Ask a model for a choice it can make inside one round. A rate, a quota or a
+spacing spans many rounds, so roll it in code and hand the model the outcome.
 
 ---
 

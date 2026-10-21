@@ -616,7 +616,7 @@ better. Also count whether a place or object keeps the same word across its call
 
 ## 13. Draw the random-event rounds in code, instead of asking the model for a rate
 
-**Status: proposed 2026-10-21, after P8's two live checks. Not built. Yuhan decides.**
+**Status: BUILT 2026-10-21, after a live A/B Yuhan asked for (`docs/V144_PLAN.md`, *P8 A/B*). Described at one in four, pressure ran 22/33; drawn, the model followed the draw 17/17 and wrote 2 events on 49 undrawn rounds. Kept below as the reasoning it was built on.**
 
 **What P8 does.** The tail says `[Random Events] about one round in three` (romance) or `about
 one round in two` (pressure, dramatic), and the model decides each round whether this is one.

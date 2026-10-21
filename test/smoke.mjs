@@ -2587,7 +2587,7 @@ async function layerI() {
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, buildPrologueLine, capAffectionRise, executeRound,
-          EVENT_RATES, normalizeEvent, withEvent, splitEvent,
+          EVENT_RATES, drawEvent, normalizeEvent, withEvent, splitEvent,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -5049,23 +5049,46 @@ async function layerI() {
     const i18n = {};
     for (const l of ["zh", "en", "ko"]) i18n[l] = (await import(pathToFileURL(join(ROOT, `src/i18n/${l}.js`)).href)).default;
     const getTranslations = (l) => i18n[l];
+    // Since the P8 A/B the code draws each round and the tail says yes or no; the
+    // model is never handed a rate to keep. One [Random Events] line per tail, and
+    // its answer must be the draw's.
     const rateOff = [];
+    const tailEvent = (t) => t.split("\n").filter((l) => l.startsWith("[Random Events] "));
     for (const [id, w] of Object.entries(allWorlds)) for (const lang of ["zh", "en", "ko"]) {
       for (const mode of loader.MODE_IDS) {
-        const tail = buildTailRules(w[lang], mode, "default");
-        if (typeof EVENT_RATES[mode] !== "string" || tail.split(`\n[Random Events] ${EVENT_RATES[mode]}`).length !== 2) {
-          rateOff.push(`${id}/${lang}/${mode}`);
+        const yes = tailEvent(buildTailRules(w[lang], mode, "default", true));
+        const no = tailEvent(buildTailRules(w[lang], mode, "default", false));
+        const wantYes = EVENT_RATES[mode] > 0;
+        if (yes.length !== 1 || no.length !== 1 || !/null/.test(no[0])
+          || (wantYes ? !/this round has one/.test(yes[0]) || /null/.test(yes[0]) : yes[0] !== no[0])) {
+          rateOff.push(`${id}/${lang}/${mode}: ${yes[0]} / ${no[0]}`);
         }
       }
     }
-    check("every story mode has an event rate, and the tail sends it once as its own line, in every world",
+    check("the tail sends one [Random Events] line that says whether THIS round has one, in every world and mode",
       rateOff.length === 0 && Object.keys(EVENT_RATES).sort().join() === [...loader.MODE_IDS].sort().join(),
-      `${rateOff.slice(0, 6).join(", ")} | rates for ${Object.keys(EVENT_RATES).join(",")}`);
-    // The plan's numbers, asserted as the requirement rather than as today's string.
+      `${rateOff.slice(0, 4).join(" | ")} | rates for ${Object.keys(EVENT_RATES).join(",")}`);
+    // The plan's numbers, asserted as the requirement.
     check("the rates are the plan's: free none, romance one in three, pressure and dramatic one in two",
-      /^none\b[^\n]*null/.test(EVENT_RATES.free) && /one round in three/.test(EVENT_RATES.romance)
-        && /one round in two/.test(EVENT_RATES.pressure) && /one round in two/.test(EVENT_RATES.dramatic),
+      EVENT_RATES.free === 0 && Math.abs(EVENT_RATES.romance - 1 / 3) < 1e-9
+        && EVENT_RATES.pressure === 0.5 && EVENT_RATES.dramatic === 0.5,
       JSON.stringify(EVENT_RATES));
+    // The draw: round 1 never (the prologue), free never, an unknown mode is free,
+    // and otherwise the rng against the mode's rate.
+    const drawn = [
+      drawEvent("pressure", 1, () => 0), drawEvent("free", 5, () => 0), drawEvent("no-such-mode", 5, () => 0),
+      drawEvent("pressure", 5, () => 0.49), drawEvent("pressure", 5, () => 0.5),
+      drawEvent("romance", 2, () => 0.33), drawEvent("romance", 2, () => 0.34),
+    ];
+    check("drawEvent: never round 1, never free or an unknown mode, else the rng under the mode's rate",
+      JSON.stringify(drawn) === JSON.stringify([false, false, false, true, false, true, false]),
+      JSON.stringify(drawn));
+    // Measured over many draws with the real rng, so a draw that ignored the rate
+    // (or the mode) could not pass on a lucky pin.
+    const freq = (mode) => { let n = 0; for (let r = 0; r < 4000; r++) n += drawEvent(mode, 2 + (r % 20)) ? 1 : 0; return n / 4000; };
+    const fr = { romance: freq("romance"), pressure: freq("pressure"), free: freq("free") };
+    check("...and over 4000 real draws each mode lands on its rate",
+      Math.abs(fr.romance - 1 / 3) < 0.04 && Math.abs(fr.pressure - 0.5) < 0.04 && fr.free === 0, JSON.stringify(fr));
 
     const evOff = [];
     for (const lang of ["zh", "en", "ko"]) {
@@ -5076,7 +5099,7 @@ async function layerI() {
       const at = keys.indexOf("event");
       if (at < 1 || keys[at - 1] !== "story" || keys[at + 1] !== "summary") evOff.push(`${lang} schema order ${keys.join(",")}`);
       const rule = pr.split("\n").find((l) => l.startsWith("- event: ")) || "";
-      for (const want of ["[Random Events] in CURRENT STATE", "when it says none, event is null", "written into the story itself",
+      for (const want of ["[Random Events] in CURRENT STATE says whether this round has one", "when it says none, event is null", "written into the story itself",
         "never something the story left out", "[Chapter]", "[Affections]", "[Player Status]", "never something one of them chooses to do",
         "a member's gesture, confession or decision is the story, not an event", "Never repeat one that has already happened"]) {
         if (!rule.includes(want)) evOff.push(`${lang} rule lacks "${want}"`);
@@ -5141,25 +5164,28 @@ async function layerI() {
     });
     const sentTails = [];
     const results = [];
-    const realFetch8 = globalThis.fetch, realLog8 = console.log, realWarn8 = console.warn;
+    const realFetch8 = globalThis.fetch, realLog8 = console.log, realWarn8 = console.warn, realRandom8 = Math.random;
     console.log = () => {}; console.warn = () => {};
     try {
-      for (const [event, storyMode] of [["The lights go out.", "romance"], [null, "free"]]) {
+      // Math.random pinned: 0 draws an event in any mode that has a rate, 0.99 none;
+      // week 0 is round 1, which never has one (the prologue round).
+      for (const [event, storyMode, roll, week] of [["The lights go out.", "romance", 0, 3], [null, "free", 0, 3], [null, "pressure", 0.99, 3], [null, "pressure", 0, 0]]) {
+        Math.random = () => roll;
         globalThis.fetch = async (u, init) => {
           sentTails.push(JSON.parse(init.body).messages.at(-1).content);
           return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: roundWith(event) }, finish_reason: "stop" }] }) };
         };
         const res = await executeRound({
           playerChoice: "A", memory: createEmptyMemory(), form: form(),
-          stats: { affection: 12, selfId: 30, secrecy: 90, mood: 60, week: 3, scene: "x", chapter: "start", multiAff: { seulgi: 8 } },
+          stats: { affection: 12, selfId: 30, secrecy: 90, mood: 60, week, scene: "x", chapter: "start", multiAff: { seulgi: 8 } },
           members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
           world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
           reasoningEnabled: false, storyMode,
         });
-        results.push({ content: res.storyContent, text: res.updatedMemory.history.at(-1)?.text, event: res.event });
+        results.push({ content: res.storyContent, text: res.updatedMemory.history.at(-1)?.text, event: res.event, drawn: res.eventDrawn });
       }
     } catch (e) { results.push({ threw: e.message }); }
-    finally { globalThis.fetch = realFetch8; console.log = realLog8; console.warn = realWarn8; }
+    finally { globalThis.fetch = realFetch8; console.log = realLog8; console.warn = realWarn8; Math.random = realRandom8; }
     const [withEv, noEv] = results;
     // The ledger gets the story alone: the event is in its prose already, and a heading
     // in the history is a pattern the first live check caught the model copying.
@@ -5170,15 +5196,22 @@ async function layerI() {
     check("...a round with no event is the story alone, on screen and in the history",
       noEv?.content === STORY && noEv?.text === STORY && noEv?.event === null,
       JSON.stringify(noEv).slice(0, 300));
-    check("...and the tail it sent carries the rate of the mode it was played in",
-      sentTails.length === 2 && sentTails[0].includes(`[Random Events] ${EVENT_RATES.romance}`)
-        && sentTails[1].includes(`[Random Events] ${EVENT_RATES.free}`),
-      sentTails.map((t) => (t.match(/\[Random Events\][^\n]*/) || ["(none)"])[0]).join(" | "));
+    const evLine = (t) => (t.match(/\[Random Events\][^\n]*/) || ["(none)"])[0];
+    check("...and the tail it sent says what executeRound drew, which it also returns",
+      sentTails.length === 4 && /this round has one/.test(evLine(sentTails[0]))
+        && /none in this story mode/.test(evLine(sentTails[1])) && /none this round/.test(evLine(sentTails[2]))
+        && /none this round/.test(evLine(sentTails[3]))
+        && JSON.stringify(results.map((r) => r.drawn)) === "[true,false,false,false]",
+      sentTails.map(evLine).join(" | ") + " | drawn " + JSON.stringify(results.map((r) => r.drawn)));
 
-    // The harness: the grader that flags an event in free mode, fed the mode it
-    // plays, and the event kept in every transcript so a rate can be counted.
-    check("playthrough flags an event in free mode, is told the mode, and keeps each round's event",
+    // The harness: the graders that flag an event in free mode or on an undrawn
+    // round and a drawn one the model left out, fed the mode it plays, and the event
+    // and the draw kept in every transcript so the rate and compliance can be counted.
+    check("playthrough flags an event in free mode or on an undrawn round, a drawn one missing, and keeps both",
       /if \(mode === "free" && res\.event\) bad\.push\("event-in-free-mode"\)/.test(harnessSrc)
+        && /else if \(res\.event && !res\.eventDrawn\) bad\.push\("event-not-drawn"\)/.test(harnessSrc)
+        && /if \(res\.eventDrawn && !res\.event\) bad\.push\("drawn-event-missing"\)/.test(harnessSrc)
+        && /eventDrawn: !!res\.eventDrawn/.test(harnessSrc)
         && /gradeRound\(\{[^}]*mode: MODE[^}]*\}\)/.test(harnessSrc)
         && /event: res\.event \|\| null/.test(harnessSrc),
       "the grader, its mode argument, or the transcript field is missing");

@@ -79,7 +79,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
 | P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; **Yuhan's blind read owed** |
-| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 mutations RED; live: free 0/6, rate overshoots (romance 7/14, pressure 11/14) |
+| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed) |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
 | P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none | ✅ 6 mutations RED |
@@ -803,6 +803,12 @@ scratchpad, key in `p7-blind-key.json` beside it. Ratings 自然 / 一般 / 翻�
 plus where the stiff sentences sit. Reports: `test/.out/playthrough-1792572903152.json`,
 `-946331`, `-988546` (P7) and `test/.out/p7-control/` (control).
 
+**On her phone since 2026-10-21 (night):** a private page,
+https://claude.ai/artifact/FyYBsJBpXPVEDBeryRENR8, built from the packet alone (the packet now
+lives in `test/.out/p7-blind/`). One story per screen; she rates it and taps the stiff
+sentences. Each tap writes a doc to the artifact's `ratings` collection, which an agent reads
+with ArtifactData before unblinding with the key.
+
 ### P8. Random events, generated rather than pooled
 
 - **Schema:** a new `"event"` field (a string or null), placed after `story` and before `summary`.
@@ -914,6 +920,65 @@ transcript so the rate per mode can be counted.
 
 **Review owed:** the ko label `【돌발 이벤트】` is two words of Korean in the ledger, written
 by an agent. Not prose, but no native reader has seen it.
+
+#### P8 A/B: a rate described or a rate drawn (2026-10-21, Yuhan's call)
+
+Yuhan confirmed both P8 readings (the rate lives in code; "appended to the history entry" is
+the story log the player reads) and asked for a live comparison of two ways to lower the
+overshoot: tell the model a lower rate, or draw the event rounds in code.
+
+- **Arm A, described:** the tail said `about one round in four` for romance and pressure; the
+  model decided each round.
+- **Arm B, drawn:** `executeRound` drew each round at 1/4 (never round 1, the prologue round),
+  and the tail said `this round has one` or `none this round: event is null`. The RULES line
+  changed from *says how often a round has one* to *says whether this round has one*; nothing
+  else in the static prompt moved.
+
+`deepseek-flash`, `kpop_idol` / zh / 练习生, 3 runs x 12 rounds per mode per arm, run one after
+the other. All 144 rounds parsed directly, 0 drifts, 0 prefix breaks. Rounds 2-12 counted (33
+per cell).
+
+| | A romance | A pressure | B romance | B pressure |
+| --- | --- | --- | --- | --- |
+| event rounds | 10/33 (0.30) | **22/33 (0.67)** | 6/33 (0.18) | 13/33 (0.39) |
+| drawn by code | - | - | 6 | 11 |
+| written when drawn | - | - | 6/6 | 11/11 |
+| written when NOT drawn | - | - | 0/27 | 2/22 |
+| events in back-to-back rounds | 3 | **16** | 0 | 3 |
+| "events" that are a member's own gesture | 3/10 | 2/22 | 0/6 | 0/13 |
+
+**Read:**
+
+- **Described, the rate depends on the mode, not on the number.** Romance at "one in four"
+  landed near target. Pressure landed at 0.67, close to the 0.79 that "one in two" produced: lowering
+  the number barely moved it, and under a true 1/4, 22 of 33 is more than five standard
+  deviations out. Pressure's own mode rule asks for
+  scrutiny incidents, and the model labels each one an event. One run had five consecutive
+  rounds of *someone raises a phone*, which the RULES line's *never repeat one* did not stop.
+- **Drawn, the frequency is the draw's, and the model follows it:** 17 of 17 drawn rounds
+  carried an event, and 2 of 49 undrawn rounds did, both pressure scrutiny incidents (a leaked
+  clip, fans with a sign) that the mode rule asks for. Romance's 6/33 and pressure's 11/33 draws
+  are both within about one standard deviation of 1/4 at n=33.
+- **Drawn events were all external** in my reading of what happens (not of the register): a fire
+  drill, a flat battery, an ankle sprain, the air-con failing, a power cut; in pressure, a photo
+  that escalates into a leak and reporters at the door. Arm A's romance had three gestures
+  (a coffee left behind, a borrowed hat, Irene taking the blame). A yes in the tail seems to
+  make the model look for something that happens to the scene; a rate lets it relabel a beat
+  it was writing anyway.
+- **Not measured:** whether a drawn event lands at a bad moment (mid-confession). None of the
+  17 drawn events did, in my reading; Yuhan has not read them.
+
+**Decision (built):** the draw, at the plan's rates: free 0, romance 1/3, pressure and dramatic
+1/2. The A/B ran at 1/4 to compare mechanisms on one target; with the draw the number is exact,
+so the plan's numbers stand. Changing a rate is one constant in `EVENT_RATES`.
+
+**As built:** `drawEvent(mode, round, rng = Math.random)`; `eventLine(mode, hasEvent)`;
+`buildTailRules(world, mode, timeSpeed, hasEvent)`; `executeRound` draws once per call (so ↺
+Retry draws again) and returns `eventDrawn`. An event written on an undrawn round is kept, for the
+reason a free-mode one is: the prose carries it either way. Harness graders
+`event-not-drawn` and `drawn-event-missing`, and every transcript stores `eventDrawn`. All six
+goldens moved by one phrase (`how often a` -> `whether this`), diff read. Smoke 1813 -> 1815;
+**17 mutations, 17 RED**. Reports: `test/.out/p8ab/index.txt` lists the twelve.
 
 ### P9. No named or detailed strangers
 

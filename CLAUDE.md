@@ -452,6 +452,7 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     chapter of the round being GENERATED (v1.4.4 P2)
   + "[Prologue] ..." — buildPrologueLine, ROUND 1 ONLY (v1.4.4 P6)
   + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
+  + "[Random Events] this round has one|none this round" - drawn by drawEvent (v1.4.4 P8)
   + optional "[Time Speed] slow|fast ..." line, only when it is not the default
   (both from buildTailRules, which is the only thing allowed to place them)
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
@@ -963,11 +964,20 @@ asked; **whether it reads well is Yuhan's blind read, and it gates the release.*
 
 ### Random events, at a rate the story mode sets (v1.4.4 P8)
 
-- **The rate is `EVENT_RATES` in `mainAgent.js`**, keyed by `MODE_IDS`: free none, romance about
-  one round in three, pressure and dramatic about one in two. It depends on the mode and never
-  on the world, so it is one table, not a sentence copied into twelve world files.
-  `buildTailRules` sends it as its own `[Random Events]` line after `[Story Mode]` (a different
-  quantity, so a different label), and free mode sends its line too.
+- **The code draws the event rounds; the model is never asked to keep a rate.** `EVENT_RATES`
+  in `mainAgent.js` holds a probability per `MODE_IDS` entry: free 0, romance 1/3, pressure and
+  dramatic 1/2. `executeRound` calls `drawEvent(mode, round)` once per call (round 1, the
+  prologue round, never draws; ↺ Retry draws again), and `buildTailRules(..., hasEvent)` sends
+  `[Random Events] this round has one...` or `none this round: event is null.` as its own line
+  after `[Story Mode]`; free mode sends its own "none" line. The rate depends on the mode and
+  never on the world, so it is one table, not a sentence in twelve world files. The tail is the
+  always-miss message, so `Math.random()` here costs no cache.
+- **Why drawn, measured:** told a rate, the model overshot it in a way that depended on the
+  mode, not the number. A live A/B at 1/4 (`docs/V144_PLAN.md`, *P8 A/B*): described, pressure
+  ran 22/33 with 16 back-to-back event rounds, since its mode rule asks for scrutiny incidents
+  and the model labelled each one; drawn, the model wrote an event on 17/17 drawn rounds and on
+  2/49 undrawn ones, and none of the drawn events was a member's gesture (3 of 10 were, in
+  described romance).
 - **The schema's `event` key sits between `story` and `summary`** and reports what the story
   already contains. The RULES line defines an event as something that happens TO the people in
   the scene, never a member's own gesture, and points at `[Random Events]`, `[Chapter]`,
@@ -980,11 +990,12 @@ asked; **whether it reads well is Yuhan's blind read, and it gates the release.*
   imitates; removing the marker fixed what the rule could not. `splitEvent` lifts a
   model-written heading paragraph back out (validator) and keeps one out of an edited story
   (`saveStoryEdit`).
-- **A free-mode event is not deleted by code**: the prose carries it either way. The harness's
-  `event-in-free-mode` grader is where it shows, and every transcript stores the round's event.
-- **Measured, not settled:** two live checks on `deepseek-flash`, zh. Free 0/6; romance 7/14;
-  pressure 11/14. The model overshoots both targets. Drawing the event rounds in code instead is
-  `docs/PROPOSALS.md` §13, with the measurement that would decide it.
+- **An event on an undrawn round is not deleted by code**, free mode included: the prose
+  carries it either way. The harness's `event-in-free-mode`, `event-not-drawn` and
+  `drawn-event-missing` graders are where it shows, and every transcript stores the round's
+  event and `eventDrawn`.
+- **Not verified:** en and ko have not been played with P8, and whether a drawn event can land
+  at a bad moment (mid-confession) has not been read by Yuhan.
 
 ---
 
@@ -1198,8 +1209,8 @@ Moved to their own documents on 2026-10-21, verbatim. Read them before touching 
 
 **Released:** v1.4.3, deployed 2026-10-02, tagged `v1.4.3` on deploy commit `adf19b9`.
 
-**On `dev`, unreleased:** v1.4.4 - P1-P7 and P9-P12 done, **P8 (random events by story mode) and
-the release notes are next**. `docs/V144_PLAN.md`'s table is the authority on progress, and
+**On `dev`, unreleased:** v1.4.4 - P1-P12 done and the release notes written; the
+release waits on Yuhan (blind read, phone test, push). `docs/V144_PLAN.md`'s table is the authority on progress, and
 `docs/HANDOFF.md` is the baton (what is in flight, what is not verified, the exact next step).
 
 The history of every release before this one, with its measurements, is in
