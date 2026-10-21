@@ -107,13 +107,13 @@
         { "from": 1, "text": "After a banquet you take off your suit jacket and put it over the thin evening dress she is wearing" },
         { "from": 1, "text": "On a formal engagement you have brought flat shoes so she can change out of her heels when she is tired" },
         { "from": 2, "text": "She slips her schedule and goes out alone, and you know where to find her - and you do not report it" },
-        { "from": 2, "text": "Driving her home at dawn she asks whether you are tired, which nobody has asked before" }
+        { "from": 2, "text": "Driving her home at dawn, she asks in the car whether you are tired - the first time anyone has asked you that" }
       ]
     },
     {
       "id": "journalist",
       "name": "Journalist",
-      "background": "[Identity: Journalist] You are a reporter, newly assigned to investigate this family. You got close to her for a story - at least at first. Advantage: You do not belong to the chaebol circle, so you can ask what nobody else dares to. Disadvantage: Your relationship began in a deception - whatever it becomes later, that stays a knot buried inside you. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Journalist] You are a reporter, newly assigned to investigate this family. You got close to her for an exposé - at least at first. Advantage: You do not belong to the chaebol circle, so you can ask what nobody else dares to. Disadvantage: Your relationship began in a deception - whatever it becomes later, that stays a knot buried inside you. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
       "events": [
         { "from": 0, "text": "You slip into a chaebol banquet and she sees immediately that you do not belong there" },
         { "from": 1, "text": "Through your time with her you gradually learn things about her family that nobody outside knows" },
