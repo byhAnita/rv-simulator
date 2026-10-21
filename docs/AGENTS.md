@@ -31,14 +31,19 @@ honestly.
 
 | File | What it is |
 | --- | --- |
-| `CLAUDE.md` | **The authority on how the system behaves**, plus its post-mortems. Its newest `## Pick up here` block is the authority on what is open. Long — read the pick-up block first. |
-| `docs/HANDOFF.md` | **The baton.** The one task in flight, its state, and the exact next command. Short by design. |
-| `docs/V140_PLAN.md` | The feature plan and its numbered sections. |
+| `CLAUDE.md` | **The authority on how the system behaves now**, plus a *Lessons index* of the archived rules that still bind. Split on 2026-10-21 to stay under the 150k-character load limit. |
+| `docs/MODEL_LAYER.md` | Providers, the Aliyun route, the error layer, reasoning flags, caps, usage metering. Moved verbatim from `CLAUDE.md`. |
+| `docs/RELEASE.md` | Branches, release, hotfix, version strings, CI, mirrors, deploy. Moved verbatim from `CLAUDE.md`. |
+| `docs/CLAUDE_HISTORY.md` | Every post-mortem, phone pass and old `Pick up here` block, verbatim. A section *CLAUDE.md* names that is not in it lives here or in the two files above. |
+| `docs/HANDOFF.md` | **The baton.** The one task in flight, its state, and the exact next command. Short by design. **The authority on what is open.** |
+| `docs/V144_PLAN.md` | The v1.4.4 plan (P1-P12); its table's Done column is the authority on progress. |
+| `docs/V140_PLAN.md` | The v1.4.0-v1.4.2 feature plan and its numbered sections. |
 | `docs/PROPOSALS.md` | Changes deliberately NOT made, each with the measurement that would settle it. |
 | `docs/TECH_NOTES.md` | One entry per technique: what it replaced, what it bought, what it costs. |
 
-**Never rewrite history in `CLAUDE.md`.** It is largely changelog and post-mortem; "fixed in v1.3.7"
-is a record, not a stale version string.
+**Never rewrite history in `docs/CLAUDE_HISTORY.md`.** It is changelog and post-mortem; "fixed in
+v1.3.7" is a record, not a stale version string. A new post-mortem is appended there, with one line
+in `CLAUDE.md`'s *Lessons index* if its rule still binds; keep `CLAUDE.md` under ~120k characters.
 
 ---
 
@@ -150,5 +155,5 @@ Approval for one instance is not approval for the next one. Committing locally i
 7. **Stop.** Do not start the next item.
 
 **If you finish the baton and nothing is in flight**, update `HANDOFF.md` to say so and stop. Do not
-pick work out of `CLAUDE.md`'s open list — that list is prioritised by Yuhan, and most of it is
+pick work out of the open lists in `docs/HANDOFF.md` or `docs/CLAUDE_HISTORY.md` — those lists is prioritised by Yuhan, and most of it is
 design.

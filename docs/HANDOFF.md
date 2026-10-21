@@ -5,112 +5,87 @@ contents rather than appending a log.
 
 ---
 
-**Last updated:** 2026-10-21 by Claude Opus 5.5 (main VS Code session)
-**Handing to:** the next session - continue `docs/V144_PLAN.md` at **P2**
+## Pick up here — 2026-10-21
 
----
+**Written by:** Claude Code (Opus 5.5, main VS Code session), handing to a **new Claude Code
+session** (Yuhan is switching so Remote Control works; the old session's `/remote-control`
+returned HTTP 403, a fresh session does not).
+**Branch:** `dev`. **Last commit:** the CLAUDE.md split (see below), on top of `bec3530` (P7).
+**Unpushed:** every commit since `origin/dev` - P3 through P7 plus this one. `git log --oneline
+origin/dev..dev`. Pushing is Yuhan's.
+**Uncommitted:** nothing.
 
-## Project state
+### Verified at handoff
 
-- **v1.4.3 is released**, deployed 2026-10-02, tagged on `adf19b9`. `dev` carries unreleased work.
-- `dev` = `origin/dev` after the last commit of the night (check `git log origin/dev..dev`).
-- `npm run build` clean; `node test/smoke.mjs` **1737 / 0**.
-- Yuhan's zh review is complete: 620 of 620 approved. Campus `prof_of_cast` is a cafe owner,
-  addressed 老板 / **sajang-nim** / 사장님.
+- `npm run build` clean; `node test/smoke.mjs` **1799 passed / 0 failed** (after the split too).
+- CLAUDE.md split: every original line is in exactly one of the four files (sorted-line diff: 0
+  missing); both `npm run bump` anchors are still in `CLAUDE.md`.
 
-## What the overnight run did (autonomous, on Yuhan's instruction)
+### What this session did last
 
-Three commits, each validated (build + smoke + mutation) and pushed to `dev`:
+1. **P7 committed** (`bec3530`): one plain atmosphere sentence opens each round, a member's
+   appearance in one or two details, narration from the player's point of view. 10 mutations RED;
+   all six goldens moved by 3 lines, diff read; live 9 of 9 P7 rounds open as asked, 18/18 clean,
+   0 drifts. `docs/V144_PLAN.md`, "P7 as built".
+2. **Yuhan decided: 承 stays at +6** (recorded in V144_PLAN, P4).
+3. **CLAUDE.md was 493k characters, over the 150k load limit, and was split verbatim**:
+   `CLAUDE.md` (~109k, current behaviour + a *Lessons index*), `docs/MODEL_LAYER.md`,
+   `docs/RELEASE.md`, `docs/CLAUDE_HISTORY.md` (every post-mortem and old status block). Nothing
+   deleted. Keep `CLAUDE.md` under ~120k from now on: new post-mortems go to the history file.
 
-1. **`bf0cc4e`** - a world-level `NO ONE IN THIS CAST IS AN IDOL` rule for every non-idol world,
-   independent of restaging; the restaging prompts learn the player's role so no member is cast
-   into it (the Joy barista); en `Boss` -> `sajang-nim`. 12 mutations RED.
-2. **`cd4da85`** - three fixes the live measurement found:
-   - the player-role block **framed** the cast (a chaebol family became the company's staff);
-     reworded and moved, re-measured clean;
-   - a **total parse failure passed the retry probe** and would have shown raw JSON (7 of 64
-     rounds in one window, a stray `}`); `isUsableRound` now rejects it - PROPOSALS §7's fix;
-   - a grader false positive (self-introduction read as address).
-   10 mutations RED.
-3. The docs commit with the A/B report.
+### Owed by Yuhan (gates the v1.4.4 release, not P8)
 
-## Measured, `deepseek-flash`
+- **The P7 blind read.** 12 stories, 6 per arm (P7 vs `23c96a3`), shuffled, labels hidden:
+  `test/.out/p7-blind/p7-blind-packet.md` (git-ignored). The key is beside it in
+  `p7-blind-key.json` - **do not open the key or show it to her before she rates.** She rates each
+  自然 / 一般 / 翻译腔 and marks where the stiff sentences are.
+- **Confirm the P7 reading of "first-person view"**: implemented as the player's point of view,
+  still narrated as "you", not switched to 我/I.
 
-- **The not-an-idol rule:** idol facts in the prose of **1 of 30 runs with it, 7 of 30 without**
-  (chaebol/zh/lawyer, 8 rounds a run, arms alternated, every hit read).
-  `test/reports/2026-10-20-not-idols-ab.md`.
-- **The Joy fix:** 0 of 50 restaged campus positions at the player's café (en, 10 runs) and
-  no meta text in ko after the rewording.
-- **ko:** 6 runs, campus café owner / campus `junior_student` / chaebol `lawyer`, **6/6 clean,
-  0 drifts, 0 prefix breaks, 88-90% cache** - the first live ko rounds on the reviewed text.
-- **sajang-nim** used in 1 of 5 en café runs, both times from a member to the player.
+### The exact next action: P8, random events by story mode
 
-## Not verified
+Spec: `docs/V144_PLAN.md`, "### P8. Random events, generated rather than pooled". Read "P3 removed"
+in the same file first (a tail line reads as a cue; no authored pool). In short:
 
-- **The parse-failure retry has not been seen firing live** - the stray-brace failures stopped
-  recurring after the fix landed. Verified offline against the verbatim response.
-- Social posts and Kakao are now scanned (the harness stores their text): 0/8 runs leak with
-  the rule, 2/8 without. Small n.
-- ko is still **not native-reviewed**; the ko runs were read for positions and graders only.
-- The A/B is one world, one identity, one language, one model.
+- schema key `"event"` (string or null), **after `story`, before `summary`** (key order is
+  generation order);
+- rate from the story-mode rules in each world's `modes`: free always null, romance ~1 in 3,
+  pressure and dramatic ~1 in 2 - the rule text is English, so no zh review is needed, but all 12
+  world files and their root mirrors change;
+- the event follows from chapter, stage and stats;
+- UI shows it under `【随机事件】` (i18n for en/ko), it is appended to the history entry, and the
+  export keeps it;
+- a playthrough grader flags an event in free mode;
+- all six goldens move: run `node scripts/update-golden.mjs` and **read the diff**;
+- mutation-verify every new guard (runner pattern: a `[label, file, fn, want]` list, RED only if
+  the named check fails - see `docs/V144_PLAN.md` P7 for the last one);
+- docs before code, same commit: V144_PLAN P8 section + table row, CLAUDE.md, README v1.4.4 bullet.
 
-## Next command
+**Then:** rewrite `src/config/releaseNotes.js` once for v1.4.4. **Then stop**: the phone test of
+v1.4.4 (P10 scroll included), the push and the release are Yuhan's.
 
-**v1.4.4 is NOT ready to release.** Yuhan confirmed nine additions (P1-P9) on 2026-10-20 and they
-ship in the same release, plus **P10** (the scroll fix) added the same evening. `docs/V144_PLAN.md` is the plan; its table's **Done** column is the
-authority on progress.
+### Not verified
 
-- Done, local, unpushed: **P9** (`35ef7f7`, no named strangers) and **P5** (`ea95dbf`, the
-  chaebol cast is one family), and **P10** (`c57adaa`, a new round scrolls to its own top). Build
-  clean, smoke **1754 / 0**. P10 has not been seen on a phone.
-- **P1 is done** (the address ladder, given names, narration names): all six goldens moved, diff
-  read; 17 mutations RED; smoke **1772 / 0**. **Not played live** - whether a model walks the
-  ladder and steps down on screen is the next live measurement, best taken with P2/P3.
-- **P2 is done** (stage behaviour in section 9, the 起承转合 chapters in section 3, `[Chapter]` in
-  the tail): chapters live once in `src/config/chapters.js`, world `phases` is keyed by chapter id;
-  all six goldens moved, diff read; 18 mutations RED; smoke **1778 / 0**. **Not played live.**
-- **P11 is done** (the romance rule points at section 9 instead of naming a stage in English); 4
-  mutations RED, no golden moved.
-- **P12 is done** (ledger numbers rounds from 1 and writes `Round N:`; `Round:` left `[Player
-  Status]`); 6 mutations RED, no golden moved; existing saves miss the ledger cache once.
-- **P3 is done** (typical events left the static background for a `[Possible events]` tail line,
-  unlocked by the main member's stage; V144_PLAN "P3 as built"). 4 goldens moved, diff read; 18
-  mutations RED. **Smoke is RED by design on one check, Layer Z:** 105 world strings (23 changed
-  backgrounds, 82 new events) await Yuhan's ticks in `docs/zh-review/worlds-*.md`. Everything else
-  passes. **Do not "fix" that red by editing the ledger or ticking.**
-- Layer Z is green again: Yuhan ticked the 105 P3 strings (`162380b`). Identity text now narrates
-  her real name outside the idol world (`10a0ad1`).
-- **P3 live check (V144_PLAN, "P3 live check"):** events fire on the unlock round, a used event
-  echoes for up to 6 rounds, and nothing removes one. Five proposals await Yuhan's call.
-- **P3b is built** (`d6b1b68`: an event is offered once, near its stage, with a cooldown) and
-  **measured against a version with no events at all** (V144_PLAN "P3b results"). In 18 runs, the
-  events changed neither cross-game sameness nor plot direction; the tail version staged them on a
-  four-round clock.
-- **Typical events REMOVED (Yuhan's call, 2026-10-21)**, data, code, checks and the harness lever
-  together; V144_PLAN "P3 removed". The comparison stays as the record.
-- **P4 is done** (`055be21`: rise capped +4/+6/+8 by chapter; V144_PLAN "P4 as built, and
-  measured"). R6 mean 39.5 -> 32.3, R14 76.0 -> 69.3; Confirmed still by R14 in 5 of 6 runs,
-  because the model already rises below 承's +6. **Yuhan decided 2026-10-21: 承 stays at +6.**
+- P1 (address ladder) and P2 (stage behaviour, chapters) have **not been played live** for whether
+  the model walks the ladder or holds a Stranger at a distance.
+- P10 (scroll to the round's top) has not been seen on a phone.
+- zh/ko prologues (P6) are unread by Yuhan; ko is not native-reviewed anywhere.
 - **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
-  dialogue, where P1's Q2 rule makes it correct. Check `test/playthrough.mjs` before trusting
-  that flag outside `kpop_idol`.
-- **P6 is done** (a `[Prologue]` tail line on round 1 only; V144_PLAN "P6 as built"). 9
-  mutations RED, no golden moved; live 4 of 4 round 1s open with a prologue, 0 of 4 round 2s.
-  The zh/ko prologues' register is unread by Yuhan.
-- **P7 is done** (one atmosphere sentence, her appearance, the player's point of view; V144_PLAN
-  "P7 as built"). All six goldens moved by 3 lines, diff read; 10 mutations RED. Live 9 of 9 P7
-  rounds open on one atmosphere sentence. **Yuhan's blind read is owed and gates the release:**
-  12 stories (6 per arm vs `23c96a3`) in the session scratchpad, `p7-blind-packet.md`, key in
-  `p7-blind-key.json`. "First-person view" was read as the player's view, still narrated as
-  "you": her call to correct.
-- **Next: P8** (random events by story mode), then release notes.
-- The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
-  2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
-- **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,
-  `docs/PROPOSALS.md` §12 (Yuhan agreed 2026-10-21).
-- **Phone test of P10 and the rest is Yuhan's, after v1.4.4 is complete.**
-- In-game release notes (`src/config/releaseNotes.js`) are rewritten once, after P8.
-- Pushing and the release are Yuhan's.
+  dialogue, where P1's Q2 rule makes it correct. Read `test/playthrough.mjs` before trusting that
+  flag outside `kpop_idol`.
+- 0 affection falls in live runs (`docs/PROPOSALS.md` §1), unchanged.
+
+### Decided, for later versions (not v1.4.4)
+
+- `summary` in the player's language: `docs/PROPOSALS.md` §12.
+- PROPOSALS §9-11 deferred.
+
+### Standing rules from Yuhan this cycle
+
+One chaebol family (A1); Korean given names in non-idol worlds (Q2); address forms only inside
+quotes; no named strangers; no agent adds Chinese or Korean prose without her review; never tick a
+ZH_REVIEW box or edit `docs/zh-review/ledger.json` by hand; replies short, conclusions first,
+**unverified** marked; say "good point to compact" after each batch.
 
 ---
 
@@ -124,3 +99,5 @@ authority on progress.
 - en tense shift and zh real-name/stage-name switching: Yuhan's call 2026-10-20 - keep.
 - Place ids `greenhouse`, `back_seat` (chaebol) and `hoesik` (office) no longer describe their
   places. Ids are internal and `draws` has no reader, so nothing breaks.
+- P7 live: every P7 round 1 was set in the morning, every control round 1 at 晚上九点; two P7
+  round 1s opened 你推门进去. n=3, noticed only.
