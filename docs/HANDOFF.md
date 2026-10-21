@@ -5,80 +5,55 @@ contents rather than appending a log.
 
 ---
 
-## Pick up here — 2026-10-21
+## Pick up here — 2026-10-21 (evening)
 
-**Written by:** Claude Code (Opus 5.5, main VS Code session), handing to a **new Claude Code
-session** (Yuhan is switching so Remote Control works; the old session's `/remote-control`
-returned HTTP 403, a fresh session does not).
-**Branch:** `dev`. **Last commit:** the CLAUDE.md split (see below), on top of `bec3530` (P7).
-**Unpushed:** every commit since `origin/dev` - P3 through P7 plus this one. `git log --oneline
-origin/dev..dev`. Pushing is Yuhan's.
-**Uncommitted:** nothing.
+**Written by:** Claude Code (Opus 5.5, main VS Code session).
+**Branch:** `dev`. **Last commit:** this handoff, on top of `2d17033` (release notes) and
+`100a2a6` (P8). **Unpushed:** every commit since `origin/dev` (`git log --oneline
+origin/dev..dev`). Pushing is Yuhan's. **Uncommitted:** nothing.
 
-### Verified at handoff
+### Verified
 
-- `npm run build` clean; `node test/smoke.mjs` **1799 passed / 0 failed** (after the split too).
-- CLAUDE.md split: every original line is in exactly one of the four files (sorted-line diff: 0
-  missing); both `npm run bump` anchors are still in `CLAUDE.md`.
+- `npm run build` clean; `node test/smoke.mjs` **1813 passed / 0 failed**.
+- **P8 done** (`100a2a6`): schema `event` between story and summary, `EVENT_RATES` ->
+  `[Random Events]` tail line, the event shown under `t.game.randomEvent` on screen only (the
+  ledger keeps the plain story). 19 mutations RED; all six goldens moved by five lines, diff read.
+  Live (deepseek-flash, zh): free 0/6 events, 34/34 rounds clean, 0 drifts, 0 prefix breaks.
+  `docs/V144_PLAN.md`, P8 design / first live check / as built.
+- **Release notes rewritten once for v1.4.4** (`2d17033`), P1-P8.
 
-### What this session did last
+### Owed by Yuhan (all gate the v1.4.4 release)
 
-1. **P7 committed** (`bec3530`): one plain atmosphere sentence opens each round, a member's
-   appearance in one or two details, narration from the player's point of view. 10 mutations RED;
-   all six goldens moved by 3 lines, diff read; live 9 of 9 P7 rounds open as asked, 18/18 clean,
-   0 drifts. `docs/V144_PLAN.md`, "P7 as built".
-2. **Yuhan decided: 承 stays at +6** (recorded in V144_PLAN, P4).
-3. **CLAUDE.md was 493k characters, over the 150k load limit, and was split verbatim**:
-   `CLAUDE.md` (~109k, current behaviour + a *Lessons index*), `docs/MODEL_LAYER.md`,
-   `docs/RELEASE.md`, `docs/CLAUDE_HISTORY.md` (every post-mortem and old status block). Nothing
-   deleted. Keep `CLAUDE.md` under ~120k from now on: new post-mortems go to the history file.
+- **The P7 blind read** (unchanged): `test/.out/p7-blind/p7-blind-packet.md`; **do not open
+  `p7-blind-key.json` or show it to her before she rates.** 自然 / 一般 / 翻译腔, plus where.
+- **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
+- **Confirm the P8 readings:** the rate lives in code, not in 48 world-file sentences; "appended
+  to the history entry" = the round's entry in the story log the player reads, not the model's
+  ledger (V144_PLAN, P8 design).
+- **Decide PROPOSALS §13:** the model overshoots the event rate (romance 7/14 vs ~1/3, pressure
+  11/14 vs ~1/2). Keep it, or draw the event rounds in code.
+- **Read the zh and ko release-notes text** in `src/config/releaseNotes.js` (agent-written; ko
+  not native-reviewed), and the ko event heading `【돌발 이벤트】`.
+- **Phone test of v1.4.4** (P10 scroll, the event heading), then the push and the release.
 
-### Owed by Yuhan (gates the v1.4.4 release, not P8)
+### The exact next action
 
-- **The P7 blind read.** 12 stories, 6 per arm (P7 vs `23c96a3`), shuffled, labels hidden:
-  `test/.out/p7-blind/p7-blind-packet.md` (git-ignored). The key is beside it in
-  `p7-blind-key.json` - **do not open the key or show it to her before she rates.** She rates each
-  自然 / 一般 / 翻译腔 and marks where the stiff sentences are.
-- **Confirm the P7 reading of "first-person view"**: implemented as the player's point of view,
-  still narrated as "you", not switched to 我/I.
-
-### The exact next action: P8, random events by story mode
-
-Spec: `docs/V144_PLAN.md`, "### P8. Random events, generated rather than pooled". Read "P3 removed"
-in the same file first (a tail line reads as a cue; no authored pool). In short:
-
-- schema key `"event"` (string or null), **after `story`, before `summary`** (key order is
-  generation order);
-- rate from the story-mode rules in each world's `modes`: free always null, romance ~1 in 3,
-  pressure and dramatic ~1 in 2 - the rule text is English, so no zh review is needed, but all 12
-  world files and their root mirrors change;
-- the event follows from chapter, stage and stats;
-- UI shows it under `【随机事件】` (i18n for en/ko), it is appended to the history entry, and the
-  export keeps it;
-- a playthrough grader flags an event in free mode;
-- all six goldens move: run `node scripts/update-golden.mjs` and **read the diff**;
-- mutation-verify every new guard (runner pattern: a `[label, file, fn, want]` list, RED only if
-  the named check fails - see `docs/V144_PLAN.md` P7 for the last one);
-- docs before code, same commit: V144_PLAN P8 section + table row, CLAUDE.md, README v1.4.4 bullet.
-
-**Then:** rewrite `src/config/releaseNotes.js` once for v1.4.4. **Then stop**: the phone test of
-v1.4.4 (P10 scroll included), the push and the release are Yuhan's.
+**Nothing is queued for an agent.** v1.4.4's feature list (P1-P12) is done. Wait for Yuhan's
+blind read and decisions above. If she accepts §13, it is a new P-item: plan first.
 
 ### Not verified
 
-- P1 (address ladder) and P2 (stage behaviour, chapters) have **not been played live** for whether
-  the model walks the ladder or holds a Stranger at a distance.
-- P10 (scroll to the round's top) has not been seen on a phone.
-- zh/ko prologues (P6) are unread by Yuhan; ko is not native-reviewed anywhere.
+- P1 (address ladder) and P2 (stage behaviour, chapters) have **not been played live** for
+  whether the model walks the ladder or holds a Stranger at a distance.
+- P8 in **en and ko**: not played. The heading on a phone: not seen.
+- P10 not seen on a phone; zh/ko prologues (P6) unread by Yuhan; ko is not native-reviewed.
 - **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
-  dialogue, where P1's Q2 rule makes it correct. Read `test/playthrough.mjs` before trusting that
-  flag outside `kpop_idol`.
+  dialogue, where P1's Q2 rule makes it correct.
 - 0 affection falls in live runs (`docs/PROPOSALS.md` §1), unchanged.
 
 ### Decided, for later versions (not v1.4.4)
 
-- `summary` in the player's language: `docs/PROPOSALS.md` §12.
-- PROPOSALS §9-11 deferred.
+- `summary` in the player's language: `docs/PROPOSALS.md` §12. PROPOSALS §9-11 deferred.
 
 ### Standing rules from Yuhan this cycle
 
@@ -92,6 +67,12 @@ ZH_REVIEW box or edit `docs/zh-review/ledger.json` by hand; replies short, concl
 ## Found along the way
 
 *(Add anything you notice but were not asked to fix. Do not fix it.)*
+
+- **P8 live:** about 2 of 10 events are still a member's gesture rather than something that
+  happens to the scene (a drink left at the door). n=10, not acted on.
+- **`validateAndFixOutput`'s leaked-key strip misses the realistic shape** `...story","summary":...`
+  (closing quote before the comma); it only matches `...,"summary":...`. Pre-existing; the P8
+  guard uses the documented shape.
 
 - **Restaged positions do not always hold in the prose.** en campus: Irene restaged as an art
   history student said "I teach the intro seminar" (one run) and was "the senior who runs the
