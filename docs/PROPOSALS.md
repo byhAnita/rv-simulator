@@ -639,3 +639,27 @@ may land in the middle of a confession. And a rate the player cannot see may not
 pinned, counting event rounds. If romance and pressure both stay well above target, build the
 draw and run the same count; then Yuhan reads a few event rounds from each arm for whether the
 event fits the scene it lands in.
+
+## 14. Name dance and singing in the trade's own words
+
+**Status: proposed 2026-10-21, from the P7 blind read. Not built: the fix needs either Chinese
+example words in a rule (Yuhan writes or reviews those) or an English rule nobody has tested.**
+
+**What was seen.** In the P7 blind read, 4 of 12 stories (three of them the pre-P7 control, so
+not caused by P7) had a dance or singing move described in body mechanics, where a dancer or
+singer would use one plain word: `踩错的那段` and `先踩脚` (twice, in two different runs), `先看镜子，再动`
+(→ 跳), `拉长音` (→ 练习长音/唱长音), `从后面托过去`, `没成形的动作`, `肩膀沉下去又起来`. Yuhan marked each one.
+The kpop_idol trainee identity puts a practice room in almost every round, so this recurs.
+
+**The options.**
+- **An English rule in the register's `style`:** "name a dance or vocal move the way the people
+  who practise it would, in one ordinary word; never as a description of what the body does."
+  No Chinese is authored. Untested: an abstract English rule about Chinese is the shape that
+  failed in v1.4.3 (lesson 4 of the translationese bug).
+- **A few words of the trade in the kpop_idol world's zh text, written by Yuhan**, e.g. what the
+  model should say instead of `踩`/`动`. Stronger, per lesson 3 (in-language text in the prompt
+  teaches the register), and it is her text by the zh-review rule.
+
+**What would settle it.** The P7 live set (`deepseek-flash`, kpop_idol / zh / 练习生, 3 runs × 3
+rounds per arm), then a blind read where she marks only trade-word errors, counted per story.
+Today's baseline is 4 of 12 stories.

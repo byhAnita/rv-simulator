@@ -18,7 +18,9 @@ import { getTranslations } from "../i18n";
 // executeRound draws it before the call and the tail says yes or no; the model is
 // never asked to keep a rate itself, because asked for one it overshot every time
 // (docs/V144_PLAN.md, P8 A/B). Section 2's RULES line points at the tail line.
-export const EVENT_RATES = { free: 0, romance: 1 / 3, pressure: 1 / 2, dramatic: 1 / 2 };
+// One in three in every mode that has events: Yuhan's call after the A/B, since one
+// in two in pressure and dramatic cost the story more continuity than it added surprise.
+export const EVENT_RATES = { free: 0, romance: 1 / 3, pressure: 1 / 3, dramatic: 1 / 3 };
 
 // Whether round `round` (the player's number, from 1) carries an event. Round 1
 // never does: it opens with the prologue, and an event before the story has said

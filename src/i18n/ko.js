@@ -192,7 +192,7 @@ const ko = {
     go: "{place}으로/로 향한다",
   },
   game: {
-    // P8: the heading of a random event's paragraph. It reaches the ledger too, as part of the story text.
+    // P8: the heading of a random event's paragraph. Screen, save and export only: never the ledger.
     randomEvent: "【돌발 이벤트】",
     generating: "오프닝 스토리 생성 중...",
     progressing: "스토리 진행 중...",

@@ -5,55 +5,55 @@ contents rather than appending a log.
 
 ---
 
-## Pick up here — 2026-10-21 (night)
+## Pick up here — 2026-10-21 (late night)
 
 **Written by:** Claude Code (Opus 5.5, main VS Code session).
-**Branch:** `dev`. **Last commit:** the P8 draw commit on top of `8ee95cc`. **Unpushed:** every
-commit since `origin/dev` (`git log --oneline origin/dev..dev`). Pushing is Yuhan's.
-**Uncommitted:** nothing.
+**Branch:** `dev`. **Last commit:** the P7-result / event-rate commit on top of `b9607d9`.
+**Unpushed:** every commit since `origin/dev` (`git log --oneline origin/dev..dev`). Pushing is
+Yuhan's. **Uncommitted:** nothing.
 
-### Done this session (Yuhan's answers of 2026-10-21 night)
+### Done this session
 
-- **P8 readings confirmed by Yuhan:** the rate lives in code; "appended to the history entry" is
-  the story log the player reads, not the model's ledger.
-- **Event rate: live A/B, then built.** Described "one in four" vs drawn in code at 1/4,
-  deepseek-flash, zh, 3 x 12 rounds per mode per arm. Described: pressure 22/33 (16
-  back to back). Drawn: 17/17 drawn rounds followed, 2 events on 49 undrawn rounds, 0 gestures.
-  **Built the draw** at the plan's rates (romance 1/3, pressure and dramatic 1/2):
-  `drawEvent`/`eventLine` in `mainAgent.js`, graders `event-not-drawn`/`drawn-event-missing`.
-  Goldens moved by one phrase, diff read. `docs/V144_PLAN.md`, *P8 A/B*; PROPOSALS §13 BUILT.
-- **P7 blind read is a private page:** https://claude.ai/artifact/FyYBsJBpXPVEDBeryRENR8 . Built
-  from `p7-blind-packet.md` only. Her ratings land in that artifact's `ratings` collection (one
-  doc per sample, `rating`, `stiff` sentence keys, `stiffText`, `note`); read them with
-  ArtifactData `list`, then unblind with `test/.out/p7-blind/p7-blind-key.json`, **only after
-  she says she is done.**
+- **P7 blind read: done by Yuhan, unblinded, written up** in `docs/V144_PLAN.md`, *P7 blind
+  read: the result*. Overall a tie (P7 2/2/2 自然/一般/翻译腔, control 1/3/2). But **4 of 6 P7
+  atmosphere sentences were marked stiff** (2 of 6 control openings), every one with light, air
+  or a shadow as the subject of a figurative verb; the two she rated natural state a plain fact.
+  Her ratings: `test/.out/p7-blind/ratings/` (and the artifact's `ratings` collection).
+- **Found by the read, both arms, not P7:** dance and singing described in body mechanics
+  (`踩错`, `再动`, `拉长音`), 4 of 12 stories. Proposed as `docs/PROPOSALS.md` §14, not built.
+- **Event rate is 1/3 in romance, pressure and dramatic** (Yuhan's call: 1/2 cost continuity).
+  One constant in `EVENT_RATES`; smoke asserts 1/3 for all three and every mode's frequency over
+  4000 real draws.
 
 ### Verified
 
-- `npm run build` clean; `node test/smoke.mjs` **1815 passed / 0 failed**; 17 new mutations RED,
-  files byte-identical after the run.
-- 144 live rounds in the A/B: all parsed directly, 0 drifts, 0 prefix breaks.
+- `npm run build` clean; `node test/smoke.mjs` **1815 passed / 0 failed**; 6 rate mutations
+  RED, files byte-identical after the run.
 
 ### Owed by Yuhan (all gate the v1.4.4 release)
 
-- **The P7 blind read**, on the page above. Do not open the key before she finishes.
+- **P7's opening rule** (decision): recommended, one sentence that states a fact she perceives
+  (a sound, a light on or off, the temperature, the time), with light, air and shadow never the
+  subject of an action verb. Or drop the sentence (v1.4.3's person-first opening), or ship as is.
 - **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
-- **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`: she reviews them just before
-  the release.
-- **Phone test of v1.4.4** (P10 scroll, the event heading), then the push and the release.
+- **PROPOSALS §14** (trade verbs): English rule, or a few zh words she writes.
+- **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`, just before release.
+- **Phone test of v1.4.4**, then the push and the release.
 
 ### The exact next action
 
-When Yuhan says the blind read is done: read the `ratings` collection, unblind with the key,
-write the result into `docs/V144_PLAN.md` under *P7*, and fix what it points at. Otherwise
-nothing is queued for an agent.
+When Yuhan picks the P7 opening: change `prose.openWith` in `public/worlds/_registers/*.json`
+(English rule text only), regenerate goldens and read the diff, mutation-verify, then rerun the P7
+live set (`deepseek-flash`, kpop_idol / zh / 练习生 / romance, 3 runs x 3 rounds, control =
+`b9607d9` via `git archive`) and build a second blind page of rounds 2-3, openings marked.
 
 ### Not verified
 
 - P1 (address ladder) and P2 (stage behaviour, chapters) have **not been played live** for
   whether the model walks the ladder or holds a Stranger at a distance.
-- P8 in **en and ko**: not played. Whether a drawn event lands at a bad moment: not read by
-  Yuhan. The heading on a phone: not seen.
+- P8 in **en and ko**: not played. Not played live at 1/3 (the draw fixes the frequency by
+  construction). Whether a drawn event lands at a bad moment: not read by Yuhan. The heading on a
+  phone: not seen.
 - P10 not seen on a phone; zh/ko prologues (P6) unread by Yuhan; ko is not native-reviewed.
 - **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
   dialogue, where P1's Q2 rule makes it correct.

@@ -5069,15 +5069,14 @@ async function layerI() {
       rateOff.length === 0 && Object.keys(EVENT_RATES).sort().join() === [...loader.MODE_IDS].sort().join(),
       `${rateOff.slice(0, 4).join(" | ")} | rates for ${Object.keys(EVENT_RATES).join(",")}`);
     // The plan's numbers, asserted as the requirement.
-    check("the rates are the plan's: free none, romance one in three, pressure and dramatic one in two",
-      EVENT_RATES.free === 0 && Math.abs(EVENT_RATES.romance - 1 / 3) < 1e-9
-        && EVENT_RATES.pressure === 0.5 && EVENT_RATES.dramatic === 0.5,
+    check("the rates are Yuhan's: free none, one in three in romance, pressure and dramatic",
+      EVENT_RATES.free === 0 && ["romance", "pressure", "dramatic"].every((m) => Math.abs(EVENT_RATES[m] - 1 / 3) < 1e-9),
       JSON.stringify(EVENT_RATES));
     // The draw: round 1 never (the prologue), free never, an unknown mode is free,
     // and otherwise the rng against the mode's rate.
     const drawn = [
       drawEvent("pressure", 1, () => 0), drawEvent("free", 5, () => 0), drawEvent("no-such-mode", 5, () => 0),
-      drawEvent("pressure", 5, () => 0.49), drawEvent("pressure", 5, () => 0.5),
+      drawEvent("pressure", 5, () => 0.33), drawEvent("dramatic", 5, () => 0.34),
       drawEvent("romance", 2, () => 0.33), drawEvent("romance", 2, () => 0.34),
     ];
     check("drawEvent: never round 1, never free or an unknown mode, else the rng under the mode's rate",
@@ -5086,9 +5085,10 @@ async function layerI() {
     // Measured over many draws with the real rng, so a draw that ignored the rate
     // (or the mode) could not pass on a lucky pin.
     const freq = (mode) => { let n = 0; for (let r = 0; r < 4000; r++) n += drawEvent(mode, 2 + (r % 20)) ? 1 : 0; return n / 4000; };
-    const fr = { romance: freq("romance"), pressure: freq("pressure"), free: freq("free") };
+    const fr = Object.fromEntries(loader.MODE_IDS.map((m) => [m, freq(m)]));
     check("...and over 4000 real draws each mode lands on its rate",
-      Math.abs(fr.romance - 1 / 3) < 0.04 && Math.abs(fr.pressure - 0.5) < 0.04 && fr.free === 0, JSON.stringify(fr));
+      loader.MODE_IDS.every((m) => Math.abs(fr[m] - EVENT_RATES[m]) < 0.04) && fr.free === 0
+        && ["romance", "pressure", "dramatic"].every((m) => fr[m] > 0.25), JSON.stringify(fr));
 
     const evOff = [];
     for (const lang of ["zh", "en", "ko"]) {

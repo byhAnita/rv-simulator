@@ -1060,8 +1060,8 @@ model: a label in the history is a format it continues, and a rule against it lo
 
 ### A frequency drawn in code, not asked of the model — v1.4.4 P8
 
-**What it is.** Random events should come on about one round in three (romance) or two
-(pressure, dramatic). Instead of telling the model that rate and trusting it to keep it,
+**What it is.** Random events should come on about one round in three (romance, pressure and
+dramatic; pressure and dramatic were one in two until Yuhan lowered them for continuity). Instead of telling the model that rate and trusting it to keep it,
 `executeRound` rolls a die before each call (`drawEvent`) and the tail says, for this round
 only, "this round has one" or "none this round". The model decides what the event is; the code
 decides whether there is one.

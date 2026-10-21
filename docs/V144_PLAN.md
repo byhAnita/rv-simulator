@@ -78,8 +78,8 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
-| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; **Yuhan's blind read owed** |
-| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed) |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **opening rule decision owed** |
+| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed); 1/3 in every event mode, Yuhan's call |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
 | P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none | ✅ 6 mutations RED |
@@ -809,6 +809,47 @@ lives in `test/.out/p7-blind/`). One story per screen; she rates it and taps the
 sentences. Each tap writes a doc to the artifact's `ratings` collection, which an agent reads
 with ArtifactData before unblinding with the key.
 
+#### P7 blind read: the result (2026-10-21, night)
+
+Yuhan rated all 12 on the page; the key was opened only after she said she was done. Her
+ratings are copied to `test/.out/p7-blind/ratings/`.
+
+| | P7 | control (pre-P7) |
+| --- | --- | --- |
+| 自然 | 2 | 1 |
+| 一般 | 2 | 3 |
+| 翻译腔 | 2 | 2 |
+| sentences marked stiff | 10 | 11 |
+| **first sentence marked stiff** | **4 of 6** | 2 of 6 |
+
+**Read:**
+
+- **Overall the arms tie.** 2/2/2 against 1/3/2 at n=6 is inside the noise reads 3-5 measured.
+- **P7's stiffness sits in its atmosphere sentence, and all four have one shape: light, air or
+  a shadow is the subject of a figurative verb.** 午后的阳光斜斜切进练习室，把地板烤出一层薄薄的热气
+  (S02, "斜切 should be 斜射/斜照"); 练习室的空气变得又干又软 (S05); 窗外的光斜进来，在木地板上铺出一条窄窄的亮带
+  (S09); 镜子上蒙着一层薄薄的白雾，把五个人的影子泡得发软 (S10). None is a simile, so *"said
+  plainly, no simile"* did not reach them. **The two P7 openings she rated 自然 state a plain
+  fact**: 练习室的灯比清晨亮了一档 (S04), 音乐停了，只剩下空调出风口的嗡嗡声 (S06). The control's two
+  stiff first sentences are a wrong verb (踩错的那段, 拉长音), not imagery. This is read 5's finding
+  again, shrunk to one sentence: asked for atmosphere, the model makes the weather an actor.
+- **A second defect in both arms, not caused by P7: the trade's own verbs.** Dance and singing
+  are described in body mechanics: 踩错的那段 and 先踩脚 (S01, S09; she noted the repeat), 先看镜子，再动
+  (动 → 跳), 拉长音 (→ 练习长音/唱长音), 从后面托过去, 没成形的动作, 肩膀沉下去又起来. Four of the 12
+  stories, three of them control. See `docs/PROPOSALS.md` §14.
+- **Elsewhere, misused figures and word choice**, both arms: 像一整个下午都在等这句话 (S08), 像在哄一件没校准好的乐器
+  (S10), 替你把话先按住 (S12), 那目光里有很沉的东西 (S02); 声音不重, 空隙 for 空位, 贴住了 for 粘住了,
+  在数明天几点到.
+- **Appearance and POV were not what she marked.** One appearance sentence was (S02,
+  笑起来的时候眼睛又弯成那样: "like what?"): a callback to a detail the reader never saw.
+
+**Decision owed by Yuhan: what P7's first sentence is.** Recommended: keep one sentence, but
+make it a fact she perceives (a sound, whether a light is on, the temperature, the time), and
+never let light, air or a shadow be the subject of an action verb. That is the shape of the two
+openings she rated natural, and it is English rule text, so no Chinese is authored. The other
+choices are dropping the sentence (open on a person, as v1.4.3) or shipping as is. Whichever
+it is, the measurement is the same live set and a blind read of the openings.
+
 ### P8. Random events, generated rather than pooled
 
 - **Schema:** a new `"event"` field (a string or null), placed after `story` and before `summary`.
@@ -972,6 +1013,13 @@ per cell).
 1/2. The A/B ran at 1/4 to compare mechanisms on one target; with the draw the number is exact,
 so the plan's numbers stand. Changing a rate is one constant in `EVENT_RATES`.
 
+**Changed the same night, Yuhan's call: one in three in every mode that has events** (free 0,
+romance, pressure and dramatic 1/3), to balance surprise against the story's continuity. One
+constant; the smoke checks now assert 1/3 for all three and measure every mode's frequency over
+4000 real draws. 6 mutations RED (pressure or dramatic back to 1/2, romance at 1/4, a draw that
+ignores the rate or the mode). Not played live at 1/3: the draw sets the frequency by
+construction, and the A/B already showed the model follows it.
+
 **As built:** `drawEvent(mode, round, rng = Math.random)`; `eventLine(mode, hasEvent)`;
 `buildTailRules(world, mode, timeSpeed, hasEvent)`; `executeRound` draws once per call (so ↺
 Retry draws again) and returns `eventDrawn`. An event written on an undrawn round is kept, for the
@@ -1065,4 +1113,4 @@ round is the part a guard cannot see.
    - affection at round 6;
    - the event rate per mode;
    - named strangers, by reading.
-3. **Yuhan's blind read** for P7.
+3. **Yuhan's blind read** for P7. Done 2026-10-21; see *P7 blind read: the result*.

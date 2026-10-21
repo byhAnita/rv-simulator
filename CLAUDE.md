@@ -960,13 +960,18 @@ in all three languages:
   `docs/V144_PLAN.md`, *P7 design*.
 
 P6's prologue line now points at this rule instead of restating it. Live 9 of 9 rounds opened as
-asked; **whether it reads well is Yuhan's blind read, and it gates the release.**
+asked. **Yuhan's blind read (2026-10-21) tied overall but put the stiffness in the atmosphere
+sentence**: 4 of 6 were marked, every one with light, air or a shadow as the subject of a
+figurative verb (`阳光斜斜切进`, `空气又干又软`, `影子泡得发软`), while the two she rated natural
+state a plain fact (`音乐停了，只剩下空调出风口的嗡嗡声`). *"No simile"* does not reach a figurative
+verb. What the opening becomes is her decision and gates the release; `docs/V144_PLAN.md`,
+*P7 blind read: the result*.
 
 ### Random events, at a rate the story mode sets (v1.4.4 P8)
 
 - **The code draws the event rounds; the model is never asked to keep a rate.** `EVENT_RATES`
-  in `mainAgent.js` holds a probability per `MODE_IDS` entry: free 0, romance 1/3, pressure and
-  dramatic 1/2. `executeRound` calls `drawEvent(mode, round)` once per call (round 1, the
+  in `mainAgent.js` holds a probability per `MODE_IDS` entry: free 0, and 1/3 in romance,
+  pressure and dramatic (Yuhan's call: 1/2 cost continuity). `executeRound` calls `drawEvent(mode, round)` once per call (round 1, the
   prologue round, never draws; ↺ Retry draws again), and `buildTailRules(..., hasEvent)` sends
   `[Random Events] this round has one...` or `none this round: event is null.` as its own line
   after `[Story Mode]`; free mode sends its own "none" line. The rate depends on the mode and
