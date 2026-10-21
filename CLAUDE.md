@@ -1503,10 +1503,30 @@ the first scene.
   1 is when it should be acted on, once.
 - **Inside `story`, not a schema key**, so the static prompt and the goldens do not move for one
   round's text.
-- **It names the three static rules it could otherwise contradict:** the scene after it still
-  opens on a person, the cast are no closer than `[First meeting]` allows, and nobody outside
+- **It names the three static rules it could otherwise contradict:** the scene after it opens
+  as section 3 says every round opens (it points at that rule since P7, never restates it), the cast are no closer than `[First meeting]` allows, and nobody outside
   MEMBER PROFILES is named. It counts toward the story's length.
 - Generated per run, so no in-language text is authored.
+
+### One line of atmosphere, how she looks, and whose eyes (v1.4.4 P7)
+
+Yuhan's design, three `prose` rules in `public/worlds/_registers/<lang>.json`, the same English
+in all three languages:
+
+- **`openWith`**: one short sentence of atmosphere (light, a sound, the weather or a smell, said
+  plainly, no simile, no tour of the room), then a person by the second sentence at the latest.
+  **This walks back half of the v1.4.3 fix on purpose, and is bounded because of it**: *"1-2
+  sentences establishing scene atmosphere"* is what blind read 5 tied to the translationese. The
+  old wording must not return in any language; smoke checks all three.
+- **`style`** adds one or two concrete details of how a member looks today, never an inventory
+  and never the same detail every round.
+- **`pov`**, a new `PROSE_KEYS` entry beside the PRONOUN RULE: the narration stays with the
+  player and shows only what she perceives; a member's inner state shows in what she says and
+  does. "First-person view" in the plan is read as the player's view, narrated as "you"; see
+  `docs/V144_PLAN.md`, *P7 design*.
+
+P6's prologue line now points at this rule instead of restating it. Live 9 of 9 rounds opened as
+asked; **whether it reads well is Yuhan's blind read, and it gates the release.**
 
 ---
 

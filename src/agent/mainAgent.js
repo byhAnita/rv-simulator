@@ -63,7 +63,7 @@ export function buildChapterLine(round) {
 // as for buildChapterLine; every other round gets the empty string.
 export function buildPrologueLine(round) {
   if (round !== 1) return "";
-  return "[Prologue] This is the first round, so \"story\" begins with a prologue of 2-4 sentences in the narrator's voice, addressed to the player as \"you\": this world, who she is in it, and who the cast are to her, as her identity in section 6 sets it at the start and no closer. Then a blank line, and the first scene begins, opening on a person as the style rule says. The prologue counts toward the story's length, names nobody outside MEMBER PROFILES, and is never written again.";
+  return "[Prologue] This is the first round, so \"story\" begins with a prologue of 2-4 sentences in the narrator's voice, addressed to the player as \"you\": this world, who she is in it, and who the cast are to her, as her identity in section 6 sets it at the start and no closer. Then a blank line, and the first scene begins, opening as section 3 says every round opens. The prologue counts toward the story's length, names nobody outside MEMBER PROFILES, and is never written again.";
 }
 
 // The chapter's cap on a RISE (v1.4.4 P4), applied after validateAndFixOutput's
@@ -570,6 +570,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - ${P("length")}
 - ${P("style")}
 - ${P("openWith")}
+- ${P("pov")}
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
 - UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and ${playerName}. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: ${archetypeList}. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.

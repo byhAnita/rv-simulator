@@ -90,15 +90,20 @@ authority on progress.
   together; V144_PLAN "P3 removed". The comparison stays as the record.
 - **P4 is done** (`055be21`: rise capped +4/+6/+8 by chapter; V144_PLAN "P4 as built, and
   measured"). R6 mean 39.5 -> 32.3, R14 76.0 -> 69.3; Confirmed still by R14 in 5 of 6 runs,
-  because the model already rises below 承's +6. **Open, Yuhan's call:** lower 承 to +4?
+  because the model already rises below 承's +6. **Yuhan decided 2026-10-21: 承 stays at +6.**
 - **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
   dialogue, where P1's Q2 rule makes it correct. Check `test/playthrough.mjs` before trusting
   that flag outside `kpop_idol`.
 - **P6 is done** (a `[Prologue]` tail line on round 1 only; V144_PLAN "P6 as built"). 9
   mutations RED, no golden moved; live 4 of 4 round 1s open with a prologue, 0 of 4 round 2s.
   The zh/ko prologues' register is unread by Yuhan.
-- **Next: P7** (atmosphere sentence, appearance, POV; moves all six goldens, needs Yuhan's blind
-  read of 6 rounds), then P8, then release notes.
+- **P7 is done** (one atmosphere sentence, her appearance, the player's point of view; V144_PLAN
+  "P7 as built"). All six goldens moved by 3 lines, diff read; 10 mutations RED. Live 9 of 9 P7
+  rounds open on one atmosphere sentence. **Yuhan's blind read is owed and gates the release:**
+  12 stories (6 per arm vs `23c96a3`) in the session scratchpad, `p7-blind-packet.md`, key in
+  `p7-blind-key.json`. "First-person view" was read as the player's view, still narrated as
+  "you": her call to correct.
+- **Next: P8** (random events by story mode), then release notes.
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,

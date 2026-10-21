@@ -193,6 +193,7 @@ The campus, office and chaebol worlds are now about the people in them, not the 
 * 🌱 **Feelings have to be earned, and the story knows its chapter** — each relationship stage now says what it allows, so a member you have just met stays polite instead of caring for you on day one, and nobody confesses before the ambiguous stage has played out. The story follows four chapters (起承转合), each ending on its own beat, and the model is told which chapter it is writing.
 * 🐢 **Romance takes its time** — how fast affection can rise now depends on the chapter: slowest at the start, faster as the story builds. Losing affection is never slowed down.
 * 📖 **The story opens with a prologue** — the first round begins with a few lines from the narrator about the world, who you are in it and who these women are to you, before the first scene starts.
+* 🎬 **Each scene sets the mood, then finds her** — a round now opens with one plain line of atmosphere before someone speaks or moves, shows how she looks today in a detail or two, and stays behind your eyes: what she thinks shows in what she does, not in narration.
 * 📜 **A new round opens at its beginning** — when a round arrives, the story scrolls to its status box and first line instead of its last, so you start reading without scrolling back up.
 
 > 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. The Korean text has not been read by a native speaker.

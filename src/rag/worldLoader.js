@@ -37,7 +37,7 @@ export const MODE_IDS = ["free", "romance", "pressure", "dramatic"];
 // language — the releaseNotes.js lesson, where a hole is invisible until a Korean
 // player opens the game.
 export const PROSE_KEYS = [
-  "length", "style", "openWith", "profileCritical",
+  "length", "style", "openWith", "pov", "profileCritical",
   "socialFreshness", "tone", "sceneRule", "storyRule",
 ];
 

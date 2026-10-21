@@ -2859,14 +2859,35 @@ async function layerI() {
   // names the novel tradition of ITS OWN language: a zh prompt asking for an
   // English romance novel is the translationese this rule exists to prevent.
   const NOVEL_LANG = { zh: "Chinese", en: "English", ko: "Korean" };
+  // v1.4.4 P7 (Yuhan's design): ONE plain sentence of atmosphere is allowed back,
+  // bounded, and a person still arrives by the second sentence. The old "1-2
+  // sentences establishing scene atmosphere" must not return in any language.
   const sceneOpeners = ["zh", "en", "ko"].filter((l) => {
     const pl = prompt(form(), l);
-    return !/Open on a person doing or saying something, never on a description of the place\./.test(pl)
+    return !/Open with ONE short sentence of atmosphere/.test(pl)
+      || !/no simile/.test(pl)
+      || !/A person doing or saying something arrives by the second sentence at the latest\./.test(pl)
       || /establishing scene atmosphere/.test(pl) || /Style: Literary/.test(pl)
       || !pl.includes(`native ${NOVEL_LANG[l]} romance novel style`);
   });
-  check("every round opens on a person, and the style asks for that language's own romance-novel register",
+  check("every round opens on one plain sentence of atmosphere and a person by the second, in that language's own romance-novel register",
     sceneOpeners.length === 0, sceneOpeners.join(", "));
+  // P7: her appearance, bounded so it does not become a per-round inventory, and
+  // the player's point of view with the substitute that keeps the beat.
+  const p7Gaps = ["zh", "en", "ko"].flatMap((l) => {
+    const pl = prompt(form(), l);
+    const gaps = [];
+    if (!/outfit, hair, makeup, expression or hands/.test(pl)) gaps.push(`${l}: appearance`);
+    if (!/Never a head-to-toe inventory, and not the same detail every round\./.test(pl)) gaps.push(`${l}: inventory bound`);
+    if (!/the narration stays with the player \("you"\) and shows only what she can see, hear and feel/.test(pl)) gaps.push(`${l}: pov`);
+    if (!/never narrated from inside her; they show in what she says and does/.test(pl)) gaps.push(`${l}: pov substitute`);
+    // The POV rule sits beside the PRONOUN RULE it complements, after the opening.
+    const iOpen = pl.indexOf("Open with ONE"), iPov = pl.indexOf("Point of view:"), iPro = pl.indexOf("PRONOUN RULE:");
+    if (!(iOpen >= 0 && iOpen < iPov && iPov < iPro)) gaps.push(`${l}: pov order ${iOpen}/${iPov}/${iPro}`);
+    return gaps;
+  });
+  check("the style asks for how she looks without an inventory, and the narration keeps the player's point of view",
+    p7Gaps.length === 0, p7Gaps.join(" | "));
   check("a habit carried by an old save reaches no part of the prompt",
     !withOldHabit.includes("SENTINEL_HABIT_VALUE") && !/LITTLE THINGS|Little things|Habit:/.test(withOldHabit),
     profilesOf(withOldHabit).split("\n").filter((l) => /SENTINEL|Little things|Habit:/.test(l)).join(" | "));
@@ -4914,7 +4935,10 @@ async function layerI() {
     // or a stranger would get a name.
     const pro = buildPrologueLine(1);
     check("...and points at the three static rules it could contradict, and the length",
-      pro.includes("opening on a person") && pro.includes("section 6") && pro.includes("MEMBER PROFILES")
+      // P7: it POINTS at section 3's opening rule rather than restating it, so the
+      // two cannot disagree when that rule changes.
+      pro.includes("as section 3 says every round opens") && !/on a person|atmosphere/.test(pro)
+        && pro.includes("section 6") && pro.includes("MEMBER PROFILES")
         && pro.includes("counts toward the story's length"),
       pro);
     // Through the real round: what executeRound SENDS on round 1 and round 2.

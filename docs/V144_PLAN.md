@@ -78,7 +78,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
-| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; **Yuhan's blind read owed** |
 | P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
@@ -653,6 +653,7 @@ Live, 6 runs after against the 6 `none`-arm runs before. Same flags, all `deepse
   Calculated, not measured: at +4 in 承, R14 is at most 32 + 8 x 4 = 64, under Confirmed. The
   cost is that the cap then binds most 承 rounds, so the pace becomes the game's number rather
   than the story's.
+  **Decided 2026-10-21 (Yuhan): 承 stays at +6.**
 - **Not changed by P4, and still open:** 0 falls in 84 rounds (`docs/PROPOSALS.md` §1).
 - **Two flags, both read, neither caused by P4:**
   - `kkt-transcribed-in-story`: Irene says three lines aloud in the scene, then the round's Kakao
@@ -730,6 +731,77 @@ clean, 88.6-91.1% cache, 0 drifts.
 
 **Risk:** blind read 5 credited the person-first opening with improving the machine-translated
 feel, so this change gets a **blind read of 6 rounds** before release.
+
+#### P7 design (2026-10-21)
+
+**"First-person view" is read as the PLAYER's point of view, not as narration in 我/I.** The
+PRONOUN RULE has always narrated the player as "you", and P6's prologue addresses her the same
+way; switching to 我 would rewrite both and nobody asked for that. What the rule adds is the
+limit: the narration knows only what she sees, hears and feels. **Assumption, Yuhan's to
+correct.**
+
+Three register strings, the same English in all three languages (`style` keeps each file's own
+novel tradition):
+
+- **`openWith`** becomes: one short sentence of atmosphere (the light, a sound, the weather or a
+  smell, one concrete thing, said plainly, no simile, no tour of the room), then a person doing
+  or saying something by the second sentence at the latest. **This is bounded on purpose.** The
+  old *"Open with 1-2 sentences establishing scene atmosphere"* is what blind read 5 tied to the
+  translationese; one plain concrete sentence is the smallest version of what Yuhan asked for,
+  and the blind read is what decides whether it is small enough.
+- **`style`** gains: when a member is in the scene, one or two concrete details of how she looks
+  today (outfit, hair, makeup, expression, hands), chosen for what they say about her now; never
+  a head-to-toe inventory, never the same detail every round. The last clause is there because a
+  rule asked of every round is a rule that repeats.
+- **`pov`**, a new `PROSE_KEYS` entry placed after `openWith` and before the PRONOUN RULE it
+  complements: the narration stays with the player and shows only what she perceives; a
+  member's thoughts and feelings are never narrated from inside her, they show in what she says,
+  does and how she looks. That is also the substitute: the beat survives as behaviour.
+
+**P6's prologue line is reworded in the same commit.** It said the first scene opens *"on a
+person as the style rule says"*, a copy of the rule this commit changes. It now points at the
+rule (*"as section 3 says every round opens"*) instead of restating it.
+
+**Guards:** every language sends the new opening (one atmosphere sentence, a person by the
+second) and none sends the old *establishing scene atmosphere*; the style asks for appearance
+and against an inventory; the POV rule reaches the prompt in every language (the existing
+derived check covers a new key); the prologue no longer restates the opening.
+
+#### P7 as built, and seen live (2026-10-21)
+
+Built as designed. All six goldens moved by exactly three lines each (`style`, `openWith`, the
+new `pov`), diff read. **10 mutations, 10 RED**, each on its own named check: the old opening
+back in one language, `no simile` dropped, the old atmosphere rule put back beside the new one,
+the appearance sentence or its inventory bound dropped, the POV substitute dropped, the POV line
+not rendered or moved after the PRONOUN RULE, and the prologue restating the opening or losing
+its pointer. Smoke **1799 / 0**.
+
+**Live, `deepseek-flash`, `kpop_idol` / zh / 练习生 / romance, 3 rounds a run, 3 runs per arm,
+arms alternated.** The control arm is `23c96a3` (pre-P7) exported with `git archive` into the
+scratchpad, so this tree was never switched. 18 of 18 rounds clean, 0 drifts, 0 prefix breaks,
+both arms served by `deepseek-flash`.
+
+- **The opening:** P7 opened **9 of 9** scenes on one sentence of atmosphere (air-con chill, a
+  smell, light on the floor, fog on the mirror, the hum of a vent), and a person (the player or a
+  member) acts by sentence 2 in 9 of 9. The control opened on a person or on the player's action
+  in 9 of 9, as its rule asks. One P7 atmosphere sentence is figurative
+  (`把五个人的影子泡得发软`); the others are plain.
+- **Appearance:** P7 rounds name an outfit, hair or a drop of sweat when a member enters
+  (`白色长袖睡到手腕，头发低低束在颈后`; `头发重新扎过，比早上紧`). The control does too, less
+  often (`白衬衫，发丝一丝不乱`). Not counted, read.
+- **POV:** no P7 sentence narrates a member's inner state; the one near-miss is hedged from
+  outside (`说完她才像意识到什么`). The control has one plain inner statement
+  (`一点也不觉得丢人`). n is far too small to call that a difference.
+- **Noticed, not caused by P7 as far as n=3 shows:** every P7 round 1 was set in the morning
+  (`清晨七点`, `上午九点`) and every control round 1 at `晚上九点`. Two P7 round 1s open
+  `你推门进去`. Recorded only.
+- **Not judged: the register.** That is the blind read.
+
+**The blind read is owed, and it gates the release.** Rounds 2 and 3 of each run, 6 per arm, 12
+in all, shuffled with a fixed seed, labels hidden: `p7-blind-packet.md` in the session
+scratchpad, key in `p7-blind-key.json` beside it. Ratings 自然 / 一般 / 翻译腔 as in reads 3-5,
+plus where the stiff sentences sit. Reports: `test/.out/playthrough-1792572903152.json`,
+`-946331`, `-988546` (P7) and `test/.out/p7-control/` (control).
 
 ### P8. Random events, generated rather than pooled
 
