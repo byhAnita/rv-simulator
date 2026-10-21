@@ -2126,6 +2126,29 @@ function layerZhReview() {
   check("...while [x] is still a tick and [ ] still is not",
     zhReview.parseSheet(sheet("x"))[0]?.ticked === true && zhReview.parseSheet(sheet(" "))[0]?.ticked === false);
 
+  // When the data moves under a sheet, an EDITED block is her work and is kept as a
+  // draft; an unedited block is only the old text, and must not come back as a draft
+  // she could tick (v1.4.4 P3 moved the events out of 23 approved backgrounds).
+  {
+    const oldText = "old background with its events";
+    const now = { text: "new background", hash: zhReview.hashText("new background") };
+    const untouched = { key: "a#b", base: zhReview.hashText(oldText), ticked: true, text: oldText };
+    const edited = { ...untouched, ticked: false, text: "her rewrite" };
+    check("a conflicting sheet block she never edited is not kept as a draft",
+      zhReview.conflictDraft(untouched, now) === null, JSON.stringify(zhReview.conflictDraft(untouched, now)));
+    const kept = zhReview.conflictDraft(edited, now);
+    check("...while one she edited is kept, flagged, over the new data",
+      kept?.text === "her rewrite" && kept?.conflict === true && kept?.base === now.hash, JSON.stringify(kept));
+  }
+
+  // A regenerated sheet shows approved strings ticked; syncing it must not re-stamp
+  // their approval date, or the ledger stops recording when she read anything.
+  check("an unedited tick on a string already approved at that hash is not a new approval",
+    zhReview.isStillApproved({ hash: "h1", status: "approved", approved: "2026-10-20" }, "h1") === true
+      && zhReview.isStillApproved({ hash: "h0", status: "approved" }, "h1") === false
+      && zhReview.isStillApproved({ hash: "h1", status: "pending" }, "h1") === false
+      && zhReview.isStillApproved(undefined, "h1") === false);
+
   // settle clears one owed translation that was checked and needed no change. It must
   // refuse once the counterpart has moved, and it must never touch the zh hash or the
   // approval - otherwise it would be the laundering path the ledger exists to close.
@@ -2563,7 +2586,7 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine,
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, buildEventsLine,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -4587,6 +4610,80 @@ async function layerI() {
       && /\uae30\uc5c5/.test(allWorlds.chaebol?.ko?.castLore?.orgHint || ""),
     "`X Group` is right for a chaebol and wrong for a bare family noun");
 
+  // ── v1.4.4 P3: typical events unlock by stage, carried in the tail ─────
+  // Every identity's events sat in its static background, all of them from round 1,
+  // so the intimate ones were in front of the model before anything had earned them.
+  // They are `events: [{from, text}]` now, and the tail lists the ones the MAIN
+  // member's stage has unlocked. Derived over every world, language and identity.
+  {
+    const SC = await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+    const STATIC_LIST = /典型事件|Typical events:|주요 이벤트:/;
+    const stillStatic = [], disagree = [], early = [], missing = [], unresolved = [], badHead = [], ruleOff = [];
+    for (const [wid, byLang] of Object.entries(allWorlds)) {
+      for (const ident of byLang.zh.identities) {
+        const per = ["zh", "en", "ko"].map((l) => byLang[l].identities.find((i) => i.id === ident.id)?.events || []);
+        if (per.some((e) => e.length !== per[0].length || e.some((x, n) => x.from !== per[0][n].from))) {
+          disagree.push(`${wid}/${ident.id} ${per.map((e) => e.map((x) => x.from).join("")).join("/")}`);
+        }
+      }
+      for (const lang of ["zh", "en", "ko"]) {
+        const w = byLang[lang];
+        const irene = library.red_velvet[lang].find((m) => m.id === "irene");
+        for (const ident of w.identities) {
+          const where = `${wid}/${lang}/${ident.id}`;
+          if (STATIC_LIST.test(ident.background || "")) stillStatic.push(where);
+          const evs = ident.events || [];
+          const pr = buildSystemPrompt(form({ identity: ident.id }), library.red_velvet[lang], "irene", ["seulgi"],
+            { groupLore: "lore" }, "", "qwen", lang, w);
+          const hasRule = pr.includes("the [Possible events] line in [CURRENT STATE]");
+          if (hasRule !== evs.length > 0) ruleOff.push(`${where} rule:${hasRule} events:${evs.length}`);
+          for (let idx = 0; idx < SC.DEFAULT_STAGE_THRESHOLDS.length - 1; idx++) {
+            const line = buildEventsLine(w, ident.id, irene, SC.DEFAULT_STAGE_THRESHOLDS[idx], lang, 0);
+            const due = evs.filter((e) => e.from <= idx);
+            if (due.length === 0) {
+              if (line !== "") early.push(`${where}@${idx} sent a line with nothing unlocked`);
+              continue;
+            }
+            const items = line.split("\n").filter((l) => l.startsWith("- "));
+            if (items.length < due.length) missing.push(`${where}@${idx} ${items.length}/${due.length}`);
+            if (items.length > due.length) early.push(`${where}@${idx} ${items.length}/${due.length}`);
+            // A later event's own words must not be there, whatever the count says.
+            // zh and en only: a ko particle is resolved, so its text is not verbatim.
+            if (lang !== "ko") for (const e of evs.filter((x) => x.from > idx)) {
+              if (line.includes(e.text.split("{name}").join("Irene"))) early.push(`${where}@${idx} ${e.text.slice(0, 20)}`);
+            }
+            if (/\{name\}|\{reason\}|\{keepsake\}|이\/가|은\/는|을\/를|과\/와|으로\/로/.test(line)) unresolved.push(`${where}@${idx}`);
+            if (!line.startsWith(`\n[Possible events] (Irene's stage: ${SC.stageNamesFor(lang)[idx]})\n`)) badHead.push(`${where}@${idx} ${line.split("\n")[1]}`);
+          }
+        }
+      }
+    }
+    check("no identity background still carries its typical-events list into the static prompt",
+      stillStatic.length === 0, stillStatic.join(", "));
+    check("...and an identity's events have the same count and the same stages in zh, en and ko",
+      disagree.length === 0, disagree.join(" | "));
+    check("the tail lists no event before the main member's stage unlocks it",
+      early.length === 0, early.slice(0, 5).join(" | "));
+    check("...and every event her stage has unlocked, which stay unlocked after",
+      missing.length === 0, missing.slice(0, 5).join(" | "));
+    check("...rendered like the background: {name} and Korean particles resolved",
+      unresolved.length === 0, unresolved.slice(0, 5).join(", "));
+    check("...under her name and her stage, named in the story's language",
+      badHead.length === 0, badHead.slice(0, 5).join(" | "));
+    check("section 6 carries the events rule exactly for an identity that has events",
+      ruleOff.length === 0, ruleOff.slice(0, 5).join(" | "));
+    // executeRound builds the tail and cannot run here without a model, so the guard
+    // is on its one call: the MAIN member's affection, the save's seed, and the line
+    // actually placed in [CURRENT STATE].
+    const agentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+    const call = (agentSrc.match(/const eventsLine\s*=\s*buildEventsLine\(([\s\S]*?)\);/) || ["", ""])[1].replace(/\s+/g, " ");
+    const tailSite = (agentSrc.match(/content: `\[CURRENT STATE\][^\n]*/) || [""])[0];
+    check("executeRound judges the events by the main member's affection and puts the line in the tail",
+      call === "world, form.identity, members.find(m => m.id === mainId), memory.affections?.[mainId], language, backstorySeed(form, mainId)"
+        && tailSite.includes("${eventsLine}"),
+      `${call} / ${tailSite.slice(0, 160)}`);
+  }
+
   // ── v1.4.4 P11: a story-mode rule names no stage in another language ───
   // Every romance rule said "Members flirt during Flirting stage" in English in all
   // three languages, beside a tail that prints that stage as its localized name -
@@ -5813,6 +5910,20 @@ async function layerI() {
     });
     check("parseWorld rejects a world missing any one chapter's texture",
       unrefused.length === 0, unrefused.join(", ") + " parsed without complaint");
+  }
+  // An event's `from` is a stage index (v1.4.4 P3). A bad one would silently never
+  // unlock, or unlock on round 1, so the loader refuses it.
+  {
+    const withEvents = (events) => ({ ...good, identities: good.identities.map((i, n) => (n === 0 ? { ...i, events } : i)) });
+    const accepted = [
+      ["from 7", [{ from: 7, text: "x" }]], ["from -1", [{ from: -1, text: "x" }]],
+      ["from as a string", [{ from: "1", text: "x" }]], ["no text", [{ from: 1 }]],
+      ["empty text", [{ from: 1, text: " " }]], ["an empty list", []],
+    ].filter(([, evs]) => { try { parseW(withEvents(evs)); return true; } catch { return false; } }).map(([why]) => why);
+    let goodParses = true;
+    try { parseW(withEvents([{ from: 0, text: "x" }, { from: 6, text: "y" }])); } catch { goodParses = false; }
+    check("parseWorld refuses an event without a stage index 0-6 and a text, and accepts one with both",
+      accepted.length === 0 && goodParses, `accepted: ${accepted.join(", ")}; valid list parsed: ${goodParses}`);
   }
   // The Setup field's three strings, v1.4.1 step 3. `orgSuffix` MAY be empty - a
   // university's name is already the university - so it is rejected for not being

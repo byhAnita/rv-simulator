@@ -10,7 +10,7 @@ import { givenNameOf } from "../rag/memberNames";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
-import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderProse } from "../rag/worldLoader";
+import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderIdentityEvents, renderProse } from "../rag/worldLoader";
 import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
@@ -54,6 +54,25 @@ export function buildChapterLine(round) {
   const last = c.to === round ? ", the last round of this chapter" : "";
   return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}`;
 }
+
+// The identity's typical events the main member's stage has unlocked (v1.4.4 P3).
+// They used to sit in the static background, all of them from round 1, so the
+// intimate ones were in front of the model before anything had earned them - and
+// a model shown a beat it may not use yet is primed by it anyway. Fact in the
+// tail, rule in section 6 (EVENTS_RULE), rule pointing at the fact. Judged by the
+// MAIN member's stage, because the events are about her; "" for an identity with
+// no events, a custom one included, so no empty line is ever sent.
+export function buildEventsLine(world, identityId, mainMember, affection, language, seed = 0) {
+  const idx = getStageIdx(affection || 0);
+  const events = renderIdentityEvents(world, identityId, mainMember?.name, idx, seed);
+  if (events.length === 0) return "";
+  const who = mainMember?.name || "the main member";
+  return `\n[Possible events] (${who}'s stage: ${stageNamesFor(language)[idx]})\n${events.map((e) => `- ${e}`).join("\n")}`;
+}
+
+// Section 6's half of P3. It renders only for an identity that has events, so the
+// static prompt is still a function of the save alone.
+const EVENTS_RULE = "Typical events: this identity comes with a few typical events, and the [Possible events] line in [CURRENT STATE] lists the ones the main member's stage has unlocked so far. Use at most one per round, only when the story is ready for it, and write it your own way - it is a beat, not a checklist. An event that is not in that line has not happened and cannot happen yet.";
 
 // ============================================================
 // Build System Prompt
@@ -197,6 +216,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
       ? `NPC Members: ${npcList.map(m => m.name).join(", ")} (non-romanceable, must appear in background)`
       : "",
     identityBg,
+    getIdentity(world, form.identity)?.events?.length ? EVENTS_RULE : "",
   ].filter(Boolean).join("\n");
 
   // The setting is South Korea, so Korean address forms are transliterated into
@@ -1077,6 +1097,8 @@ export async function executeRound({
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
   const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
+  const eventsLine    = buildEventsLine(world, form.identity, members.find(m => m.id === mainId),
+    memory.affections?.[mainId], language, backstorySeed(form, mainId));
 
   // Step 1.5: Init round variables
   let roundNotifs = [];
@@ -1086,7 +1108,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${eventsLine}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);

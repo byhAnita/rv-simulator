@@ -650,6 +650,8 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     Irene: hey are you free tonight | you okay?
   + "[Chapter] 承 development (rounds 7-14): this is round 7" — buildChapterLine, the
     chapter of the round being GENERATED (v1.4.4 P2)
+  + "[Possible events] (Irene's stage: 有印象)\n- …" — buildEventsLine, the identity's
+    typical events the MAIN member's stage has unlocked; absent when none (v1.4.4 P3)
   + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
   + optional "[Time Speed] slow|fast ..." line, only when it is not the default
   (both from buildTailRules, which is the only thing allowed to place them)
@@ -966,6 +968,19 @@ English in all three languages, while a zh tail prints 暧昧期 - two names for
 names no stage, so no language can disagree, and it points at the rule instead of copying it. A
 guard derived over every world, language and mode fails on any stage name from another language's
 ladder; 4 mutations RED. Tail only, so no golden moved.
+
+**P3: typical events unlock by stage.** Each identity's `典型事件` list sat in its static
+`[身份背景]`, so every event, the intimate ones included, was in front of the model from round 1
+beside a Stranger score. **A model shown a beat it may not use yet is primed by it anyway**, so
+the events are withheld rather than forbidden: they are `identity.events: [{from, text}]` in the
+world data, `from` a **stage index** (one number, every language), and the tail's
+`[Possible events]` line lists the ones the **main** member's stage has unlocked. Section 6 gains
+one rule, only for an identity with events: at most one per round, and nothing outside the line
+has happened. The data was split by script with a no-text-lost proof, and the backgrounds keep
+`[身份背景]`, 优势/劣势 and `[初见]`. **The zh review saw it as 105 strings to re-tick**, and it
+found two bugs in `zh-review.mjs sync` (see `docs/ZH_REVIEW.md`, *Conflicts*). Four goldens
+moved, diff read; 18 mutations RED. **Not verified live**: whether a model holds back what is not
+yet listed.
 
 All six goldens moved by exactly these lines and the diff was read. 18 mutations, 18 RED, one only
 after a fix: dropping a stage's behaviour line CRASHED the suite twice - first in the prompt builder,

@@ -46,12 +46,23 @@
     {
       "id": "peer_colleague",
       "name": "Colleague",
-      "background": "[Identity: Colleague] You have just been transferred onto the members' team at the same level as them, with only a partition between your desks, and you are in contact naturally through the work. Typical events: Late at night at your desks you stay up together rewriting a project proposal and share a late supper; The team makes a mistake and she takes the blame that was going to land on you; The team dinner breaks up and your routes home overlap, so you walk a long way together. Advantage: Same level, same team - being together needs no reason at all. Disadvantage: It is hard to tell how much of what passes between you is the job, and how much of getting closer is something beyond work. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Colleague] You have just been transferred onto the members' team at the same level as them, with only a partition between your desks, and you are in contact naturally through the work. Advantage: Same level, same team - being together needs no reason at all. Disadvantage: It is hard to tell how much of what passes between you is the job, and how much of getting closer is something beyond work. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 1, "text": "Late at night at your desks you stay up together rewriting a project proposal and share a late supper" },
+        { "from": 2, "text": "The team makes a mistake and she takes the blame that was going to land on you" },
+        { "from": 2, "text": "The team dinner breaks up and your routes home overlap, so you walk a long way together" }
+      ]
     },
     {
       "id": "manager_of_cast",
       "name": "Team lead",
-      "background": "[Identity: Team Lead] You have just been transferred in as the new lead of the members' team: you assign their work and they report to you directly. Typical events: You keep the hardest client for yourself rather than assigning her to it; Ten minutes of a twenty-minute one-to-one are not about work; Her proposal comes back rejected from above and you back her in the meeting; Year-end forces you to rank the whole team, and you know how long you hesitated. Advantage: You decide what she works on, how hard it is and for how long, and a private wish to look after her is hidden in how you plan the work. Disadvantage: She finds it hard to tell how much of your care is the job, and how much of getting closer is something beyond work. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Team Lead] You have just been transferred in as the new lead of the members' team: you assign their work and they report to you directly. Advantage: You decide what she works on, how hard it is and for how long, and a private wish to look after her is hidden in how you plan the work. Disadvantage: She finds it hard to tell how much of your care is the job, and how much of getting closer is something beyond work. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "You keep the hardest client for yourself rather than assigning her to it" },
+        { "from": 2, "text": "Ten minutes of a twenty-minute one-to-one are not about work" },
+        { "from": 1, "text": "Her proposal comes back rejected from above and you back her in the meeting" },
+        { "from": 2, "text": "Year-end forces you to rank the whole team, and you know how long you hesitated" }
+      ],
       "workTitle": {
         "form": "Team-lead-nim",
         "kr": "팀장님"
@@ -60,7 +71,13 @@
     {
       "id": "report_to_cast",
       "name": "Direct report",
-      "background": "[Identity: Direct Report] {name} has just been transferred in as your new team lead: she assigns your work and you report to her directly. Typical events: What you hand in comes back for revision, with guidance longer than any ordinary comment; She knows one of your clients is hard to deal with and takes that client off your hands herself; You are still there late and the light over her desk is still on too; In your review she slips a few personal questions in among the work ones. Advantage: Natural contact through work. Disadvantage: You cannot tell how much of her care is work, or how much of getting closer is something beyond it. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Direct Report] {name} has just been transferred in as your new team lead: she assigns your work and you report to her directly. Advantage: Natural contact through work. Disadvantage: You cannot tell how much of her care is work, or how much of getting closer is something beyond it. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "What you hand in comes back for revision, with guidance longer than any ordinary comment" },
+        { "from": 1, "text": "She knows one of your clients is hard to deal with and takes that client off your hands herself" },
+        { "from": 1, "text": "You are still there late and the light over her desk is still on too" },
+        { "from": 2, "text": "In your review she slips a few personal questions in among the work ones" }
+      ],
       "workTitle": {
         "form": "Team-lead-nim",
         "kr": "팀장님",
@@ -71,7 +88,12 @@
     {
       "id": "new_hire",
       "name": "New hire",
-      "background": "[Identity: New Hire] You are a new employee who has just joined this team, and every member is your senior. Typical events: In your first week you book the wrong meeting room and she is the one who apologises; She shares her entire folder of templates with you; Someone keeps refilling your glass at the team dinner and she moves it out of reach; She knows one of your clients is hard to deal with and takes that client off your hands herself. Advantage: Asking a senior for help is the most natural way to get close, and nobody finds it strange. Disadvantage: You cannot tell how much of her care is the job, and she cannot tell how much of your getting closer is something beyond work. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: New Hire] You are a new employee who has just joined this team, and every member is your senior. Advantage: Asking a senior for help is the most natural way to get close, and nobody finds it strange. Disadvantage: You cannot tell how much of her care is the job, and she cannot tell how much of your getting closer is something beyond work. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "In your first week you book the wrong meeting room and she is the one who apologises" },
+        { "from": 1, "text": "She shares her entire folder of templates with you" },
+        { "from": 2, "text": "Someone keeps refilling your glass at the team dinner and she moves it out of reach" }
+      ],
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님",
@@ -82,12 +104,21 @@
     {
       "id": "contractor",
       "name": "Contractor",
-      "background": "[Identity: Contractor] You work for another company and met the members through a joint project with theirs. Typical events: Your card does not work in their canteen, so she buys your meal and your water; She stops you in the lift and what she asks about is not work; The project is nearly finished, and under everyone's relief is the fact that your work together is coming to an end. Advantage: You are outside their company's system, so what colleagues say cannot touch the relationship. Disadvantage: The end of the project is the end of your working together. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Contractor] You work for another company and met the members through a joint project with theirs. Advantage: You are outside their company's system, so what colleagues say cannot touch the relationship. Disadvantage: The end of the project is the end of your working together. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "Your card does not work in their canteen, so she buys your meal and your water" },
+        { "from": 2, "text": "She stops you in the lift and what she asks about is not work" },
+        { "from": 2, "text": "The project is nearly finished, and under everyone's relief is the fact that your work together is coming to an end" }
+      ]
     },
     {
       "id": "hr",
       "name": "HR",
-      "background": "[Identity: HR] You work in HR, and every matter concerning the members - reviews, complaints, bonuses, leave - passes through your hands. Typical events: A client is unhappy with her team's work and you mediate; In a one-to-one to update her personal details, you slip a few personal questions in among the company ones. Advantage: You know more about her than anyone. Disadvantage: You know exactly what an office romance costs once it comes out. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: HR] You work in HR, and every matter concerning the members - reviews, complaints, bonuses, leave - passes through your hands. Advantage: You know more about her than anyone. Disadvantage: You know exactly what an office romance costs once it comes out. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "A client is unhappy with her team's work and you mediate" },
+        { "from": 1, "text": "In a one-to-one to update her personal details, you slip a few personal questions in among the company ones" }
+      ]
     },
     {
       "id": "主线成员前女友",

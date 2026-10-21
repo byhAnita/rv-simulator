@@ -13,6 +13,9 @@
 // reason imageStore.js names its own import "../utils.js".
 import { SOCIAL_PLATFORM_IDS, PRIVATE_PLATFORM_IDS } from "../config/platformConfig.js";
 import { CHAPTER_IDS } from "../config/chapters.js";
+import { DEFAULT_STAGE_THRESHOLDS } from "../config/stageConfig.js";
+
+const STAGE_COUNT = DEFAULT_STAGE_THRESHOLDS.length - 1;
 
 const base = () => import.meta.env.BASE_URL;
 
@@ -316,6 +319,21 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
       throw new Error(`world ${where}: identity "${ident.id}" has workTitle.because with no direction, which nothing renders`);
     }
   }
+  // Typical events (v1.4.4 P3): `from` is the earliest stage, as an INDEX into the
+  // stage ladder, so one number means the same stage in every language. An event
+  // with a bad `from` would silently never unlock, or unlock on round 1.
+  for (const ident of identities) {
+    if (ident?.events === undefined) continue;
+    if (!Array.isArray(ident.events) || ident.events.length === 0) {
+      throw new Error(`world ${where}: identity "${ident.id}" has "events" that is not a non-empty array`);
+    }
+    for (const ev of ident.events) {
+      if (!Number.isInteger(ev?.from) || ev.from < 0 || ev.from >= STAGE_COUNT
+          || typeof ev.text !== "string" || !ev.text.trim()) {
+        throw new Error(`world ${where}: identity "${ident.id}" has an event without a stage index 0-${STAGE_COUNT - 1} and a text: ${JSON.stringify(ev)}`);
+      }
+    }
+  }
   // The register is resolved HERE rather than carried in the world file, so
   // `world.addressForms` still exists for buildSystemPrompt while exactly one
   // copy of the table exists on disk.
@@ -473,7 +491,29 @@ export function resolveKoreanParticles(text) {
 export function renderIdentityBackground(world, identityId, mainMemberName, seed = 0) {
   const entry = getIdentity(world, identityId);
   if (!entry?.background) return "";
-  let out = entry.background.replaceAll("{name}", mainMemberName || "her");
+  return renderIdentityText(entry, entry.background, mainMemberName, seed);
+}
+
+/**
+ * The identity's typical events the main member's stage has unlocked (v1.4.4 P3),
+ * rendered exactly as the background is. `stageIdx` is HER stage index; an event
+ * unlocks at its `from` and stays available after. [] for an identity with none,
+ * including a custom one, so the caller sends no line at all.
+ *
+ * These go in the dynamic TAIL, never the static prompt: the list grows as she
+ * warms, and a model shown a beat it may not use yet is primed by it anyway.
+ */
+export function renderIdentityEvents(world, identityId, mainMemberName, stageIdx, seed = 0) {
+  const entry = getIdentity(world, identityId);
+  return (entry?.events || [])
+    .filter((ev) => ev.from <= stageIdx)
+    .map((ev) => renderIdentityText(entry, ev.text, mainMemberName, seed));
+}
+
+// One substitution for every piece of identity text, so an event and the
+// background cannot resolve `{name}` or a Korean particle two different ways.
+function renderIdentityText(entry, text, mainMemberName, seed) {
+  let out = text.replaceAll("{name}", mainMemberName || "her");
   const v = entry.variants;
   if (v) {
     if (Array.isArray(v.reason) && v.reason.length > 0) {

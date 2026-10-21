@@ -48,10 +48,38 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[练习生].background
-<!-- zh-review key="worlds/kpop_idol#identities[练习生].background" base="5e46ff46facc" -->
-- [x] approved - Claude d7bfc82 2026-10-20
+<!-- zh-review key="worlds/kpop_idol#identities[练习生].background" base="520317b2be20" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景]  你是新加入组合的练习生后辈，作为新成员与成员在公司练习室自然相识。 典型事件：在练习室与成员一起排练，向成员请教唱歌和舞蹈技巧； 在组合宿舍厨房客厅互动； 深夜疲惫时互相袒露心声； 作为组合新成员与成员们一起参与打歌舞台签售会活动等  优势：接触自然，共同训练机会。劣势：前后辈身份差异，公司内规严格。[初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景]  你是新加入组合的练习生后辈，作为新成员与成员在公司练习室自然相识。 优势：接触自然，共同训练机会。劣势：前后辈身份差异，公司内规严格。[初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[练习生].events[0].text
+<!-- zh-review key="worlds/kpop_idol#identities[练习生].events[0].text" base="34f09e599f8b" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+在练习室与成员一起排练，向成员请教唱歌和舞蹈技巧
+~~~~
+
+### identities[练习生].events[1].text
+<!-- zh-review key="worlds/kpop_idol#identities[练习生].events[1].text" base="c4c75b7707ed" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+在组合宿舍厨房客厅互动
+~~~~
+
+### identities[练习生].events[2].text
+<!-- zh-review key="worlds/kpop_idol#identities[练习生].events[2].text" base="c9f114ce95a6" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+深夜疲惫时互相袒露心声
+~~~~
+
+### identities[练习生].events[3].text
+<!-- zh-review key="worlds/kpop_idol#identities[练习生].events[3].text" base="f4276c97fa0f" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+作为组合新成员与成员们一起参与打歌舞台签售会活动等
 ~~~~
 
 ### identities[练习生].workTitle.form
@@ -69,10 +97,31 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[Staff].background
-<!-- zh-review key="worlds/kpop_idol#identities[Staff].background" base="fa9e34ab09a8" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/kpop_idol#identities[Staff].background" base="d68922e326f7" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是{name}所在组合的新任Staff（助理+经纪人），与成员们在工作中自然相识，负责成员们排练录音、妆发协调、打歌行程、后台照顾成员等。 典型事件：去练习室探班关心成员们带下午茶关心排练困难等，{name}对此感到意外且有些受宠若惊； 深夜开车送{name}下班回宿舍，接纳她的脆弱疲惫关心她；  签售打歌后台关心{name}状态督促她吃饭等  优势：能接触成员在台下的真实状态，关心和照顾成员是分内工作 劣势：职场与情感的边界，暧昧可能被认定为失职。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是{name}所在组合的新任Staff（助理+经纪人），与成员们在工作中自然相识，负责成员们排练录音、妆发协调、打歌行程、后台照顾成员等。 优势：能接触成员在台下的真实状态，关心和照顾成员是分内工作 劣势：职场与情感的边界，暧昧可能被认定为失职。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[Staff].events[0].text
+<!-- zh-review key="worlds/kpop_idol#identities[Staff].events[0].text" base="a1f2a60a77fb" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+去练习室探班关心成员们带下午茶关心排练困难等，{name}对此感到意外且有些受宠若惊
+~~~~
+
+### identities[Staff].events[1].text
+<!-- zh-review key="worlds/kpop_idol#identities[Staff].events[1].text" base="3df1aaa614d9" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+深夜开车送{name}下班回宿舍，接纳她的脆弱疲惫关心她
+~~~~
+
+### identities[Staff].events[2].text
+<!-- zh-review key="worlds/kpop_idol#identities[Staff].events[2].text" base="e9ef8af63ea2" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+签售打歌后台关心{name}状态督促她吃饭等
 ~~~~
 
 ### identities[Staff].workTitle.form
@@ -90,10 +139,31 @@ kpop偶像
 ~~~~
 
 ### identities[韩娱艺人].background
-<!-- zh-review key="worlds/kpop_idol#identities[韩娱艺人].background" base="d927f567480e" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/kpop_idol#identities[韩娱艺人].background" base="6267acd127fa" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是其他公司的kpop女idol, 与{name}因合作机会相识。 典型事件：你和{name}两人私下排练合作舞台，逐渐熟悉和默契； 你和{name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析;  你和{name}的综艺同框被剪辑成暧昧视频广泛流传等。  优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是其他公司的kpop女idol, 与{name}因合作机会相识。 优势:身份平等，合作机会。 劣势:公众关注度极高,任何同框被CP粉和双方毒唯解读。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[韩娱艺人].events[0].text
+<!-- zh-review key="worlds/kpop_idol#identities[韩娱艺人].events[0].text" base="0e6d09104f23" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你和{name}两人私下排练合作舞台，逐渐熟悉和默契
+~~~~
+
+### identities[韩娱艺人].events[1].text
+<!-- zh-review key="worlds/kpop_idol#identities[韩娱艺人].events[1].text" base="88b9a17410c2" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你和{name}在音乐银行合作打歌舞台, 互动被CP粉截图疯狂分析
+~~~~
+
+### identities[韩娱艺人].events[2].text
+<!-- zh-review key="worlds/kpop_idol#identities[韩娱艺人].events[2].text" base="b4d4faa8d5e0" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你和{name}的综艺同框被剪辑成暧昧视频广泛流传等
 ~~~~
 
 ### identities[粉丝].name
@@ -104,10 +174,38 @@ kpop偶像
 ~~~~
 
 ### identities[粉丝].background
-<!-- zh-review key="worlds/kpop_idol#identities[粉丝].background" base="b6bd066c39a6" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/kpop_idol#identities[粉丝].background" base="e6f49f4ce658" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是{name}的粉丝，粉丝活动中她似乎对你有超过其他粉丝的特殊对应，需通过特殊事件才能与成员建立私下联系。 典型事件：打歌舞台你抢到前排，{name}的眼神似乎在你身上多停留了一秒； 签售会{name}注意到你换了发型/装扮/风格主动提及； 你在{name}的bubble粉丝留言板发了条普通的消息, 她接着你的话题和粉丝们聊天； 粉丝活动你和{name}拍双人拍立得时{name}凑近搭上了你的肩  优势：对{name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，你是第一次参加组合的线下活动。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是{name}的粉丝，需通过特殊事件才能与成员建立私下联系。 优势：对{name}有深度了解。劣势：身份敏感，曝光会被粉圈放大审判。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，你是第一次参加组合的线下活动。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[粉丝].events[0].text
+<!-- zh-review key="worlds/kpop_idol#identities[粉丝].events[0].text" base="0a5a24919828" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+打歌舞台你抢到前排，{name}的眼神似乎在你身上多停留了一秒
+~~~~
+
+### identities[粉丝].events[1].text
+<!-- zh-review key="worlds/kpop_idol#identities[粉丝].events[1].text" base="ad0516319042" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+签售会{name}注意到你换了发型/装扮/风格主动提及
+~~~~
+
+### identities[粉丝].events[2].text
+<!-- zh-review key="worlds/kpop_idol#identities[粉丝].events[2].text" base="c288ff1b211a" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你在{name}的bubble粉丝留言板发了条普通的消息, 她接着你的话题和粉丝们聊天
+~~~~
+
+### identities[粉丝].events[3].text
+<!-- zh-review key="worlds/kpop_idol#identities[粉丝].events[3].text" base="bd723a8dae24" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+粉丝活动你和{name}拍双人拍立得时{name}凑近搭上了你的肩
 ~~~~
 
 ### identities[留学生].name
@@ -132,10 +230,31 @@ kpop偶像
 ~~~~
 
 ### identities[财阀].background
-<!-- zh-review key="worlds/kpop_idol#identities[财阀].background" base="1ea3642ef5b2" -->
-- [x] approved - Claude d7bfc82 2026-10-20
+<!-- zh-review key="worlds/kpop_idol#identities[财阀].background" base="f894123cead0" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是{name}组合所在公司的新任年轻女会长，主导组合回归/打歌/签售/拍摄等事业走向，与成员在工作中自然相识。 典型事件：与{name}所在女团开回归企划讨论会，{name}提出想法令你刮目相看； 借关心成员们的名义亲自去探班制造和{name}相处机会； 你心疼{name}辛苦于是让秘书给整个组合带薪放假、发奖金等  优势：充足资金和事业资源。劣势：身份差距，公众关注度较高 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是{name}组合所在公司的新任年轻女会长，主导组合回归/打歌/签售/拍摄等事业走向，与成员在工作中自然相识。 优势：充足资金和事业资源。劣势：身份差距，公众关注度较高 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[财阀].events[0].text
+<!-- zh-review key="worlds/kpop_idol#identities[财阀].events[0].text" base="e7fe0fa72ec6" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+与{name}所在女团开回归企划讨论会，{name}提出想法令你刮目相看
+~~~~
+
+### identities[财阀].events[1].text
+<!-- zh-review key="worlds/kpop_idol#identities[财阀].events[1].text" base="1998e7a6ea96" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+借关心成员们的名义亲自去探班制造和{name}相处机会
+~~~~
+
+### identities[财阀].events[2].text
+<!-- zh-review key="worlds/kpop_idol#identities[财阀].events[2].text" base="e8d6d3aa7de7" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你心疼{name}辛苦于是让秘书给整个组合带薪放假、发奖金等
 ~~~~
 
 ### identities[财阀].workTitle.form

@@ -231,6 +231,21 @@ export function parseSheet(md) {
   return blocks;
 }
 
+// A sheet block whose data moved under it. Her EDIT is kept as a flagged draft over the
+// new data. A block she never edited is just the old text the sheet was generated from
+// (its text still hashes to its own `base`), and keeping that as a "draft" would offer
+// the stale text back for a tick - which is what happened when P3 moved the events out
+// of 23 approved backgrounds: every one came back as a draft carrying the old list.
+export function conflictDraft(block, entry) {
+  if (hashText(block.text) === block.base || block.text === entry.text) return null;
+  return { base: entry.hash, text: block.text, conflict: true };
+}
+
+// A regenerated sheet shows every approved string ticked, so an unedited tick on an
+// approved string is not a new approval: re-stamping it rewrote every `approved` date
+// in the ledger to the day of the sync, whoever had read what and when.
+export const isStillApproved = (prev, hash) => prev?.status === "approved" && prev.hash === hash;
+
 // ------------------------------------------------------------------ commands
 function init() {
   if (loadLedger()) { console.error("ledger already exists; init runs once. Use sync."); process.exit(1); }
@@ -266,8 +281,9 @@ function sync({ dry }) {
         // Her text is kept as a flagged draft over the new data rather than dropped by the
         // refresh: she re-reads the block and ticks it again.
         conflicts++;
-        console.log(`CONFLICT ${b.key}: the data changed after this sheet was written; your block was not applied`);
-        if (b.text !== e.text) drafts.set(b.key, { base: e.hash, text: b.text, conflict: true });
+        const kept = conflictDraft(b, e);
+        console.log(`CONFLICT ${b.key}: the data changed after this sheet was written; ${kept ? "your edit is kept as a draft" : "the block was not edited, so the new text simply replaces it"}`);
+        if (kept) drafts.set(b.key, kept);
         continue;
       }
       const edited = b.text !== e.text;
@@ -302,6 +318,7 @@ function sync({ dry }) {
         console.log(`applied  ${b.key}`);
       }
       const prev = ledger[b.key];
+      if (!edited && isStillApproved(prev, e.hash)) continue;
       const entry = { hash: hashText(b.text), status: "approved", approved: today };
       // A changed zh line leaves its en/ko counterparts translating the old one. Record
       // their hashes now; they are owed until either one changes.

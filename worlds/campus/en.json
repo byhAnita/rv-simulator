@@ -46,7 +46,12 @@
     {
       "id": "prof_of_cast",
       "name": "Café owner",
-      "background": "[Identity: Café owner] You own the café at {name}'s university, and the members come in all the time - for coffee, to study, for group projects, to hang out. Typical events: They stop by for coffee in the morning, and you quietly memorise {name}'s order; At the weekend they meet at the café for a game night, and {name} asks you to join in; Chatting with {name} while she orders, you learn a little more about her life. Advantage: You have natural, everyday contact with them. Disadvantage: You can only ever wait at the café for her to come in, with no reason of your own to go and see her. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Café owner] You own the café at {name}'s university, and the members come in all the time - for coffee, to study, for group projects, to hang out. Advantage: You have natural, everyday contact with them. Disadvantage: You can only ever wait at the café for her to come in, with no reason of your own to go and see her. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "They stop by for coffee in the morning, and you quietly memorise {name}'s order" },
+        { "from": 1, "text": "At the weekend they meet at the café for a game night, and {name} asks you to join in" },
+        { "from": 1, "text": "Chatting with {name} while she orders, you learn a little more about her life" }
+      ],
       "workTitle": {
         "form": "sajang-nim",
         "kr": "사장님"
@@ -55,12 +60,23 @@
     {
       "id": "peer_student",
       "name": "Classmate",
-      "background": "[Identity: Classmate] You are in the same year and the same department as {name} and the others, and you got to know each other naturally when you started. Typical events: Assigned to the same group project, you drink coffee together and stay up all night to finish it; She falls asleep in the seat beside you in class and her head tips slowly toward your shoulder; On the day exams end the whole department is celebrating and the two of you leave early. Advantage: The shortest distance and the most reasons to see each other. Disadvantage: And for exactly that reason, the line between love and friendship blurs. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Classmate] You are in the same year and the same department as {name} and the others, and you got to know each other naturally when you started. Advantage: The shortest distance and the most reasons to see each other. Disadvantage: And for exactly that reason, the line between love and friendship blurs. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "Assigned to the same group project, you drink coffee together and stay up all night to finish it" },
+        { "from": 1, "text": "She falls asleep in the seat beside you in class and her head tips slowly toward your shoulder" },
+        { "from": 2, "text": "On the day exams end the whole department is celebrating and the two of you leave early" }
+      ]
     },
     {
       "id": "senior_student",
       "name": "Senior",
-      "background": "[Identity: Senior] You are the members' mentor senior, a year above them in the same department, and you got to know them naturally when they started as first-years. Typical events: The members arrive as first-years and you are the one sent to show them around; She brings her course list to ask you which classes are worth taking; A club dinner ends and you walk her back to the dorms; The first time she presents her hands shake, and you are the one who encourages her. Advantage: A built-in reason to spend time together, and being her senior makes looking after her look obvious. Disadvantage: For exactly that reason, being her senior makes any step across the line a careful one. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Senior] You are the members' mentor senior, a year above them in the same department, and you got to know them naturally when they started as first-years. Advantage: A built-in reason to spend time together, and being her senior makes looking after her look obvious. Disadvantage: For exactly that reason, being her senior makes any step across the line a careful one. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "The members arrive as first-years and you are the one sent to show them around" },
+        { "from": 0, "text": "She brings her course list to ask you which classes are worth taking" },
+        { "from": 1, "text": "A club dinner ends and you walk her back to the dorms" },
+        { "from": 1, "text": "The first time she presents her hands shake, and you are the one who encourages her" }
+      ],
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님"
@@ -69,7 +85,13 @@
     {
       "id": "junior_student",
       "name": "Junior",
-      "background": "[Identity: Junior] You are a year below the members and got to know them naturally when you started; she is the first senior in the department whose name you learned. Typical events: She gives you her notes and holds nothing back; In the club she takes on the errand that was about to be pushed onto you; At a dinner someone keeps refilling your glass and she takes it away; You are up all night on an assignment and she stays in the study room until you finish. Advantage: Asking a senior for help is the most natural way to get close. Disadvantage: For exactly that reason, being her junior makes any step across the line a careful one. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "background": "[Identity: Junior] You are a year below the members and got to know them naturally when you started; she is the first senior in the department whose name you learned. Advantage: Asking a senior for help is the most natural way to get close. Disadvantage: For exactly that reason, being her junior makes any step across the line a careful one. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 1, "text": "She gives you her notes and holds nothing back" },
+        { "from": 1, "text": "In the club she takes on the errand that was about to be pushed onto you" },
+        { "from": 2, "text": "At a dinner someone keeps refilling your glass and she takes it away" },
+        { "from": 2, "text": "You are up all night on an assignment and she stays in the study room until you finish" }
+      ],
       "workTitle": {
         "form": "sunbae-nim",
         "kr": "선배님",
@@ -80,12 +102,24 @@
     {
       "id": "ta",
       "name": "Teaching assistant",
-      "background": "[Identity: Teaching Assistant] You are the TA for a new course the members are taking this semester: you guide their course projects, hold office hours and mark their work, and you get to know them naturally through the course. Typical events: You write a note in the margin of her report that is longer than an ordinary comment; Office hours empty out until it is just the two of you, and the subject left the course a while ago; She hands an assignment in at the last possible minute and you do not ask; Marking a pile of work, you recognise her handwriting at a glance. Advantage: The position is ambiguous - you have a little authority and can help her, which makes getting close easy. Disadvantage: The rule that a TA stays fair and plays no favourites. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Teaching Assistant] You are the TA for a new course the members are taking this semester: you guide their course projects, hold office hours and mark their work, and you get to know them naturally through the course. Advantage: The position is ambiguous - you have a little authority and can help her, which makes getting close easy. Disadvantage: The rule that a TA stays fair and plays no favourites. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 1, "text": "You write a note in the margin of her report that is longer than an ordinary comment" },
+        { "from": 2, "text": "Office hours empty out until it is just the two of you, and the subject left the course a while ago" },
+        { "from": 1, "text": "She hands an assignment in at the last possible minute and you do not ask" },
+        { "from": 1, "text": "Marking a pile of work, you recognise her handwriting at a glance" }
+      ]
     },
     {
       "id": "exchange_student",
       "name": "Exchange student",
-      "background": "[Identity: Exchange Student] You have just arrived at the university on a one-semester exchange, in the same year and department as the members, and you are not yet at home in Korean or in Korea. Typical events: In a group discussion you cannot keep up with the speed, so she slows down and helps translate for you; She takes you to the place only local students know about; You say a word wrong, she laughs for a long time, and then teaches you the right way to say it; You get as far as when you are leaving and you both change the subject. Advantage: Being an exchange student keeps attention on the two of you low and the pressure of gossip light. Disadvantage: Everyone knows you are leaving, her included - it has been a premise you both share since the first day. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it."
+      "background": "[Identity: Exchange Student] You have just arrived at the university on a one-semester exchange, in the same year and department as the members, and you are not yet at home in Korean or in Korea. Advantage: Being an exchange student keeps attention on the two of you low and the pressure of gossip light. Disadvantage: Everyone knows you are leaving, her included - it has been a premise you both share since the first day. [First meeting] The story opens on the first time the two of you meet: before round 1, you and {name} have never really met - a name you had heard, a face you had passed. So this relationship starts from nothing: round 1 is written with the distance and the testing of a first meeting, and affection grows a little with every round after it.",
+      "events": [
+        { "from": 0, "text": "In a group discussion you cannot keep up with the speed, so she slows down and helps translate for you" },
+        { "from": 1, "text": "She takes you to the place only local students know about" },
+        { "from": 1, "text": "You say a word wrong, she laughs for a long time, and then teaches you the right way to say it" },
+        { "from": 3, "text": "You get as far as when you are leaving and you both change the subject" }
+      ]
     },
     {
       "id": "主线成员前女友",

@@ -98,8 +98,15 @@ agent that edits the JSON and runs `sync` leaves smoke red, and the sheet shows 
 A box typed `[]` reads as unticked, like `[ ]`; only `[x]` is a tick.
 
 **Conflicts.** Every block carries the hash of the text it was generated from. If the data
-changed after the sheet was written, your block is not applied; it is kept as a draft flagged
-`CONFLICT`, over the new text, for you to compare and re-tick.
+changed after the sheet was written, your block is not applied; if you had **edited** it, your
+text is kept as a draft flagged `CONFLICT`, over the new text, for you to compare and re-tick. A
+block you never edited is just the old text, so the new text replaces it. Until 2026-10-21 it
+was kept as a "draft" too, which would have offered stale text back for a tick.
+
+**A tick on a string that is already approved at that hash changes nothing**, its date included.
+A regenerated sheet shows every approved string ticked, and until 2026-10-21 each `sync` re-stamped
+all of them with the day of the sync, so the ledger's `approved` dates up to 2026-10-20 record the
+last sync, not when you read each one.
 
 ## Rules for agents
 

@@ -75,7 +75,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves | ✅ 6 mutations RED; `orgHint` one family in zh/en/ko (Yuhan ticked the zh draft 2026-10-21) |
 | P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move | ✅ 17 mutations RED; not yet played live |
 | P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move | ✅ 18 mutations RED; not yet played live |
-| P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildDynamicTail` | rule static, events in tail | all 6 move |
+| P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `validateAndFixOutput` clamp | none | none |
 | P6 | Narrator prologue, round 1 only | `buildTailRules` | none (tail) | none |
 | P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move |
@@ -361,6 +361,55 @@ any list describes one already confirmed. The tail therefore shows the whole lis
   not changed.
 - **`office/new_hire` event 4 is word for word `office/report_to_cast` event 2.**
 - **`chaebol/journalist` event 2 has `不为人知地信息`**, where `的` is meant.
+
+#### P3 as built (2026-10-21)
+
+**Yuhan's decisions, 2026-10-21:** no corrections to the tags; the 粉丝 clause is **removed**, not
+moved; fix the 玩家 and 的 items and the duplicate. Applied, in all three languages where the
+text exists:
+
+- 粉丝: *粉丝活动中她似乎对你有超过其他粉丝的特殊对应* deleted from `[身份背景]` (en/ko likewise).
+- `lawyer`: the arc clause moved verbatim into the list at 有印象, as proposed.
+- `学姐` x3 and `交换生` x1: 玩家 -> 你 inside events. **One more of the same kind, found while
+  splitting:** `交换生`'s own `[身份背景]` said *玩家对韩语和韩国不熟悉*, and with the events gone it
+  ran straight into 优势 with no punctuation. Now *你对韩语和韩国不熟悉。*
+- `journalist`: 不为人知地 -> 不为人知的.
+- `new_hire`: the duplicate fourth event dropped, so it has three. The script checked it was the
+  duplicate in every language before dropping it.
+
+**Built:**
+
+- `events: [{from, text}]` on 23 identities in four worlds, x3 languages, both mirrors. **`from`
+  is a stage INDEX** (0 = 陌生人), so one number means the same stage in every language.
+  `parseWorld` refuses a `from` outside 0-6, a missing text, or an empty list.
+- The split was a one-off script, not hand editing, and it is not committed. It proved no text was lost:
+  deleting each extracted event, in order, from the removed slice must leave only the marker,
+  separators and punctuation. The ASCII-punctuated `韩娱艺人` splits with the rest.
+- **Tail:** `[Possible events] (Irene's stage: 有印象)` and one `- event` line per unlocked
+  event, rendered through the same substitution as the background (`{name}`, ko particles). It is
+  judged by the **main** member's affection and is absent for an identity with no events (留学生,
+  the ex-girlfriend, a custom identity).
+- **Static rule** in section 6, only for an identity with events: at most one per round, when
+  the story is ready, written its own way; nothing outside the line has happened.
+- **Goldens:** 4 moved by two lines each (the background loses its list, the rule appears); the
+  two ex-girlfriend fixtures did not move. Diff read.
+- **Layer Z is RED on purpose: 105 strings await Yuhan.** 23 backgrounds show `CHANGED` and 82
+  events show `NEW`, all in the four world sheets. Every one is text she has already approved
+  inside a background, except the five edits above. Ticking them is the review step.
+- **Two bugs in `zh-review.mjs sync`, found by this move and fixed:** it re-stamped every
+  approved string's date on each sync, and on a conflict it kept an UNEDITED block's old text as
+  a draft (23 drafts offering the old events list back for a tick). See `docs/ZH_REVIEW.md`.
+- 18 mutations RED (14 for P3, 4 for the sync fixes).
+
+**Found, NOT fixed (a separate change):** identity text renders `{name}` as the **stage** name in
+every world (`集团继承人Irene`), while P1's Q2 rule says a non-idol world narrates her **real**
+name. Pre-existing for the backgrounds since v1.4.1, and now true of the events too. The fix is
+passing the real name in non-idol worlds; it moves the non-idol goldens. Yuhan decides whether it
+joins v1.4.4.
+
+**Not verified:** no live round. Whether a model holds the intimate events back until they
+appear, and uses at most one per round, needs a playthrough. The tail's ~60-150 tokens is
+calculated.
 
 ### P4. Affection rate tied to the chapter
 

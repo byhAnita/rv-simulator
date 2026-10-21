@@ -35,7 +35,7 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 
 ### castLore.orgHint
 <!-- zh-review key="worlds/chaebol#castLore.orgHint" base="9e3f721695bf" -->
-- [x] approved - uncommitted
+- [x] approved - Claude 61e15f7 2026-10-21
 ~~~~
 这些成员同属一个财阀家族，以主线成员的姓氏为家族姓氏。家族企业：{org}
 ~~~~
@@ -48,10 +48,38 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[rival_heiress].background
-<!-- zh-review key="worlds/chaebol#identities[rival_heiress].background" base="f9cb77b80cb6" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#identities[rival_heiress].background" base="d5d415c037bc" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是另一个财阀家族的女儿，你家和{name}家在同一个行业里正面竞争。 典型事件：同一场宴会上你们被安排在相邻的位置，全场都在看你们说什么； 两家在同一个项目上竞标，你在会议室对面看着她； 记者问你对她家的评价，你说了一句滴水不漏的话； 散场后她在停车场等你，问的不是生意。 优势：身份对等——你是这个圈子里少数不需要仰视她的人。劣势：你们之间的每一次互动都先被当作商业行为，包括真心的那些。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是另一个财阀家族的女儿，你家和{name}家在同一个行业里正面竞争。 优势：身份对等——你是这个圈子里少数不需要仰视她的人。劣势：你们之间的每一次互动都先被当作商业行为，包括真心的那些。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、打过照面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[rival_heiress].events[0].text
+<!-- zh-review key="worlds/chaebol#identities[rival_heiress].events[0].text" base="fc0e52ce0a3a" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+同一场宴会上你们被安排在相邻的位置，全场都在看你们说什么
+~~~~
+
+### identities[rival_heiress].events[1].text
+<!-- zh-review key="worlds/chaebol#identities[rival_heiress].events[1].text" base="3aa155a85545" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+两家在同一个项目上竞标，你在会议室对面看着她
+~~~~
+
+### identities[rival_heiress].events[2].text
+<!-- zh-review key="worlds/chaebol#identities[rival_heiress].events[2].text" base="ce922e4c5b13" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+记者问你对她家的评价，你说了一句滴水不漏的话
+~~~~
+
+### identities[rival_heiress].events[3].text
+<!-- zh-review key="worlds/chaebol#identities[rival_heiress].events[3].text" base="af02f4ae0409" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+散场后她在停车场等你，问的不是生意
 ~~~~
 
 ### identities[heiress_fallen].name
@@ -62,10 +90,38 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[heiress_fallen].background
-<!-- zh-review key="worlds/chaebol#identities[heiress_fallen].background" base="0e0f31aba3bb" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#identities[heiress_fallen].background" base="2077f413296e" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你的家族曾经也在这个财阀圈子里，几年前失去了一切。现在你还要面对财阀圈的社交，但地位已经不一样了。 典型事件：宴会上有人记得你的名字，语气里带着同情； 你穿着两季以前的衣服，她什么都没说，只是站得离你近了一点； 有人当着你的面谈起你家族当年的事，她换了话题； 你需要一份工作，而能给的人就坐在对面。 优势：你比谁都懂这个圈子的规则，因为你也曾经在圈子里。劣势：所有人都知道你现在的地位，包括你自己——她给的任何东西，看起来都像施舍。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你的家族曾经也在这个财阀圈子里，几年前失去了一切。现在你还要面对财阀圈的社交，但地位已经不一样了。 优势：你比谁都懂这个圈子的规则，因为你也曾经在圈子里。劣势：所有人都知道你现在的地位，包括你自己——她给的任何东西，看起来都像施舍。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[heiress_fallen].events[0].text
+<!-- zh-review key="worlds/chaebol#identities[heiress_fallen].events[0].text" base="418eb87c0f6f" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+宴会上有人记得你的名字，语气里带着同情
+~~~~
+
+### identities[heiress_fallen].events[1].text
+<!-- zh-review key="worlds/chaebol#identities[heiress_fallen].events[1].text" base="cfcc8b488e36" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你穿着两季以前的衣服，她什么都没说，只是站得离你近了一点
+~~~~
+
+### identities[heiress_fallen].events[2].text
+<!-- zh-review key="worlds/chaebol#identities[heiress_fallen].events[2].text" base="65acc288c6c6" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+有人当着你的面谈起你家族当年的事，她换了话题
+~~~~
+
+### identities[heiress_fallen].events[3].text
+<!-- zh-review key="worlds/chaebol#identities[heiress_fallen].events[3].text" base="64decc74a9cf" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你需要一份工作，而能给的人就坐在对面
 ~~~~
 
 ### identities[lawyer].name
@@ -76,10 +132,45 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[lawyer].background
-<!-- zh-review key="worlds/chaebol#identities[lawyer].background" base="85f12b557ba1" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#identities[lawyer].background" base="3b84567a9205" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是刚来{name}家族公司工作的新人职员，作为公司基层白领新人面临诸多职场挑战，集团继承人{name}似乎有意或无意地关照你。 典型事件：你走错了董事专属电梯，电梯门打开她正站在里面； 下午你在工位工作，总裁办员工送来了整组的下午茶； 你因缺少职场经验在工作中失误，她帮你解围； 她带你出席财阀圈社交活动。 优势：工作中自然接触。劣势：身份差距、职场和情感的边界。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是刚来{name}家族公司工作的新人职员，作为公司基层白领新人面临诸多职场挑战。 优势：工作中自然接触。劣势：身份差距、职场和情感的边界。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[lawyer].events[0].text
+<!-- zh-review key="worlds/chaebol#identities[lawyer].events[0].text" base="0d78fe29b042" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你走错了董事专属电梯，电梯门打开她正站在里面
+~~~~
+
+### identities[lawyer].events[1].text
+<!-- zh-review key="worlds/chaebol#identities[lawyer].events[1].text" base="6c4b4a314f21" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+下午你在工位工作，总裁办员工送来了整组的下午茶
+~~~~
+
+### identities[lawyer].events[2].text
+<!-- zh-review key="worlds/chaebol#identities[lawyer].events[2].text" base="0b2222500ee8" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你因缺少职场经验在工作中失误，她帮你解围
+~~~~
+
+### identities[lawyer].events[3].text
+<!-- zh-review key="worlds/chaebol#identities[lawyer].events[3].text" base="9f6238f30765" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+她带你出席财阀圈社交活动
+~~~~
+
+### identities[lawyer].events[4].text
+<!-- zh-review key="worlds/chaebol#identities[lawyer].events[4].text" base="74d724a53a84" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+集团继承人{name}似乎有意或无意地关照你
 ~~~~
 
 ### identities[lawyer].workTitle.form
@@ -97,10 +188,31 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[secretary].background
-<!-- zh-review key="worlds/chaebol#identities[secretary].background" base="8974e099ced9" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#identities[secretary].background" base="27ee68a27a75" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是{name}家族{name}的新任执行秘书，负责她的日程及关心照顾她。 典型事件：深夜的保姆车上只有你们两个，你在后视镜里看见她卸下面具后的疲惫脆弱； 她在商业上遇到困难，你越过工作的界限关心帮她一起解决；她带你一起去她的私下行程。 优势：能接触她私下的真实状态。劣势：身份差距、工作内容和情感的边界 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是{name}家族{name}的新任执行秘书，负责她的日程及关心照顾她。 优势：能接触她私下的真实状态。劣势：身份差距、工作内容和情感的边界 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[secretary].events[0].text
+<!-- zh-review key="worlds/chaebol#identities[secretary].events[0].text" base="e0b333416273" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+深夜的保姆车上只有你们两个，你在后视镜里看见她卸下面具后的疲惫脆弱
+~~~~
+
+### identities[secretary].events[1].text
+<!-- zh-review key="worlds/chaebol#identities[secretary].events[1].text" base="210903282cb4" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+她在商业上遇到困难，你越过工作的界限关心帮她一起解决
+~~~~
+
+### identities[secretary].events[2].text
+<!-- zh-review key="worlds/chaebol#identities[secretary].events[2].text" base="fc8d011ba281" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+她带你一起去她的私下行程
 ~~~~
 
 ### identities[secretary].workTitle.form
@@ -118,10 +230,38 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[bodyguard].background
-<!-- zh-review key="worlds/chaebol#identities[bodyguard].background" base="854c0e589096" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#identities[bodyguard].background" base="31b065f89efd" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是{name}家族{name}的新任贴身保镖，你负责{name}的安全，寸步不离。 典型事件：宴会后你脱下西装外套披上她身上单薄的礼服裙； 她的正式行程，你提前准备了平底鞋在她累时让她换下高跟鞋； 她甩掉行程一个人跑出去，你默契地找到她，却没有上报； 凌晨送她回家，她在车里问你累不累——这是第一次有人问。 优势：物理距离最近，你几乎和她寸步不离。劣势：身份差距、工作内容和情感的边界 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是{name}家族{name}的新任贴身保镖，你负责{name}的安全，寸步不离。 优势：物理距离最近，你几乎和她寸步不离。劣势：身份差距、工作内容和情感的边界 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[bodyguard].events[0].text
+<!-- zh-review key="worlds/chaebol#identities[bodyguard].events[0].text" base="8e7f1fa71326" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+宴会后你脱下西装外套披上她身上单薄的礼服裙
+~~~~
+
+### identities[bodyguard].events[1].text
+<!-- zh-review key="worlds/chaebol#identities[bodyguard].events[1].text" base="0b1a6080dc15" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+她的正式行程，你提前准备了平底鞋在她累时让她换下高跟鞋
+~~~~
+
+### identities[bodyguard].events[2].text
+<!-- zh-review key="worlds/chaebol#identities[bodyguard].events[2].text" base="6d899c8cfa02" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+她甩掉行程一个人跑出去，你默契地找到她，却没有上报
+~~~~
+
+### identities[bodyguard].events[3].text
+<!-- zh-review key="worlds/chaebol#identities[bodyguard].events[3].text" base="2b6cb1df0619" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+凌晨送她回家，她在车里问你累不累——这是第一次有人问
 ~~~~
 
 ### identities[journalist].name
@@ -132,10 +272,38 @@ Generated: do not edit the `<!-- zh-review ... -->` lines.
 ~~~~
 
 ### identities[journalist].background
-<!-- zh-review key="worlds/chaebol#identities[journalist].background" base="bcc779a43086" -->
-- [x] approved - Claude 5bbebce 2026-10-20
+<!-- zh-review key="worlds/chaebol#identities[journalist].background" base="3c117711b2e3" -->
+- [ ] CHANGED SINCE YOUR LAST REVIEW - uncommitted
 ~~~~
-[身份背景] 你是记者，刚接到的工作是调查这个家族。你接近她是为了一篇稿子，至少一开始是。 典型事件：你混进财阀圈宴会，她一眼认出你不属于这里； 你在与她的接触中逐渐得知了她家不为人知地信息； 她知道你是谁之后没有叫保镖，而是坐下来问你想知道什么； 截稿日一天天近了，你开始删自己写下的内容。 优势：你不属于财阀圈，所以你敢问别人不敢问的话。劣势：你们关系的起点是一场欺骗——无论后来变成什么，那总是一个埋在心里的结 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+[身份背景] 你是记者，刚接到的工作是调查这个家族。你接近她是为了一篇稿子，至少一开始是。 优势：你不属于财阀圈，所以你敢问别人不敢问的话。劣势：你们关系的起点是一场欺骗——无论后来变成什么，那总是一个埋在心里的结 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。
+~~~~
+
+### identities[journalist].events[0].text
+<!-- zh-review key="worlds/chaebol#identities[journalist].events[0].text" base="5a178073f46d" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你混进财阀圈宴会，她一眼认出你不属于这里
+~~~~
+
+### identities[journalist].events[1].text
+<!-- zh-review key="worlds/chaebol#identities[journalist].events[1].text" base="125156ba8045" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+你在与她的接触中逐渐得知了她家不为人知的信息
+~~~~
+
+### identities[journalist].events[2].text
+<!-- zh-review key="worlds/chaebol#identities[journalist].events[2].text" base="3f732e8323b2" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+她知道你是谁之后没有叫保镖，而是坐下来问你想知道什么
+~~~~
+
+### identities[journalist].events[3].text
+<!-- zh-review key="worlds/chaebol#identities[journalist].events[3].text" base="5a6541662e5a" -->
+- [ ] NEW - never reviewed - uncommitted
+~~~~
+截稿日一天天近了，你开始删自己写下的内容
 ~~~~
 
 ### identities[主线成员前女友].name

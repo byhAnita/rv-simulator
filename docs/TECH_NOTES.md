@@ -984,6 +984,37 @@ box: nothing technical stops an agent doing so, which is a rule in `docs/AGENTS.
 **Short form.** Hash every string a human must approve, commit the hashes, and fail the build on
 any string whose hash is not on the list. Let only the human's own action move a hash.
 
+**Two defaults that assumed the human was the only actor (fixed 2026-10-21).** P3 was the first
+time an agent moved approved text. `sync` re-stamped every approved string's date on every run,
+because a regenerated sheet shows them ticked. And on a conflict it kept an unedited block's old
+text as a "draft". Now a tick on a string already approved at that hash is a no-op, and only a
+block whose text no longer hashes to its own base counts as her edit.
+
+---
+
+### Content gated by state, not forbidden by rule — v1.4.4
+
+**What it is.** An identity's typical events used to sit in its static background. Now they are
+data with a stage tag (`events: [{from, text}]`), and the dynamic tail carries only the ones the
+main member's stage has unlocked, as `[Possible events]`. One cached rule in section 6 points at
+that line.
+
+**What it replaced.** The plan's first version was a rule: "do not use an event before its stage".
+That leaves every intimate beat in the prompt from round 1, and a model shown a beat it is told
+not to use yet is primed by it anyway.
+
+**What it bought.** Not measured live yet. Structurally, a beat the model never sees cannot
+leak into round 1. The static prompt also got shorter.
+
+**What it costs.** About 60-150 uncached tail tokens per round, calculated from the event lengths.
+Also a stage tag per event, decided by hand (Yuhan confirmed all 82). The data move needed a
+script with a no-text-lost proof, because hand-splitting 69 backgrounds is how text goes missing.
+
+**Where it lives.** `worldLoader.js#renderIdentityEvents` (shares one substitution with the
+background), `mainAgent.js#buildEventsLine` and `EVENTS_RULE`, `parseWorld`'s validation.
+
+**Short form.** Withhold what the state has not unlocked; don't show it and then forbid it.
+
 ---
 
 ## To backfill
