@@ -2586,7 +2586,7 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, capAffectionRise, executeRound,
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, buildPrologueLine, capAffectionRise, executeRound,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -4902,6 +4902,51 @@ async function layerI() {
     check("executeRound applies the cap of the round being generated, and a fall in full",
       JSON.stringify(played) === "[[44,32],[46,32],[48,32]]",
       `${JSON.stringify(played)} (want rounds 1, 7, 15 -> +4, +6, +8 and -8)`);
+
+    // ── v1.4.4 P6: the narrator's prologue, round 1 only ───────────────────
+    const proOff = [];
+    for (let r = 2; r <= 40; r++) if (buildPrologueLine(r) !== "") proOff.push(r);
+    check("[Prologue] is written for round 1 and for no other round",
+      buildPrologueLine(1).startsWith("[Prologue] ") && proOff.length === 0,
+      `round 1: ${JSON.stringify(buildPrologueLine(1).slice(0, 60))}; also on ${proOff.join(",") || "none"}`);
+    // A prologue that ignores the static rules beside it wins in round 1: the scene
+    // would open on scenery, the cast would be closer than the first meeting allows,
+    // or a stranger would get a name.
+    const pro = buildPrologueLine(1);
+    check("...and points at the three static rules it could contradict, and the length",
+      pro.includes("opening on a person") && pro.includes("section 6") && pro.includes("MEMBER PROFILES")
+        && pro.includes("counts toward the story's length"),
+      pro);
+    // Through the real round: what executeRound SENDS on round 1 and round 2.
+    const sent = [];
+    const realFetch6 = globalThis.fetch, realLog6 = console.log, realWarn6 = console.warn;
+    globalThis.fetch = async (u, init) => {
+      sent.push(JSON.parse(init.body).messages);
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: reply }, finish_reason: "stop" }] }) };
+    };
+    console.log = () => {}; console.warn = () => {};
+    try {
+      for (const week of [0, 1]) {
+        await executeRound({
+          playerChoice: "A", memory: createEmptyMemory(), form: form(),
+          stats: { affection: 12, selfId: 30, secrecy: 90, mood: 60, week, scene: "x", chapter: "start", multiAff: { seulgi: 8 } },
+          members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
+          world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
+          reasoningEnabled: false,
+        });
+      }
+    } catch (e) { sent.push(["threw", e.message]); }
+    finally { globalThis.fetch = realFetch6; console.log = realLog6; console.warn = realWarn6; }
+    const tailOf = (m) => (Array.isArray(m) ? (m.at(-1)?.content || "") : "");
+    const sysOf = (m) => (Array.isArray(m) ? (m[0]?.content ?? null) : null);
+    check("executeRound sends [Prologue] in round 1's tail and not in round 2's",
+      sent.length === 2 && tailOf(sent[0]).split(pro).length === 2 && !tailOf(sent[1]).includes("[Prologue]"),
+      `${sent.length} calls; round 1 tail has it ${tailOf(sent[0]).split(pro).length - 1}x; round 2 ${tailOf(sent[1]).includes("[Prologue]")}`);
+    // Either half alone is vacuous: the static prompt must not move between the two
+    // rounds, and must not carry the line in either.
+    check("...and the static system prompt is the same in both rounds and never carries it",
+      sysOf(sent[0]) !== null && sysOf(sent[0]) === sysOf(sent[1]) && !sysOf(sent[0]).includes("[Prologue]"),
+      `same: ${sysOf(sent[0]) === sysOf(sent[1])}; carries: ${String(sysOf(sent[0])).includes("[Prologue]")}`);
 
     // Rule in section 3: every chapter, in order, with its goal, THIS world's texture
     // and its end beat - in every world and every language.

@@ -650,6 +650,7 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     Irene: hey are you free tonight | you okay?
   + "[Chapter] 承 development (rounds 7-14): this is round 7" — buildChapterLine, the
     chapter of the round being GENERATED (v1.4.4 P2)
+  + "[Prologue] ..." — buildPrologueLine, ROUND 1 ONLY (v1.4.4 P6)
   + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
   + optional "[Time Speed] slow|fast ..." line, only when it is not the default
   (both from buildTailRules, which is the only thing allowed to place them)
@@ -1488,6 +1489,24 @@ most +4 a round in this chapter"*), **the rule is in RULES** (*"never above the 
 allows"*), and the rule points at the fact, so no static line carries a chapter's number. The
 prompt's own *+/-1 to +/-10* stays, for the reason above: a model asked for the range you want
 distributes better than one asked for the range you tolerate.
+
+### Round 1 opens with a narrator's prologue (v1.4.4 P6)
+
+Round 1 used to open straight into a scene, so the player met the cast before the story had said
+where she is or who they are to her. On round 1 only, the tail carries a `[Prologue]` line from
+`buildPrologueLine(round)`: `story` begins with 2-4 sentences in the narrator's voice, addressed
+to her as "you" (this world, who she is in it, who the cast are to her), then a blank line and
+the first scene.
+
+- **Tail, never static.** A static line would be in front of the model every round. Here the
+  lesson of the typical events (*a tail line reads as a cue to act on now*) is the point: round
+  1 is when it should be acted on, once.
+- **Inside `story`, not a schema key**, so the static prompt and the goldens do not move for one
+  round's text.
+- **It names the three static rules it could otherwise contradict:** the scene after it still
+  opens on a person, the cast are no closer than `[First meeting]` allows, and nobody outside
+  MEMBER PROFILES is named. It counts toward the story's length.
+- Generated per run, so no in-language text is authored.
 
 ---
 

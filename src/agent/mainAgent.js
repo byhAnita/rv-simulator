@@ -55,9 +55,20 @@ export function buildChapterLine(round) {
   return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}. Affection rises at most +${c.maxRise} a round in this chapter`;
 }
 
+// The narrator's prologue (v1.4.4 P6), round 1 only. Round 1 opened straight into a
+// scene, so the player met the cast before the story had said where she is or who
+// they are to her. In the tail, because a line there reads as a cue to act on now -
+// the failure of the typical events, and here exactly the point. It names the three
+// static rules it could otherwise contradict. `round` is the round being generated,
+// as for buildChapterLine; every other round gets the empty string.
+export function buildPrologueLine(round) {
+  if (round !== 1) return "";
+  return "[Prologue] This is the first round, so \"story\" begins with a prologue of 2-4 sentences in the narrator's voice, addressed to the player as \"you\": this world, who she is in it, and who the cast are to her, as her identity in section 6 sets it at the start and no closer. Then a blank line, and the first scene begins, opening on a person as the style rule says. The prologue counts toward the story's length, names nobody outside MEMBER PROFILES, and is never written again.";
+}
+
 // The chapter's cap on a RISE (v1.4.4 P4), applied after validateAndFixOutput's
 // +/-AFFECTION_MAX_DELTA. That clamp bounds one round's speed and says nothing about a
-// run's shape: the P3b baseline reached Confirmed by round 14 in 16 of 18 runs, at the
+// run's shape: the P3b baseline reached Confirmed by round 14 in 17 of 18 runs, at the
 // end of the chapter where the two are only meant to begin noticing. Falls pass
 // through untouched. `round` is the round being generated - the number [Chapter]
 // prints - so the cap the model was told is the cap applied. Pure, and returns a new
@@ -1088,6 +1099,8 @@ export async function executeRound({
   // Tier 3 (dynamic) — stats, affections, KKT: always cache miss, kept small
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
+  const prologueLine = buildPrologueLine(roundNum + 1);
+  const prologue = prologueLine ? `\n${prologueLine}` : "";
   const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
 
   // Step 1.5: Init round variables
@@ -1098,7 +1111,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${prologue}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);

@@ -76,8 +76,8 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move | ✅ 17 mutations RED; not yet played live |
 | P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move | ✅ 18 mutations RED; not yet played live |
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
-| P4 | Affection rate tied to the chapter | `validateAndFixOutput` clamp | none | none |
-| P6 | Narrator prologue, round 1 only | `buildTailRules` | none (tail) | none |
+| P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
+| P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
 | P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move |
 | P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
@@ -684,6 +684,43 @@ On round 1 only, the tail asks for a short second-person prologue in the narrato
 - 2-4 sentences: the world, who she is in it, and who these women are to her;
 - it ends where the first scene begins;
 - it is generated per run, so no Chinese is authored.
+
+**Design (2026-10-21):**
+- **Its own line, `[Prologue]`, from a pure `buildPrologueLine(round)`, not inside
+  `buildTailRules`.** It is keyed on the round, like `[Chapter]`, and `buildTailRules` takes
+  no round; the two dials stay its only job. `round` is `roundNum + 1`, the number `[Chapter]`
+  prints, and every round but 1 returns the empty string.
+- **Inside `story`, not a new schema key.** A key would move the static schema and all six
+  goldens to carry one round's text. The prologue is the story's first paragraph, then a
+  blank line, so the export's paragraph split and the stats box are unaffected.
+- **It must not contradict three static rules, so it names them:** the scene after it opens on
+  a person (`prose.openWith`); the cast are no closer to her than her identity's `[First
+  meeting]` in section 6 says; nobody outside MEMBER PROFILES is named (P9). It counts toward
+  the story's length, so round 1 does not grow.
+- **This is the one place the lesson of P3 is wanted.** A tail line reads as a cue to act on
+  now, and round 1 is exactly when it should be acted on, once.
+- A retry of round 1 regenerates from `stats.week` 0 and gets the line again; a loaded save and
+  the epilogue never reach round 1.
+
+#### P6 as built, and seen live (2026-10-21)
+
+Smoke 1794 -> 1798, 9 mutations RED (two of them first CRASHED because the heredoc that wrote
+the mutation file turned its `\\n` into a raw newline; rewritten with the Write tool, both RED).
+No golden moved. One guard drives the real `executeRound` for rounds 1 and 2 and asserts the
+line is in round 1's tail only, and that the static prompt is the same in both rounds and never
+carries it. Either half alone is vacuous.
+
+Live, 4 runs x 2 rounds, `deepseek-flash`, `--mode romance`: chaebol/zh/`lawyer`,
+office/en/`new_hire`, kpop_idol/zh (default identity), campus/ko/`junior_student`. 8/8 rounds
+clean, 88.6-91.1% cache, 0 drifts.
+- **Round 1 opened with a second-person prologue paragraph in 4 of 4**, then a scene opening on
+  a person (dialogue or a member's action) in 4 of 4. **Round 2 had none in 4 of 4.**
+- The prologues stayed at a stranger's distance, e.g. en *"You know her name the way you know a
+  weather warning."*; ko named the main by her real name, as P1 asks outside the idol world.
+- **Not judged:** the register of the zh and ko prologues. The zh chaebol one opens on name and
+  age (`你叫林夏，今年三十二岁`), and the kpop one says the trainee has been in the industry
+  "too long". Whether either reads well is Yuhan's read, not mine.
+- Reports: `test/.out/playthrough-1792572243626.json`, `-262787`, `-276530`, `-304471`.
 
 ### P7. Atmosphere, appearance, point of view
 
