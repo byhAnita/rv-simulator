@@ -79,7 +79,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
 | P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; **Yuhan's blind read owed** |
-| P8 | Random events by story mode | schema `event`, mode rules, UI block | static schema | all 6 move |
+| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 mutations RED; live: free 0/6, rate overshoots (romance 7/14, pressure 11/14) |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
 | P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none | ✅ 6 mutations RED |
@@ -820,6 +820,100 @@ plus where the stiff sentences sit. Reports: `test/.out/playthrough-179257290315
   "P3 removed" before reintroducing any authored pool: a line in the tail reads as a cue.)
 - **Display:** shown under `【随机事件】`, appended to the history entry, and kept by the export.
 - **Grader:** flags an event in free mode.
+
+#### P8 design (2026-10-21)
+
+**The rate is one table in code, not a sentence in 48 mode rules.** The plan sketch said the
+rate comes from the story-mode rules in each world's `modes`, which would be the same four
+sentences in twelve files and twelve mirrors. The rate depends on the mode only, never on the
+world, so it lives once as `EVENT_RATES` in `mainAgent.js`, keyed by `MODE_IDS`, and
+`buildTailRules` renders it as its own `[Random Events]` line right after the `[Story Mode]`
+line. It is still set by the story mode; it is just not copied per world. **Its own label**,
+because the mode rule and the event rate are two quantities, and two quantities under one label
+is the `[Pacing]` defect. Free mode sends a line too (*none in this story mode*), so a free run
+cannot be told apart from broken wiring by the line's absence. No world file or mirror moves.
+
+**Fact in the tail, rule in the static prompt, rule pointing at the fact.** The rate is in the
+tail (it changes when the player changes mode, and the static prompt must not). Section 2's
+schema gains `"event"` between `story` and `summary`, and RULES gains one line saying what an
+event is, that `[Random Events]` sets how often, that the story contains it and the field
+reports it, and that it follows from `[Chapter]`, `[Affections]` and `[Player Status]`. No
+example events: P3's lesson is that a beat shown is a beat staged.
+
+**The field reports, it does not plan.** It comes after the story, so it names what the
+story already contains. That is also why a free-mode event is **not** deleted by code: the
+event is in the prose either way, and dropping the label would only hide the model's
+non-compliance from the grader. The affection clamp is a backstop because a clamp can actually
+undo the number; nothing here can undo a paragraph.
+
+**One paragraph, on screen only.** `withEvent(story, event, language)` appends
+`【随机事件】 <event>` (en `[Random event]`, ko `【돌발 이벤트】`, from `t.game.randomEvent`)
+as its own paragraph of `storyContent`, so the screen, the save's message log, the copy, the
+export and the story editor all carry it. The export keeps it because its filter drops only the
+stats box and option lines. **The ledger does not carry the heading**: the history entry's text
+is the story alone, which already contains the event as prose. See the first live check below
+for why: a heading in the history is a pattern the model copies.
+
+**Assumption, Yuhan's to correct:** "appended to the history entry" is read as the round's
+entry in the story log the player reads (and the save keeps), not as a heading in the model's
+ledger. Storing the sentence on the ledger entry as a separate field was rejected: nothing would
+read it.
+
+**Normalised before use:** a non-string, an empty string, or `null`/`none` spelled as text
+becomes `null`, and a heading at the start of the field is stripped. **`splitEvent` is the
+backstop for a heading inside the story**: a paragraph starting with any language's heading is
+lifted out, and its text becomes the event when the field is null. The story editor runs the
+same function before writing to the ledger, so an edited round cannot put the heading there
+either.
+
+#### P8 first live check (2026-10-21)
+
+`deepseek-flash`, `kpop_idol` / zh / default identity, 6 rounds per mode, one run each. 18 of
+18 rounds clean, 0 drifts, 0 prefix breaks. Events: **free 0/6, romance 3/6, pressure 5/6**
+(targets about 2 and 3). n=6 cannot tell that from noise; it is recorded, not acted on.
+
+Two defects, both found by reading the eight events, and both fixed before commit:
+
+- **The model wrote `【随机事件】` into the story itself** (pressure, round 6), copied from
+  the ledger, where the first build put the heading. The screen would have shown it twice. The
+  RULES line forbidding exactly that did not hold. **Fixed by structure, not wording:** the
+  ledger no longer carries the heading, so there is nothing to copy, and the prohibition is
+  deleted because it now forbids something the model never sees. `splitEvent` stays as the
+  backstop.
+- **Three or four of the eight "events" were a member's own gesture** (Irene stepping into the
+  draught for you, Irene tilting the umbrella), not something that happened to the scene. The
+  definition now says outright that a member's gesture or decision is the story, never an
+  event.
+
+**Not settled, and the measurement that would settle it:** whether the model can hold a rate at
+all. If ≥3 runs × 14 rounds per mode land far from 1 in 3 and 1 in 2, the alternative is to draw
+the event rounds in code and tell the tail "this round has a random event"; P3 showed a tail cue
+is taken every time, which here would be the point. `docs/PROPOSALS.md` §13.
+
+#### P8 as built, and the second live check (2026-10-21)
+
+Built as designed above, with the two fixes from the first check. All six goldens moved by
+five lines each (the key list, the order sentence, the schema key, the RULES line, the language
+line), diff read twice. Smoke **1799 -> 1813**; **19 mutations, 19 RED**, each on its own named
+check. Three older guards were rewritten because P8 changes what they pinned: the key-list check
+is now **derived** from the schema (it was a literal copy of the list), the tail-dial checks
+count labels per line instead of lines, and the P3 sentinel no longer treats a schema `event`
+key as a leak.
+
+**Second check, the corrected build,** romance and pressure, 8 rounds each: 16 of 16 clean,
+0 drifts, 0 prefix breaks. **0 duplicated headings**: every event round shows exactly the one
+the app adds. Events are now mostly things that happen to the scene (the air-con fails, the
+manager walks in, a photo gets out, security asks about the rooftop key); about 2 of 10 are
+still borderline gestures (a drink left at the door). Romance 4/8, pressure 6/8.
+
+**Not verified:** en and ko have not been played with P8; the heading has not been seen on a
+phone; the rate question is §13.
+
+**Grader:** `event-in-free-mode` in `playthrough.mjs`, plus the event text in every round's
+transcript so the rate per mode can be counted.
+
+**Review owed:** the ko label `【돌발 이벤트】` is two words of Korean in the ledger, written
+by an agent. Not prose, but no native reader has seen it.
 
 ### P9. No named or detailed strangers
 

@@ -961,6 +961,31 @@ in all three languages:
 P6's prologue line now points at this rule instead of restating it. Live 9 of 9 rounds opened as
 asked; **whether it reads well is Yuhan's blind read, and it gates the release.**
 
+### Random events, at a rate the story mode sets (v1.4.4 P8)
+
+- **The rate is `EVENT_RATES` in `mainAgent.js`**, keyed by `MODE_IDS`: free none, romance about
+  one round in three, pressure and dramatic about one in two. It depends on the mode and never
+  on the world, so it is one table, not a sentence copied into twelve world files.
+  `buildTailRules` sends it as its own `[Random Events]` line after `[Story Mode]` (a different
+  quantity, so a different label), and free mode sends its line too.
+- **The schema's `event` key sits between `story` and `summary`** and reports what the story
+  already contains. The RULES line defines an event as something that happens TO the people in
+  the scene, never a member's own gesture, and points at `[Random Events]`, `[Chapter]`,
+  `[Affections]` and `[Player Status]`. No example events, for P3's reason.
+- **The heading is the screen's and never the ledger's.** `withEvent` appends
+  `t.game.randomEvent` + the sentence as a paragraph of `storyContent`, so the round's message,
+  the save, the copy and the export all carry it. The history entry's text is the story alone.
+  The first build put the heading in the ledger and the model copied it into its own story on
+  round 6, against a rule saying not to. A marker in the model's context is a pattern it
+  imitates; removing the marker fixed what the rule could not. `splitEvent` lifts a
+  model-written heading paragraph back out (validator) and keeps one out of an edited story
+  (`saveStoryEdit`).
+- **A free-mode event is not deleted by code**: the prose carries it either way. The harness's
+  `event-in-free-mode` grader is where it shows, and every transcript stores the round's event.
+- **Measured, not settled:** two live checks on `deepseek-flash`, zh. Free 0/6; romance 7/14;
+  pressure 11/14. The model overshoots both targets. Drawing the event rounds in code instead is
+  `docs/PROPOSALS.md` §13, with the measurement that would decide it.
+
 ---
 
 ## Member Probability Engine

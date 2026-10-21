@@ -1029,6 +1029,35 @@ See `docs/V144_PLAN.md`, *P3b results* and *P3 removed*.
 
 ---
 
+### A display heading kept out of the ledger — v1.4.4 P8
+
+**What it is.** A random event is shown to the player as its own paragraph under a heading
+(`【随机事件】`). The heading is added to what the screen shows and never to the history the
+model reads back; that keeps the plain story, which already contains the event as prose.
+
+**What it replaced.** The first build stored the screen's text, heading included, in the
+history entry, so the screen, the save and the ledger were one string. Simpler, and the ledger
+could show the model when the last event happened. In the first live check the model copied the
+heading into its own story by round 6, against a RULES line forbidding exactly that, and the
+screen showed it twice.
+
+**What it bought.** 0 duplicated headings in the next 16 live rounds (the first check had 1 in
+8 events). The prohibition was deleted, so the static prompt carries one rule fewer.
+
+**What it costs.** Two texts for one round: the message log carries the heading, the ledger does
+not, so `saveStoryEdit` has to strip it before writing an edit to the ledger (`splitEvent`, the
+same function the validator uses as a backstop). The model also loses an explicit marker of when
+the last event was, which a rate rule could have used; whether it matters is
+`docs/PROPOSALS.md` §13.
+
+**Where it lives.** `withEvent`, `splitEvent`, `normalizeEvent` in `src/agent/mainAgent.js`;
+`saveStoryEdit` in `src/App.jsx`.
+
+**Short form.** Anything added to text for the UI's sake stays out of what is fed back to the
+model: a label in the history is a format it continues, and a rule against it loses.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

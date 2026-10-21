@@ -12,6 +12,53 @@ import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
 import { getIdentity, getModeRule, MODE_IDS, renderIdentityBackground, renderProse } from "../rag/worldLoader";
 import { platformsOf, filterSocialByPlatforms } from "../config/platformConfig";
+import { getTranslations } from "../i18n";
+
+// How often a round carries a random event, by story mode (v1.4.4 P8). Rendered in
+// the tail by buildTailRules; section 2's RULES line points at it.
+export const EVENT_RATES = {
+  free: "none in this story mode: event is null every round.",
+  romance: "about one round in three; the rest are null.",
+  pressure: "about one round in two; the rest are null.",
+  dramatic: "about one round in two; the rest are null.",
+};
+
+// The paragraph headings the app puts in front of an event, in every language.
+const EVENT_LABELS = ["zh", "en", "ko"].map((l) => getTranslations(l).game.randomEvent);
+
+// A model's `event` field, reduced to a sentence or null. A non-string, an empty
+// one, or null spelled as text is null; a heading the model copied out of the
+// ledger is stripped, so the paragraph never reads "<heading> <heading> ...".
+export function normalizeEvent(raw) {
+  if (typeof raw !== "string") return null;
+  let text = raw.trim();
+  for (const label of EVENT_LABELS) {
+    if (text.startsWith(label)) text = text.slice(label.length).replace(/^[\s:\uFF1A]+/, "");
+  }
+  return text && !/^(null|none|n\/a)$/i.test(text) ? text : null;
+}
+
+// A story with any event paragraph lifted out: { story, event }. The heading is the
+// app's, for the screen only - a heading in the ledger is a pattern the model copies,
+// which the first live check caught it doing. So a paragraph the model wrote under a
+// heading anyway is removed here, its text kept as the event, and the story editor
+// runs the same function before it writes an edit into the ledger.
+export function splitEvent(text) {
+  const kept = [];
+  let event = null;
+  for (const para of String(text ?? "").split("\n\n")) {
+    if (EVENT_LABELS.some((label) => para.trim().startsWith(label))) event = normalizeEvent(para) ?? event;
+    else kept.push(para);
+  }
+  return { story: kept.join("\n\n").trim(), event };
+}
+
+// The story as the player reads it: the event, when there is one, is its own
+// paragraph under the language's heading. One function so the screen, the save's
+// message log and the export cannot disagree.
+export function withEvent(story, event, language) {
+  return event ? `${story}\n\n${getTranslations(language).game.randomEvent} ${event}` : story;
+}
 
 // Shortest story we will show the player. The prompt asks for 250-350 words, so
 // anything this brief is a non-answer: it also catches validateAndFixOutput's own
@@ -554,8 +601,8 @@ ${lr.socialRule}
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text, code fences, explanations, verification checks, or natural language outside JSON.
-Every key (scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options) must appear EXACTLY ONCE.
-Emit them in that order. The story comes BEFORE socialContent and kktMessages, so what she posts and texts follows from what happened, and so the scene is not written around a message she has not read yet.
+Every key (scene, statChanges, affectionChanges, story, event, summary, socialContent, kktMessages, options) must appear EXACTLY ONCE.
+Emit them in that order. The story comes BEFORE socialContent and kktMessages, so what she posts and texts follows from what happened, and so the scene is not written around a message she has not read yet. event comes right after the story because it reports what the story contains.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.
 story value = ONE continuous text, no JSON syntax inside it.
@@ -673,6 +720,7 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
   "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
   "affectionChanges": { "${mainId}": 0${subIds.map(id => `, "${id}": 0`).join("")} },
   "story": "Story text in ${lr.lang} (350-450 words). Pure story, NO stat bars, NO options.",
+  "event": "null, or ONE short sentence in ${lr.lang} naming this round's random event (see RULES)",
   "summary": "ONE sentence, 100-150 characters, in English: who appeared and what emotionally shifted.",
   "socialContent": {
     ${mainSocial}${subIds.length > 0 ? ",\n    " + subSocials : ""}
@@ -689,9 +737,10 @@ RULES:
 - affectionChanges: at least 1 member non-zero (+/-1 to +/-10), and never above the rise [Chapter] allows. Values are numbers.
 ${platformFormatRules}
 - story: ${P("storyRule")}
+- event: a random event is something unplanned that happens TO the people in the scene, which they then have to deal with. It is never something one of them chooses to do: a member's gesture, confession or decision is the story, not an event. [Random Events] in CURRENT STATE says how often a round has one; when it says none, event is null. When this round has one, it is written into the story itself, and this field names it afterwards in ONE short sentence in ${lr.lang}: it reports what the story already contains, never something the story left out. It follows from where the story is: the chapter in [Chapter], each member's stage in [Affections], and the stats in [Player Status]. Never repeat one that has already happened.
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
-- ALL story/social/option content MUST be in ${lr.lang}. summary is always in English.
+- ALL story/event/social/option content MUST be in ${lr.lang}. summary is always in English.
 - For Chinese/English: ${plat.social[0]?.promptName || "social"}/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.
 ${memoryContext ? `\n[MEMORY CONTEXT - Generate based on this]\n${memoryContext}` : ''}`;
@@ -976,11 +1025,12 @@ export function validateAndFixOutput(result) {
   if (!result.kktMessages) result.kktMessages = {};
   if (!result.story || result.story.length < 20) result.story = "The story continues...";
   if (!result.summary || typeof result.summary !== "string") result.summary = "";
+  result.event = normalizeEvent(result.event);
   // Strip any leaked JSON fragments the LLM embedded at the end of the story string.
   // Covers: ,"summary":"...", ,"options":[...], and similar key-value tails.
   if (result.story) {
     result.story = result.story
-      .replace(/,?\s*"(?:summary|options|scene|statChanges|affectionChanges|socialContent|kktMessages)"\s*:[\s\S]*$/i, "")
+      .replace(/,?\s*"(?:summary|event|options|scene|statChanges|affectionChanges|socialContent|kktMessages)"\s*:[\s\S]*$/i, "")
       .trim();
   }
   // Secondary: strip if summary text itself was appended as plain prose
@@ -994,6 +1044,12 @@ export function validateAndFixOutput(result) {
       .replace(/\\\//g, '/')
       .replace(/\\\\/g, '\\')
       .replace(/\\(?![n"\\\/])/g, '');
+  }
+  // After the unescape above, so a "\n\n" the model escaped is a real paragraph break.
+  if (result.story) {
+    const split = splitEvent(result.story);
+    if (split.story) result.story = split.story;
+    result.event = result.event ?? split.event;
   }
   if (!result.options || !Array.isArray(result.options) || result.options.length < 4) {
     result.options = ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"];
@@ -1055,16 +1111,23 @@ function filterKktByAffection(kktMessages, affections, allTargetIds) {
 // a free-mode game of the slow-burn texture today's slow-burn players have, and
 // a mode that sends nothing is indistinguishable from a wiring bug.
 //
+// The random-event rate (v1.4.4 P8) is set by the mode and by nothing else, so it
+// is one table here rather than a sentence copied into every world's `modes`. It
+// gets its own `[Random Events]` label because it is a different quantity from the
+// mode rule, and free mode sends its line too, for the reason above.
+//
 // An unrecognised mode id resolves to `free` rather than sending no line at all.
 // The value comes from localStorage, so it can hold anything a previous build or
 // a hand edit left there, and the failure to avoid is a game that silently stops
 // driving its own plot.
 export function buildTailRules(world, storyMode, timeSpeed) {
   const lines = [];
+  const mode = MODE_IDS.includes(storyMode) ? storyMode : "free";
   // The rule carries its own "[Story Mode: X]" prefix, exactly as the pace rule
   // carried "[Pace: X]", so nothing is prepended here.
-  const rule = getModeRule(world, MODE_IDS.includes(storyMode) ? storyMode : "free");
+  const rule = getModeRule(world, mode);
   if (rule) lines.push(rule);
+  lines.push(`[Random Events] ${EVENT_RATES[mode]}`);
   if (timeSpeed === "slow") {
     lines.push("[Time Speed] slow — stay in this moment, don't advance time much this round");
   } else if (timeSpeed === "fast") {
@@ -1216,7 +1279,8 @@ export async function executeRound({
   // discovered nothing.
   const foundPlace = discoveredPlaceIn(parsed.scene, world);
 
-  // Update memory — append new full-story entry to history ledger
+  // Update memory — append new full-story entry to history ledger. The story alone:
+  // the event is already in its prose, and the heading is the screen's (v1.4.4 P8).
   const updatedMemory = updateMemory(memory, {
     playerStats: { selfId: newStats.selfId, secrecy: newStats.secrecy, mood: newStats.mood, week: newStats.week, scene: newStats.scene, chapter: newStats.chapter },
     affections: currentAff,
@@ -1229,7 +1293,10 @@ export async function executeRound({
 
   return {
     newStats,
-    storyContent: parsed.story || "Story continues...",
+    storyContent: withEvent(parsed.story || "Story continues...", parsed.event, language),
+    // The normalised sentence on its own, for the harness: the rate per mode is
+    // uncountable from the prose.
+    event: parsed.event,
     options: parsed.options || ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"],
     roundNotifs,
     updatedMemory,

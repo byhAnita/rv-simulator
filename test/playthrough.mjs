@@ -318,9 +318,12 @@ function honorificErrors(story, cast) {
 }
 
 // Grades one round's parsed output. Returns the list of things that went wrong.
-function gradeRound({ res, parseLevel, memberIds, lang, story, options, cast, outsiders }) {
+function gradeRound({ res, parseLevel, memberIds, lang, mode, story, options, cast, outsiders }) {
   const bad = [];
   if (parseLevel !== "direct") bad.push(`parse:${parseLevel}`);
+  // Free mode's [Random Events] line says none (v1.4.4 P8). The app does not delete
+  // such an event, because the prose carries it either way, so this is where it shows.
+  if (mode === "free" && res.event) bad.push("event-in-free-mode");
   if (!story || story.length < 80) bad.push(`story-short:${story?.length ?? 0}`);
   if (!languageOk(story || "", lang)) bad.push("wrong-language");
   if (/<think>|<\/think>|reasoning_content/i.test(story || "")) bad.push("cot-leak");
@@ -848,7 +851,7 @@ async function runWorker(model) {
       report.served[servedModel] = (report.served[servedModel] || 0) + 1;
 
       const story = res.storyContent;
-      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, story, options: res.options, cast, outsiders });
+      const bad = gradeRound({ res, parseLevel, memberIds, lang: LANG, mode: MODE, story, options: res.options, cast, outsiders });
       report.rounds.push({
         round, ms, parseLevel, chars: story.length,
         summary: (res.updatedMemory.history.at(-1)?.summary || "").length,
@@ -901,6 +904,7 @@ async function runWorker(model) {
             typeof f.weverse === "string" ? f.weverse : f.weverse?.content || "",
           ].filter(Boolean)])),
           summaryText: res.updatedMemory.history.at(-1)?.summary || "",
+          event: res.event || null,
         },
       });
 

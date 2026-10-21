@@ -1672,7 +1672,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   // context silently diverges from what the player is reading.
   const editBody = app.slice(app.indexOf("const saveStoryEdit"), app.indexOf("const regenerateRound"));
   check("saveStoryEdit updates the history ledger entry, not just the message",
-    /memoryRef\.current\?\.history\?\.at\(-1\)/.test(editBody) && /entry\.text = edited/.test(editBody));
+    /memoryRef\.current\?\.history\?\.at\(-1\)/.test(editBody) && /entry\.text = [^;\n]*\bedited\b/.test(editBody));
   check("saveStoryEdit only touches a full entry it can own", /entry\.type === "full"/.test(editBody));
   check("saveStoryEdit keeps the original summary (collapse target)", !/entry\.summary\s*=/.test(editBody));
 
@@ -2587,6 +2587,7 @@ async function layerI() {
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, buildPrologueLine, capAffectionRise, executeRound,
+          EVENT_RATES, normalizeEvent, withEvent, splitEvent,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -3190,9 +3191,15 @@ async function layerI() {
   // that enumerates is read as exhausting its subject, which is the third time
   // that has bitten here (dialogue once exempt from the pronoun rule, address
   // forms once had no narration scope, roles were once not mentioned at all).
+  // Derived since v1.4.4 P8 rather than pinned: the literal was a second copy of the
+  // schema's key list, and adding a key meant remembering to update it. The list must
+  // name exactly the schema's keys in the schema's order ("Emit them in that order").
+  const schemaKeys = (p.split("JSON SCHEMA")[1] || "").split("\nRULES:")[0]
+    .split("\n").map((l) => (l.match(/^  "(\w+)":/) || [])[1]).filter(Boolean);
+  const listedKeys = ((p.match(/Every key \(([^)]*)\) must appear EXACTLY ONCE/) || [])[1] || "").split(/,\s*/);
   check("the EXACTLY-ONCE key list covers every key in the schema",
-    /Every key \(scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options\)/.test(p),
-    "scene was required by the schema and absent from the list that guards it");
+    schemaKeys.length >= 8 && JSON.stringify(listedKeys) === JSON.stringify(schemaKeys),
+    `schema ${schemaKeys.join(",")} | listed ${listedKeys.join(",")} (scene was once required by the schema and absent from the list)`);
 
   // The schema's key order is the model's GENERATION order, and kktMessages used
   // to sit immediately before story — so the last thing in context before the
@@ -3339,13 +3346,18 @@ async function layerI() {
     bothDials.includes("[Story Mode:") && bothDials.includes("[Time Speed]")
       && !bothDials.includes("[Pacing]"),
     JSON.stringify(bothDials).slice(0, 200));
-  check("...on two separate lines, so neither can be read as qualifying the other",
-    bothDials.split("\n").filter(Boolean).length === 2,
+  // Since v1.4.4 P8 the tail also carries [Random Events], a third quantity, so the
+  // check is that every line carries exactly one label rather than a line count.
+  const TAIL_LABELS = ["[Story Mode:", "[Random Events]", "[Time Speed]"];
+  const labelsPerLine = (s) => s.split("\n").filter(Boolean).map((l) => TAIL_LABELS.filter((x) => l.includes(x)).length);
+  check("...on separate lines, so none can be read as qualifying another",
+    JSON.stringify(labelsPerLine(bothDials)) === "[1,1,1]",
     JSON.stringify(bothDials));
   // Unchanged behaviour, asserted because the rename touched this branch: the
-  // default time speed sends nothing, so an ordinary round carries one line.
+  // default time speed sends nothing.
   check("the default time speed adds no line",
-    buildTailRules(worldFor.en, "free", "default").split("\n").filter(Boolean).length === 1,
+    !buildTailRules(worldFor.en, "free", "default").includes("[Time Speed]")
+      && JSON.stringify(labelsPerLine(buildTailRules(worldFor.en, "free", "default"))) === "[1,1]",
     JSON.stringify(buildTailRules(worldFor.en, "free", "default")));
   check("a fast round says so",
     buildTailRules(worldFor.en, "free", "fast").includes("[Time Speed] fast"),
@@ -4659,7 +4671,10 @@ async function layerI() {
           const pr = buildSystemPrompt(form({ identity: ident.id }), library.red_velvet[lang], "irene", ["seulgi"],
             { groupLore: "lore" }, "", "qwen", lang, withEvents);
           const tail = buildTailRules(withEvents, "romance", "slow");
-          if (pr.includes(SENTINEL) || tail.includes(SENTINEL) || pr.includes('  "event":') || /\[Possible events\]/.test(pr + tail)) {
+          // The schema's `"event"` key used to be checked here too; P8 brought it back
+          // as a different mechanism (a generated event, no authored pool), so only the
+          // sentinel text and the P3 tail label are the evidence of a leak now.
+          if (pr.includes(SENTINEL) || tail.includes(SENTINEL) || /\[Possible events\]/.test(pr + tail)) {
             leaked.push(where);
           }
           if ((ident.background || "").includes("{name}")) {
@@ -5022,6 +5037,151 @@ async function layerI() {
     }
     check("section 9 says what each stage allows, by the tail's own stage names, and the three prohibitions",
       stageOff.length === 0, stageOff.join(" | "));
+  }
+
+  // ── v1.4.4 P8: random events, generated, at a rate set by the story mode ──
+  // The rate is one table in code (it depends on the mode, never the world), the
+  // tail carries it as its own [Random Events] line, the static RULES line points
+  // at it, and the schema's `event` reports what the story already contains. The
+  // event is one paragraph appended by ONE function, used for the screen and the
+  // history entry alike.
+  {
+    const i18n = {};
+    for (const l of ["zh", "en", "ko"]) i18n[l] = (await import(pathToFileURL(join(ROOT, `src/i18n/${l}.js`)).href)).default;
+    const getTranslations = (l) => i18n[l];
+    const rateOff = [];
+    for (const [id, w] of Object.entries(allWorlds)) for (const lang of ["zh", "en", "ko"]) {
+      for (const mode of loader.MODE_IDS) {
+        const tail = buildTailRules(w[lang], mode, "default");
+        if (typeof EVENT_RATES[mode] !== "string" || tail.split(`\n[Random Events] ${EVENT_RATES[mode]}`).length !== 2) {
+          rateOff.push(`${id}/${lang}/${mode}`);
+        }
+      }
+    }
+    check("every story mode has an event rate, and the tail sends it once as its own line, in every world",
+      rateOff.length === 0 && Object.keys(EVENT_RATES).sort().join() === [...loader.MODE_IDS].sort().join(),
+      `${rateOff.slice(0, 6).join(", ")} | rates for ${Object.keys(EVENT_RATES).join(",")}`);
+    // The plan's numbers, asserted as the requirement rather than as today's string.
+    check("the rates are the plan's: free none, romance one in three, pressure and dramatic one in two",
+      /^none\b[^\n]*null/.test(EVENT_RATES.free) && /one round in three/.test(EVENT_RATES.romance)
+        && /one round in two/.test(EVENT_RATES.pressure) && /one round in two/.test(EVENT_RATES.dramatic),
+      JSON.stringify(EVENT_RATES));
+
+    const evOff = [];
+    for (const lang of ["zh", "en", "ko"]) {
+      const pr = buildSystemPrompt(form(), library.red_velvet[lang], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", lang, allWorlds.kpop_idol[lang]);
+      const keys = (pr.split("JSON SCHEMA")[1] || "").split("\nRULES:")[0]
+        .split("\n").map((l) => (l.match(/^  "(\w+)":/) || [])[1]).filter(Boolean);
+      const at = keys.indexOf("event");
+      if (at < 1 || keys[at - 1] !== "story" || keys[at + 1] !== "summary") evOff.push(`${lang} schema order ${keys.join(",")}`);
+      const rule = pr.split("\n").find((l) => l.startsWith("- event: ")) || "";
+      for (const want of ["[Random Events] in CURRENT STATE", "when it says none, event is null", "written into the story itself",
+        "never something the story left out", "[Chapter]", "[Affections]", "[Player Status]", "never something one of them chooses to do",
+        "a member's gesture, confession or decision is the story, not an event", "Never repeat one that has already happened"]) {
+        if (!rule.includes(want)) evOff.push(`${lang} rule lacks "${want}"`);
+      }
+      if (!/- ALL story\/event\/social\/option content MUST be in /.test(pr)) evOff.push(`${lang} language line`);
+    }
+    check("the schema emits event between story and summary, and RULES says what it is and points at the tail, in every language",
+      evOff.length === 0, evOff.join(" | "));
+
+    // What the model sends is untrusted text: anything that is not a sentence is null,
+    // and a heading it copied out of the ledger is not printed twice.
+    const labels = ["zh", "en", "ko"].map((l) => getTranslations(l).game.randomEvent);
+    const norm = [undefined, null, 3, {}, "", "   ", "null", " NULL ", "None", "n/a"].map((v) => normalizeEvent(v));
+    check("normalizeEvent turns a non-sentence into null",
+      norm.every((v) => v === null), JSON.stringify(norm));
+    const stripped = labels.map((l) => normalizeEvent(`${l} The lights go out.`));
+    check("...and strips a heading copied from the ledger, in every language",
+      stripped.every((v) => v === "The lights go out.") && normalizeEvent("  The lights go out. ") === "The lights go out.",
+      JSON.stringify(stripped));
+
+    // The heading must be the language's own, distinct, and something the export's
+    // paragraph filter keeps: it drops only the stats box and option lines.
+    const STORY = "Irene looked up from the desk and said nothing for a long moment.";
+    const byLang = ["zh", "en", "ko"].map((l) => withEvent(STORY, "The lights go out.", l));
+    check("withEvent appends one paragraph under the language's heading, and leaves a story with no event untouched",
+      byLang.every((s, i) => s === `${STORY}\n\n${labels[i]} The lights go out.`)
+        && new Set(labels).size === 3 && labels.every(Boolean)
+        && withEvent(STORY, null, "en") === STORY,
+      JSON.stringify(byLang).slice(0, 300));
+    check("...and the heading is not one the export filter drops",
+      labels.every((l) => !/^[╔╚]/.test(l) && !/^[A-D]\.\s/.test(`${l} x`)), labels.join(" | "));
+
+    // The leak shape the strip regex documents: `,"key": ...` at the end of the story.
+    const fixed = validateAndFixOutput({ story: `${STORY},"event":"The lights go out.","summary":"x"`, event: "  null ", summary: "x" });
+    check("validateAndFixOutput normalises event and strips a leaked event key from the story",
+      fixed.event === null && fixed.story === STORY,
+      JSON.stringify({ event: fixed.event, story: fixed.story }));
+
+    // The backstop for a heading the model wrote into the story anyway (seen live,
+    // pressure round 6): the paragraph is lifted out, and its text is the event only
+    // when the field has none.
+    const zhLabel = labels[0];
+    const lifted = validateAndFixOutput({ story: `${STORY}\n\n${zhLabel} The lights go out.`, event: null, summary: "x" });
+    const both = validateAndFixOutput({ story: `${STORY}\n\n${zhLabel} The lights go out.`, event: "A door slams.", summary: "x" });
+    check("a heading the model wrote into the story is lifted out, and becomes the event only when the field is null",
+      lifted.story === STORY && lifted.event === "The lights go out." && both.story === STORY && both.event === "A door slams."
+        && JSON.stringify(splitEvent(STORY)) === JSON.stringify({ story: STORY, event: null }),
+      JSON.stringify({ lifted: [lifted.story.slice(-30), lifted.event], both: [both.story.slice(-30), both.event] }));
+    // The story editor writes to the ledger too, so it must strip the heading the
+    // screen shows. Counted at the one place it writes the entry's text.
+    const saveEdit = (readFileSync(join(ROOT, "src", "App.jsx"), "utf8").split("const saveStoryEdit = ")[1] || "").split("\n  };")[0];
+    check("...and the story editor strips it before writing the edit into the ledger",
+      /entry\.text = splitEvent\(edited\)\.story/.test(saveEdit) && (saveEdit.match(/entry\.text = /g) || []).length === 1,
+      saveEdit.split("\n").filter((l) => l.includes("entry.text")).join(" | ") || "(saveStoryEdit not found)");
+
+    // Through the real round, with the provider stubbed: the screen carries the event
+    // paragraph, the ledger entry does not, and the tail sent the mode's rate.
+    const roundWith = (event) => JSON.stringify({
+      scene: "Office, 9PM", statChanges: { selfId: 1, secrecy: 0, mood: 0 }, affectionChanges: { irene: 2 },
+      story: STORY, event, summary: "Irene and the player share a quiet moment at the office.",
+      socialContent: {}, kktMessages: {}, options: ["A. a", "B. b", "C. c", "D. d"],
+    });
+    const sentTails = [];
+    const results = [];
+    const realFetch8 = globalThis.fetch, realLog8 = console.log, realWarn8 = console.warn;
+    console.log = () => {}; console.warn = () => {};
+    try {
+      for (const [event, storyMode] of [["The lights go out.", "romance"], [null, "free"]]) {
+        globalThis.fetch = async (u, init) => {
+          sentTails.push(JSON.parse(init.body).messages.at(-1).content);
+          return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: roundWith(event) }, finish_reason: "stop" }] }) };
+        };
+        const res = await executeRound({
+          playerChoice: "A", memory: createEmptyMemory(), form: form(),
+          stats: { affection: 12, selfId: 30, secrecy: 90, mood: 60, week: 3, scene: "x", chapter: "start", multiAff: { seulgi: 8 } },
+          members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
+          world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
+          reasoningEnabled: false, storyMode,
+        });
+        results.push({ content: res.storyContent, text: res.updatedMemory.history.at(-1)?.text, event: res.event });
+      }
+    } catch (e) { results.push({ threw: e.message }); }
+    finally { globalThis.fetch = realFetch8; console.log = realLog8; console.warn = realWarn8; }
+    const [withEv, noEv] = results;
+    // The ledger gets the story alone: the event is in its prose already, and a heading
+    // in the history is a pattern the first live check caught the model copying.
+    check("executeRound shows the event under its heading, and the history entry keeps the story without it",
+      withEv?.content === `${STORY}\n\n${labels[1]} The lights go out.` && withEv?.text === STORY
+        && withEv?.event === "The lights go out.",
+      JSON.stringify(withEv).slice(0, 300));
+    check("...a round with no event is the story alone, on screen and in the history",
+      noEv?.content === STORY && noEv?.text === STORY && noEv?.event === null,
+      JSON.stringify(noEv).slice(0, 300));
+    check("...and the tail it sent carries the rate of the mode it was played in",
+      sentTails.length === 2 && sentTails[0].includes(`[Random Events] ${EVENT_RATES.romance}`)
+        && sentTails[1].includes(`[Random Events] ${EVENT_RATES.free}`),
+      sentTails.map((t) => (t.match(/\[Random Events\][^\n]*/) || ["(none)"])[0]).join(" | "));
+
+    // The harness: the grader that flags an event in free mode, fed the mode it
+    // plays, and the event kept in every transcript so a rate can be counted.
+    check("playthrough flags an event in free mode, is told the mode, and keeps each round's event",
+      /if \(mode === "free" && res\.event\) bad\.push\("event-in-free-mode"\)/.test(harnessSrc)
+        && /gradeRound\(\{[^}]*mode: MODE[^}]*\}\)/.test(harnessSrc)
+        && /event: res\.event \|\| null/.test(harnessSrc),
+      "the grader, its mode argument, or the transcript field is missing");
   }
 
   // ── round 1 is a first meeting ───────────────────────────────────────────

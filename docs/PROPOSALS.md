@@ -613,3 +613,29 @@ same release makes that read unattributable. One change at a time when the point
 Then Yuhan reads it blind, **rounds 10-25 only**, because that is where summaries dominate the
 ledger, with several runs per arm. Ask *where* a callback reads as translated, not *which arm* is
 better. Also count whether a place or object keeps the same word across its callbacks.
+
+## 13. Draw the random-event rounds in code, instead of asking the model for a rate
+
+**Status: proposed 2026-10-21, after P8's two live checks. Not built. Yuhan decides.**
+
+**What P8 does.** The tail says `[Random Events] about one round in three` (romance) or `about
+one round in two` (pressure, dramatic), and the model decides each round whether this is one.
+
+**What was measured.** `deepseek-flash`, `kpop_idol` / zh, two checks (6 and 8 rounds per mode):
+free **0/6**, romance **7/14** against ~5, pressure **11/14** against ~7. Under the target rate,
+11 or more of 14 in pressure has a probability of about 0.03. The model overshoots, and pressure
+most, possibly because that mode's own rule already asks for scrutiny incidents.
+
+**The alternative.** Draw the event rounds in `executeRound`, before the call, at the mode's rate
+(`Math.random()` is fine here: the tail is the always-miss message, so nothing cached depends on
+it), and send `[Random Events] this round has one` or `this round has none`. P3 showed a tail
+line is taken as a cue every time; here that is what is wanted, and the spacing would be random
+rather than a clock.
+
+**What it costs.** The model loses the judgement of *when* an event fits the story; a drawn round
+may land in the middle of a confession. And a rate the player cannot see may not need to be exact.
+
+**What would settle it.** ≥3 runs × 14 rounds per mode on the current build, the same model
+pinned, counting event rounds. If romance and pressure both stay well above target, build the
+draw and run the same count; then Yuhan reads a few event rounds from each arm for whether the
+event fits the scene it lands in.

@@ -1,4 +1,4 @@
-import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial } from "./agent/mainAgent";
+import { createInitialStats, executeRound, popPendingSocial, resetPendingSocial, splitEvent } from "./agent/mainAgent";
 import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
@@ -1262,7 +1262,9 @@ export default function App() {
     // makes that safe — the next round's collapse runs before the ledger is
     // built, so without it an edit made on every third round was replaced by
     // the stale summary and never reached the model at all.
-    if (entry && entry.type === "full") { entry.text = edited; entry.keepFull = true; }
+    // The screen keeps the random-event paragraph; the ledger gets the story without
+    // its heading, which the model would otherwise copy (v1.4.4 P8).
+    if (entry && entry.type === "full") { entry.text = splitEvent(edited).story || edited; entry.keepFull = true; }
     showNotif(t.editSaved || "Saved");
   };
 

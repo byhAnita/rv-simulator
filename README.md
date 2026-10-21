@@ -194,9 +194,10 @@ The campus, office and chaebol worlds are now about the people in them, not the 
 * 🐢 **Romance takes its time** — how fast affection can rise now depends on the chapter: slowest at the start, faster as the story builds. Losing affection is never slowed down.
 * 📖 **The story opens with a prologue** — the first round begins with a few lines from the narrator about the world, who you are in it and who these women are to you, before the first scene starts.
 * 🎬 **Each scene sets the mood, then finds her** — a round now opens with one plain line of atmosphere before someone speaks or moves, shows how she looks today in a detail or two, and stays behind your eyes: what she thinks shows in what she does, not in narration.
+* 🎲 **Random events, set by the story mode** — in romance, pressure and dramatic mode, something unplanned now happens to the scene every few rounds (an interruption, a photo that gets out, a notice on the board), written into the story and named under its own heading at the end of the round. Free mode has none. The heading stays in your story log and your exports.
 * 📜 **A new round opens at its beginning** — when a round arrives, the story scrolls to its status box and first line instead of its last, so you start reading without scrolling back up.
 
-> 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. The Korean text has not been read by a native speaker.
+> 🔎 Honest about coverage: the idol-fact measurement is one world, one identity, in Chinese, on DeepSeek V4.1 Flash. Random events came out more often than their set rate in two short live checks on the same model. The Korean text has not been read by a native speaker.
 
 ## 🎉 What's New in v1.4.3
 
