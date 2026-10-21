@@ -648,6 +648,8 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     [KKT Channels] Irene:unlocked | Seulgi:LOCKED
     [KKT Messages - round-relevant members]
     Irene: hey are you free tonight | you okay?
+  + "[Chapter] 承 development (rounds 7-14): this is round 7" — buildChapterLine, the
+    chapter of the round being GENERATED (v1.4.4 P2)
   + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
   + optional "[Time Speed] slow|fast ..." line, only when it is not the default
   (both from buildTailRules, which is the only thing allowed to place them)
@@ -835,7 +837,7 @@ Built in `mainAgent.js#buildSystemPrompt()`. Enforces:
 2. **JSON schema** — valid JSON every round, no markdown fences
 3. **Member personality matrices** — injected from group RAG JSON
 4. **Identity block** — one of the 7+1 identities, selected at build time. The pace block sat beside it until v1.4.1 step 2, which moved it to the dynamic tail as the story mode: a setting the player can change mid-run must not sit in the cached prefix
-5. **Phase rules** — rounds 1-6 (stranger), 7-14 (familiar), 15-24 (pressure), 25+ (consequences)
+5. **Story arc** — four chapters by round, 起 1-6 / 承 7-14 / 转 15-24 / 合 25+, each with its goal, the world's texture and its end beat; the tail's `[Chapter]` says which one this round is in (v1.4.4 P2, below)
 6. **Unknown-character rule** — only the members in MEMBER PROFILES and the player have names; everyone else is a role from the world's archetype list, with no name of any kind and at most one visible detail, and a recurring stranger is the same role with the same detail. **Rewritten in v1.4.4 (P9)** because the old wording, *"only characters listed in MEMBER PROFILES may appear by name"*, is a permission about the cast and reads as silence about everyone else, and Yuhan's play had the model inventing strangers' names. Ownership plus a substitute is the shape that fixed the Kakao rule, applied again
 7. **summary field** — always English, ~100 chars, stored on each `history` entry as the collapse target and mutated into `text` when that entry collapses `full` -> `summary`. Never shown to the player.
 8. **Speaker contract + address protocol** — who "I" and "you" are, and what each character is allowed to call the others. See below.
@@ -910,6 +912,52 @@ and sits outside the zh review.
 All six goldens moved by exactly these lines and the diff was read. 17 mutations, 17 RED. **Not
 verified live**: whether models actually walk the ladder, and step down on screen, is a playthrough
 question, and the next measurement for it.
+
+### What a stage allows, and which chapter the story is in (v1.4.4 P2)
+
+**Section 9 named the stages and said nothing about what each one allows**, so a member at 12 had
+no statement anywhere that she should not already care - and in Yuhan's chaebol play Irene looked
+after the new employee on day one (F3). **Section 3 printed all four phases every round and never
+said which one the round was in**, while the stats box showed the player a chapter the model was
+never told (F4). Both come from the design doc (`docs/.dating-simulator.txt` §九 and 起承转合).
+
+- **Section 9 now carries one behaviour line per stage** (`STAGE_BEHAVIOUR` in
+  `stageConfig.js`), printed beside the localized stage name the tail uses, plus the design doc's
+  three prohibitions: nobody is drawn to the player without a reason the story has shown; no
+  confession or confirmed relationship before the Flirting stage has been played on screen; not
+  every round is sweet. **A member behaves by HER OWN stage**, never by the chapter.
+- **The chapters live ONCE, in `src/config/chapters.js`**: id, label (起承转合), round range, the
+  design doc's goal and end beat. `getChapterByRound` (the stats box) and `buildChapterLine`
+  (the tail) both read it, so the two cannot disagree about which chapter a round is in.
+- **A world supplies only its texture, keyed by chapter id** - `world.phases` is a map like
+  `world.modes`, and `parseWorld` throws on a missing id. It used to be an array carrying its own
+  `from`/`to` in all twelve world files: a second copy of the boundaries `getChapterByRound`
+  hardcoded, tied to it by nothing. **Deleted, not guarded.**
+- **The fact is in the tail, the rule in section 3, and the rule points at the fact**:
+  `[Chapter] 承 development (rounds 7-14): this is round 9`, plus *the last round of this chapter*
+  on 6, 14 and 24, because that is where an end beat has to land.
+- **Phase 4 said "Established relationship" in every world**, which told the model the
+  relationship exists by round 25 whatever the scores say. Deleted.
+
+**Reading the rendered diff found the ex-girlfriend case for the third time.** The first draft of
+起 said *the distance of a first meeting* and its end beat *remembers her name for the first time*,
+and 有印象 said *starts remembering her name* - all false for the one identity whose premise is a
+shared past. All three are reworded to hold for both kinds of start (*distance at the start*;
+*reaches toward her of her own accord*; *keeps track of her*), so no identity check was needed.
+
+**`[Player Status] Round:` prints the last COMPLETED round**, one behind the round being written,
+and that is pre-existing. `[Chapter]` says *this is round N* so the model is not left to reconcile
+the two; changing the Round line is a separate change.
+
+**Known and not fixed:** the four story-mode rules say *"Members flirt during Flirting stage"* in
+English in every language, while a zh tail prints 暧昧期 - two names for one stage, the
+`[Stage Changes]` id-vs-name shape. It is in the always-miss tail, so fixing it moves no golden.
+
+All six goldens moved by exactly these lines and the diff was read. 18 mutations, 18 RED, one only
+after a fix: dropping a stage's behaviour line CRASHED the suite twice - first in the prompt builder,
+then in the guard itself (`STAGE_BEHAVIOUR[i].split` with no null-safety, the trap recorded under
+*A restaging is an OVERLAY*). **Not verified live**: whether a model now holds a Stranger at a
+distance, and lands an end beat in a chapter's last round, needs a playthrough.
 
 ### Whose life is whose — the ROLE CONTRACT
 

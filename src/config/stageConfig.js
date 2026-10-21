@@ -39,6 +39,22 @@ export const rungStagesFor = (language) => {
 // how the prompt ends up describing a scale the code does not implement.
 export const STAGE_BANDS = DEFAULT_STAGE_THRESHOLDS.slice(0, -1)
   .map((lo, i) => `${lo}-${DEFAULT_STAGE_THRESHOLDS[i + 1] - 1}`);
+
+// What each stage ALLOWS (v1.4.4 P2), one line per stage, from the design doc's
+// section 9. Section 9 of the prompt used to print the names and the score bands
+// and nothing else, so a member at 12 had no statement anywhere that she should
+// not already care - and Yuhan's chaebol play had Irene looking after the player
+// on day one. English rule text, the same in every language; the stage NAME
+// beside each line is the localized one the tail prints.
+export const STAGE_BEHAVIOUR = [
+  "politeness, brief help, contact through work or circumstance - nothing more",
+  "she starts keeping track of {player} - her habits, where she tends to be - and simple care is allowed",
+  "she makes short conversations happen on her own, still held back by what they are to each other",
+  "open push and pull: jealousy, testing, contact late at night. Naming what they feel is hardest here, between two women",
+  "both know and have said it, which does not mean it can be public; secrecy becomes the pressure that matters most",
+  "sweeter, and the chance of a crisis rises sharply",
+  "the story is heading for its ending: {player} chooses between love, career, going public and her own growth",
+];
 export const DEFAULT_STAGE_COLORS = ["#9e9e9e", "#64b5f6", "#81c784", "#ffb74d", "#f06292", "#e91e63", "#9c27b0"];
 
 export function getStageIdx(aff, thresholds = DEFAULT_STAGE_THRESHOLDS) {

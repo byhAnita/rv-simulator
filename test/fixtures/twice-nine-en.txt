@@ -32,10 +32,11 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and Alex. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: manager, assistant, executive, or fan. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 - HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up Alex's screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
-- Phase 1 (Rounds 1-6): First encounters. Awkward distance, professional politeness, subtle curiosity. No romantic moves.
-- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, accidental touches, late-night talks, first hints of jealousy.
-- Phase 3 (Rounds 15-24): Reality pressure. Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma.
-- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation.
+STORY ARC, four chapters by round: 起 setup, 承 development, 转 turn, 合 resolution. Never jump from distance straight to romance: every chapter needs a cause, a cost, and something one of them does not know yet. [Chapter] in CURRENT STATE says which chapter this round belongs to and when it is that chapter's last round; build toward the chapter's end and let it land there. The chapter is the shape of the story; how close each member is to Alex comes from HER stage (section 9), never from the chapter.
+- 起 setup (rounds 1-6): Distance at the start. Alex comes into the cast's orbit through work, position or chance - or, where her identity gives them a shared past, back into it - and they are polite, remember her, care briefly. Between two women the first pull is vaguer still, and often shows first as being a special kind of friend. In this world: Awkward distance, professional politeness, subtle curiosity. No romantic moves. It ends the first time a member reaches toward Alex of her own accord: says her name unprompted, or gets her out of a small difficulty in the lightest possible way.
+- 承 development (rounds 7-14): Trust built from repeated overlap, misunderstandings repaired and the small details of daily life. Affection rises and never runs away. Both begin to notice this is not ordinary friendship, and neither says so. In this world: Growing familiarity, accidental touches, late-night talks, first hints of jealousy. It ends with a small crisis that makes both of them see the other is no passer-by.
+- 转 turn (rounds 15-24): What they have meets real pressure head on: talk, careers, a misunderstanding closing in. Between two women there is the added weight of facing the feeling itself and the outside world's view of it at the same time. In this world: Dating rumors, company warnings, fan scrutiny, career vs feelings dilemma. It ends with a choice Alex has to make: deny it, step apart for a while, hold on in private, or risk going public.
+- 合 resolution (rounds 25+): Each of them grows into her own choice. In this world: Exposure risk, possible proposal or separation. Where it can settle: a secret both can live with, love still waiting and unannounced, a separation forced by exposure, Alex leaving the orbit to build her own life, or a hard-won public relationship - not met gently, but they no longer pretend to be strangers.
 
 ╔══════════════════════════════════════════╗
 ║ 4. GROUP BACKGROUND                      ║
@@ -249,6 +250,15 @@ A Korean word dropped into the prose is texture, not a translation error. Keep t
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
 - Relationship stages, in order: 0-15 Stranger, 16-30 Acquaintance, 31-50 Interest, 51-65 Flirting, 66-80 Confirmed, 81-90 Passionate, 91-100 Trial. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
+- What each stage allows. A member behaves by HER OWN stage in [Affections] - never by the chapter, and never by another member's:
+  - 0-15 Stranger: politeness, brief help, contact through work or circumstance - nothing more
+  - 16-30 Acquaintance: she starts keeping track of Alex - her habits, where she tends to be - and simple care is allowed
+  - 31-50 Interest: she makes short conversations happen on her own, still held back by what they are to each other
+  - 51-65 Flirting: open push and pull: jealousy, testing, contact late at night. Naming what they feel is hardest here, between two women
+  - 66-80 Confirmed: both know and have said it, which does not mean it can be public; secrecy becomes the pressure that matters most
+  - 81-90 Passionate: sweeter, and the chance of a crisis rises sharply
+  - 91-100 Trial: the story is heading for its ending: Alex chooses between love, career, going public and her own growth
+- Nobody is drawn to Alex without a reason the story has shown. Never skip the ambiguity: no confession and no confirmed relationship before Flirting has been played out on screen. Not every round is sweet: keep the real pressure and the tension.
 - Tone: 60% sweet, 30% realistic pressure, 10% youthful regret.
 
 ╔══════════════════════════════════════════╗

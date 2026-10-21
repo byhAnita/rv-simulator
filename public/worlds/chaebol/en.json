@@ -111,28 +111,12 @@
     "pressure": "[Story Mode: Pressure] Press attention and family obligation higher, secrecy changes doubled. Being seen together carries weight: a photographer outside a hotel, a line in a business column, an engagement someone else has already agreed to.",
     "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
   },
-  "phases": [
-    {
-      "from": 1,
-      "to": 6,
-      "line": "- Phase 1 (Rounds 1-6): First encounters. Dinners and obligations, practised politeness, subtle curiosity. No romantic moves."
-    },
-    {
-      "from": 7,
-      "to": 14,
-      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, conversations in cars, accidental touches, first hints of jealousy."
-    },
-    {
-      "from": 15,
-      "to": 24,
-      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Press interest, an arrangement made on her behalf, what the families owe each other, duty against feelings."
-    },
-    {
-      "from": 25,
-      "to": null,
-      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
-    }
-  ],
+  "phases": {
+    "start": "Dinners and obligations, practised politeness, subtle curiosity. No romantic moves.",
+    "develop": "Growing familiarity, conversations in cars, accidental touches, first hints of jealousy.",
+    "climax": "Press interest, an arrangement made on her behalf, what the families owe each other, duty against feelings.",
+    "resolve": "Exposure risk, possible proposal or separation."
+  },
   "places": [
     {
       "id": "main_house",

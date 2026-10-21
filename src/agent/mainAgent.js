@@ -4,7 +4,8 @@ import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 // `probabilityEngine` is deliberately NOT imported any more — see the note beside
 // where pickPrimaryMember used to be called, and docs/PROPOSALS.md §4.
-import { getStageIdx, stageNameIn, stageNamesFor, rungStagesFor, STAGE_BANDS } from "../config/stageConfig";
+import { getStageIdx, stageNameIn, stageNamesFor, rungStagesFor, STAGE_BANDS, STAGE_BEHAVIOUR } from "../config/stageConfig";
+import { CHAPTERS, chapterForRound, chapterRange } from "../config/chapters";
 import { givenNameOf } from "../rag/memberNames";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
@@ -37,11 +38,21 @@ export function resetPendingSocial() {
 // ============================================================
 // Game chapter based on round number
 // ============================================================
+// The boundaries are config/chapters.js's, the same table the [Chapter] tail line
+// reads - this used to hardcode 6 / 14 / 24 beside a second copy in every world file.
 function getChapterByRound(roundNum) {
-  if (roundNum <= 6) return "start";
-  if (roundNum <= 14) return "develop";
-  if (roundNum <= 24) return "climax";
-  return "resolve";
+  return chapterForRound(roundNum).id;
+}
+
+// The chapter the model is writing in (v1.4.4 P2). Section 3 has always printed all
+// four phases and never said which one this round is in, while the stats box above
+// the story showed the player a chapter the model was never told. Fact in the tail,
+// rule in section 3, rule pointing at the fact. `round` is the round being
+// GENERATED (stats.week + 1), the same number getChapterByRound is given.
+export function buildChapterLine(round) {
+  const c = chapterForRound(round);
+  const last = c.to === round ? ", the last round of this chapter" : "";
+  return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}`;
 }
 
 // ============================================================
@@ -241,10 +252,21 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     ? `In narration a member is her real name, the one in brackets in MEMBER PROFILES, in full or her given name alone (a member with nothing in brackets is her name alone) - never the name before the brackets, and never a title or an address form: "${mainReal}${stoodByTheWindow}", NEVER "${mainStage}${stoodByTheWindow}"${titleForCast ? `, "${titleForCast}${stoodByTheWindow}"` : ""} or "${call(spokenName(mainMember), tk.ssi)}${stoodByTheWindow}".`
     : `In narration a member is her name alone: "${mainStage}${stoodByTheWindow}", NEVER "${call(mainStage, tk.unnie)}${stoodByTheWindow}"${titleForCast ? ` or "${titleForCast}${stoodByTheWindow}"` : ""}.`;
 
-  // Round-phase beats and the archetypes an unnamed supporting role may be.
-  // Both are English rule text in every language file, so the three world files
-  // must agree on them - smoke Layer I asserts they do.
-  const phaseLines = world.phases.map(p => p.line).join("\n");
+  // The story arc (v1.4.4 P2): the four chapters, each with the design doc's goal and
+  // end beat from config/chapters.js and THIS world's texture for it. The world text
+  // is English rule text in every language file, so the three files must agree on
+  // it - smoke Layer I asserts they do.
+  // String(): a stage missing its behaviour line renders an empty one, which smoke
+  // names, rather than throwing out of the whole prompt with a stack trace.
+  const withPlayer = (text) => String(text ?? "").split("{player}").join(playerName);
+  const phaseLines = [
+    `STORY ARC, four chapters by round: ${CHAPTERS.map(c => `${c.label} ${c.gloss}`).join(", ")}. Never jump from distance straight to romance: every chapter needs a cause, a cost, and something one of them does not know yet. [Chapter] in CURRENT STATE says which chapter this round belongs to and when it is that chapter's last round; build toward the chapter's end and let it land there. The chapter is the shape of the story; how close each member is to ${playerName} comes from HER stage (section 9), never from the chapter.`,
+    ...CHAPTERS.map(c => `- ${c.label} ${c.gloss} (${chapterRange(c)}): ${withPlayer(c.goal)} In this world: ${world.phases[c.id]} ${withPlayer(c.end)}`),
+  ].join("\n");
+  // Section 9: what each stage allows, beside the localized name the tail prints.
+  const stageNames = stageNamesFor(language);
+  const stageBehaviourLines = stageNames
+    .map((n, i) => `  - ${STAGE_BANDS[i]} ${n}: ${withPlayer(STAGE_BEHAVIOUR[i])}`).join("\n");
 
   // Section 10: what actually moves each stat IN THIS WORLD. The stat KEYS never
   // change (they are in the JSON schema, in validateAndFixOutput and in every
@@ -597,7 +619,10 @@ ${platformRules}
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Relationship stages, in order: ${stageNamesFor(language).map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
+- Relationship stages, in order: ${stageNames.map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
+- What each stage allows. A member behaves by HER OWN stage in [Affections] - never by the chapter, and never by another member's:
+${stageBehaviourLines}
+- Nobody is drawn to ${playerName} without a reason the story has shown. Never skip the ambiguity: no confession and no confirmed relationship before ${stageNames[3]} has been played out on screen. Not every round is sweet: keep the real pressure and the tension.
 - ${P("tone")}
 
 ╔══════════════════════════════════════════╗
@@ -1061,7 +1086,7 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
   const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);

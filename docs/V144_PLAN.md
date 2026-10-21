@@ -74,7 +74,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P9 | No named or detailed strangers | section 3 UNKNOWN CHARACTER RULE | static | all 6 move | ✅ 3 mutations RED |
 | P5 | Chaebol = one family (the main's surname); positions per world | `chaebol` castLore + `because` | static | `chaebol-zh` moves | ✅ 6 mutations RED; `orgHint` one family in zh/en/ko (Yuhan ticked the zh draft 2026-10-21) |
 | P1 | Address ladder (age × position × stage), given names, narration names | `mainAgent.js` Address line, REGISTER + SPEAKER CONTRACT rewrite, `given_name` field | static, fixed at setup | all 6 move | ✅ 17 mutations RED; not yet played live |
-| P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move |
+| P2 | Stage behaviour + 起承转合 beats + `[Chapter]` | section 9, world `phases`, tail | rule static, fact in tail | all 6 move | ✅ 18 mutations RED; not yet played live |
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildDynamicTail` | rule static, events in tail | all 6 move |
 | P4 | Affection rate tied to the chapter | `validateAndFixOutput` clamp | none | none |
 | P6 | Narrator prologue, round 1 only | `buildTailRules` | none (tail) | none |
@@ -180,6 +180,23 @@ names, not prose, but Layer Z still puts each one in front of Yuhan. Custom memb
 - **The world `phases`:** relabelled 起 / 承 / 转 / 合, each with the design doc's end-of-phase
   beat, in English.
 - **The tail:** gains `[Chapter] 承 (rounds 7-14)` from `getChapterByRound`.
+
+**As built (2026-10-21).** One deviation from the bullets above, and it is a list deleted rather
+than a list added:
+- **The chapters live once, in code** (`src/config/chapters.js`): id, label `起承转合`, round range,
+  the design doc's goal and end beat. They are the same in every world, so putting them in twelve
+  world files would be twelve copies of four sentences. `getChapterByRound` (the stats box) and the
+  `[Chapter]` tail line both read it, so the box and the model cannot disagree about the chapter.
+- **The world keeps only its texture**, and `phases` becomes a map **keyed by chapter id**, like
+  `modes`. The round ranges leave the world files: they were a second copy of the boundaries
+  `getChapterByRound` hardcoded, tied together by nothing. `parseWorld` throws on a missing id.
+- **Phase 4's "Established relationship" is deleted** from all four worlds. It told the model the
+  relationship exists by round 25 whatever the scores say, which is what the stage rules forbid.
+- **The stage behaviour lives in `stageConfig.js`** beside the stage names, one line per stage.
+- `[Chapter]` names the round being generated (`stats.week + 1`), which is also what
+  `getChapterByRound` is given. `[Player Status] Round:` prints the last COMPLETED round and is
+  therefore one behind; that is pre-existing and left alone here, and `[Chapter]` says "this is
+  round N" so the model is not left to reconcile them.
 
 ### P3. Typical events unlock by stage, carried in the tail (replaces "a rule")
 

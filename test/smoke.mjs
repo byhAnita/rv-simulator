@@ -1655,14 +1655,17 @@ async function layerG(mod, MODEL_CONFIGS) {
       ["start", "develop", "climax", "resolve"].every((c) => new RegExp(`\\b${c}:`).test(chapters)),
       chapters.trim() || "no chapters table");
   }
-  // The four tokens are the function's whole range; a fifth added there needs a label
-  // in three files, and would otherwise render raw exactly as the others used to.
+  // The tokens are config/chapters.js's ids (v1.4.4 P2). getChapterByRound must
+  // return one of them and nothing else, so it delegates rather than keeping its own
+  // thresholds - a fifth token would need a label in three files, and would otherwise
+  // render raw exactly as the others used to.
   const chapterFn = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8")
     .match(/function getChapterByRound[\s\S]*?\n\}/)[0];
+  const { CHAPTER_IDS } = await import(pathToFileURL(join(ROOT, "src/config/chapters.js")).href);
   check("getChapterByRound returns only the four the i18n tables cover",
-    [...chapterFn.matchAll(/return "([a-z]+)"/g)].map((m) => m[1]).sort().join(",")
-      === "climax,develop,resolve,start",
-    [...chapterFn.matchAll(/return "([a-z]+)"/g)].map((m) => m[1]).join(","));
+    /return chapterForRound\(roundNum\)\.id;/.test(chapterFn) && !/return "/.test(chapterFn)
+      && CHAPTER_IDS.slice().sort().join(",") === "climax,develop,resolve,start",
+    chapterFn);
   check("save slots skip tagged error messages", /messages=\{storyMessages\(messages\)\}/.test(app));
 
   // The story edit writes to memory as well as the screen, or the model's
@@ -2560,7 +2563,7 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules,
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -4444,9 +4447,6 @@ async function layerI() {
   check("place ids are unique within a world",
     new Set(worlds.zh.places.map((p) => p.id)).size === worlds.zh.places.length,
     worlds.zh.places.map((p) => p.id).join(", "));
-  check("the world covers all four round phases",
-    worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
-    JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
 
   // --- every world in the index, not just kpop_idol -- v1.4.1 step 7 ----------
   //
@@ -4671,6 +4671,111 @@ async function layerI() {
       (promptIn(allWorlds.chaebol.zh, "lawyer").split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(-200));
   }
 
+  // ── v1.4.4 P2: stage behaviour, the 起承转合 chapters, and [Chapter] in the tail ─
+  // Section 9 printed stage names and score bands and nothing about what a stage
+  // allows, so a member at 12 had no statement anywhere that she should not already
+  // care (F3). Section 3 printed all four phases every round and never said which one
+  // the round was in, while the stats box showed the player a chapter the model was
+  // never told (F4). The chapters live once, in config/chapters.js; a world supplies
+  // only its texture, keyed by chapter id.
+  {
+    const { CHAPTERS, CHAPTER_IDS, chapterForRound } =
+      await import(pathToFileURL(join(ROOT, "src/config/chapters.js")).href);
+    const { STAGE_BEHAVIOUR, STAGE_NAMES, STAGE_BANDS } =
+      await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+    // The ranges must tile every round from 1 with nothing open but the last, or a
+    // round falls into no chapter (or two) and the box and the tail disagree.
+    const tiled = CHAPTERS.every((c, i) => c.from === (i === 0 ? 1 : CHAPTERS[i - 1].to + 1))
+      && CHAPTERS.slice(0, -1).every((c) => Number.isInteger(c.to) && c.to >= c.from)
+      && CHAPTERS.at(-1).to === null;
+    const misfiled = [];
+    for (let r = 1; r <= 60; r++) {
+      const c = chapterForRound(r);
+      if (!(r >= c.from && (c.to === null || r <= c.to))) misfiled.push(r);
+    }
+    check("the chapters tile every round from 1, and only the last is open-ended",
+      tiled && misfiled.length === 0,
+      CHAPTERS.map((c) => `${c.id} ${c.from}-${c.to}`).join(", ") + (misfiled.length ? ` misfiled ${misfiled}` : ""));
+    check("the design doc's round boundaries: 1-6, 7-14, 15-24, 25+",
+      CHAPTERS.map((c) => `${c.from}-${c.to}`).join(",") === "1-6,7-14,15-24,25-null",
+      CHAPTERS.map((c) => `${c.from}-${c.to}`).join(","));
+
+    // Fact in the tail: the chapter of the round being GENERATED, and when it is the
+    // chapter's last round, because that is where its end beat has to land.
+    const lastRounds = [];
+    for (let r = 1; r <= 40; r++) if (buildChapterLine(r).includes("the last round of this chapter")) lastRounds.push(r);
+    check("[Chapter] names the round's chapter and says which round it is",
+      [1, 6, 7, 14, 15, 24, 25, 31].every((r) => {
+        const c = chapterForRound(r);
+        return buildChapterLine(r).startsWith(`[Chapter] ${c.label} ${c.gloss} (`)
+          && buildChapterLine(r).includes(`this is round ${r}`);
+      }),
+      [1, 7, 25].map((r) => buildChapterLine(r)).join(" | "));
+    check("...and flags exactly the last round of each closed chapter",
+      lastRounds.join(",") === "6,14,24", lastRounds.join(","));
+    // The tail is built in executeRound, which this layer cannot call without a model.
+    // So the guard is on the one site: it must pass the round being generated, which
+    // is stats.week + 1 - the same number getChapterByRound is given for the box.
+    const agentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+    const tailSite = (agentSrc.match(/content: `\[CURRENT STATE\][^\n]*/) || [""])[0];
+    check("the tail carries [Chapter] for the round being generated",
+      tailSite.includes("${buildChapterLine(roundNum + 1)}")
+        && /chapter: getChapterByRound\(stats\.week \+ 1\)/.test(agentSrc)
+        && /const roundNum = stats\.week;/.test(agentSrc),
+      tailSite.slice(0, 200));
+
+    // Rule in section 3: every chapter, in order, with its goal, THIS world's texture
+    // and its end beat - in every world and every language.
+    const arcOff = [];
+    for (const [id, w] of Object.entries(allWorlds)) for (const lang of ["zh", "en", "ko"]) {
+      const pr = buildSystemPrompt(form(), library.red_velvet[lang], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", lang, w[lang]);
+      const lines = pr.split("\n");
+      const at = CHAPTERS.map((c) => lines.findIndex((l) =>
+        l.startsWith(`- ${c.label} ${c.gloss} (`) && l.includes(`: ${c.goal.split("{player}").join("Summer").slice(0, 40)}`)
+          && l.includes(`In this world: ${w[lang].phases[c.id]} `)
+          && l.endsWith(c.end.split("{player}").join("Summer"))));
+      if (at.some((i) => i < 0) || at.some((i, k) => k > 0 && i !== at[k - 1] + 1)) arcOff.push(`${id}/${lang} ${at}`);
+      if (pr.includes("{player}")) arcOff.push(`${id}/${lang} unfilled {player}`);
+      if (!/STORY ARC[^\n]*\[Chapter\] in CURRENT STATE/.test(pr)) arcOff.push(`${id}/${lang} no pointer at [Chapter]`);
+    }
+    check("section 3 renders the four chapters in order: goal, this world's texture, end beat",
+      arcOff.length === 0, arcOff.join(" | ").slice(0, 300));
+    // The old shape carried its own round range and a "Phase N" label in every world
+    // file - a second copy of the boundaries. A world's texture must not bring it back.
+    const staleTexture = Object.entries(allWorlds).flatMap(([id, w]) =>
+      CHAPTER_IDS.filter((c) => /Phase \d|Rounds? \d/.test(w.zh.phases[c])).map((c) => `${id}.${c}`));
+    check("a world's chapter texture carries no round range of its own",
+      staleTexture.length === 0, staleTexture.join(", "));
+    // Phase 4 told every world the relationship was established by round 25, whatever
+    // the scores said - which is what the stage rules below exist to forbid.
+    const established = Object.entries(allWorlds).filter(([, w]) =>
+      /established relationship/i.test(JSON.stringify(w.zh.phases)));
+    check("no chapter asserts the relationship exists by round count",
+      established.length === 0, established.map(([id]) => id).join(", "));
+
+    // Section 9: what each stage allows, beside the localized name the tail prints,
+    // and the design doc's three prohibitions.
+    check("every stage has a behaviour line",
+      STAGE_BEHAVIOUR.length === STAGE_NAMES.en.length && STAGE_BEHAVIOUR.every((b) => typeof b === "string" && b),
+      `${STAGE_BEHAVIOUR.length} behaviours for ${STAGE_NAMES.en.length} stages`);
+    const stageOff = [];
+    for (const lang of ["zh", "en", "ko"]) {
+      const pr = buildSystemPrompt(form(), library.red_velvet[lang], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", lang, worldFor[lang]);
+      const sec9 = pr.slice(pr.indexOf("9. GAME RULES"), pr.indexOf("10. STAT SYSTEM"));
+      const names = STAGE_NAMES[lang];
+      const rows = names.map((n, i) => sec9.indexOf(`  - ${STAGE_BANDS[i]} ${n}: ${String(STAGE_BEHAVIOUR[i] ?? "").split("{player}").join("Summer")}\n`));
+      if (rows.some((i) => i < 0) || rows.some((i, k) => k > 0 && i < rows[k - 1])) stageOff.push(`${lang} rows ${rows}`);
+      if (!sec9.includes("A member behaves by HER OWN stage in [Affections]")) stageOff.push(`${lang} no pointer at [Affections]`);
+      if (!sec9.includes(`no confirmed relationship before ${names[3]} has been played out`)) stageOff.push(`${lang} skip rule`);
+      if (!sec9.includes("Nobody is drawn to Summer without a reason the story has shown")) stageOff.push(`${lang} no-reason rule`);
+      if (!sec9.includes("Not every round is sweet")) stageOff.push(`${lang} not-every-round rule`);
+    }
+    check("section 9 says what each stage allows, by the tail's own stage names, and the three prohibitions",
+      stageOff.length === 0, stageOff.join(" | "));
+  }
+
   // ── round 1 is a first meeting ───────────────────────────────────────────
   // Every member starts at Stranger, and the step-7 identities described a
   // relationship already under way - she had already covered for you, you were
@@ -4790,9 +4895,6 @@ async function layerI() {
         && new Set(w.zh.places.map((p) => p.id)).size === 10
         && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name)),
       `${w.zh.places.length} places`);
-    check(`[${id}] covers all four round phases and the last one is open-ended`,
-      w.zh.phases.length === 4 && w.zh.phases[3].to === null,
-      JSON.stringify(w.zh.phases.map((p) => `${p.from}-${p.to}`)));
   }
 
   // A world's display name and an identity's must differ ACROSS worlds, not only
@@ -5651,6 +5753,18 @@ async function layerI() {
     try { parseW(broken); } catch (e) { msg = e.message; }
     check(`parseWorld rejects a world missing "${key}"`,
       msg !== null && msg.includes(key), msg || "parsed without complaint");
+  }
+  // A world's chapter texture is keyed by chapter id (v1.4.4 P2). A world missing
+  // one would render `In this world: undefined` in section 3, so it is refused.
+  {
+    const { CHAPTER_IDS } = await import(pathToFileURL(join(ROOT, "src/config/chapters.js")).href);
+    const unrefused = CHAPTER_IDS.filter((id) => {
+      const broken = { ...good, phases: { ...good.phases } };
+      delete broken.phases[id];
+      try { parseW(broken); return true; } catch (e) { return !e.message.includes(id); }
+    });
+    check("parseWorld rejects a world missing any one chapter's texture",
+      unrefused.length === 0, unrefused.join(", ") + " parsed without complaint");
   }
   // The Setup field's three strings, v1.4.1 step 3. `orgSuffix` MAY be empty - a
   // university's name is already the university - so it is rejected for not being

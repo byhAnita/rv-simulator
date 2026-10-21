@@ -66,7 +66,10 @@ authority on progress.
 - **P1 is done** (the address ladder, given names, narration names): all six goldens moved, diff
   read; 17 mutations RED; smoke **1772 / 0**. **Not played live** - whether a model walks the
   ladder and steps down on screen is the next live measurement, best taken with P2/P3.
-- **Next: P2, stage behaviour + 起承转合 beats + `[Chapter]`** (V144_PLAN P2).
+- **P2 is done** (stage behaviour in section 9, the 起承转合 chapters in section 3, `[Chapter]` in
+  the tail): chapters live once in `src/config/chapters.js`, world `phases` is keyed by chapter id;
+  all six goldens moved, diff read; 18 mutations RED; smoke **1778 / 0**. **Not played live.**
+- **Next: P3, typical events unlock by stage, carried in the tail** (V144_PLAN P3).
 - The chaebol `orgHint` is one family in all three languages: Yuhan ticked the zh draft on
   2026-10-21, `sync` applied it, en/ko settled. No golden moved (UI only).
 - **Decided for a LATER version, not v1.4.4:** `summary` in the player's language,
