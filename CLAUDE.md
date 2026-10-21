@@ -1475,6 +1475,20 @@ touched, while a model returning +30 needs ~11 rounds to cross the board instead
 It clamps the **delta**, not the result, and runs before the 0–100 bound at the application site —
 so the two are independent and a clamped delta still cannot push a member out of range.
 
+**v1.4.4 P4: the rise is also capped by the chapter.** ±8 bounds the speed of any one round;
+it says nothing about the shape of a run, and the P3b baseline reached Confirmed (66+) by round
+14 in 16 of 18 runs - the end of 承, where the design doc wants the two of them only beginning
+to notice. Each `CHAPTERS` entry now carries `maxRise` (起 +4, 承 +6, 转 and 合 +8), and
+`capAffectionRise(changes, round)` caps positive deltas to it in `executeRound`, after the ±8
+and before the deltas are added. **Falls are never capped**: a cold move must stay as sharp as
+the story makes it. `round` is `roundNum + 1`, the number `[Chapter]` prints.
+
+Same shape as everything else in the tail: **the fact is in `[Chapter]`** (*"affection rises at
+most +4 a round in this chapter"*), **the rule is in RULES** (*"never above the rise [Chapter]
+allows"*), and the rule points at the fact, so no static line carries a chapter's number. The
+prompt's own *+/-1 to +/-10* stays, for the reason above: a model asked for the range you want
+distributes better than one asked for the range you tolerate.
+
 ---
 
 ## Member Probability Engine

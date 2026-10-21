@@ -2586,7 +2586,7 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine,
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, capAffectionRise, executeRound,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -4843,6 +4843,65 @@ async function layerI() {
         && /chapter: getChapterByRound\(stats\.week \+ 1\)/.test(agentSrc)
         && /const roundNum = stats\.week;/.test(agentSrc),
       tailSite.slice(0, 200));
+
+    // ── v1.4.4 P4: affection rises by chapter ──────────────────────────────
+    // The design's caps: 起 +4, 承 +6, 转 and 合 +8, and falls never capped by the
+    // chapter. Written from the plan's table, not read back off the code.
+    const PLAN_RISE = { start: 4, develop: 6, climax: 8, resolve: 8 };
+    check("each chapter caps a rise at the plan's number: 起 +4, 承 +6, 转 and 合 +8",
+      CHAPTERS.every((c) => c.maxRise === PLAN_RISE[c.id]) && CHAPTERS.length === Object.keys(PLAN_RISE).length,
+      CHAPTERS.map((c) => `${c.id}:${c.maxRise}`).join(" "));
+    const capIn = { a: 8, b: -8, c: 3, d: 0 };
+    const capped = [3, 6, 7, 14, 15, 30].map((r) => capAffectionRise(capIn, r));
+    check("capAffectionRise caps a rise to the chapter of the round, and lets a fall through",
+      JSON.stringify(capped.map((x) => x.a)) === "[4,4,6,6,8,8]"
+        && capped.every((x) => x.b === -8 && x.c === 3 && x.d === 0) && capIn.a === 8,
+      JSON.stringify(capped));
+    const lineOff = [];
+    for (let r = 1; r <= 40; r++) {
+      if (!buildChapterLine(r).includes(`Affection rises at most +${chapterForRound(r).maxRise} a round in this chapter`)) lineOff.push(r);
+    }
+    check("[Chapter] states the cap of the chapter the round is in",
+      lineOff.length === 0, `rounds ${lineOff.join(",")}: ${buildChapterLine(lineOff[0] || 1)}`);
+    // The rule is static and points at the fact; a chapter's number in the static
+    // prompt would be the cap stated twice, and wrong in three chapters of four.
+    const rulesPr = buildSystemPrompt(form(), library.red_velvet.en, "irene", ["seulgi"], { groupLore: "lore" }, "", "qwen", "en", allWorlds.kpop_idol.en);
+    check("...and RULES points at it without naming a chapter's number",
+      /- affectionChanges: [^\n]*never above the rise \[Chapter\] allows/.test(rulesPr)
+        && !/rises at most \+\d/.test(rulesPr),
+      (rulesPr.match(/- affectionChanges: [^\n]*/) || ["(no affectionChanges rule)"])[0]);
+
+    // Through the real round: executeRound with a stubbed provider, the model asking
+    // for +8 for the main member and -8 for the sub. Round 7 is the boundary where
+    // `roundNum` and `roundNum + 1` are in different chapters, so the cap must be
+    // the one [Chapter] printed for the round being generated.
+    const reply = JSON.stringify({
+      scene: "Office, 9PM", statChanges: { selfId: 1, secrecy: 0, mood: 0 },
+      affectionChanges: { irene: 8, seulgi: -8 },
+      story: "Irene looked up from the desk and said nothing for a long moment, then she smiled.",
+      summary: "Irene and the player share a quiet moment at the office.",
+      socialContent: {}, kktMessages: {}, options: ["A. a", "B. b", "C. c", "D. d"],
+    });
+    const realFetch = globalThis.fetch, realLog = console.log, realWarn = console.warn;
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: reply }, finish_reason: "stop" }] }) });
+    console.log = () => {}; console.warn = () => {};
+    const played = [];
+    try {
+      for (const week of [0, 6, 14]) {
+        const res = await executeRound({
+          playerChoice: "A", memory: createEmptyMemory(), form: form(),
+          stats: { affection: 40, selfId: 30, secrecy: 90, mood: 60, week, scene: "x", chapter: "start", multiAff: { seulgi: 40 } },
+          members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
+          world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
+          reasoningEnabled: false,
+        });
+        played.push([res.newStats.affection, res.newStats.multiAff.seulgi]);
+      }
+    } catch (e) { played.push(["threw", e.message]); }
+    finally { globalThis.fetch = realFetch; console.log = realLog; console.warn = realWarn; }
+    check("executeRound applies the cap of the round being generated, and a fall in full",
+      JSON.stringify(played) === "[[44,32],[46,32],[48,32]]",
+      `${JSON.stringify(played)} (want rounds 1, 7, 15 -> +4, +6, +8 and -8)`);
 
     // Rule in section 3: every chapter, in order, with its goal, THIS world's texture
     // and its end beat - in every world and every language.

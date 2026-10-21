@@ -615,6 +615,15 @@ scores on 3 runs each with `scripts/analyze-prose.mjs`.
 - **Baseline:** P3b's 18 comparison runs are the "before". Each records the main member's score
   every round, and nothing in P3b touches affection. The "after" is 3 runs per config with the
   same flags.
+- **Corrected 2026-10-21, after the events were removed:** the comparable "before" is the six
+  `none`-arm runs (3 x journalist, 3 x new_hire), because the app now plays exactly that arm.
+  All 18 are reported beside it as context. Same flags: `--world chaebol --identity journalist`
+  and `--world office --identity new_hire`, `--lang zh --rounds 14 --mode romance`,
+  `deepseek-flash`, run sequentially.
+- **The clamp is a pure exported function**, `capAffectionRise(changes, round)` in
+  `mainAgent.js`, applied in `executeRound` to `parsed.affectionChanges` before the deltas are
+  added. `round` is `roundNum + 1`, the same number `[Chapter]` prints, so the cap the model is
+  told and the cap applied cannot be two chapters' caps.
 
 ### P5. Positions per world, stated once and checked
 

@@ -15,25 +15,30 @@
 // `label` is written as escapes so this file stays ASCII: U+8D77 U+627F U+8F6C U+5408.
 // `goal` and `end` are English rule text from the design doc; {player} is filled
 // with the player's name where they are rendered.
+//
+// `maxRise` (v1.4.4 P4) is the most a member's affection may RISE in one round of the
+// chapter. Falls are never capped by it - only by AFFECTION_MAX_DELTA - so a cold move
+// stays as sharp as the story makes it. Read by capAffectionRise and the [Chapter]
+// tail line, so the cap the model is told and the cap applied are one number.
 
 export const CHAPTERS = [
   {
-    id: "start", label: "\u8D77", gloss: "setup", from: 1, to: 6,
+    id: "start", label: "\u8D77", gloss: "setup", from: 1, to: 6, maxRise: 4,
     goal: "Distance at the start. {player} comes into the cast's orbit through work, position or chance - or, where her identity gives them a shared past, back into it - and they are polite, remember her, care briefly. Between two women the first pull is vaguer still, and often shows first as being a special kind of friend.",
     end: "It ends the first time a member reaches toward {player} of her own accord: says her name unprompted, or gets her out of a small difficulty in the lightest possible way.",
   },
   {
-    id: "develop", label: "\u627F", gloss: "development", from: 7, to: 14,
+    id: "develop", label: "\u627F", gloss: "development", from: 7, to: 14, maxRise: 6,
     goal: "Trust built from repeated overlap, misunderstandings repaired and the small details of daily life. Affection rises and never runs away. Both begin to notice this is not ordinary friendship, and neither says so.",
     end: "It ends with a small crisis that makes both of them see the other is no passer-by.",
   },
   {
-    id: "climax", label: "\u8F6C", gloss: "turn", from: 15, to: 24,
+    id: "climax", label: "\u8F6C", gloss: "turn", from: 15, to: 24, maxRise: 8,
     goal: "What they have meets real pressure head on: talk, careers, a misunderstanding closing in. Between two women there is the added weight of facing the feeling itself and the outside world's view of it at the same time.",
     end: "It ends with a choice {player} has to make: deny it, step apart for a while, hold on in private, or risk going public.",
   },
   {
-    id: "resolve", label: "\u5408", gloss: "resolution", from: 25, to: null,
+    id: "resolve", label: "\u5408", gloss: "resolution", from: 25, to: null, maxRise: 8,
     goal: "Each of them grows into her own choice.",
     end: "Where it can settle: a secret both can live with, love still waiting and unannounced, a separation forced by exposure, {player} leaving the orbit to build her own life, or a hard-won public relationship - not met gently, but they no longer pretend to be strangers.",
   },

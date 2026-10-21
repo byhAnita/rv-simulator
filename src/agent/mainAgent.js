@@ -52,7 +52,19 @@ function getChapterByRound(roundNum) {
 export function buildChapterLine(round) {
   const c = chapterForRound(round);
   const last = c.to === round ? ", the last round of this chapter" : "";
-  return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}`;
+  return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}. Affection rises at most +${c.maxRise} a round in this chapter`;
+}
+
+// The chapter's cap on a RISE (v1.4.4 P4), applied after validateAndFixOutput's
+// +/-AFFECTION_MAX_DELTA. That clamp bounds one round's speed and says nothing about a
+// run's shape: the P3b baseline reached Confirmed by round 14 in 16 of 18 runs, at the
+// end of the chapter where the two are only meant to begin noticing. Falls pass
+// through untouched. `round` is the round being generated - the number [Chapter]
+// prints - so the cap the model was told is the cap applied. Pure, and returns a new
+// object, so the parsed response is not rewritten under anyone else reading it.
+export function capAffectionRise(changes, round) {
+  const cap = chapterForRound(round).maxRise;
+  return Object.fromEntries(Object.entries(changes || {}).map(([id, d]) => [id, d > cap ? cap : d]));
 }
 
 // ============================================================
@@ -662,7 +674,7 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
 RULES:
 - scene: ${P("sceneRule")}
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
-- affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
+- affectionChanges: at least 1 member non-zero (+/-1 to +/-10), and never above the rise [Chapter] allows. Values are numbers.
 ${platformFormatRules}
 - story: ${P("storyRule")}
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
@@ -1105,7 +1117,7 @@ export async function executeRound({
 
   if (parsed.affectionChanges) {
     newStats.multiAff = { ...stats.multiAff };
-    for (const [id, delta] of Object.entries(parsed.affectionChanges)) {
+    for (const [id, delta] of Object.entries(capAffectionRise(parsed.affectionChanges, roundNum + 1))) {
       if (id === mainId) newStats.affection = Math.max(0, Math.min(100, stats.affection + (delta || 0)));
       else if (subIds.includes(id)) newStats.multiAff[id] = Math.max(0, Math.min(100, (stats.multiAff?.[id] || 0) + (delta || 0)));
     }

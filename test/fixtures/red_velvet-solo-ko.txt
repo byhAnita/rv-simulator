@@ -259,7 +259,7 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
 RULES:
 - scene: ONE SHORT PHRASE — a place and a time, nothing else: "Practice room, 10PM". It is printed inside a one-line status box on a phone screen, so a sentence will not fit there and a paragraph is worse. Change it when the story moves, and never repeat the previous round's scene word for word. Take the place from section 11's canon list unless the story genuinely needed somewhere that list does not have. The only organisation that exists in this story is the one section 4 names; never write another one's name anywhere.
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
-- affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
+- affectionChanges: at least 1 member non-zero (+/-1 to +/-10), and never above the rise [Chapter] allows. Values are numbers.
 - socialContent.bubble: MUST be an ARRAY like [{"content":"...","hasPhoto":false,"photoDesc":""}], NOT a string. Set hasPhoto true only when she would really attach a picture, and then photoDesc is a short phrase naming what is in it; otherwise hasPhoto is false and photoDesc is "".
 - socialContent.instagram: MUST be an object {"caption":"...","likes":800000} or null.
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
