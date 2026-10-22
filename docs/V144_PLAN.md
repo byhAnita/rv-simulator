@@ -78,7 +78,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
-| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **opening rule decision owed** |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **shipped as is, Yuhan's call 2026-10-22** |
 | P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed); 1/3 in every event mode, Yuhan's call |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
@@ -849,6 +849,13 @@ never let light, air or a shadow be the subject of an action verb. That is the s
 openings she rated natural, and it is English rule text, so no Chinese is authored. The other
 choices are dropping the sentence (open on a person, as v1.4.3) or shipping as is. Whichever
 it is, the measurement is the same live set and a blind read of the openings.
+
+**DECIDED 2026-10-22 (Yuhan): ship the opening as is**, and leave the trade verbs
+(`docs/PROPOSALS.md` §14) as they are, so that the next change, `summary` in the player's
+language (§12), is the only variable when it is read. Note for that read: the P7 live set ran 3
+rounds per game and collapse first happens in round 4, so **no game in this blind read had a
+single summary in its ledger**. §12 cannot have touched what it measured; whether it helps
+shows only in late rounds.
 
 ### P8. Random events, generated rather than pooled
 

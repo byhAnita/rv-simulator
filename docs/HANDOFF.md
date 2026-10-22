@@ -32,20 +32,20 @@ Yuhan's. **Uncommitted:** nothing.
 
 ### Owed by Yuhan (all gate the v1.4.4 release)
 
-- **P7's opening rule** (decision): recommended, one sentence that states a fact she perceives
-  (a sound, a light on or off, the temperature, the time), with light, air and shadow never the
-  subject of an action verb. Or drop the sentence (v1.4.3's person-first opening), or ship as is.
+- ~~P7's opening rule~~ **decided 2026-10-22: shipped as is**; PROPOSALS §14 held as is too.
+- **Whether §12 (`summary` in the player's language) joins v1.4.4.** Yuhan proposed it on
+  2026-10-22; the plan and its measurement are in `docs/PROPOSALS.md` §12. Not built yet.
 - **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
-- **PROPOSALS §14** (trade verbs): English rule, or a few zh words she writes.
 - **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`, just before release.
 - **Phone test of v1.4.4**, then the push and the release.
 
 ### The exact next action
 
-When Yuhan picks the P7 opening: change `prose.openWith` in `public/worlds/_registers/*.json`
-(English rule text only), regenerate goldens and read the diff, mutation-verify, then rerun the P7
-live set (`deepseek-flash`, kpop_idol / zh / 练习生 / romance, 3 runs x 3 rounds, control =
-`b9607d9` via `git archive`) and build a second blind page of rounds 2-3, openings marked.
+If Yuhan says go on §12: build it as `docs/PROPOSALS.md` §12 lists (three schema lines in
+`mainAgent.js`, the length unit, the collapse fallback, the `saveStoryEdit` comment, the
+analyzer's CJK metric inverted), regenerate the six goldens and read the diff, mutation-verify,
+then run the A/B §12 describes and build a blind page of rounds 10-25. If not: v1.4.4 is
+complete apart from the release notes, the phone test and the push.
 
 ### Not verified
 

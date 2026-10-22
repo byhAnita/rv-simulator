@@ -964,7 +964,8 @@ asked. **Yuhan's blind read (2026-10-21) tied overall but put the stiffness in t
 sentence**: 4 of 6 were marked, every one with light, air or a shadow as the subject of a
 figurative verb (`阳光斜斜切进`, `空气又干又软`, `影子泡得发软`), while the two she rated natural
 state a plain fact (`音乐停了，只剩下空调出风口的嗡嗡声`). *"No simile"* does not reach a figurative
-verb. What the opening becomes is her decision and gates the release; `docs/V144_PLAN.md`,
+verb. **She chose to ship it as is (2026-10-22)**, to keep `summary` in the player's language
+(PROPOSALS §12) the only variable if it joins v1.4.4; `docs/V144_PLAN.md`,
 *P7 blind read: the result*.
 
 ### Random events, at a rate the story mode sets (v1.4.4 P8)

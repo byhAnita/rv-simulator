@@ -571,6 +571,20 @@ sentinel post, then read the round that follows.
 the playing language. Scheduled after v1.4.4 so it does not confound P7's blind read; the A/B
 below is still how its effect is measured.
 
+**PROPOSED FOR v1.4.4, 2026-10-22 (Yuhan), not yet built.** P7's read is done and P7 and §14
+are frozen as they are, so this would be the one variable. How it would be measured, so the
+answer means something:
+- **Control = `dev` as it is; treatment = only this change.** Same model pinned and recorded
+  (`deepseek-flash`), same world, identity and language (kpop_idol / zh / 练习生).
+- **Free mode, or a seeded event draw.** `drawEvent` is unseeded, so in an event mode the two
+  arms get different event rounds, which is noise the read would attribute to the summary.
+- **25 rounds, 3 runs per arm**; the read covers **rounds 10-25 only**, where summaries are
+  most of the ledger. Rounds 1-3 have no summary at all, which is why the P7 read cannot show it.
+- **Blind, ask where:** mark a callback to an earlier round that reads as translated, and keep
+  marking stiff openings, which answers whether P7's opening improves late in a game. Count
+  offline whether a place or object keeps one word across its callbacks.
+- Cost: about 150 live rounds and a long read; it gates the release like P7 did.
+
 **What.** `summary` is "ONE English sentence, 100-150 characters" in every language. It is the
 collapse target, so from round 4 on most of the history ledger is English summaries of Chinese
 (or Korean) stories. The change: write it in the language of the story.
@@ -641,6 +655,8 @@ draw and run the same count; then Yuhan reads a few event rounds from each arm f
 event fits the scene it lands in.
 
 ## 14. Name dance and singing in the trade's own words
+
+**Held 2026-10-22 (Yuhan): left as is through the §12 measurement, so that read has one variable.**
 
 **Status: proposed 2026-10-21, from the P7 blind read. Not built: the fix needs either Chinese
 example words in a rule (Yuhan writes or reviews those) or an English rule nobody has tested.**
