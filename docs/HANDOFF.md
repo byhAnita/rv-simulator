@@ -32,9 +32,8 @@ Yuhan's. **Uncommitted:** nothing.
 
 ### Owed by Yuhan (all gate the v1.4.4 release)
 
-- ~~P7's opening rule~~ **decided 2026-10-22: shipped as is**; PROPOSALS §14 held as is too.
-- **Whether §12 (`summary` in the player's language) joins v1.4.4.** Yuhan proposed it on
-  2026-10-22; the plan and its measurement are in `docs/PROPOSALS.md` §12. Not built yet.
+- **P7b's blind read** (the opening sentence as a fact she perceives): `docs/V144_PLAN.md`,
+  *P7b*. Decided 2026-10-22 to fix the opening in v1.4.4; §12 and §14 moved to v1.4.5.
 - **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
 - **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`, just before release.
 - **Phone test of v1.4.4**, then the push and the release.
@@ -61,7 +60,9 @@ complete apart from the release notes, the phone test and the push.
 
 ### Decided, for later versions (not v1.4.4)
 
-- `summary` in the player's language: `docs/PROPOSALS.md` §12. PROPOSALS §9-11 deferred.
+- v1.4.5: `summary` in the player's language (`docs/PROPOSALS.md` §12, starting with a blind
+  read of rounds 10-25 of the current build) and the trade verbs (§14), measured separately.
+  PROPOSALS §9-11 deferred.
 
 ### Standing rules from Yuhan this cycle
 

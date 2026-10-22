@@ -2860,18 +2860,26 @@ async function layerI() {
   // names the novel tradition of ITS OWN language: a zh prompt asking for an
   // English romance novel is the translationese this rule exists to prevent.
   const NOVEL_LANG = { zh: "Chinese", en: "English", ko: "Korean" };
-  // v1.4.4 P7 (Yuhan's design): ONE plain sentence of atmosphere is allowed back,
+  // v1.4.4 P7 (Yuhan's design): ONE plain opening sentence is allowed back,
   // bounded, and a person still arrives by the second sentence. The old "1-2
   // sentences establishing scene atmosphere" must not return in any language.
+  // P7b (Yuhan's blind read, 2026-10-21): 4 of 6 P7 openings were stiff, every one
+  // with light, air or a shadow as the subject of a figurative verb, and the two she
+  // rated natural stated a plain fact. So the sentence is a fact she perceives, the
+  // scenery never acts, the substitute is named, and "atmosphere" is not asked for.
   const sceneOpeners = ["zh", "en", "ko"].filter((l) => {
     const pl = prompt(form(), l);
-    return !/Open with ONE short sentence of atmosphere/.test(pl)
-      || !/no simile/.test(pl)
+    const open = (pl.match(/^- Open with .*$/m) || [""])[0];
+    return !/ONE short sentence that states a plain fact she perceives/.test(open)
+      || !/Light, air, shadow, mist and weather are never the subject of an action verb/.test(open)
+      || !/say what she hears or sees, not what they do/.test(open)
+      || /atmospher/i.test(open)
+      || !/no simile/.test(open)
       || !/A person doing or saying something arrives by the second sentence at the latest\./.test(pl)
       || /establishing scene atmosphere/.test(pl) || /Style: Literary/.test(pl)
       || !pl.includes(`native ${NOVEL_LANG[l]} romance novel style`);
   });
-  check("every round opens on one plain sentence of atmosphere and a person by the second, in that language's own romance-novel register",
+  check("every round opens on one plain fact she perceives, never scenery acting, and a person by the second, in that language's own romance-novel register",
     sceneOpeners.length === 0, sceneOpeners.join(", "));
   // P7: her appearance, bounded so it does not become a per-round inventory, and
   // the player's point of view with the substitute that keeps the beat.

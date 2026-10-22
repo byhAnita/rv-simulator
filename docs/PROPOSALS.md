@@ -571,9 +571,11 @@ sentinel post, then read the round that follows.
 the playing language. Scheduled after v1.4.4 so it does not confound P7's blind read; the A/B
 below is still how its effect is measured.
 
-**PROPOSED FOR v1.4.4, 2026-10-22 (Yuhan), not yet built.** P7's read is done and P7 and §14
-are frozen as they are, so this would be the one variable. How it would be measured, so the
-answer means something:
+**MOVED TO v1.4.5, 2026-10-22 (Yuhan), the same day it was proposed for v1.4.4.** v1.4.4 fixes
+P7's opening instead (V144_PLAN *P7b*). Nobody has yet read rounds 10-25 and found a stiff
+callback, so **step zero is a blind read of rounds 10-25 from the current build**: if the
+callbacks read fine, this change is not needed. Both arms of the A/B below carry P7b's opening.
+How it would be measured, so the answer means something:
 - **Control = `dev` as it is; treatment = only this change.** Same model pinned and recorded
   (`deepseek-flash`), same world, identity and language (kpop_idol / zh / 练习生).
 - **Free mode, or a seeded event draw.** `drawEvent` is unseeded, so in an event mode the two
@@ -656,7 +658,7 @@ event fits the scene it lands in.
 
 ## 14. Name dance and singing in the trade's own words
 
-**Held 2026-10-22 (Yuhan): left as is through the §12 measurement, so that read has one variable.**
+**Moved to v1.4.5, 2026-10-22 (Yuhan).** Older than P7 (3 of the 4 stories it was seen in were the pre-P7 control), so it does not hold v1.4.4 back. Measured alone, never in the same run as §12.
 
 **Status: proposed 2026-10-21, from the P7 blind read. Not built: the fix needs either Chinese
 example words in a rule (Yuhan writes or reviews those) or an English rule nobody has tested.**

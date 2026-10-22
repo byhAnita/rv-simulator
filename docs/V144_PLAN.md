@@ -78,7 +78,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
-| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **shipped as is, Yuhan's call 2026-10-22** |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **reopened 2026-10-22 as P7b, see below** |
 | P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed); 1/3 in every event mode, Yuhan's call |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
@@ -856,6 +856,41 @@ language (§12), is the only variable when it is read. Note for that read: the P
 rounds per game and collapse first happens in round 4, so **no game in this blind read had a
 single summary in its ledger**. §12 cannot have touched what it measured; whether it helps
 shows only in late rounds.
+
+**REVISED 2026-10-22, same day (Yuhan): fix the opening in v1.4.4; §12 and §14 move to
+v1.4.5.** Of the three ideas the read raised, the opening is the only one P7 itself caused
+(4 of 6 against 2 of 6), it shows in every round from round 1, and its fix is English rule text.
+The trade verbs are older than P7 (3 of their 4 stories were control). §12 is a hypothesis with
+no measured late-round problem behind it, and the most expensive of the three to measure.
+**The order keeps each measurement clean:** P7b is read on rounds 2-3, where no ledger holds a
+summary, and both arms of a later §12 A/B carry P7b's opening.
+
+#### P7b. The opening sentence states a fact she perceives (2026-10-22)
+
+**Design.** `openWith` keeps one opening sentence and a person by the second, and changes what
+the sentence is: a plain fact she perceives (a sound, whether a light is on, the temperature,
+the weather, the time), never a description of the place's mood. Light, air, shadow, mist and
+weather are never the subject of an action verb; the rule names the substitute, say what she
+hears or sees, because a prohibition with no substitute gets routed around. The word
+*atmosphere* leaves the rule, since asking for atmosphere is what made the weather an actor.
+Same English in all three register files, so no Chinese or Korean is authored.
+
+**Measurement.** The P7 live set again: `deepseek-flash`, kpop_idol / zh / 练习生 / romance,
+3 rounds a run, 3 runs per arm, arms alternated. Control = `dev` with P7's opening (exported
+with `git archive`, so this tree is never switched); treatment = P7b only. Blind read of rounds
+2-3, 6 per arm: the same 自然 / 一般 / 翻译腔 rating, and whether the **first sentence** is stiff.
+P7's baseline was 4 of 6 first sentences stiff, the pre-P7 control 2 of 6.
+
+**As built.** The rule in all three register files (and the root `worlds/` mirror):
+*"Open with ONE short sentence that states a plain fact she perceives - a sound, whether a
+light is on, the temperature, the weather, the time: one concrete thing, said plainly, with no
+simile and no tour of the room. Light, air, shadow, mist and weather are never the subject of an
+action verb; say what she hears or sees, not what they do. A person doing or saying something
+arrives by the second sentence at the latest."* All six goldens moved by exactly that line,
+diff read. The smoke check reads the rendered opening line in every language and asks for the
+fact, the prohibition, its substitute and `no simile`, and for no `atmosphere`: **5 mutations,
+5 RED** (the word back, the prohibition dropped, the substitute dropped, `no simile` dropped,
+the P7 wording back). Smoke **1815 / 0**. **The live set and the blind read are next.**
 
 ### P8. Random events, generated rather than pooled
 
