@@ -5,78 +5,75 @@ contents rather than appending a log.
 
 ---
 
-## Pick up here — 2026-10-22
+## Pick up here — 2026-10-22 (v1.4.4 ready to release)
 
 **Written by:** Claude Code (Opus 5.5, main VS Code session).
-**Branch:** `dev`. **Last commit:** the P7b live-run docs commit on top of `2139598`.
+**Branch:** `dev`. **Last commit:** the v1.4.4 release-prep commit on top of `f4dff4f`.
 **Unpushed:** every commit since `origin/dev` (`git log --oneline origin/dev..dev`). Pushing is
 Yuhan's. **Uncommitted:** nothing.
 
 ### Done this session
 
-- **P7b built (2026-10-22)**: the opening sentence states a plain fact she perceives; light,
-  air, shadow, mist and weather never act. English in the three registers and the root mirror;
-  six goldens moved by that one line; 5 mutations RED. Live 18/18 clean on `deepseek-flash`.
-  Blind page published, ratings owed. `docs/V144_PLAN.md`, *P7b*.
-- **P7 blind read: done by Yuhan, unblinded, written up** in `docs/V144_PLAN.md`, *P7 blind
-  read: the result*. Overall a tie (P7 2/2/2 自然/一般/翻译腔, control 1/3/2). But **4 of 6 P7
-  atmosphere sentences were marked stiff** (2 of 6 control openings), every one with light, air
-  or a shadow as the subject of a figurative verb; the two she rated natural state a plain fact.
-  Her ratings: `test/.out/p7-blind/ratings/` (and the artifact's `ratings` collection).
-- **Found by the read, both arms, not P7:** dance and singing described in body mechanics
-  (`踩错`, `再动`, `拉长音`), 4 of 12 stories. Proposed as `docs/PROPOSALS.md` §14, not built.
-- **Event rate is 1/3 in romance, pressure and dramatic** (Yuhan's call: 1/2 cost continuity).
-  One constant in `EVENT_RATES`; smoke asserts 1/3 for all three and every mode's frequency over
-  4000 real draws.
+- **P7b blind read done and unblinded** (`docs/V144_PLAN.md`, *P7b blind read: the result*):
+  first sentences stiff **1 of 6** against 5 of 6 for P7's opening. Shipped. Overall ratings went
+  the other way (P7b 1/3/2, control 3/2/1), the marks being verb collocations and clipped dialogue
+  in both arms; not attributed, n=6. Ratings in `test/.out/p7b-blind/ratings/ratings/`.
+- **Her verb notes** are `docs/PROPOSALS.md` §14, widened beyond dance/singing, for v1.4.5.
+- **P7c: no clothing in how she looks.** The `style` line lists hair, makeup, expression or
+  hands and says "Never her clothes". 4 mutations RED.
+- **P8 random events removed from v1.4.4** (Yuhan: a one-line event reads badly). Source files
+  restored from `100a2a6^`; smoke from the same plus P7b's guard; goldens now differ from pre-P8
+  by exactly the P7b and P7c lines. One absence guard, 3 mutations RED. v1.4.5 redesign is
+  `docs/PROPOSALS.md` §15 (an event told as story, 1/2-2/3 of a round), starting from `2be2a65`.
+- **Release notes final** (in-app zh/en/ko and README): atmosphere line reworded, events removed.
+  Yuhan waived her review of the release notes for this release.
 
 ### Verified
 
-- `npm run build` clean; `node test/smoke.mjs` **1815 passed / 0 failed** after P7b; 5 P7b
-  mutations RED, register files byte-identical after the run.
+- `npm run build` clean; `node test/smoke.mjs` **1800 passed / 0 failed**; 7 new mutations RED
+  (4 clothing, 3 events), files restored byte-identical; six golden diffs read.
 
-### Owed by Yuhan (all gate the v1.4.4 release)
+### Owed by Yuhan (the release)
 
-- **P7b's blind read**: https://claude.ai/artifact/PWbGhxrCuYmygER2btMcXf (12 stories, rounds
-  2-3). Built and live-run 2026-10-22; `docs/V144_PLAN.md`, *P7b*. Decided that day to fix the
-  opening in v1.4.4; §12 and §14 moved to v1.4.5.
-- **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
-- **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`, just before release.
-- **Phone test of v1.4.4**, then the push and the release.
+1. **Phone test of v1.4.4** (Cloudflare branch preview after `git push origin dev`, see memory
+   *phone-testing-preview-urls* / `docs/RELEASE.md`).
+2. Then the release, all red lines and hers: `git checkout main && git pull`,
+   `git merge dev --no-ff -m "release: v1.4.4"`, `npm run deploy`, tag the **deploy commit**
+   `v1.4.4`, `git checkout -- index.html`, merge `main` back into `dev`,
+   `node scripts/dev-index.mjs`, `node scripts/verify-mirrors.mjs`. Full steps: `docs/RELEASE.md`.
+3. Still open from before: confirm the P7 reading of "first-person view" (player's view,
+   narrated as "you").
 
 ### The exact next action
 
-When Yuhan says the P7b read is done: read the artifact's `ratings` collection with
-ArtifactData, copy the docs to `test/.out/p7b-blind/ratings/`, THEN open
-`test/.out/p7b-blind/p7b-blind-key.json` and write *P7b blind read: the result* in
-`docs/V144_PLAN.md` (same table as P7's, first sentences stiff against P7's 4 of 6). If it
-holds, v1.4.4 is complete apart from the release notes, the phone test and the push. The
-release note's "each scene opens with one line of atmosphere" may want rewording then (zh and
-ko need Yuhan).
+Nothing for an agent until Yuhan has pushed and phone-tested. After her deploy: run
+`node scripts/verify-mirrors.mjs`, then revise the CV in `docs/.resume/` (gitignored; RELEASE.md
+says how), then start v1.4.5 planning from `docs/PROPOSALS.md` §12, §14, §15 (one measurement
+at a time).
 
 ### Not verified
 
+- P7c is not measured live (a deletion she asked for).
 - P1 (address ladder) and P2 (stage behaviour, chapters) have **not been played live** for
   whether the model walks the ladder or holds a Stranger at a distance.
-- P8 in **en and ko**: not played. Not played live at 1/3 (the draw fixes the frequency by
-  construction). Whether a drawn event lands at a bad moment: not read by Yuhan. The heading on a
-  phone: not seen.
 - P10 not seen on a phone; zh/ko prologues (P6) unread by Yuhan; ko is not native-reviewed.
 - **Grader suspect, not fixed:** `real-name-vocative` fires on a real name in a non-idol world's
   dialogue, where P1's Q2 rule makes it correct.
 - 0 affection falls in live runs (`docs/PROPOSALS.md` §1), unchanged.
 
-### Decided, for later versions (not v1.4.4)
+### Decided, for v1.4.5 (not v1.4.4)
 
-- v1.4.5: `summary` in the player's language (`docs/PROPOSALS.md` §12, starting with a blind
-  read of rounds 10-25 of the current build) and the trade verbs (§14), measured separately.
+- §15 random events as a short story passage; §14 verbs and the trade's words; §12 `summary` in
+  the player's language (starting with a blind read of rounds 10-25). Measured separately.
   PROPOSALS §9-11 deferred.
 
 ### Standing rules from Yuhan this cycle
 
 One chaebol family (A1); Korean given names in non-idol worlds (Q2); address forms only inside
-quotes; no named strangers; no agent adds Chinese or Korean prose without her review; never tick a
-ZH_REVIEW box or edit `docs/zh-review/ledger.json` by hand; replies short, conclusions first,
-**unverified** marked; say "good point to compact" after each batch.
+quotes; no named strangers; no clothing in member description; no agent adds Chinese or Korean
+prose to prompt/world/group/register files without her review; never tick a ZH_REVIEW box or edit
+`docs/zh-review/ledger.json` by hand; replies short, conclusions first, **unverified** marked; say
+"good point to compact" after each batch.
 
 ---
 
@@ -84,12 +81,10 @@ ZH_REVIEW box or edit `docs/zh-review/ledger.json` by hand; replies short, concl
 
 *(Add anything you notice but were not asked to fix. Do not fix it.)*
 
-- **P8 live:** about 2 of 10 events are still a member's gesture rather than something that
-  happens to the scene (a drink left at the door). n=10, not acted on.
+- **P7b read:** her one stiff P7b opening was a `像是…` guess after a plain sound; 2 of 6 P7b
+  openings carried one in the live set. Worth a clause if it recurs.
 - **`validateAndFixOutput`'s leaked-key strip misses the realistic shape** `...story","summary":...`
-  (closing quote before the comma); it only matches `...,"summary":...`. Pre-existing; the P8
-  guard uses the documented shape.
-
+  (closing quote before the comma); it only matches `...,"summary":...`. Pre-existing.
 - **Restaged positions do not always hold in the prose.** en campus: Irene restaged as an art
   history student said "I teach the intro seminar" (one run) and was "the senior who runs the
   student council" in another, a post another member held. n=2 of 10, not acted on.

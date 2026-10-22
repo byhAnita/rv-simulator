@@ -192,8 +192,6 @@ const zh = {
     go: "我去{place}",
   },
   game: {
-    // P8: the heading of a random event's paragraph. Screen, save and export only: never the ledger.
-    randomEvent: "【随机事件】",
     generating: "生成开局剧情...",
     progressing: "剧情推进中...",
     inputPlaceholder: "输入行动或对话... (Enter发送)",

@@ -12,8 +12,8 @@ Social media content must be in Simplified Chinese. DO NOT output Korean in bubb
 ║ 2. JSON OUTPUT - HIGHEST PRIORITY        ║
 ╚══════════════════════════════════════════╝
 CRITICAL: Output ONLY ONE valid JSON object. NO repeated keys. NO text, code fences, explanations, verification checks, or natural language outside JSON.
-Every key (scene, statChanges, affectionChanges, story, event, summary, socialContent, kktMessages, options) must appear EXACTLY ONCE.
-Emit them in that order. The story comes BEFORE socialContent and kktMessages, so what she posts and texts follows from what happened, and so the scene is not written around a message she has not read yet. event comes right after the story because it reports what the story contains.
+Every key (scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options) must appear EXACTLY ONCE.
+Emit them in that order. The story comes BEFORE socialContent and kktMessages, so what she posts and texts follows from what happened, and so the scene is not written around a message she has not read yet.
 The key "story" must appear EXACTLY ONCE with a single string value.
 DO NOT repeat "story" key. DO NOT put JSON inside the story string.
 story value = ONE continuous text, no JSON syntax inside it.
@@ -26,7 +26,7 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - MEMBER ROTATION: Balance main and sub members. The main member should still appear most rounds, but sub members need meaningful scenes every 2-3 rounds. Do not let any romanceable member disappear for more than 3 rounds. [Rounds Absent] in CURRENT STATE counts this for you: the number is how many rounds she has missed, so anyone at 3 belongs in this one.
 
 - Story length: 350 - 450 words in Chinese (Simplified)
-- Style: emotional, sensory details (sight/sound/touch/smell), native Chinese romance novel style. When a member is in the scene, show how she looks today through one or two concrete details - her outfit, hair, makeup, expression or hands - chosen for what they say about her right now. Never a head-to-toe inventory, and not the same detail every round.
+- Style: emotional, sensory details (sight/sound/touch/smell), native Chinese romance novel style. When a member is in the scene, show how she looks today through one or two concrete details - her hair, makeup, expression or hands - chosen for what they say about her right now. Never her clothes, never a head-to-toe inventory, and not the same detail every round.
 - Open with ONE short sentence that states a plain fact she perceives - a sound, whether a light is on, the temperature, the weather, the time: one concrete thing, said plainly, with no simile and no tour of the room. Light, air, shadow, mist and weather are never the subject of an action verb; say what she hears or sees, not what they do. A person doing or saying something arrives by the second sentence at the latest.
 - Point of view: the narration stays with the player ("you") and shows only what she can see, hear and feel. A member's thoughts and feelings are never narrated from inside her; they show in what she says and does and in how she looks.
 - PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
@@ -250,7 +250,6 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
   "statChanges": { "selfId": 0, "secrecy": 0, "mood": 0 },
   "affectionChanges": { "irene": 0, "seulgi": 0, "wendy": 0 },
   "story": "Story text in Chinese (Simplified) (350-450 words). Pure story, NO stat bars, NO options.",
-  "event": "null, or ONE short sentence in Chinese (Simplified) naming this round's random event (see RULES)",
   "summary": "ONE sentence, 100-150 characters, in English: who appeared and what emotionally shifted.",
   "socialContent": {
     "irene": {"bubble":[{"content":"msg","hasPhoto":false,"photoDesc":""}],"instagram":null,"weverse":null},
@@ -271,9 +270,8 @@ RULES:
 - socialContent.weverse: MUST be an object {"content":"...","likes":2000,"comments":100} or null.
 - kktMessages: Object with member IDs, each value is an ARRAY of strings or empty array []. Members marked LOCKED in [KKT Channels] MUST be [].
 - story: PURE story text. NO stat bars, NO options embedded, NO repeated "story" keys.
-- event: a random event is something unplanned that happens TO the people in the scene, which they then have to deal with. It is never something one of them chooses to do: a member's gesture, confession or decision is the story, not an event. [Random Events] in CURRENT STATE says whether this round has one; when it says none, event is null. When this round has one, it is written into the story itself, and this field names it afterwards in ONE short sentence in Chinese (Simplified): it reports what the story already contains, never something the story left out. It follows from where the story is: the chapter in [Chapter], each member's stage in [Affections], and the stats in [Player Status]. Never repeat one that has already happened.
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
 - options: EXACTLY 4 option strings. PURE choice text. DO NOT include stat changes or route indicators.
-- ALL story/event/social/option content MUST be in Chinese (Simplified). summary is always in English.
+- ALL story/social/option content MUST be in Chinese (Simplified). summary is always in English.
 - For Chinese/English: bubble/social content MUST NOT be written in Hangul. Section 6's transliterated address forms are not Hangul and are welcome there.
 - CRITICAL: All field types must match exactly. Arrays use [], objects use {}, strings use "", numbers are bare.

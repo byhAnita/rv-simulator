@@ -452,7 +452,6 @@ Message 3 - user (DYNAMIC TAIL, always cache miss, kept small):
     chapter of the round being GENERATED (v1.4.4 P2)
   + "[Prologue] ..." — buildPrologueLine, ROUND 1 ONLY (v1.4.4 P6)
   + "[Story Mode: Free] ..." — the world's rule for the current mode, always sent
-  + "[Random Events] this round has one|none this round" - drawn by drawEvent (v1.4.4 P8)
   + optional "[Time Speed] slow|fast ..." line, only when it is not the default
   (both from buildTailRules, which is the only thing allowed to place them)
   + "Player choice: B\n\nGenerate the next round. Output ONLY valid JSON."
@@ -942,7 +941,7 @@ the first scene.
   MEMBER PROFILES is named. It counts toward the story's length.
 - Generated per run, so no in-language text is authored.
 
-### One line of atmosphere, how she looks, and whose eyes (v1.4.4 P7)
+### One plain fact, how she looks, and whose eyes (v1.4.4 P7, P7b, P7c)
 
 Yuhan's design, three `prose` rules in `public/worlds/_registers/<lang>.json`, the same English
 in all three languages:
@@ -953,7 +952,10 @@ in all three languages:
   sentences establishing scene atmosphere"* is what blind read 5 tied to the translationese. The
   old wording must not return in any language; smoke checks all three.
 - **`style`** adds one or two concrete details of how a member looks today, never an inventory
-  and never the same detail every round.
+  and never the same detail every round. **Never her clothes (P7c, 2026-10-22)**: Yuhan found
+  the outfit text long and irrelevant to the story, so the list is her hair, makeup, expression
+  or hands, and the line says "Never her clothes" in words, since a list that merely omits a
+  thing reads as silence about it.
 - **`pov`**, a new `PROSE_KEYS` entry beside the PRONOUN RULE: the narration stays with the
   player and shows only what she perceives; a member's inner state shows in what she says and
   does. "First-person view" in the plan is read as the player's view, narrated as "you"; see
@@ -966,43 +968,29 @@ figurative verb (`阳光斜斜切进`, `空气又干又软`, `影子泡得发软
 state a plain fact (`音乐停了，只剩下空调出风口的嗡嗡声`). *"No simile"* does not reach a figurative
 verb. **Fixed in v1.4.4 as P7b (2026-10-22)**: the sentence states a plain fact she perceives,
 and light, air, shadow, mist and weather are never the subject of an action verb.
-`docs/V144_PLAN.md`, *P7 blind read: the result* and *P7b*. `summary` in the player's
-language (PROPOSALS §12) and the trade verbs (§14) moved to v1.4.5.
+`docs/V144_PLAN.md`, *P7 blind read: the result* and *P7b*. **Her blind read of P7b
+(2026-10-22): first sentences stiff 1 of 6, against 5 of 6 with P7's opening**, and the one
+was a `像是…` guess after a sound. Overall the control arm rated better (自然/一般/翻译腔 3/2/1
+against P7b's 1/3/2), with the marks in the body of the story: verb collocations and clipped
+dialogue in both arms, which no P7b rule touches - n=6 a side, not attributed, and measured in
+v1.4.5 as PROPOSALS §14. `summary` in the player's language (§12) also moved to v1.4.5.
 
-### Random events, at a rate the story mode sets (v1.4.4 P8)
+### Random events: built for v1.4.4, held back to v1.4.5 (P8)
 
-- **The code draws the event rounds; the model is never asked to keep a rate.** `EVENT_RATES`
-  in `mainAgent.js` holds a probability per `MODE_IDS` entry: free 0, and 1/3 in romance,
-  pressure and dramatic (Yuhan's call: 1/2 cost continuity). `executeRound` calls `drawEvent(mode, round)` once per call (round 1, the
-  prologue round, never draws; ↺ Retry draws again), and `buildTailRules(..., hasEvent)` sends
-  `[Random Events] this round has one...` or `none this round: event is null.` as its own line
-  after `[Story Mode]`; free mode sends its own "none" line. The rate depends on the mode and
-  never on the world, so it is one table, not a sentence in twelve world files. The tail is the
-  always-miss message, so `Math.random()` here costs no cache.
-- **Why drawn, measured:** told a rate, the model overshot it in a way that depended on the
-  mode, not the number. A live A/B at 1/4 (`docs/V144_PLAN.md`, *P8 A/B*): described, pressure
-  ran 22/33 with 16 back-to-back event rounds, since its mode rule asks for scrutiny incidents
-  and the model labelled each one; drawn, the model wrote an event on 17/17 drawn rounds and on
-  2/49 undrawn ones, and none of the drawn events was a member's gesture (3 of 10 were, in
-  described romance).
-- **The schema's `event` key sits between `story` and `summary`** and reports what the story
-  already contains. The RULES line defines an event as something that happens TO the people in
-  the scene, never a member's own gesture, and points at `[Random Events]`, `[Chapter]`,
-  `[Affections]` and `[Player Status]`. No example events, for P3's reason.
-- **The heading is the screen's and never the ledger's.** `withEvent` appends
-  `t.game.randomEvent` + the sentence as a paragraph of `storyContent`, so the round's message,
-  the save, the copy and the export all carry it. The history entry's text is the story alone.
-  The first build put the heading in the ledger and the model copied it into its own story on
-  round 6, against a rule saying not to. A marker in the model's context is a pattern it
-  imitates; removing the marker fixed what the rule could not. `splitEvent` lifts a
-  model-written heading paragraph back out (validator) and keeps one out of an edited story
-  (`saveStoryEdit`).
-- **An event on an undrawn round is not deleted by code**, free mode included: the prose
-  carries it either way. The harness's `event-in-free-mode`, `event-not-drawn` and
-  `drawn-event-missing` graders are where it shows, and every transcript stores the round's
-  event and `eventDrawn`.
-- **Not verified:** en and ko have not been played with P8, and whether a drawn event can land
-  at a bad moment (mid-confession) has not been read by Yuhan.
+P8 drew the random-event rounds in code (`EVENT_RATES`, 1/3 in romance, pressure and dramatic)
+and had the model name each event in one sentence, shown under a heading after the story.
+**Removed before release on 2026-10-22, Yuhan's call:** a one-line event reads like a notice,
+not like story. She wants the event told as a short passage of story, about 1/2 to 2/3 of a
+round's length, and that needs its own quality test - `docs/PROPOSALS.md` §15.
+
+The v1.4.4 tree is the pre-P8 code: `mainAgent.js`, `App.jsx`, `src/i18n/*` and
+`test/playthrough.mjs` were restored from `100a2a6^`, and `test/smoke.mjs` from the same
+commit plus P7b's guard. So the schema has no `event` key, the tail no `[Random Events]` line
+and i18n no heading; one smoke check asserts all three (3 mutations RED). **v1.4.5 starts from
+`2be2a65`**, the last commit with P8 in it. The full write-up and its lessons (a rate asked of
+the model is overshot, a rate drawn in code is followed 17/17; a display heading in the ledger is
+copied by the model) are in `docs/CLAUDE_HISTORY.md`, *Random events in v1.4.4 (P8)*; TECH_NOTES
+keeps both technique entries.
 
 ---
 
@@ -1216,8 +1204,9 @@ Moved to their own documents on 2026-10-21, verbatim. Read them before touching 
 
 **Released:** v1.4.3, deployed 2026-10-02, tagged `v1.4.3` on deploy commit `adf19b9`.
 
-**On `dev`, unreleased:** v1.4.4 - P1-P12 done and the release notes written; the
-release waits on Yuhan (blind read, phone test, push). `docs/V144_PLAN.md`'s table is the authority on progress, and
+**On `dev`, unreleased:** v1.4.4 - P1-P12 done, except P8 (random events), held back to
+v1.4.5 on 2026-10-22; P7b's blind read done; release notes final. The release waits on Yuhan
+(phone test, push, merge into `main`, deploy). `docs/V144_PLAN.md`'s table is the authority on progress, and
 `docs/HANDOFF.md` is the baton (what is in flight, what is not verified, the exact next step).
 
 The history of every release before this one, with its measurements, is in
@@ -1265,6 +1254,8 @@ Each line names the section in `docs/CLAUDE_HISTORY.md` that holds the evidence.
 - **`membersNamedIn` matches stage name, `name_kr` and the given name**, two characters minimum;
   a false fact in the tail is worse than none. - *`[Rounds Absent]` shipped telling the model
   things that were not true*
+- **A frequency is drawn in code, never asked of the model**, and a display marker never enters
+  the ledger, where the model copies it. - *Random events in v1.4.4 (P8)*
 - **Rotation is not fixed**, and an n=1 A/B on this harness is not evidence. - *…so rotation is
   unresolved*
 - **`buildSystemPrompt(..., world)` takes a required world with no default**; `parseWorld`

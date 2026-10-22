@@ -197,8 +197,6 @@ const en = {
     go: "I head to {place}",
   },
   game: {
-    // P8: the heading of a random event's paragraph. Screen, save and export only: never the ledger.
-    randomEvent: "[Random event]",
     generating: "Generating opening story...",
     progressing: "Story progressing...",
     inputPlaceholder: "Type your action or dialogue... (Enter to send)",

@@ -1031,6 +1031,9 @@ See `docs/V144_PLAN.md`, *P3b results* and *P3 removed*.
 
 ### A display heading kept out of the ledger — v1.4.4 P8
 
+**Status: removed from v1.4.4 before release (2026-10-22), with the feature; v1.4.5 rebuilds random
+events from `2be2a65` (`docs/PROPOSALS.md` §15). The reasoning below still holds.**
+
 **What it is.** A random event is shown to the player as its own paragraph under a heading
 (`【随机事件】`). The heading is added to what the screen shows and never to the history the
 model reads back; that keeps the plain story, which already contains the event as prose.
@@ -1059,6 +1062,9 @@ model: a label in the history is a format it continues, and a rule against it lo
 ---
 
 ### A frequency drawn in code, not asked of the model — v1.4.4 P8
+
+**Status: removed from v1.4.4 before release (2026-10-22), with the feature; v1.4.5 rebuilds random
+events from `2be2a65` (`docs/PROPOSALS.md` §15). The reasoning below still holds.**
 
 **What it is.** Random events should come on about one round in three (romance, pressure and
 dramatic; pressure and dramatic were one in two until Yuhan lowered them for continuity). Instead of telling the model that rate and trusting it to keep it,

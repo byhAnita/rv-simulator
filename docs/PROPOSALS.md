@@ -632,6 +632,8 @@ better. Also count whether a place or object keeps the same word across its call
 
 ## 13. Draw the random-event rounds in code, instead of asking the model for a rate
 
+**Removed with P8 from v1.4.4 (2026-10-22); v1.4.5's §15 starts from the draw, at `2be2a65`.**
+
 **Status: BUILT 2026-10-21, after a live A/B Yuhan asked for (`docs/V144_PLAN.md`, *P8 A/B*). Described at one in four, pressure ran 22/33; drawn, the model followed the draw 17/17 and wrote 2 events on 49 undrawn rounds. Kept below as the reasoning it was built on.**
 
 **What P8 does.** The tail says `[Random Events] about one round in three` (romance) or `about
@@ -656,7 +658,26 @@ pinned, counting event rounds. If romance and pressure both stay well above targ
 draw and run the same count; then Yuhan reads a few event rounds from each arm for whether the
 event fits the scene it lands in.
 
-## 14. Name dance and singing in the trade's own words
+## 14. Name dance and singing in the trade's own words, and verbs the way Chinese uses them
+
+**Widened 2026-10-22 by the P7b blind read (Yuhan).** The stiffness is not only dance and
+singing. In 9 of 12 stories, both arms, she corrected a verb or a clipped line. Her corrections,
+verbatim (her Chinese, recorded as evidence; any use in a prompt still goes through her):
+
+- **A body movement described instead of named:** `把手掌摊在那里` → `向你伸出手`;
+  `力道很稳，…几乎没有让你晃一下` → `稳稳把你扶起来/拉起来`; `脚还是滑了一下` → `还是脚下一滑`;
+  `一寸一寸地看` → `仔细地看你/看你每一个动作`; also marked: `毛巾已经滑到脚边`, `进来的人换了一个`.
+- **Dialogue that drops its verb or object:** `跟着我，往门口` → `跟着我，往门口走`;
+  `别空着跳` → `别空着肚子跳`; `这两天先别跳那个转体` → `这两天先别做那个转体动作`; `松掉` → `放松`;
+  `刚才是你第二次差点摔了` → `你刚才差点摔第二次/你刚才差点又摔一次`; also marked: `不跳，只看`.
+- **An abstraction where a plain verb would do:** `好像刚才那两步根本没有发生过` → `好像刚才没向你走那两步`;
+  `那笑里有种很单纯的、替人高兴的意思` → `笑得很单纯，替你们高兴`; `把音乐重新放开——这就是过了` →
+  `继续放音乐—这遍过了`; also marked: `那半秒被她自己抓住了`.
+
+Source: `test/.out/p7b-blind/ratings/ratings/S*.json`, `note` and `stiffText`. Baseline for the
+v1.4.5 measurement: 9 of 12 stories with at least one such mark (P7b live set, rounds 2-3). The
+original dance-and-singing write-up follows.
+
 
 **Moved to v1.4.5, 2026-10-22 (Yuhan).** Older than P7 (3 of the 4 stories it was seen in were the pre-P7 control), so it does not hold v1.4.4 back. Measured alone, never in the same run as §12.
 
@@ -681,3 +702,34 @@ The kpop_idol trainee identity puts a practice room in almost every round, so th
 **What would settle it.** The P7 live set (`deepseek-flash`, kpop_idol / zh / 练习生, 3 runs × 3
 rounds per arm), then a blind read where she marks only trade-word errors, counted per story.
 Today's baseline is 4 of 12 stories.
+
+## 15. Random events as a short passage of story (v1.4.5)
+
+**Status: decided for v1.4.5 by Yuhan, 2026-10-22. P8 built random events for v1.4.4 and was
+removed before release; this is its redesign.**
+
+**What P8 did, and why it came out.** `executeRound` drew one round in three (romance,
+pressure, dramatic) and the model wrote the event into the story and named it in a one-sentence
+`event` field, shown under a heading after the story. Yuhan: a one-line statement does not read
+well. The code is at `2be2a65`; `docs/V144_PLAN.md` *P8* and *P8 A/B* hold its measurements
+(described rate overshot, 22/33 in pressure; drawn, followed 17/17).
+
+**What she wants.** The event told like story text, shorter than a round: about **1/2 to 2/3 of a
+round's story length** (the story is 350-450 words, so roughly 175-300), not a one-line notice.
+
+**Open design questions, to settle in the plan before code:**
+- Where the passage sits: a separate field shown after the round's story under the heading, or a
+  longer story on an event round. A separate field keeps the round's own length rule intact and
+  lets the screen mark it; a longer story keeps one voice.
+- Whether the passage enters the ledger: it is story, so it probably should, with the heading
+  kept out (P8 found the model copies a heading it sees in its history).
+- Output cost: an event round writes 50-65% more prose. Measure tokens and latency per event
+  round, since the median round is 6.3s on DeepSeek Official.
+- Keep from P8: the draw in code (§13), no example events (P3's lesson), an event happens TO the
+  scene and is never a member's own gesture (P8 live still had about 2 of 10 gestures).
+
+**What would settle it.** Build it, then `deepseek-flash`, kpop_idol / zh, 3 runs × 14 rounds
+in each event mode. Count drawn rounds against written passages and passage length against the
+1/2-2/3 band, and log tokens and latency on event rounds. Then Yuhan blind-reads a set of event
+passages: 自然 / 一般 / 翻译腔, and whether the event fits the moment it lands in (P8's open
+question: a drawn event mid-confession).

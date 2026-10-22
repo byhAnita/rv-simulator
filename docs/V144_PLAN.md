@@ -78,8 +78,9 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
-| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **reopened 2026-10-22 as P7b**: built, 5 mutations RED, live 18/18 clean; **blind read owed** |
-| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed); 1/3 in every event mode, Yuhan's call |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **reopened 2026-10-22 as P7b**: built, 5 mutations RED, live 18/18 clean; blind read 2026-10-22: first sentences stiff **1 of 6** (control 5 of 6), shipped |
+| P7c | No clothing in how she looks | `_registers/*` `style` | static | all 6 move | ✅ 4 mutations RED (Yuhan's call 2026-10-22, not measured) |
+| P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed); 1/3 in every event mode, Yuhan's call. **REMOVED from v1.4.4, 2026-10-22 (Yuhan)**: a one-line event reads badly; v1.4.5 tells it as a short story passage (`docs/PROPOSALS.md` §15), starting from `2be2a65` |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
 | P12 | One round number for the model, and `R1` means one thing | `buildHistoryLedger`, `[Player Status]` | ledger moves once | none | ✅ 6 mutations RED |
@@ -907,11 +908,68 @@ breaks. Reports: `test/.out/p7b-treatment/`, `test/.out/p7b-control/`.
   a plain fact in 6 of 6 (`音乐停了`, `饮水机在响`, `门锁发出一声轻响`); 2 of 6 follow it with a
   `像是…` guess clause. The rule reaches the output; whether it reads natural is the blind read.
 
-**Blind read owed (Yuhan), and it gates the release.** Rounds 2-3, 12 stories, shuffled with seed
+**Blind read (Yuhan), done 2026-10-22.** Rounds 2-3, 12 stories, shuffled with seed
 20261022: `test/.out/p7b-blind/p7b-blind-packet.md`, key `p7b-blind-key.json` beside it
 (unopened). On her phone: https://claude.ai/artifact/PWbGhxrCuYmygER2btMcXf, the P7 page with
 new stories; ratings go to its `ratings` collection. Read: 自然 / 一般 / 翻译腔 and whether the
 first sentence is stiff, against P7's 4 of 6.
+
+#### P7b blind read: the result (2026-10-22)
+
+Ratings copied from the page's store to `test/.out/p7b-blind/ratings/ratings/` before the key
+was opened. "Marked" counts the sentences she flagged; "first" is whether sentence 0.0 was one.
+
+| Story | Arm | Rating | First stiff | Marked |
+| --- | --- | --- | --- | --- |
+| S01 | P7b | 一般 | no | 3 |
+| S02 | control | 自然 | yes | 1 |
+| S03 | P7b | 自然 | no | 0 |
+| S04 | control | 一般 | no | 3 |
+| S05 | control | 一般 | yes | 3 |
+| S06 | control | 翻译腔 | yes | 3 |
+| S07 | control | 自然 | yes | 1 |
+| S08 | P7b | 一般 | yes | 2 |
+| S09 | P7b | 一般 | no | 3 |
+| S10 | P7b | 翻译腔 | no | 5 |
+| S11 | P7b | 翻译腔 | no | 3 |
+| S12 | control | 自然 | yes | 2 |
+
+| Arm | 自然 / 一般 / 翻译腔 | First sentence stiff | Other sentences marked |
+| --- | --- | --- | --- |
+| P7b | 1 / 3 / 2 | **1 of 6** | 15 |
+| control (P7's opening) | 3 / 2 / 1 | **5 of 6** | 8 |
+
+- **The opening is fixed.** 5 of 6 control first sentences marked (P7's own read had 4 of 6),
+  1 of 6 for P7b, and that one is `饮水机在响，咕嘟一声，像是刚有人接完水`: the sound is plain, the
+  `像是` guess after it is not. She marked the control's openings even in stories she rated
+  自然 overall (S02, S07, S12), including one that is a sound (`空调的低鸣比昨天听起来柔和一点`).
+  Her verdict: the new opening feels better. **Shipped in v1.4.4.**
+- **The rest of the story went the other way, and is not attributed to P7b.** P7b's arm rated
+  lower overall and carries 15 marked sentences after the first against 8. Her notes put them in
+  verb collocations and clipped dialogue (`把手掌摊在那里` for `向你伸出手`, `别空着跳` for
+  `别空着肚子跳`), which appear in both arms and which no P7b rule touches; n=6 a side, and blind
+  read 4 showed whole-story ratings moving this much between two runs of identical code. Her
+  notes are `docs/PROPOSALS.md` §14, measured alone in v1.4.5.
+
+#### P7c. No clothing in how she looks (2026-10-22)
+
+Yuhan: the clothing text runs long and is not relevant to the story. The `style` line listed
+*"her outfit, hair, makeup, expression or hands"*; it now lists *"her hair, makeup, expression
+or hands"* and says *"Never her clothes, never a head-to-toe inventory"*, because a list that
+only omits a thing reads as silence about it. English, all three registers and the root mirror;
+all six goldens moved by that one line, diff read. The smoke check reads the rendered `Style:`
+line: **4 mutations, 4 RED** (outfit back in zh, the ban dropped in en, `uniform` added in ko,
+the substitute list dropped in en). Not measured live; it is a deletion she asked for.
+
+#### P8 removed from v1.4.4 (2026-10-22)
+
+Yuhan: the event as a one-line statement does not read well; she wants it told like story text,
+shorter than a round, about 1/2 to 2/3 of its length. That needs a quality test and fixes, so
+random events move to v1.4.5 (`docs/PROPOSALS.md` §15). The source files P8 touched were
+restored from `100a2a6^` (the P8 diff in them was self-contained), smoke from the same commit
+plus P7b's guard, and the goldens now differ from pre-P8 by exactly the P7b and P7c lines. One
+new smoke check says no tail line, schema key or heading is left: **3 mutations, 3 RED**. Smoke
+**1800 / 0**. P8's measurements above stay as the starting point for v1.4.5.
 
 ### P8. Random events, generated rather than pooled
 

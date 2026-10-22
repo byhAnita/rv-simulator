@@ -1672,7 +1672,7 @@ async function layerG(mod, MODEL_CONFIGS) {
   // context silently diverges from what the player is reading.
   const editBody = app.slice(app.indexOf("const saveStoryEdit"), app.indexOf("const regenerateRound"));
   check("saveStoryEdit updates the history ledger entry, not just the message",
-    /memoryRef\.current\?\.history\?\.at\(-1\)/.test(editBody) && /entry\.text = [^;\n]*\bedited\b/.test(editBody));
+    /memoryRef\.current\?\.history\?\.at\(-1\)/.test(editBody) && /entry\.text = edited/.test(editBody));
   check("saveStoryEdit only touches a full entry it can own", /entry\.type === "full"/.test(editBody));
   check("saveStoryEdit keeps the original summary (collapse target)", !/entry\.summary\s*=/.test(editBody));
 
@@ -2587,7 +2587,6 @@ async function layerI() {
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
   const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, buildPrologueLine, capAffectionRise, executeRound,
-          EVENT_RATES, drawEvent, normalizeEvent, withEvent, splitEvent,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -2886,8 +2885,12 @@ async function layerI() {
   const p7Gaps = ["zh", "en", "ko"].flatMap((l) => {
     const pl = prompt(form(), l);
     const gaps = [];
-    if (!/outfit, hair, makeup, expression or hands/.test(pl)) gaps.push(`${l}: appearance`);
-    if (!/Never a head-to-toe inventory, and not the same detail every round\./.test(pl)) gaps.push(`${l}: inventory bound`);
+    // v1.4.4: clothing is out (Yuhan, 2026-10-22: outfit text ran long and carried no
+    // story). The line says so in words and lists no garment, and keeps a substitute.
+    const style = (pl.match(/^- Style: .*$/m) || [""])[0];
+    if (!/her hair, makeup, expression or hands/.test(style)) gaps.push(`${l}: appearance`);
+    if (/outfit|cloth|wear|dress|uniform/i.test(style.replace("Never her clothes", ""))) gaps.push(`${l}: clothing named`);
+    if (!/Never her clothes, never a head-to-toe inventory, and not the same detail every round\./.test(style)) gaps.push(`${l}: clothes and inventory bound`);
     if (!/the narration stays with the player \("you"\) and shows only what she can see, hear and feel/.test(pl)) gaps.push(`${l}: pov`);
     if (!/never narrated from inside her; they show in what she says and does/.test(pl)) gaps.push(`${l}: pov substitute`);
     // The POV rule sits beside the PRONOUN RULE it complements, after the opening.
@@ -2895,7 +2898,7 @@ async function layerI() {
     if (!(iOpen >= 0 && iOpen < iPov && iPov < iPro)) gaps.push(`${l}: pov order ${iOpen}/${iPov}/${iPro}`);
     return gaps;
   });
-  check("the style asks for how she looks without an inventory, and the narration keeps the player's point of view",
+  check("the style asks for how she looks, never her clothes and never an inventory, and the narration keeps the player's point of view",
     p7Gaps.length === 0, p7Gaps.join(" | "));
   check("a habit carried by an old save reaches no part of the prompt",
     !withOldHabit.includes("SENTINEL_HABIT_VALUE") && !/LITTLE THINGS|Little things|Habit:/.test(withOldHabit),
@@ -3199,15 +3202,9 @@ async function layerI() {
   // that enumerates is read as exhausting its subject, which is the third time
   // that has bitten here (dialogue once exempt from the pronoun rule, address
   // forms once had no narration scope, roles were once not mentioned at all).
-  // Derived since v1.4.4 P8 rather than pinned: the literal was a second copy of the
-  // schema's key list, and adding a key meant remembering to update it. The list must
-  // name exactly the schema's keys in the schema's order ("Emit them in that order").
-  const schemaKeys = (p.split("JSON SCHEMA")[1] || "").split("\nRULES:")[0]
-    .split("\n").map((l) => (l.match(/^  "(\w+)":/) || [])[1]).filter(Boolean);
-  const listedKeys = ((p.match(/Every key \(([^)]*)\) must appear EXACTLY ONCE/) || [])[1] || "").split(/,\s*/);
   check("the EXACTLY-ONCE key list covers every key in the schema",
-    schemaKeys.length >= 8 && JSON.stringify(listedKeys) === JSON.stringify(schemaKeys),
-    `schema ${schemaKeys.join(",")} | listed ${listedKeys.join(",")} (scene was once required by the schema and absent from the list)`);
+    /Every key \(scene, statChanges, affectionChanges, story, summary, socialContent, kktMessages, options\)/.test(p),
+    "scene was required by the schema and absent from the list that guards it");
 
   // The schema's key order is the model's GENERATION order, and kktMessages used
   // to sit immediately before story — so the last thing in context before the
@@ -3354,18 +3351,13 @@ async function layerI() {
     bothDials.includes("[Story Mode:") && bothDials.includes("[Time Speed]")
       && !bothDials.includes("[Pacing]"),
     JSON.stringify(bothDials).slice(0, 200));
-  // Since v1.4.4 P8 the tail also carries [Random Events], a third quantity, so the
-  // check is that every line carries exactly one label rather than a line count.
-  const TAIL_LABELS = ["[Story Mode:", "[Random Events]", "[Time Speed]"];
-  const labelsPerLine = (s) => s.split("\n").filter(Boolean).map((l) => TAIL_LABELS.filter((x) => l.includes(x)).length);
-  check("...on separate lines, so none can be read as qualifying another",
-    JSON.stringify(labelsPerLine(bothDials)) === "[1,1,1]",
+  check("...on two separate lines, so neither can be read as qualifying the other",
+    bothDials.split("\n").filter(Boolean).length === 2,
     JSON.stringify(bothDials));
   // Unchanged behaviour, asserted because the rename touched this branch: the
-  // default time speed sends nothing.
+  // default time speed sends nothing, so an ordinary round carries one line.
   check("the default time speed adds no line",
-    !buildTailRules(worldFor.en, "free", "default").includes("[Time Speed]")
-      && JSON.stringify(labelsPerLine(buildTailRules(worldFor.en, "free", "default"))) === "[1,1]",
+    buildTailRules(worldFor.en, "free", "default").split("\n").filter(Boolean).length === 1,
     JSON.stringify(buildTailRules(worldFor.en, "free", "default")));
   check("a fast round says so",
     buildTailRules(worldFor.en, "free", "fast").includes("[Time Speed] fast"),
@@ -4679,10 +4671,7 @@ async function layerI() {
           const pr = buildSystemPrompt(form({ identity: ident.id }), library.red_velvet[lang], "irene", ["seulgi"],
             { groupLore: "lore" }, "", "qwen", lang, withEvents);
           const tail = buildTailRules(withEvents, "romance", "slow");
-          // The schema's `"event"` key used to be checked here too; P8 brought it back
-          // as a different mechanism (a generated event, no authored pool), so only the
-          // sentinel text and the P3 tail label are the evidence of a leak now.
-          if (pr.includes(SENTINEL) || tail.includes(SENTINEL) || /\[Possible events\]/.test(pr + tail)) {
+          if (pr.includes(SENTINEL) || tail.includes(SENTINEL) || pr.includes('  "event":') || /\[Possible events\]/.test(pr + tail)) {
             leaked.push(where);
           }
           if ((ident.background || "").includes("{name}")) {
@@ -4699,6 +4688,18 @@ async function layerI() {
       stillStatic.length === 0, stillStatic.join(", "));
     check("an identity's events reach neither the system prompt, its schema, nor the tail rules",
       leaked.length === 0, leaked.slice(0, 6).join(", "));
+    // Random events (P8) were built and taken out of v1.4.4 on 2026-10-22 (Yuhan: a
+    // one-line event read badly; v1.4.5 redesigns it as a short story passage). Out
+    // means out everywhere: no tail line in any mode, no schema key, no heading.
+    const evWorld = allWorlds.kpop_idol.zh;
+    const evLeft = [
+      ...loader.MODE_IDS.filter((m) => /Random Events|random event/i.test(buildTailRules(evWorld, m, "default"))).map((m) => `tail:${m}`),
+      ...["zh", "en", "ko"].filter((l) => /random event|"event":/i.test(buildSystemPrompt(form(), library.red_velvet[l], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", l, evWorld))).map((l) => `prompt:${l}`),
+      ...["zh", "en", "ko"].filter((l) => /randomEvent/.test(readFileSync(join(ROOT, "src", "i18n", `${l}.js`), "utf8"))).map((l) => `i18n:${l}`),
+    ];
+    check("v1.4.4 ships no random events: no tail line in any mode, no schema key, no heading",
+      evLeft.length === 0, evLeft.join(", "));
     check("identity text narrates the main member by her real name outside the idol world, and by her stage name in it",
       wrongName.length === 0, wrongName.slice(0, 5).join(" | "));
   }
@@ -5045,184 +5046,6 @@ async function layerI() {
     }
     check("section 9 says what each stage allows, by the tail's own stage names, and the three prohibitions",
       stageOff.length === 0, stageOff.join(" | "));
-  }
-
-  // ── v1.4.4 P8: random events, generated, at a rate set by the story mode ──
-  // The rate is one table in code (it depends on the mode, never the world), the
-  // tail carries it as its own [Random Events] line, the static RULES line points
-  // at it, and the schema's `event` reports what the story already contains. The
-  // event is one paragraph appended by ONE function, used for the screen and the
-  // history entry alike.
-  {
-    const i18n = {};
-    for (const l of ["zh", "en", "ko"]) i18n[l] = (await import(pathToFileURL(join(ROOT, `src/i18n/${l}.js`)).href)).default;
-    const getTranslations = (l) => i18n[l];
-    // Since the P8 A/B the code draws each round and the tail says yes or no; the
-    // model is never handed a rate to keep. One [Random Events] line per tail, and
-    // its answer must be the draw's.
-    const rateOff = [];
-    const tailEvent = (t) => t.split("\n").filter((l) => l.startsWith("[Random Events] "));
-    for (const [id, w] of Object.entries(allWorlds)) for (const lang of ["zh", "en", "ko"]) {
-      for (const mode of loader.MODE_IDS) {
-        const yes = tailEvent(buildTailRules(w[lang], mode, "default", true));
-        const no = tailEvent(buildTailRules(w[lang], mode, "default", false));
-        const wantYes = EVENT_RATES[mode] > 0;
-        if (yes.length !== 1 || no.length !== 1 || !/null/.test(no[0])
-          || (wantYes ? !/this round has one/.test(yes[0]) || /null/.test(yes[0]) : yes[0] !== no[0])) {
-          rateOff.push(`${id}/${lang}/${mode}: ${yes[0]} / ${no[0]}`);
-        }
-      }
-    }
-    check("the tail sends one [Random Events] line that says whether THIS round has one, in every world and mode",
-      rateOff.length === 0 && Object.keys(EVENT_RATES).sort().join() === [...loader.MODE_IDS].sort().join(),
-      `${rateOff.slice(0, 4).join(" | ")} | rates for ${Object.keys(EVENT_RATES).join(",")}`);
-    // The plan's numbers, asserted as the requirement.
-    check("the rates are Yuhan's: free none, one in three in romance, pressure and dramatic",
-      EVENT_RATES.free === 0 && ["romance", "pressure", "dramatic"].every((m) => Math.abs(EVENT_RATES[m] - 1 / 3) < 1e-9),
-      JSON.stringify(EVENT_RATES));
-    // The draw: round 1 never (the prologue), free never, an unknown mode is free,
-    // and otherwise the rng against the mode's rate.
-    const drawn = [
-      drawEvent("pressure", 1, () => 0), drawEvent("free", 5, () => 0), drawEvent("no-such-mode", 5, () => 0),
-      drawEvent("pressure", 5, () => 0.33), drawEvent("dramatic", 5, () => 0.34),
-      drawEvent("romance", 2, () => 0.33), drawEvent("romance", 2, () => 0.34),
-    ];
-    check("drawEvent: never round 1, never free or an unknown mode, else the rng under the mode's rate",
-      JSON.stringify(drawn) === JSON.stringify([false, false, false, true, false, true, false]),
-      JSON.stringify(drawn));
-    // Measured over many draws with the real rng, so a draw that ignored the rate
-    // (or the mode) could not pass on a lucky pin.
-    const freq = (mode) => { let n = 0; for (let r = 0; r < 4000; r++) n += drawEvent(mode, 2 + (r % 20)) ? 1 : 0; return n / 4000; };
-    const fr = Object.fromEntries(loader.MODE_IDS.map((m) => [m, freq(m)]));
-    check("...and over 4000 real draws each mode lands on its rate",
-      loader.MODE_IDS.every((m) => Math.abs(fr[m] - EVENT_RATES[m]) < 0.04) && fr.free === 0
-        && ["romance", "pressure", "dramatic"].every((m) => fr[m] > 0.25), JSON.stringify(fr));
-
-    const evOff = [];
-    for (const lang of ["zh", "en", "ko"]) {
-      const pr = buildSystemPrompt(form(), library.red_velvet[lang], "irene", ["seulgi"],
-        { groupLore: "lore" }, "", "qwen", lang, allWorlds.kpop_idol[lang]);
-      const keys = (pr.split("JSON SCHEMA")[1] || "").split("\nRULES:")[0]
-        .split("\n").map((l) => (l.match(/^  "(\w+)":/) || [])[1]).filter(Boolean);
-      const at = keys.indexOf("event");
-      if (at < 1 || keys[at - 1] !== "story" || keys[at + 1] !== "summary") evOff.push(`${lang} schema order ${keys.join(",")}`);
-      const rule = pr.split("\n").find((l) => l.startsWith("- event: ")) || "";
-      for (const want of ["[Random Events] in CURRENT STATE says whether this round has one", "when it says none, event is null", "written into the story itself",
-        "never something the story left out", "[Chapter]", "[Affections]", "[Player Status]", "never something one of them chooses to do",
-        "a member's gesture, confession or decision is the story, not an event", "Never repeat one that has already happened"]) {
-        if (!rule.includes(want)) evOff.push(`${lang} rule lacks "${want}"`);
-      }
-      if (!/- ALL story\/event\/social\/option content MUST be in /.test(pr)) evOff.push(`${lang} language line`);
-    }
-    check("the schema emits event between story and summary, and RULES says what it is and points at the tail, in every language",
-      evOff.length === 0, evOff.join(" | "));
-
-    // What the model sends is untrusted text: anything that is not a sentence is null,
-    // and a heading it copied out of the ledger is not printed twice.
-    const labels = ["zh", "en", "ko"].map((l) => getTranslations(l).game.randomEvent);
-    const norm = [undefined, null, 3, {}, "", "   ", "null", " NULL ", "None", "n/a"].map((v) => normalizeEvent(v));
-    check("normalizeEvent turns a non-sentence into null",
-      norm.every((v) => v === null), JSON.stringify(norm));
-    const stripped = labels.map((l) => normalizeEvent(`${l} The lights go out.`));
-    check("...and strips a heading copied from the ledger, in every language",
-      stripped.every((v) => v === "The lights go out.") && normalizeEvent("  The lights go out. ") === "The lights go out.",
-      JSON.stringify(stripped));
-
-    // The heading must be the language's own, distinct, and something the export's
-    // paragraph filter keeps: it drops only the stats box and option lines.
-    const STORY = "Irene looked up from the desk and said nothing for a long moment.";
-    const byLang = ["zh", "en", "ko"].map((l) => withEvent(STORY, "The lights go out.", l));
-    check("withEvent appends one paragraph under the language's heading, and leaves a story with no event untouched",
-      byLang.every((s, i) => s === `${STORY}\n\n${labels[i]} The lights go out.`)
-        && new Set(labels).size === 3 && labels.every(Boolean)
-        && withEvent(STORY, null, "en") === STORY,
-      JSON.stringify(byLang).slice(0, 300));
-    check("...and the heading is not one the export filter drops",
-      labels.every((l) => !/^[╔╚]/.test(l) && !/^[A-D]\.\s/.test(`${l} x`)), labels.join(" | "));
-
-    // The leak shape the strip regex documents: `,"key": ...` at the end of the story.
-    const fixed = validateAndFixOutput({ story: `${STORY},"event":"The lights go out.","summary":"x"`, event: "  null ", summary: "x" });
-    check("validateAndFixOutput normalises event and strips a leaked event key from the story",
-      fixed.event === null && fixed.story === STORY,
-      JSON.stringify({ event: fixed.event, story: fixed.story }));
-
-    // The backstop for a heading the model wrote into the story anyway (seen live,
-    // pressure round 6): the paragraph is lifted out, and its text is the event only
-    // when the field has none.
-    const zhLabel = labels[0];
-    const lifted = validateAndFixOutput({ story: `${STORY}\n\n${zhLabel} The lights go out.`, event: null, summary: "x" });
-    const both = validateAndFixOutput({ story: `${STORY}\n\n${zhLabel} The lights go out.`, event: "A door slams.", summary: "x" });
-    check("a heading the model wrote into the story is lifted out, and becomes the event only when the field is null",
-      lifted.story === STORY && lifted.event === "The lights go out." && both.story === STORY && both.event === "A door slams."
-        && JSON.stringify(splitEvent(STORY)) === JSON.stringify({ story: STORY, event: null }),
-      JSON.stringify({ lifted: [lifted.story.slice(-30), lifted.event], both: [both.story.slice(-30), both.event] }));
-    // The story editor writes to the ledger too, so it must strip the heading the
-    // screen shows. Counted at the one place it writes the entry's text.
-    const saveEdit = (readFileSync(join(ROOT, "src", "App.jsx"), "utf8").split("const saveStoryEdit = ")[1] || "").split("\n  };")[0];
-    check("...and the story editor strips it before writing the edit into the ledger",
-      /entry\.text = splitEvent\(edited\)\.story/.test(saveEdit) && (saveEdit.match(/entry\.text = /g) || []).length === 1,
-      saveEdit.split("\n").filter((l) => l.includes("entry.text")).join(" | ") || "(saveStoryEdit not found)");
-
-    // Through the real round, with the provider stubbed: the screen carries the event
-    // paragraph, the ledger entry does not, and the tail sent the mode's rate.
-    const roundWith = (event) => JSON.stringify({
-      scene: "Office, 9PM", statChanges: { selfId: 1, secrecy: 0, mood: 0 }, affectionChanges: { irene: 2 },
-      story: STORY, event, summary: "Irene and the player share a quiet moment at the office.",
-      socialContent: {}, kktMessages: {}, options: ["A. a", "B. b", "C. c", "D. d"],
-    });
-    const sentTails = [];
-    const results = [];
-    const realFetch8 = globalThis.fetch, realLog8 = console.log, realWarn8 = console.warn, realRandom8 = Math.random;
-    console.log = () => {}; console.warn = () => {};
-    try {
-      // Math.random pinned: 0 draws an event in any mode that has a rate, 0.99 none;
-      // week 0 is round 1, which never has one (the prologue round).
-      for (const [event, storyMode, roll, week] of [["The lights go out.", "romance", 0, 3], [null, "free", 0, 3], [null, "pressure", 0.99, 3], [null, "pressure", 0, 0]]) {
-        Math.random = () => roll;
-        globalThis.fetch = async (u, init) => {
-          sentTails.push(JSON.parse(init.body).messages.at(-1).content);
-          return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: roundWith(event) }, finish_reason: "stop" }] }) };
-        };
-        const res = await executeRound({
-          playerChoice: "A", memory: createEmptyMemory(), form: form(),
-          stats: { affection: 12, selfId: 30, secrecy: 90, mood: 60, week, scene: "x", chapter: "start", multiAff: { seulgi: 8 } },
-          members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
-          world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
-          reasoningEnabled: false, storyMode,
-        });
-        results.push({ content: res.storyContent, text: res.updatedMemory.history.at(-1)?.text, event: res.event, drawn: res.eventDrawn });
-      }
-    } catch (e) { results.push({ threw: e.message }); }
-    finally { globalThis.fetch = realFetch8; console.log = realLog8; console.warn = realWarn8; Math.random = realRandom8; }
-    const [withEv, noEv] = results;
-    // The ledger gets the story alone: the event is in its prose already, and a heading
-    // in the history is a pattern the first live check caught the model copying.
-    check("executeRound shows the event under its heading, and the history entry keeps the story without it",
-      withEv?.content === `${STORY}\n\n${labels[1]} The lights go out.` && withEv?.text === STORY
-        && withEv?.event === "The lights go out.",
-      JSON.stringify(withEv).slice(0, 300));
-    check("...a round with no event is the story alone, on screen and in the history",
-      noEv?.content === STORY && noEv?.text === STORY && noEv?.event === null,
-      JSON.stringify(noEv).slice(0, 300));
-    const evLine = (t) => (t.match(/\[Random Events\][^\n]*/) || ["(none)"])[0];
-    check("...and the tail it sent says what executeRound drew, which it also returns",
-      sentTails.length === 4 && /this round has one/.test(evLine(sentTails[0]))
-        && /none in this story mode/.test(evLine(sentTails[1])) && /none this round/.test(evLine(sentTails[2]))
-        && /none this round/.test(evLine(sentTails[3]))
-        && JSON.stringify(results.map((r) => r.drawn)) === "[true,false,false,false]",
-      sentTails.map(evLine).join(" | ") + " | drawn " + JSON.stringify(results.map((r) => r.drawn)));
-
-    // The harness: the graders that flag an event in free mode or on an undrawn
-    // round and a drawn one the model left out, fed the mode it plays, and the event
-    // and the draw kept in every transcript so the rate and compliance can be counted.
-    check("playthrough flags an event in free mode or on an undrawn round, a drawn one missing, and keeps both",
-      /if \(mode === "free" && res\.event\) bad\.push\("event-in-free-mode"\)/.test(harnessSrc)
-        && /else if \(res\.event && !res\.eventDrawn\) bad\.push\("event-not-drawn"\)/.test(harnessSrc)
-        && /if \(res\.eventDrawn && !res\.event\) bad\.push\("drawn-event-missing"\)/.test(harnessSrc)
-        && /eventDrawn: !!res\.eventDrawn/.test(harnessSrc)
-        && /gradeRound\(\{[^}]*mode: MODE[^}]*\}\)/.test(harnessSrc)
-        && /event: res\.event \|\| null/.test(harnessSrc),
-      "the grader, its mode argument, or the transcript field is missing");
   }
 
   // ── round 1 is a first meeting ───────────────────────────────────────────

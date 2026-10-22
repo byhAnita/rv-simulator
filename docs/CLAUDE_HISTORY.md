@@ -4700,3 +4700,44 @@ Roughly 600 real rounds against the Aliyun endpoint, across two passes.
 **Optional cleanup:** `probabilityEngine.js`, `achievements.js`, `relationshipEvents.js` and `stageConfig.js` still carry Chinese comments (`groupLoader.js` was converted in v1.3.5), against the English-only rule for code. The key-page guards in smoke Layer G are source-string checks and will need updating if that area is restyled — they are deliberate, each one encoding a bug that reached a hand test.
 
 ---
+
+## Random events in v1.4.4 (P8): built, then held back to v1.4.5
+
+*Moved here from CLAUDE.md on 2026-10-22, verbatim, when the feature was removed from v1.4.4
+before release (Yuhan: a one-line event reads badly; v1.4.5 tells it as a short story passage,
+`docs/PROPOSALS.md` §15). The code is at `2be2a65`. Everything below describes that code.*
+
+#### Random events, at a rate the story mode sets (v1.4.4 P8)
+
+- **The code draws the event rounds; the model is never asked to keep a rate.** `EVENT_RATES`
+  in `mainAgent.js` holds a probability per `MODE_IDS` entry: free 0, and 1/3 in romance,
+  pressure and dramatic (Yuhan's call: 1/2 cost continuity). `executeRound` calls `drawEvent(mode, round)` once per call (round 1, the
+  prologue round, never draws; ↺ Retry draws again), and `buildTailRules(..., hasEvent)` sends
+  `[Random Events] this round has one...` or `none this round: event is null.` as its own line
+  after `[Story Mode]`; free mode sends its own "none" line. The rate depends on the mode and
+  never on the world, so it is one table, not a sentence in twelve world files. The tail is the
+  always-miss message, so `Math.random()` here costs no cache.
+- **Why drawn, measured:** told a rate, the model overshot it in a way that depended on the
+  mode, not the number. A live A/B at 1/4 (`docs/V144_PLAN.md`, *P8 A/B*): described, pressure
+  ran 22/33 with 16 back-to-back event rounds, since its mode rule asks for scrutiny incidents
+  and the model labelled each one; drawn, the model wrote an event on 17/17 drawn rounds and on
+  2/49 undrawn ones, and none of the drawn events was a member's gesture (3 of 10 were, in
+  described romance).
+- **The schema's `event` key sits between `story` and `summary`** and reports what the story
+  already contains. The RULES line defines an event as something that happens TO the people in
+  the scene, never a member's own gesture, and points at `[Random Events]`, `[Chapter]`,
+  `[Affections]` and `[Player Status]`. No example events, for P3's reason.
+- **The heading is the screen's and never the ledger's.** `withEvent` appends
+  `t.game.randomEvent` + the sentence as a paragraph of `storyContent`, so the round's message,
+  the save, the copy and the export all carry it. The history entry's text is the story alone.
+  The first build put the heading in the ledger and the model copied it into its own story on
+  round 6, against a rule saying not to. A marker in the model's context is a pattern it
+  imitates; removing the marker fixed what the rule could not. `splitEvent` lifts a
+  model-written heading paragraph back out (validator) and keeps one out of an edited story
+  (`saveStoryEdit`).
+- **An event on an undrawn round is not deleted by code**, free mode included: the prose
+  carries it either way. The harness's `event-in-free-mode`, `event-not-drawn` and
+  `drawn-event-missing` graders are where it shows, and every transcript stores the round's
+  event and `eventDrawn`.
+- **Not verified:** en and ko have not been played with P8, and whether a drawn event can land
+  at a bad moment (mid-confession) has not been read by Yuhan.
