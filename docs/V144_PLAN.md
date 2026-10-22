@@ -78,7 +78,7 @@ Read against `test/fixtures/chaebol-zh.txt` and the four world files.
 | P3 | Typical events unlock by stage, carried in the tail | world data `events[]`, `buildEventsLine` | rule static, events in tail | 4 of 6 move (the ex-girlfriend fixtures have no events) | ✅ 18 mutations RED; Layer Z red: 105 strings await Yuhan's ticks |
 | P4 | Affection rate tied to the chapter | `capAffectionRise` in `executeRound` | none | all 6 move (one RULES line) | ✅ 9 mutations RED; measured live |
 | P6 | Narrator prologue, round 1 only | `buildPrologueLine`, tail | none (tail) | none | ✅ 9 mutations RED; 4 of 4 live round 1s carry it, 0 of 4 round 2s |
-| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **reopened 2026-10-22 as P7b, see below** |
+| P7 | One atmosphere sentence + appearance + POV | `_registers/*` `prose` | static | all 6 move | ✅ 10 mutations RED; live 9 of 9 rounds open on one atmosphere sentence; blind read done: overall a tie, but 4 of 6 atmosphere sentences stiff (2 of 6 control openings); **reopened 2026-10-22 as P7b**: built, 5 mutations RED, live 18/18 clean; **blind read owed** |
 | P8 | Random events by story mode | schema `event` + RULES line, `[Random Events]` tail line from `EVENT_RATES`, `withEvent` paragraph | rule static, rate in tail | all 6 move | ✅ 19 + 17 mutations RED; rate drawn in code after a live A/B (described 1/4: pressure 22/33; drawn: 17/17 followed); 1/3 in every event mode, Yuhan's call |
 | P10 | A new round scrolls to its own top, not to the end | `App.jsx` story panel, `src/utils/storyScroll.js` | none (UI) | none | ✅ 7 mutations RED |
 | P11 | The romance rule names a stage in English in every language | world `modes.romance`, 12 files | none (tail) | none | ✅ 4 mutations RED |
@@ -890,7 +890,28 @@ arrives by the second sentence at the latest."* All six goldens moved by exactly
 diff read. The smoke check reads the rendered opening line in every language and asks for the
 fact, the prohibition, its substitute and `no simile`, and for no `atmosphere`: **5 mutations,
 5 RED** (the word back, the prohibition dropped, the substitute dropped, `no simile` dropped,
-the P7 wording back). Smoke **1815 / 0**. **The live set and the blind read are next.**
+the P7 wording back). Smoke **1815 / 0**.
+
+**Live, 2026-10-22.** Treatment `2139598`, control `f66ffe4` (P7's opening) exported with
+`git archive`. **18 of 18 rounds clean, all served by `deepseek-flash`**, 0 drifts, 0 prefix
+breaks. Reports: `test/.out/p7b-treatment/`, `test/.out/p7b-control/`.
+- **Not alternated in the end.** The first control pass had no `.env.local` in the exported
+  tree, so the harness fell back to the Aliyun route and failed every run
+  (`free_all_exhausted`, 0 rounds; kept in `p7b-control/failed/`). It was rerun minutes later
+  with `--provider` passed from `.env.local`. **A harness run from an exported tree needs its
+  provider passed explicitly**; the P7 control must have had it, this script did not.
+- **Structural count, the main session's reading, not a register judgement**, rounds 2-3, 6 per
+  arm: scenery (light, air, wind, sky) as the subject of a figurative verb in the first
+  sentence: **control about 4 of 6** (`光…斜切进来`, `空气浮着`, `天色沉成深蓝`, `风…吹上来，云被晚霞压成`),
+  **treatment about 1 of 6** (`夜里的风灌进来`, arguably literal). Treatment opens on a sound or
+  a plain fact in 6 of 6 (`音乐停了`, `饮水机在响`, `门锁发出一声轻响`); 2 of 6 follow it with a
+  `像是…` guess clause. The rule reaches the output; whether it reads natural is the blind read.
+
+**Blind read owed (Yuhan), and it gates the release.** Rounds 2-3, 12 stories, shuffled with seed
+20261022: `test/.out/p7b-blind/p7b-blind-packet.md`, key `p7b-blind-key.json` beside it
+(unopened). On her phone: https://claude.ai/artifact/PWbGhxrCuYmygER2btMcXf, the P7 page with
+new stories; ratings go to its `ratings` collection. Read: 自然 / 一般 / 翻译腔 and whether the
+first sentence is stiff, against P7's 4 of 6.
 
 ### P8. Random events, generated rather than pooled
 

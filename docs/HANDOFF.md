@@ -5,15 +5,19 @@ contents rather than appending a log.
 
 ---
 
-## Pick up here — 2026-10-21 (late night)
+## Pick up here — 2026-10-22
 
 **Written by:** Claude Code (Opus 5.5, main VS Code session).
-**Branch:** `dev`. **Last commit:** the P7-result / event-rate commit on top of `b9607d9`.
+**Branch:** `dev`. **Last commit:** the P7b live-run docs commit on top of `2139598`.
 **Unpushed:** every commit since `origin/dev` (`git log --oneline origin/dev..dev`). Pushing is
 Yuhan's. **Uncommitted:** nothing.
 
 ### Done this session
 
+- **P7b built (2026-10-22)**: the opening sentence states a plain fact she perceives; light,
+  air, shadow, mist and weather never act. English in the three registers and the root mirror;
+  six goldens moved by that one line; 5 mutations RED. Live 18/18 clean on `deepseek-flash`.
+  Blind page published, ratings owed. `docs/V144_PLAN.md`, *P7b*.
 - **P7 blind read: done by Yuhan, unblinded, written up** in `docs/V144_PLAN.md`, *P7 blind
   read: the result*. Overall a tie (P7 2/2/2 自然/一般/翻译腔, control 1/3/2). But **4 of 6 P7
   atmosphere sentences were marked stiff** (2 of 6 control openings), every one with light, air
@@ -27,24 +31,27 @@ Yuhan's. **Uncommitted:** nothing.
 
 ### Verified
 
-- `npm run build` clean; `node test/smoke.mjs` **1815 passed / 0 failed**; 6 rate mutations
-  RED, files byte-identical after the run.
+- `npm run build` clean; `node test/smoke.mjs` **1815 passed / 0 failed** after P7b; 5 P7b
+  mutations RED, register files byte-identical after the run.
 
 ### Owed by Yuhan (all gate the v1.4.4 release)
 
-- **P7b's blind read** (the opening sentence as a fact she perceives): `docs/V144_PLAN.md`,
-  *P7b*. Decided 2026-10-22 to fix the opening in v1.4.4; §12 and §14 moved to v1.4.5.
+- **P7b's blind read**: https://claude.ai/artifact/PWbGhxrCuYmygER2btMcXf (12 stories, rounds
+  2-3). Built and live-run 2026-10-22; `docs/V144_PLAN.md`, *P7b*. Decided that day to fix the
+  opening in v1.4.4; §12 and §14 moved to v1.4.5.
 - **Confirm the P7 reading** of "first-person view" (player's view, narrated as "you").
 - **Release notes** (zh, ko) and the ko heading `【돌발 이벤트】`, just before release.
 - **Phone test of v1.4.4**, then the push and the release.
 
 ### The exact next action
 
-If Yuhan says go on §12: build it as `docs/PROPOSALS.md` §12 lists (three schema lines in
-`mainAgent.js`, the length unit, the collapse fallback, the `saveStoryEdit` comment, the
-analyzer's CJK metric inverted), regenerate the six goldens and read the diff, mutation-verify,
-then run the A/B §12 describes and build a blind page of rounds 10-25. If not: v1.4.4 is
-complete apart from the release notes, the phone test and the push.
+When Yuhan says the P7b read is done: read the artifact's `ratings` collection with
+ArtifactData, copy the docs to `test/.out/p7b-blind/ratings/`, THEN open
+`test/.out/p7b-blind/p7b-blind-key.json` and write *P7b blind read: the result* in
+`docs/V144_PLAN.md` (same table as P7's, first sentences stiff against P7's 4 of 6). If it
+holds, v1.4.4 is complete apart from the release notes, the phone test and the push. The
+release note's "each scene opens with one line of atmosphere" may want rewording then (zh and
+ko need Yuhan).
 
 ### Not verified
 
