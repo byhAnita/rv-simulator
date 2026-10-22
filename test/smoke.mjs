@@ -30,6 +30,7 @@ import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 
 import { EXPECTED, bumpFile, readCurrentVersion } from "../scripts/bump-version.mjs";
 import { MIRRORED_TREES, MIRRORS, buildProbePlan, classifyResponse } from "../scripts/verify-mirrors.mjs";
 import { classifyWorktree, parseWorktreeList, auditWorktrees, classifyHotfixBranch } from "../scripts/worktree-hygiene.mjs";
+import * as zhReview from "../scripts/zh-review.mjs";
 import { PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "../src/config/constants.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -483,6 +484,33 @@ async function layerD() {
     .then(m => m.loadPromptModules(OUT));
   const clamped = (changes) =>
     validateAndFixOutput({ story: "x".repeat(60), affectionChanges: changes }).affectionChanges;
+
+  // --- The retry probe and a response that does not parse -------------
+  // docs/PROPOSALS.md §7. On a total parse failure the parser returns the first
+  // 500 characters of RAW JSON as the story, and the probe measured that length -
+  // so it passed, and the one output least fit to show a player was the one the
+  // retry could never catch. The fixture is a live response VERBATIM (2026-10-20,
+  // deepseek-flash, finish: stop): complete, with one stray closing brace after an
+  // Instagram object. 7 of 64 rounds in one window.
+  {
+    const pm = await import("./fixtures/prompts.mjs").then(m => m.loadPromptModules(OUT));
+    const stray = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "response-stray-brace-zh.json"), "utf8")).raw;
+    check("the retry probe rejects a response no parse level could read",
+      pm.isUsableRound(stray) === false,
+      "a 500-char slice of raw JSON passed as a story; the player saw it under four English buttons");
+    // The other half, or a probe that rejects everything passes the line above.
+    const good = JSON.stringify({ scene: "x", statChanges: {}, affectionChanges: {},
+      story: "y".repeat(120), summary: "s", socialContent: {}, kktMessages: {},
+      options: ["A. a", "B. b", "C. c", "D. d"] });
+    check("...and still accepts a response that parses",
+      pm.isUsableRound(good) === true && pm.isUsableRound(good.replace("y".repeat(120), "short")) === false,
+      "and keeps rejecting a parsed story under the length floor");
+    // The probe is only a fix if it is the one callLLM is handed.
+    const agentCode = readFileSync(join(ROOT, "src", "agent", "mainAgent.js"), "utf8");
+    check("...and it is the probe executeRound hands callLLM",
+      /callLLM\([^)]*isUsableRound\)/.test(agentCode),
+      "a correct probe nobody calls is decoration");
+  }
 
   check("a runaway positive delta is clamped to +8",
     clamped({ irene: 30 }).irene === 8, `got ${clamped({ irene: 30 }).irene}`);
@@ -1627,14 +1655,17 @@ async function layerG(mod, MODEL_CONFIGS) {
       ["start", "develop", "climax", "resolve"].every((c) => new RegExp(`\\b${c}:`).test(chapters)),
       chapters.trim() || "no chapters table");
   }
-  // The four tokens are the function's whole range; a fifth added there needs a label
-  // in three files, and would otherwise render raw exactly as the others used to.
+  // The tokens are config/chapters.js's ids (v1.4.4 P2). getChapterByRound must
+  // return one of them and nothing else, so it delegates rather than keeping its own
+  // thresholds - a fifth token would need a label in three files, and would otherwise
+  // render raw exactly as the others used to.
   const chapterFn = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8")
     .match(/function getChapterByRound[\s\S]*?\n\}/)[0];
+  const { CHAPTER_IDS } = await import(pathToFileURL(join(ROOT, "src/config/chapters.js")).href);
   check("getChapterByRound returns only the four the i18n tables cover",
-    [...chapterFn.matchAll(/return "([a-z]+)"/g)].map((m) => m[1]).sort().join(",")
-      === "climax,develop,resolve,start",
-    [...chapterFn.matchAll(/return "([a-z]+)"/g)].map((m) => m[1]).join(","));
+    /return chapterForRound\(roundNum\)\.id;/.test(chapterFn) && !/return "/.test(chapterFn)
+      && CHAPTER_IDS.slice().sort().join(",") === "climax,develop,resolve,start",
+    chapterFn);
   check("save slots skip tagged error messages", /messages=\{storyMessages\(messages\)\}/.test(app));
 
   // The story edit writes to memory as well as the screen, or the model's
@@ -1908,6 +1939,30 @@ async function layerG(mod, MODEL_CONFIGS) {
       check(`${lang}: t.save.${k} exists`, typeof i18n?.save?.[k] === "string" && i18n.save[k].length > 10);
     }
   }
+
+  // ── v1.4.4 P10: a new round scrolls to its own top ───────────────────────
+  // It scrolled to the END on every change, so a round landed on its last line
+  // and the player scrolled back up to find its stats box. The rule is a pure
+  // function, tested on behaviour; the App half is where the value is used.
+  const { storyScrollAction } = await import(pathToFileURL(join(ROOT, "src/utils/storyScroll.js")).href);
+  check("a round that has just arrived scrolls to the round, not to the end",
+    storyScrollAction({ loading: true, count: 4 }, { loading: false, count: 5 }) === "round"
+      && storyScrollAction({ loading: false, count: 0 }, { loading: false, count: 12 }) === "round",
+    "both the played round and a loaded save are an arrival");
+  check("...while a round is generating, the end (the choice and the loading dots) is what shows",
+    storyScrollAction({ loading: false, count: 4 }, { loading: true, count: 5 }) === "bottom");
+  check("...and saving an edited story moves nothing",
+    storyScrollAction({ loading: false, count: 5 }, { loading: false, count: 5 }) === null,
+    "an edit changes one message's content, not the count, and nothing is loading");
+  const fxAt = app.indexOf("const action = storyScrollAction(");
+  const scrollFx = fxAt < 0 ? "" : app.slice(fxAt, app.indexOf("}, [messages, loading]);", fxAt));
+  check("...App scrolls the PANEL to the newest round's top on an arrival",
+    /action === "round"[\s\S]*lastRoundRef\.current[\s\S]*panel\.scrollTo\(/.test(scrollFx)
+      && /id="rv-story-panel" ref=\{storyPanelRef\}/.test(app),
+    "the effect must read the newest round's element and scroll the story panel to it");
+  check("...and the newest-round ref sits on the last assistant message in BOTH render branches",
+    (app.match(/ref=\{i === lastAsstIdx \? lastRoundRef : undefined\}/g) || []).length === 2,
+    "one branch renders a round with a stats box, the other without; a ref on one is the extractStoryText failure");
 }
 
 // ============================================================ LAYER H
@@ -2037,6 +2092,75 @@ async function layerH(mod, ALIYUN_FREE_ROUTE, getAliyunModelFamily) {
     console.log(`    served in ${secs}s · route now ${status.available}/${status.total} available · next: ${status.current}`);
   }
   localStorage.clear();
+}
+
+// ============================================================ LAYER Z
+// No agent adds or changes Chinese prose in the data without Yuhan's review (CLAUDE.md,
+// "The translationese bug", lesson 3). The ledger records the hash of each string as she
+// last saw it; a string whose hash is not there was written or changed since. Only a box
+// she ticks in a sheet moves a hash, so `sync` cannot launder an agent's edit.
+// docs/ZH_REVIEW.md.
+function layerZhReview() {
+  section("LAYER Z - Chinese data is the text Yuhan last reviewed (offline)");
+  const all = zhReview.collectZh();
+  const ledger = zhReview.loadLedger() || {};
+  check("the review collector finds the Chinese data in every world and group",
+    all.length > 300 && zhReview.zhSources().every((s) => all.some((e) => e.source === s.source)),
+    `${all.length} strings`);
+  const off = all.filter((e) => !["approved", "pending"].includes(zhReview.stateOf(e, ledger)));
+  check("every Chinese data string is the text Yuhan last reviewed",
+    off.length === 0,
+    `${off.length} written or changed without review, e.g. ${off.slice(0, 4).map((e) => `${e.key} (${zhReview.stateOf(e, ledger)})`).join(", ")} - put the text in her sheet, never in the JSON; see docs/ZH_REVIEW.md`);
+  const live = new Set(all.map((e) => e.key));
+  const stale = Object.keys(ledger).filter((k) => !live.has(k));
+  check("...and the ledger names no string the data no longer has",
+    stale.length === 0, `${stale.slice(0, 4).join(", ")} - run node scripts/zh-review.mjs sync`);
+
+  // Yuhan's first real pass typed "- []" once, and the strict parser threw on it, which
+  // blocked every block in every sheet. "[]" is an unticked box; "[x]" stays the only tick.
+  const sheet = (box) => `<!-- zh-review key="a#b" base="0123456789ab" -->\n- [${box}] pending\n~~~~\ntext\n~~~~\n`;
+  let parsed = null;
+  try { parsed = zhReview.parseSheet(sheet("")); } catch { parsed = null; }
+  check("a sheet block typed with an empty box [] parses, as unticked",
+    parsed?.length === 1 && parsed[0].ticked === false, JSON.stringify(parsed));
+  check("...while [x] is still a tick and [ ] still is not",
+    zhReview.parseSheet(sheet("x"))[0]?.ticked === true && zhReview.parseSheet(sheet(" "))[0]?.ticked === false);
+
+  // When the data moves under a sheet, an EDITED block is her work and is kept as a
+  // draft; an unedited block is only the old text, and must not come back as a draft
+  // she could tick (v1.4.4 P3 moved the events out of 23 approved backgrounds).
+  {
+    const oldText = "old background with its events";
+    const now = { text: "new background", hash: zhReview.hashText("new background") };
+    const untouched = { key: "a#b", base: zhReview.hashText(oldText), ticked: true, text: oldText };
+    const edited = { ...untouched, ticked: false, text: "her rewrite" };
+    check("a conflicting sheet block she never edited is not kept as a draft",
+      zhReview.conflictDraft(untouched, now) === null, JSON.stringify(zhReview.conflictDraft(untouched, now)));
+    const kept = zhReview.conflictDraft(edited, now);
+    check("...while one she edited is kept, flagged, over the new data",
+      kept?.text === "her rewrite" && kept?.conflict === true && kept?.base === now.hash, JSON.stringify(kept));
+  }
+
+  // A regenerated sheet shows approved strings ticked; syncing it must not re-stamp
+  // their approval date, or the ledger stops recording when she read anything.
+  check("an unedited tick on a string already approved at that hash is not a new approval",
+    zhReview.isStillApproved({ hash: "h1", status: "approved", approved: "2026-10-20" }, "h1") === true
+      && zhReview.isStillApproved({ hash: "h0", status: "approved" }, "h1") === false
+      && zhReview.isStillApproved({ hash: "h1", status: "pending" }, "h1") === false
+      && zhReview.isStillApproved(undefined, "h1") === false);
+
+  // settle clears one owed translation that was checked and needed no change. It must
+  // refuse once the counterpart has moved, and it must never touch the zh hash or the
+  // approval - otherwise it would be the laundering path the ledger exists to close.
+  const L = { "g#p": { hash: "zzzzzzzzzzzz", status: "approved", owed: { en: zhReview.hashText("old en"), ko: zhReview.hashText("old ko") } } };
+  const s1 = zhReview.settleOwed(L, "g#p", "en", "old en");
+  check("settle drops exactly the one owed language it names",
+    s1.ok && !s1.ledger["g#p"].owed?.en && s1.ledger["g#p"].owed?.ko === L["g#p"].owed.ko, JSON.stringify(s1));
+  check("...leaves the zh hash and the approval as they were, and the input untouched",
+    s1.ok && s1.ledger["g#p"].hash === "zzzzzzzzzzzz" && s1.ledger["g#p"].status === "approved"
+      && L["g#p"].owed.en === zhReview.hashText("old en"));
+  check("...and refuses once the translation has changed since it was owed",
+    zhReview.settleOwed(L, "g#p", "en", "new en").ok === false);
 }
 
 // ============================================================ LAYER C
@@ -2462,7 +2586,7 @@ async function layerI() {
     },
     bundle: true, format: "esm", platform: "neutral", outfile, logLevel: "silent",
   });
-  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules,
+  const { buildSystemPrompt, buildDynamicTail, buildHistoryLedger, buildTailRules, buildChapterLine, buildPrologueLine, capAffectionRise, executeRound,
           collapseHistoryIfNeeded, updateMemory, validateAndFixOutput, membersNamedIn,
           createEmptyMemory, discoveredPlaceIn, recordPlace, placeKey, PLACES_MAX } =
     await import("file://" + outfile.replace(/\\/g, "/") + "?t=" + Date.now());
@@ -2605,9 +2729,13 @@ async function layerI() {
   const addressOfIn = (text, name) => {
     const lines = text.split("\n");
     const i = lines.findIndex((l) => l.includes(`${name}(`));
-    return i === -1 ? "" : lines.slice(i, i + 3).join("\n").replace(/\n/g, " / ");
+    // Header, Age, and the two Address lines (v1.4.4 P1: one per direction).
+    return i === -1 ? "" : lines.slice(i, i + 4).join("\n").replace(/\n/g, " / ");
   };
   const addressOf = (name) => addressOfIn(p, name);
+  // One direction of one member's ladder, as a single line.
+  const ladderOf = (text, name, dir) => addressOfIn(text, name).split(" / ")
+    .find((l) => l.trim().startsWith(dir === "toHer" ? "Address, Summer -> her:" : "Address, she -> Summer:")) || "";
 
   // --- age direction. The old code printed the player's relative age inside
   //     the member's profile, so every line read backwards.
@@ -2625,23 +2753,28 @@ async function layerI() {
 
   // --- direction is asymmetric. This is the bug the player reported: both
   //     sides calling each other unnie.
+  // v1.4.4 P1: the forms are a ladder of three rungs, so unnie appears from R2 on.
+  // The DIRECTION is what these pin, and it is the same at every rung.
   check("player calls the older member unnie",
-    /Summer -> "Irene-unnie"/.test(irene), irene);
+    /R2 "unnie" or "Irene-unnie"/.test(ladderOf(p, "Irene", "toHer")), irene);
   check("older member is forbidden from calling the player unnie",
-    /She must NEVER call Summer "unnie"/.test(irene), irene);
+    /She must NEVER call Summer "unnie"/.test(irene)
+      && !/-unnie"/.test(ladderOf(p, "Irene", "toPlayer")), irene);
   check("younger member calls the player unnie",
-    /She -> "Summer-unnie"/.test(yeri), yeri);
+    /R2 "unnie" or "Summer-unnie"/.test(ladderOf(p, "Yeri", "toPlayer")), yeri);
   check("player is forbidden from calling the younger member unnie",
-    /Summer must NEVER call her "unnie"/.test(yeri), yeri);
+    /Summer must NEVER call her "unnie"/.test(yeri)
+      && !/unnie"/.test(ladderOf(p, "Yeri", "toHer")), yeri);
   check("no member is told both to use and to avoid unnie",
-    !/She -> "Summer-unnie"[\s\S]{0,200}She must NEVER call Summer "unnie"/.test(p));
+    !members.some((m) => /She must NEVER call Summer/.test(addressOf(m.name))
+      && /"unnie" or|-unnie"/.test(ladderOf(p, m.name, "toPlayer"))));
 
   // --- same birth year. Age 32 => born 1994, same as Seulgi and Wendy.
   const peer = prompt(form({ age: "32" }));
   const peerLines = peer.split("\n");
   const peerBlock = (name) => {
     const i = peerLines.findIndex((l) => l.includes(`${name}(`));
-    return i === -1 ? "" : peerLines.slice(i, i + 3).join("\n");
+    return i === -1 ? "" : peerLines.slice(i, i + 4).join("\n");
   };
   check("same birth year produces no unnie in either direction",
     peerLines.filter((l) => /same birth year as Summer/.test(l)).length === 2,
@@ -2649,9 +2782,10 @@ async function layerI() {
   check("same-age member's own block offers no unnie form",
     !/-unnie"/.test(peerBlock("Seulgi")), peerBlock("Seulgi").replace(/\n/g, " / "));
   check("same-age member is still given an address form",
-    /plain given name/.test(peerBlock("Seulgi")), peerBlock("Seulgi"));
+    /Summer -> her: R1 "Seulgi-ssi" \| R2 "Seulgi" \| R3 "Seulgi"/.test(peerBlock("Seulgi")),
+    peerBlock("Seulgi"));
   check("a genuinely older member in the same cast still gets unnie",
-    peerBlock("Irene").includes('Summer -> "Irene-unnie"'), peerBlock("Irene"));
+    peerBlock("Irene").includes('"unnie" or "Irene-unnie"'), peerBlock("Irene"));
 
   // --- birth year is collected, not derived (v1.4.0 step 4).
   //
@@ -2688,12 +2822,17 @@ async function layerI() {
   // stripped because those are supposed to move with the birth year; nothing
   // else may.
   const stripSeniority = (s) => s.split("\n")
-    .filter((l) => !/^ {2}(Age|Address): /.test(l)).join("\n")
+    .filter((l) => !/^ {2}(Age|Address)\b/.test(l)).join("\n")
     .replace(/age \d+, born \d{4}/, "");
+  const seniorityFree = (y) => stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: y })));
+  const firstDiff = (a, b) => {
+    const [x, y] = [a.split("\n"), b.split("\n")];
+    const i = x.findIndex((l, k) => l !== y[k]);
+    return i === -1 ? "" : `${x[i]} -> ${y[i]}`.slice(0, 200);
+  };
   check("a birth year cannot re-roll the identity backstory",
-    stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "1990" })))
-    === stripSeniority(prompt(form({ identity: "主线成员前女友", birthYear: "2000" }))),
-    "the backstory seed moved with the birth year");
+    seniorityFree("1990") === seniorityFree("2000"),
+    `the backstory seed moved with the birth year: ${firstDiff(seniorityFree("1990"), seniorityFree("2000"))}`);
 
   // --- the member profile section ------------------------------------------
   // The member profile section only, so an unrelated block cannot mask or
@@ -2720,14 +2859,47 @@ async function layerI() {
   // names the novel tradition of ITS OWN language: a zh prompt asking for an
   // English romance novel is the translationese this rule exists to prevent.
   const NOVEL_LANG = { zh: "Chinese", en: "English", ko: "Korean" };
+  // v1.4.4 P7 (Yuhan's design): ONE plain opening sentence is allowed back,
+  // bounded, and a person still arrives by the second sentence. The old "1-2
+  // sentences establishing scene atmosphere" must not return in any language.
+  // P7b (Yuhan's blind read, 2026-10-21): 4 of 6 P7 openings were stiff, every one
+  // with light, air or a shadow as the subject of a figurative verb, and the two she
+  // rated natural stated a plain fact. So the sentence is a fact she perceives, the
+  // scenery never acts, the substitute is named, and "atmosphere" is not asked for.
   const sceneOpeners = ["zh", "en", "ko"].filter((l) => {
     const pl = prompt(form(), l);
-    return !/Open on a person doing or saying something, never on a description of the place\./.test(pl)
+    const open = (pl.match(/^- Open with .*$/m) || [""])[0];
+    return !/ONE short sentence that states a plain fact she perceives/.test(open)
+      || !/Light, air, shadow, mist and weather are never the subject of an action verb/.test(open)
+      || !/say what she hears or sees, not what they do/.test(open)
+      || /atmospher/i.test(open)
+      || !/no simile/.test(open)
+      || !/A person doing or saying something arrives by the second sentence at the latest\./.test(pl)
       || /establishing scene atmosphere/.test(pl) || /Style: Literary/.test(pl)
       || !pl.includes(`native ${NOVEL_LANG[l]} romance novel style`);
   });
-  check("every round opens on a person, and the style asks for that language's own romance-novel register",
+  check("every round opens on one plain fact she perceives, never scenery acting, and a person by the second, in that language's own romance-novel register",
     sceneOpeners.length === 0, sceneOpeners.join(", "));
+  // P7: her appearance, bounded so it does not become a per-round inventory, and
+  // the player's point of view with the substitute that keeps the beat.
+  const p7Gaps = ["zh", "en", "ko"].flatMap((l) => {
+    const pl = prompt(form(), l);
+    const gaps = [];
+    // v1.4.4: clothing is out (Yuhan, 2026-10-22: outfit text ran long and carried no
+    // story). The line says so in words and lists no garment, and keeps a substitute.
+    const style = (pl.match(/^- Style: .*$/m) || [""])[0];
+    if (!/her hair, makeup, expression or hands/.test(style)) gaps.push(`${l}: appearance`);
+    if (/outfit|cloth|wear|dress|uniform/i.test(style.replace("Never her clothes", ""))) gaps.push(`${l}: clothing named`);
+    if (!/Never her clothes, never a head-to-toe inventory, and not the same detail every round\./.test(style)) gaps.push(`${l}: clothes and inventory bound`);
+    if (!/the narration stays with the player \("you"\) and shows only what she can see, hear and feel/.test(pl)) gaps.push(`${l}: pov`);
+    if (!/never narrated from inside her; they show in what she says and does/.test(pl)) gaps.push(`${l}: pov substitute`);
+    // The POV rule sits beside the PRONOUN RULE it complements, after the opening.
+    const iOpen = pl.indexOf("Open with ONE"), iPov = pl.indexOf("Point of view:"), iPro = pl.indexOf("PRONOUN RULE:");
+    if (!(iOpen >= 0 && iOpen < iPov && iPov < iPro)) gaps.push(`${l}: pov order ${iOpen}/${iPov}/${iPro}`);
+    return gaps;
+  });
+  check("the style asks for how she looks, never her clothes and never an inventory, and the narration keeps the player's point of view",
+    p7Gaps.length === 0, p7Gaps.join(" | "));
   check("a habit carried by an old save reaches no part of the prompt",
     !withOldHabit.includes("SENTINEL_HABIT_VALUE") && !/LITTLE THINGS|Little things|Habit:/.test(withOldHabit),
     profilesOf(withOldHabit).split("\n").filter((l) => /SENTINEL|Little things|Habit:/.test(l)).join(" | "));
@@ -2757,7 +2929,7 @@ async function layerI() {
     !bare.includes("undefined"),
     bare.split("\n").filter((l) => l.includes("undefined")).slice(0, 3).join(" | "));
   check("...and renders only the lines she actually has",
-    bareBlock.split("\n").length === 4
+    bareBlock.split("\n").length === 5
       && /^Lin Xia \[SUB - Romanceable\]$/.test(bareBlock.split("\n")[0])
       && bareBlock.includes("\n  Private: expresses affection"),
     JSON.stringify(bareBlock));
@@ -2857,7 +3029,15 @@ async function layerI() {
 
   // --- the self-naming bug: a member thanking the player with her own name.
   check("member's own name is ruled out as an address form for the player",
-    p.includes('"Irene" and "Bae Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");
+    p.includes('"Irene", "Bae Ju-hyun", "Ju-hyun" refer to herself'), "SPEAKER CONTRACT missing");
+  // A custom main with no `name_kr` printed `"undefined"` there until v1.4.4 P1.
+  const customMainContract = buildSystemPrompt(form(),
+    [{ id: "c_9", name: "Haru", birthday: "1997-03-02", private_personality: "quiet" }, members[1]],
+    "c_9", [], GROUP, "", "qwen", "en", worldFor.en);
+  check("...and a main with no real name lists only the name she has",
+    customMainContract.includes('When Haru speaks, "Haru" refer to herself')
+      && !/refer to herself[^\n]*undefined/.test(customMainContract),
+    (customMainContract.split("\n").find((l) => l.includes("refer to herself")) || "").slice(0, 160));
   check("speaker contract defines I/you inside quotation marks",
     /Inside quotation marks, "I"\/"me"\/"my" = the character who is speaking/.test(p));
   check("speaker contract binds the player's own choice text",
@@ -3269,36 +3449,83 @@ async function layerI() {
   // The work override points the title in opposite directions for a trainee and
   // for everyone else, so the shared "it relaxes toward her given name" clause
   // named the wrong person in one of the two.
-  const overrideOf = (identity) => prompt(form({ identity })).split("\n")
-    .find((l) => l.startsWith("Work override:")) || "";
-  check("the staff work override relaxes toward the PLAYER's name",
-    /relaxing toward "Summer" as they grow close/.test(overrideOf("Staff")),
-    overrideOf("Staff"));
-  check("the trainee work override relaxes toward the MEMBER's name",
-    /relaxing toward a member's plain name/.test(overrideOf("练习生"))
-      && !/toward "Summer"/.test(overrideOf("练习生")),
-    overrideOf("练习生"));
+  //
+  // v1.4.4 P1 folded that sentence into every member's ladder: Yuhan's new employee
+  // called her CEO 欧尼 from round 1 because the per-member line named only the age
+  // form and the title sat in one general note far away. So what is asserted now is
+  // that the title is ON THE LADDER, on the junior's side, for EVERY member - and
+  // absent from the other side. Counted over the cast, not sampled from one member.
+  const ladderSides = (identity) => {
+    const pr = prompt(form({ identity }));
+    return members.map((m) => ({ id: m.id,
+      toHer: ladderOf(pr, m.name, "toHer"), toPlayer: ladderOf(pr, m.name, "toPlayer") }));
+  };
+  const staffSides = ladderSides("Staff"), traineeSides = ladderSides("练习生");
+  check("a title pointed at the PLAYER opens every member's ladder toward her",
+    staffSides.every((s) => /^\s*Address, she -> Summer: R1 "Manager-nim"/.test(s.toPlayer)
+      && /in front of others "Manager-nim"/.test(s.toPlayer)),
+    staffSides.filter((s) => !/R1 "Manager-nim"/.test(s.toPlayer)).map((s) => s.id).join(", "));
+  check("...and never appears on the player's side of it",
+    staffSides.every((s) => s.toHer && !/Manager-nim/.test(s.toHer)),
+    staffSides.map((s) => s.toHer).join(" | ").slice(0, 200));
+  check("a title pointed at the CAST opens every ladder from the player",
+    traineeSides.every((s) => /^\s*Address, Summer -> her: R1 "sunbae-nim"/.test(s.toHer)
+      && /in front of others "sunbae-nim"/.test(s.toHer)),
+    traineeSides.filter((s) => !/R1 "sunbae-nim"/.test(s.toHer)).map((s) => s.id).join(", "));
+  check("...and never appears on the member's side of it",
+    traineeSides.every((s) => s.toPlayer && !/sunbae-nim/.test(s.toPlayer)),
+    traineeSides.map((s) => s.toPlayer).join(" | ").slice(0, 200));
   check("...and neither leaves the ambiguous shared clause behind",
-    !/It relaxes toward her given name/.test(p + overrideOf("Staff") + overrideOf("练习生")),
+    !/It relaxes toward her given name/.test(prompt(form({ identity: "Staff" })) + prompt(form({ identity: "练习生" }))),
     "whose given name was never stated");
 
-  // --- register is soft and blended, not a per-stage lookup.
-  for (const cue of ["Age gap", "Closeness", "Private Personality"]) {
-    check(`register blends ${cue}`, p.includes(cue));
+  // --- register: a ladder of three rungs, read off her stage (v1.4.4 P1).
+  // Deleted, not added beside: three sentences the ladder contradicts.
+  const registerOf = (src) => src.slice(src.indexOf("REGISTER:"), src.indexOf("KOREAN ADDRESS FORMS"));
+  for (const [what, re] of [
+    ["the direction never reverses at any affection level", /NEVER reverses, at any affection level/],
+    ["a near-age member is casual while the score is low", /already casual while the score is still low/],
+    ["the separate Work override sentence", /Work override/],
+  ]) {
+    check(`the old register line is gone: ${what}`,
+      !re.test(prompt(form({ identity: "Staff" }))) && !re.test(p), re.source);
   }
-  check("register states the direction never reverses",
-    /NEVER reverses, at any affection level/.test(p));
-  // The tail emits Chinese stage labels, so the register text must not key off
-  // English stage names it will never see.
-  check("register does not name stages the dynamic tail never emits",
-    !/\b(Flirting|Lovers|Stranger stage)\b/.test(p.slice(p.indexOf("REGISTER:"), p.indexOf("7. SOCIAL"))));
+  // The rungs are named by STAGE, and must be named by exactly the stage labels the
+  // tail prints beside her score, in her language - the [Stage Changes] lesson: two
+  // vocabularies for one scale with nothing saying they correspond.
+  const { rungStagesFor, RUNG_FIRST_STAGE, DEFAULT_STAGE_THRESHOLDS: TH, stageNamesFor: namesFor } =
+    await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+  check("the rungs break at 31 and 66, as Yuhan's ladder says",
+    TH[RUNG_FIRST_STAGE[1]] === 31 && TH[RUNG_FIRST_STAGE[2]] === 66 && RUNG_FIRST_STAGE[0] === 0,
+    `${TH[RUNG_FIRST_STAGE[1]]}, ${TH[RUNG_FIRST_STAGE[2]]}`);
+  for (const lang of ["zh", "en", "ko"]) {
+    const reg = registerOf(prompt(form(), lang));
+    const [a, b, c] = rungStagesFor(lang);
+    check(`[${lang}] the rungs are named by the stage labels the tail emits`,
+      reg.includes(`R1 = ${a.join(", ")} | R2 = ${b.join(", ")} | R3 = ${c.join(", ")}`)
+        && [...a, ...b, ...c].join() === namesFor(lang).join(),
+      reg.split("\n").find((l) => l.includes("R1 =")) || "no rung line");
+  }
+  check("every step happens on screen, paced by her Private Personality",
+    /Every step down happens ON SCREEN/.test(registerOf(p)) && /Private Personality decides who moves first/.test(registerOf(p)));
+  check("...a rung is never skipped, and moving back up is a deliberate cold move",
+    /A rung is never skipped/.test(registerOf(p)) && /deliberate cold move/.test(registerOf(p)));
+  check("...an NPC member, who has no score, never reaches R3",
+    /An NPC member has no score[^\n]*never R3/.test(registerOf(p)));
+  // A couple's word is the player's language's own. In ko that language IS Korean,
+  // so "never a Korean word transliterated" would forbid the very word it asks for.
+  check("a couple's word is the story language's own, and ko is not told to avoid Korean",
+    /native to English, your choice, never a Korean word transliterated/.test(registerOf(prompt(form(), "en")))
+      && /native to Korean, your choice\./.test(registerOf(prompt(form(), "ko")))
+      && !/never a Korean word/.test(registerOf(prompt(form(), "ko"))),
+    registerOf(prompt(form(), "ko")).split("\n").find((l) => l.includes("couple's word is")) || "");
 
   // --- Korean address forms stay transliterated in every output language.
   //     Localizing 언니 to the Chinese 姐 reads as a family drama and throws
   //     away the setting the whole game rests on.
   const zhP = prompt(form(), "zh"), enP = prompt(form(), "en"), koP = prompt(form(), "ko");
   check("[zh] the older member is addressed as 欧尼, not 姐",
-    /Summer -> "Irene欧尼"/.test(zhP), addressOfIn(zhP, "Irene"));
+    /R2 "欧尼" or "Irene欧尼"/.test(ladderOf(zhP, "Irene", "toHer")), addressOfIn(zhP, "Irene"));
   check("[zh] 姐 is banned by name so the model cannot default to it",
     zhP.includes('NEVER "姐"'), "the ban has to be explicit — the model reaches for 姐 otherwise");
   // --- 야 is the one form transliteration cannot carry into Chinese.
@@ -3310,7 +3537,12 @@ async function layerI() {
   // Scoped to the Address lines: the prompt deliberately QUOTES the wrong
   // pattern as a counter-example, so a whole-prompt search would match the very
   // text doing the forbidding.
-  const addressLinesOf = (src) => src.split("\n").filter(l => l.trim().startsWith("Address:")).join("\n");
+  // `Address, ` since v1.4.4 P1. It read `Address:` before, and a filter matching no
+  // line makes every check below it pass on an empty string - so the count is asserted.
+  const addressLinesOf = (src) => src.split("\n").filter(l => l.trim().startsWith("Address, ")).join("\n");
+  check("[zh] the Address-line scan reads two lines per member",
+    addressLinesOf(zhP).split("\n").length === 2 * members.length,
+    `${addressLinesOf(zhP).split("\n").length} lines for ${members.length} members`);
   check("[zh] no member is offered a name+呀 vocative",
     !/呀/.test(addressLinesOf(zhP)), addressLinesOf(zhP));
   check("[zh] 呀 is still taught as a standalone exclamation",
@@ -3319,10 +3551,13 @@ async function layerI() {
   check("[zh] the wrong pattern is banned by example, not just omitted",
     /NEVER as a suffix on a name/.test(zhP));
   // en and ko are unaffected: English has no competing 呀, Korean is native.
+  // At R3 only, and only from the elder: Irene may say it to Summer, Summer not to Irene.
   check("[en] the -ya vocative survives, since English has no competing form",
-    /"Summer-ya" once close/.test(enP), addressOfIn(enP, "Irene"));
+    /R3 "Summer", "Summer-ya" or a couple's word/.test(ladderOf(enP, "Irene", "toPlayer"))
+      && !/-ya"/.test(ladderOf(enP, "Irene", "toHer")), addressOfIn(enP, "Irene"));
   check("[ko] the 야 vocative survives in its native language",
-    /"Summer 야" once close/.test(koP), addressOfIn(koP, "Irene"));
+    /R3 "Summer", "Summer 야" or a couple's word/.test(ladderOf(koP, "Irene", "toPlayer")),
+    addressOfIn(koP, "Irene"));
 
   // --- address forms are spoken, never narrated.
   // "Irene欧尼正站在窗边" — the SPEAKER CONTRACT scoped pronouns to narration
@@ -3345,23 +3580,27 @@ async function layerI() {
   check("[zh] a Chaebol player's work title uses Latin nim",
     prompt(form({ identity: "财阀" }), "zh").includes("会长nim"));
   check("[en] the older member is addressed as unnie",
-    /Summer -> "Irene-unnie"/.test(enP), addressOfIn(enP, "Irene"));
+    /R2 "unnie" or "Irene-unnie"/.test(ladderOf(enP, "Irene", "toHer")), addressOfIn(enP, "Irene"));
   check("[en] English kinship words are banned by name",
     /NEVER "big sister"/.test(enP));
   check("[ko] the forms are written natively",
-    /Summer -> "Irene 언니"/.test(koP), addressOfIn(koP, "Irene"));
+    /R1 "Irene 씨" \| R2 "언니" or "Irene 언니"/.test(ladderOf(koP, "Irene", "toHer")), addressOfIn(koP, "Irene"));
   check("no prompt offers 姐 as an address form in any language",
-    ![zhP, enP, koP].some((x) => /-> "[^"]*姐"/.test(x)));
+    ![zhP, enP, koP].some((x) => /"[^"]*姐[^"]*"/.test(addressLinesOf(x))));
 
-  // --- identity override outranks age, and only for the identities that have one.
+  // --- the work title's REASON is stated once; the title itself is on every ladder.
   const staff = prompt(form({ identity: "Staff" }));
   check("Staff player is addressed by work title regardless of age",
-    /Manager-nim/.test(staff) && /Work override/.test(staff));
-  check("work override appears once, not once per member",
-    (staff.match(/Work override/g) || []).length === 1,
-    `${(staff.match(/Work override/g) || []).length} occurrences`);
-  check("identity without a work title gets no override line",
-    !/Work override/.test(p));
+    /^Title: they address Summer as "Manager-nim" \(매니저님\) on the job, whatever their ages\.$/m.test(staff),
+    (staff.split("\n").find((l) => l.startsWith("Title:")) || "no Title line"));
+  check("the title's reason appears once, not once per member",
+    (staff.match(/^Title: /gm) || []).length === 1,
+    `${(staff.match(/^Title: /gm) || []).length} occurrences`);
+  check("identity without a work title gets no Title line",
+    !/^Title: /m.test(p));
+  check("a title is spoken, never narrated",
+    /"unnie", "nim", "ssi", "Manager-nim", every title and every form on an Address line belong INSIDE quotation marks/.test(staff),
+    (staff.split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(0, 200));
   check("Chaebol player is addressed as chairwoman",
     /Chairwoman-nim/.test(prompt(form({ identity: "财阀" }))));
 
@@ -3371,7 +3610,7 @@ async function layerI() {
     check(`[${lang}] player's birth year is given to the model`,
       /THE PLAYER: Summer .* born 1995/.test(lp));
     check(`[${lang}] address protocol survives the language switch`,
-      lp.includes(`Summer -> "${form_}"`), addressOfIn(lp, "Irene"));
+      ladderOf(lp, "Irene", "toHer").includes(`"${form_}"`), addressOfIn(lp, "Irene"));
   }
 
   // --- a member with no birthday must not crash or invent seniority.
@@ -3550,6 +3789,21 @@ async function layerI() {
     /she leaves something instead: a note pushed under the door/.test(p),
     "the model reaches for the beat; give it one it is allowed to have");
 
+  // v1.4.4 P9, from Yuhan's play: the model invented names for strangers. The old rule
+  // said only cast members "may appear by name", which reads as permission to name
+  // anyone else. It is ownership now, with a substitute for the recurring outsider.
+  check("a stranger gets no name of any kind",
+    /The only people with names in this story are the ones in MEMBER PROFILES and /.test(p)
+      && /no given name, no surname, no nickname, no initial/.test(p)
+      && /nothing about them beyond one visible detail/.test(p),
+    "a rule that permits cast names does not forbid invented ones");
+  check("...and a recurring stranger keeps her role and one detail instead",
+    /one who comes back is the same role with the same one detail/.test(p),
+    "a prohibition with no substitute gets routed around");
+  check("...and the permission-shaped wording is gone",
+    !/may appear by name/.test(p),
+    "the old sentence is the one that let names through");
+
   // `scene` is printed as one line of a 30-character box on a 390px phone, and "a
   // short location description" was answered with 250-character paragraphs and with
   // the same string five rounds running.
@@ -3624,6 +3878,32 @@ async function layerI() {
     ledger.includes(EDIT), ledger.slice(0, 200));
   check("unedited stories still collapse to their summaries",
     !ledger.includes("story zero") && ledger.includes("summary of round 0"), ledger.slice(0, 200));
+  // v1.4.4 P12: the model sees ONE numbering of a round. The ledger used to label
+  // a round by its index from 0, [Player Status] printed the rounds completed, and
+  // [Chapter] counts from 1 like the player's stats box - three numbers for one
+  // round. Asserted as agreement: the ledger's labels run 1..k with no gap, and the
+  // round [Chapter] names is the one after the last of them. And `R1:` is a rung of
+  // the address ladder, so no ledger line may use that shape.
+  {
+    const mem = { history: [], affections: {}, kktMessages: {} };
+    // As play goes: collapse at the start of each round, then append. Five rounds
+    // leave three summaries and two full stories, so both label shapes are present.
+    for (let r = 0; r < 5; r++) { collapseHistoryIfNeeded(mem); play(mem, r, `story ${r}`); }
+    collapseHistoryIfNeeded(mem);
+    mem.playerStats = { selfId: 50, secrecy: 90, mood: 70, week: 5, scene: "x" };
+    const led = buildHistoryLedger(mem);
+    const labels = [...led.matchAll(/^(?:=== )?Round (\d+)/gm)].map((x) => Number(x[1]));
+    const chapterRound = Number((buildChapterLine(mem.playerStats.week + 1).match(/this is round (\d+)/) || [])[1]);
+    check("the ledger numbers rounds as the player does, and [Chapter] names the next one",
+      labels.length === 5 && labels.every((n, i) => n === i + 1) && chapterRound === labels.at(-1) + 1
+        && /^=== Round/m.test(led) && /^Round \d+:/m.test(led),
+      `ledger ${labels.join(",")} / chapter ${chapterRound}`);
+    check("...and no ledger line is labelled like an address-ladder rung",
+      !/^R\d+:/m.test(led), led.slice(0, 120));
+    const tail = buildDynamicTail(mem, [{ id: "irene", name: "Irene", emoji: "" }], ["irene"], "en");
+    check("...and [Player Status] carries no second round number",
+      tail.includes("[Player Status]") && !/\bRound\s*:/.test(tail), tail.split("\n")[0]);
+  }
   // The ledger is the cacheable block, so an empty `Choice: ` line is the same
   // invisible trailing byte that has cost the whole prefix before. Every App.jsx
   // path supplies a choice — round 1 sends "Game start" — so this guards the
@@ -4249,9 +4529,6 @@ async function layerI() {
   check("place ids are unique within a world",
     new Set(worlds.zh.places.map((p) => p.id)).size === worlds.zh.places.length,
     worlds.zh.places.map((p) => p.id).join(", "));
-  check("the world covers all four round phases",
-    worlds.zh.phases.length === 4 && worlds.zh.phases[3].to === null,
-    JSON.stringify(worlds.zh.phases.map((p) => `${p.from}-${p.to}`)));
 
   // --- every world in the index, not just kpop_idol -- v1.4.1 step 7 ----------
   //
@@ -4365,6 +4642,411 @@ async function layerI() {
       && /business/.test(allWorlds.chaebol?.en?.castLore?.orgHint || "")
       && /\uae30\uc5c5/.test(allWorlds.chaebol?.ko?.castLore?.orgHint || ""),
     "`X Group` is right for a chaebol and wrong for a bare family noun");
+
+  // ── v1.4.4 P3, then REMOVED: typical events ─────────────────────────────
+  // P3 moved each identity's events out of its static background into a stage-gated
+  // tail line, and P3b scheduled them. A three-arm comparison found the events bought
+  // nothing and a line in the tail read as a cue, so they were removed
+  // (docs/V144_PLAN.md, "P3 removed"). What stays from P3: no background carries an
+  // events list, and identity text names her the way P1's narration rule says.
+  // Derived over every world, language and identity.
+  {
+    const STATIC_LIST = /典型事件|Typical events:|주요 이벤트:/;
+    const SENTINEL = "SENTINEL-TYPICAL-EVENT-7f3a";
+    const stillStatic = [], wrongName = [], leaked = [];
+    for (const [wid, byLang] of Object.entries(allWorlds)) {
+      for (const lang of ["zh", "en", "ko"]) {
+        const w = byLang[lang];
+        const irene = library.red_velvet[lang].find((m) => m.id === "irene");
+        // The name identity text narrates her by: the stage name in the idol world, her
+        // real name everywhere else (P1's Q2 rule), and never the other one.
+        const idol = w.castLore.useRole;
+        const want = idol ? irene.name : irene.name_kr, wrong = idol ? irene.name_kr : irene.name;
+        // A world whose every identity carries an events list. parseWorld refuses one,
+        // so it is built after parsing: this asks whether anything still READS the field.
+        const withEvents = { ...w, identities: w.identities.map((i) => ({ ...i, events: [{ from: 0, text: SENTINEL }] })) };
+        for (const ident of w.identities) {
+          const where = `${wid}/${lang}/${ident.id}`;
+          if (STATIC_LIST.test(ident.background || "")) stillStatic.push(where);
+          const pr = buildSystemPrompt(form({ identity: ident.id }), library.red_velvet[lang], "irene", ["seulgi"],
+            { groupLore: "lore" }, "", "qwen", lang, withEvents);
+          const tail = buildTailRules(withEvents, "romance", "slow");
+          if (pr.includes(SENTINEL) || tail.includes(SENTINEL) || pr.includes('  "event":') || /\[Possible events\]/.test(pr + tail)) {
+            leaked.push(where);
+          }
+          if ((ident.background || "").includes("{name}")) {
+            const head = ident.background.slice(0, ident.background.indexOf("{"));
+            const at = pr.indexOf(head);
+            // As many lines as the background has: the ex-girlfriend's runs over four.
+            const bg = at < 0 ? "" : pr.slice(at).split("\n").slice(0, ident.background.split("\n").length).join("\n");
+            if (!bg.includes(want) || bg.includes(wrong)) wrongName.push(`${where} background`);
+          }
+        }
+      }
+    }
+    check("no identity background carries a typical-events list into the static prompt",
+      stillStatic.length === 0, stillStatic.join(", "));
+    check("an identity's events reach neither the system prompt, its schema, nor the tail rules",
+      leaked.length === 0, leaked.slice(0, 6).join(", "));
+    // Random events (P8) were built and taken out of v1.4.4 on 2026-10-22 (Yuhan: a
+    // one-line event read badly; v1.4.5 redesigns it as a short story passage). Out
+    // means out everywhere: no tail line in any mode, no schema key, no heading.
+    const evWorld = allWorlds.kpop_idol.zh;
+    const evLeft = [
+      ...loader.MODE_IDS.filter((m) => /Random Events|random event/i.test(buildTailRules(evWorld, m, "default"))).map((m) => `tail:${m}`),
+      ...["zh", "en", "ko"].filter((l) => /random event|"event":/i.test(buildSystemPrompt(form(), library.red_velvet[l], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", l, evWorld))).map((l) => `prompt:${l}`),
+      ...["zh", "en", "ko"].filter((l) => /randomEvent/.test(readFileSync(join(ROOT, "src", "i18n", `${l}.js`), "utf8"))).map((l) => `i18n:${l}`),
+    ];
+    check("v1.4.4 ships no random events: no tail line in any mode, no schema key, no heading",
+      evLeft.length === 0, evLeft.join(", "));
+    check("identity text narrates the main member by her real name outside the idol world, and by her stage name in it",
+      wrongName.length === 0, wrongName.slice(0, 5).join(" | "));
+  }
+
+  // ── v1.4.4 P11: a story-mode rule names no stage in another language ───
+  // Every romance rule said "Members flirt during Flirting stage" in English in all
+  // three languages, beside a tail that prints that stage as its localized name -
+  // one stage under two names, the [Stage Changes] id-vs-name shape. Derived over
+  // every world, language and mode, so a fifth world or a fifth mode is covered.
+  {
+    const { STAGE_NAMES } = await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+    const foreign = [];
+    for (const [wid, byLang] of Object.entries(allWorlds)) {
+      for (const lang of ["zh", "en", "ko"]) {
+        const others = Object.entries(STAGE_NAMES).filter(([l]) => l !== lang).flatMap(([, names]) => names);
+        for (const mode of loader.MODE_IDS) {
+          const rule = buildTailRules(byLang[lang], mode, "default");
+          const hit = others.filter((name) => new RegExp(`(^|[^A-Za-z])${name}([^A-Za-z]|$)`).test(rule));
+          if (hit.length) foreign.push(`${wid}/${lang}/${mode}: ${hit.join(",")}`);
+        }
+      }
+    }
+    check("a story-mode rule names no stage from another language's ladder",
+      foreign.length === 0, foreign.join(" | "));
+  }
+
+  // ── v1.4.4 P5: the chaebol cast is ONE family, named for the main member ─
+  // Yuhan's decision, 2026-10-20. Both templates used to say each member was an
+  // heir of a DIFFERENT house, so a new employee deferred to five families. The
+  // family takes the main member's surname, and because Korean children take the
+  // father's, a member with another surname is a cousin - the rule is stated, or
+  // 裴珠泫 and 姜涩琪 read as sisters with different surnames. Asserted through
+  // resolveRoster, the real path, so a `family_name` dropped by the loader's
+  // whitelist fails here rather than in a game.
+  {
+    const cz = allWorlds.chaebol?.zh;
+    const loreOf = async (entries, lang = "zh", w = cz) =>
+      (await fromDisk(() => loader.resolveRoster({ groupId: entries[0].groupId, entries }, lang, w)))
+        .groupConfig.groupLore;
+    const lib = (groupId, memberId, slot) => ({ src: "library", groupId, memberId, slot });
+    const subsetLore = await loreOf([lib("red_velvet", "irene", "main"), lib("red_velvet", "seulgi", "sub")]);
+    const composedLore = await loreOf([lib("red_velvet", "irene", "main"), lib("twice", "sana", "sub")]);
+    check("a chaebol cast of one group is one family, named for the main member",
+      /The family name is 裴\./.test(subsetLore) && /one chaebol family/.test(subsetLore)
+        && !/different chaebol house|heirs of chaebol houses/.test(subsetLore),
+      subsetLore.slice(0, 300));
+    check("...and so is a cast drawn from several groups",
+      /The family name is 裴\./.test(composedLore) && /one chaebol family/.test(composedLore)
+        && !/different chaebol house/.test(composedLore),
+      composedLore.slice(0, 300));
+    check("...and a member with another surname is told how she belongs to it",
+      /any other surname is a cousin, the child of one of the house's daughters/.test(subsetLore)
+        && /any other surname is a cousin/.test(composedLore),
+      "a Kang and a Bae cannot be sisters, and the model needs the rule to say so");
+    const sanaMain = await loreOf([lib("twice", "sana", "main"), lib("twice", "nayeon", "sub")]);
+    const lisaEn = await loreOf([lib("blackpink", "lisa", "main"), lib("blackpink", "jisoo", "sub")],
+      "en", allWorlds.chaebol?.en);
+    check("...the surname follows the main, through the override where the derivation is wrong",
+      /The family name is 凑崎\./.test(sanaMain) && /The family name is Manobal\./.test(lisaEn),
+      `${(sanaMain.match(/The family name is [^.]*\./) || ["none"])[0]} / ${(lisaEn.match(/The family name is [^.]*\./) || ["none"])[0]}`);
+    const customMain = await loreOf([
+      { src: "custom", memberId: "c_fam", slot: "main", lang: "zh", profile: REQUIRED_TIER },
+      lib("red_velvet", "seulgi", "sub"),
+    ]);
+    check("...and a main with no real name drops the family line rather than printing a gap",
+      /one chaebol family/.test(customMain) && !/The family name is/.test(customMain)
+        && !/\{family\}/.test(customMain),
+      customMain.slice(0, 300));
+    check("...and the new employee defers to the family's executives, not to heirs of a circle",
+      /every member of the family is one of its executives/.test(
+        cz?.identities?.find((i) => i.id === "lawyer")?.workTitle?.because || ""),
+      "Yuhan's lawyer rewrite made her a new employee at the main member's family company");
+  }
+
+  // ── v1.4.4 P1: given names, and which name each world speaks and narrates ─
+  // A member is addressed by her Korean given name outside the idol world (Q2), and
+  // the name comes from ONE helper that the address ladder and `membersNamedIn` both
+  // read. `given_name` overrides the derivation where it is wrong - the table in
+  // docs/V144_PLAN.md P1b - and is read from `library`, which is loaded through
+  // loadGroupConfig, so a field the whitelist drops fails here and not in a game.
+  {
+    const { givenNameOf } = await import(pathToFileURL(join(ROOT, "src/rag/memberNames.js")).href);
+    const GIVEN = [
+      ["twice", "momo", "zh", "Momo"], ["twice", "sana", "zh", "Sana"], ["twice", "mina", "zh", "Mina"],
+      ["x", "sana", "zh", "Sana"], ["x", "mina", "zh", "Mina"], ["ive", "rei", "zh", "Rei"],
+      ["aespa", "giselle", "zh", "Aeri"], ["blackpink", "lisa", "zh", "Lisa"],
+      ["blackpink", "lisa", "en", "Lisa"], ["blackpink", "lisa", "ko", "리사"],
+      ["nmixx", "lily", "zh", "Lily"], ["nmixx", "lily", "en", "Lily"], ["nmixx", "lily", "ko", "릴리"],
+      ["aespa", "ningning", "zh", "Ningning"], ["aespa", "ningning", "en", "Ningning"],
+      ["aespa", "ningning", "ko", "닝닝"], ["twice", "tzuyu", "ko", "쯔위"],
+    ];
+    const wrong = GIVEN.filter(([g, id, lang, want]) =>
+      givenNameOf(library[g]?.[lang]?.find((m) => m.id === id)) !== want);
+    check("every given-name override reaches the loaded member",
+      wrong.length === 0,
+      wrong.map(([g, id, lang, want]) => `${g}/${id}/${lang}: ${givenNameOf(library[g]?.[lang]?.find((m) => m.id === id))} != ${want}`).join(", "));
+    const rv = (lang) => library.red_velvet[lang].find((m) => m.id === "irene");
+    check("...and the derivation still serves everyone without one",
+      givenNameOf(rv("zh")) === "珠泫" && givenNameOf(rv("en")) === "Ju-hyun" && givenNameOf(rv("ko")) === "주현",
+      ["zh", "en", "ko"].map((l) => givenNameOf(rv(l))).join(" / "));
+    // `[Rounds Absent]` must see her by the name the ladder teaches, or a round that
+    // calls her Aeri records her absent - a false fact in the tail.
+    check("the appearance matcher sees a member by her given-name override",
+      membersNamedIn("Aeri推开了会议室的门。", library.aespa.zh).includes("giselle")
+        && membersNamedIn("릴리가 웃었다.", library.nmixx.ko).includes("lily"),
+      `${JSON.stringify(membersNamedIn("Aeri推开了会议室的门。", library.aespa.zh))} ${JSON.stringify(membersNamedIn("릴리가 웃었다.", library.nmixx.ko))}`);
+
+    const cast = library.aespa.zh;
+    const promptIn = (worldZh, identity) => buildSystemPrompt(form({ identity }), cast, "karina", ["giselle"],
+      { groupLore: "lore" }, "", "qwen", "zh", worldZh);
+    const chaebolP = promptIn(allWorlds.chaebol.zh, "主线成员前女友");
+    const idolP = promptIn(worldFor.zh, "主线成员前女友");
+    const toHerIn = (pr, m) => (pr.split("\n").find((l, i, all) =>
+      l.startsWith("  Address, Summer -> her:") && all.slice(Math.max(0, i - 3), i).some((h) => h.includes(`${m.name}(`))) || "");
+    const offNames = cast.filter((m) => {
+      const line = toHerIn(chaebolP, m);
+      return !line.includes(`R1 "${givenNameOf(m)}xi"`)
+        || (givenNameOf(m) !== m.name && line.includes(`"${m.name}`));
+    });
+    check("in a non-idol world every member is addressed by her given name, never her stage name",
+      offNames.length === 0, offNames.map((m) => `${m.id}: ${toHerIn(chaebolP, m)}`).join(" | ").slice(0, 300));
+    const idolOff = cast.filter((m) => !toHerIn(idolP, m).includes(`R1 "${m.name}xi"`));
+    check("...while the idol world keeps her stage name",
+      idolOff.length === 0, idolOff.map((m) => `${m.id}: ${toHerIn(idolP, m)}`).join(" | ").slice(0, 300));
+    // F8: the narration example taught the stage name in every world, against NO ONE
+    // IN THIS CAST IS AN IDOL. Outside the idol world it is her real name, with the
+    // stage name and a title both shown as the wrong answer.
+    check("the narration example follows the world: her real name outside the idol world",
+      /In narration a member is her real name[^\n]*"刘知珉正站在窗边", NEVER "Karina正站在窗边"/.test(chaebolP)
+        && /In narration a member is her name alone: "Karina正站在窗边"/.test(idolP),
+      (chaebolP.split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(0, 300));
+    check("...and a title is shown as a wrong way to narrate her",
+      /NEVER "Karina正站在窗边", "代表nim正站在窗边"/.test(promptIn(allWorlds.chaebol.zh, "lawyer")),
+      (promptIn(allWorlds.chaebol.zh, "lawyer").split("\n").find((l) => l.includes("SPOKEN, not narrated")) || "").slice(-200));
+  }
+
+  // ── v1.4.4 P2: stage behaviour, the 起承转合 chapters, and [Chapter] in the tail ─
+  // Section 9 printed stage names and score bands and nothing about what a stage
+  // allows, so a member at 12 had no statement anywhere that she should not already
+  // care (F3). Section 3 printed all four phases every round and never said which one
+  // the round was in, while the stats box showed the player a chapter the model was
+  // never told (F4). The chapters live once, in config/chapters.js; a world supplies
+  // only its texture, keyed by chapter id.
+  {
+    const { CHAPTERS, CHAPTER_IDS, chapterForRound } =
+      await import(pathToFileURL(join(ROOT, "src/config/chapters.js")).href);
+    const { STAGE_BEHAVIOUR, STAGE_NAMES, STAGE_BANDS } =
+      await import(pathToFileURL(join(ROOT, "src/config/stageConfig.js")).href);
+    // The ranges must tile every round from 1 with nothing open but the last, or a
+    // round falls into no chapter (or two) and the box and the tail disagree.
+    const tiled = CHAPTERS.every((c, i) => c.from === (i === 0 ? 1 : CHAPTERS[i - 1].to + 1))
+      && CHAPTERS.slice(0, -1).every((c) => Number.isInteger(c.to) && c.to >= c.from)
+      && CHAPTERS.at(-1).to === null;
+    const misfiled = [];
+    for (let r = 1; r <= 60; r++) {
+      const c = chapterForRound(r);
+      if (!(r >= c.from && (c.to === null || r <= c.to))) misfiled.push(r);
+    }
+    check("the chapters tile every round from 1, and only the last is open-ended",
+      tiled && misfiled.length === 0,
+      CHAPTERS.map((c) => `${c.id} ${c.from}-${c.to}`).join(", ") + (misfiled.length ? ` misfiled ${misfiled}` : ""));
+    check("the design doc's round boundaries: 1-6, 7-14, 15-24, 25+",
+      CHAPTERS.map((c) => `${c.from}-${c.to}`).join(",") === "1-6,7-14,15-24,25-null",
+      CHAPTERS.map((c) => `${c.from}-${c.to}`).join(","));
+
+    // Fact in the tail: the chapter of the round being GENERATED, and when it is the
+    // chapter's last round, because that is where its end beat has to land.
+    const lastRounds = [];
+    for (let r = 1; r <= 40; r++) if (buildChapterLine(r).includes("the last round of this chapter")) lastRounds.push(r);
+    check("[Chapter] names the round's chapter and says which round it is",
+      [1, 6, 7, 14, 15, 24, 25, 31].every((r) => {
+        const c = chapterForRound(r);
+        return buildChapterLine(r).startsWith(`[Chapter] ${c.label} ${c.gloss} (`)
+          && buildChapterLine(r).includes(`this is round ${r}`);
+      }),
+      [1, 7, 25].map((r) => buildChapterLine(r)).join(" | "));
+    check("...and flags exactly the last round of each closed chapter",
+      lastRounds.join(",") === "6,14,24", lastRounds.join(","));
+    // The tail is built in executeRound, which this layer cannot call without a model.
+    // So the guard is on the one site: it must pass the round being generated, which
+    // is stats.week + 1 - the same number getChapterByRound is given for the box.
+    const agentSrc = readFileSync(join(ROOT, "src/agent/mainAgent.js"), "utf8");
+    const tailSite = (agentSrc.match(/content: `\[CURRENT STATE\][^\n]*/) || [""])[0];
+    check("the tail carries [Chapter] for the round being generated",
+      tailSite.includes("${buildChapterLine(roundNum + 1)}")
+        && /chapter: getChapterByRound\(stats\.week \+ 1\)/.test(agentSrc)
+        && /const roundNum = stats\.week;/.test(agentSrc),
+      tailSite.slice(0, 200));
+
+    // ── v1.4.4 P4: affection rises by chapter ──────────────────────────────
+    // The design's caps: 起 +4, 承 +6, 转 and 合 +8, and falls never capped by the
+    // chapter. Written from the plan's table, not read back off the code.
+    const PLAN_RISE = { start: 4, develop: 6, climax: 8, resolve: 8 };
+    check("each chapter caps a rise at the plan's number: 起 +4, 承 +6, 转 and 合 +8",
+      CHAPTERS.every((c) => c.maxRise === PLAN_RISE[c.id]) && CHAPTERS.length === Object.keys(PLAN_RISE).length,
+      CHAPTERS.map((c) => `${c.id}:${c.maxRise}`).join(" "));
+    const capIn = { a: 8, b: -8, c: 3, d: 0 };
+    const capped = [3, 6, 7, 14, 15, 30].map((r) => capAffectionRise(capIn, r));
+    check("capAffectionRise caps a rise to the chapter of the round, and lets a fall through",
+      JSON.stringify(capped.map((x) => x.a)) === "[4,4,6,6,8,8]"
+        && capped.every((x) => x.b === -8 && x.c === 3 && x.d === 0) && capIn.a === 8,
+      JSON.stringify(capped));
+    const lineOff = [];
+    for (let r = 1; r <= 40; r++) {
+      if (!buildChapterLine(r).includes(`Affection rises at most +${chapterForRound(r).maxRise} a round in this chapter`)) lineOff.push(r);
+    }
+    check("[Chapter] states the cap of the chapter the round is in",
+      lineOff.length === 0, `rounds ${lineOff.join(",")}: ${buildChapterLine(lineOff[0] || 1)}`);
+    // The rule is static and points at the fact; a chapter's number in the static
+    // prompt would be the cap stated twice, and wrong in three chapters of four.
+    const rulesPr = buildSystemPrompt(form(), library.red_velvet.en, "irene", ["seulgi"], { groupLore: "lore" }, "", "qwen", "en", allWorlds.kpop_idol.en);
+    check("...and RULES points at it without naming a chapter's number",
+      /- affectionChanges: [^\n]*never above the rise \[Chapter\] allows/.test(rulesPr)
+        && !/rises at most \+\d/.test(rulesPr),
+      (rulesPr.match(/- affectionChanges: [^\n]*/) || ["(no affectionChanges rule)"])[0]);
+
+    // Through the real round: executeRound with a stubbed provider, the model asking
+    // for +8 for the main member and -8 for the sub. Round 7 is the boundary where
+    // `roundNum` and `roundNum + 1` are in different chapters, so the cap must be
+    // the one [Chapter] printed for the round being generated.
+    const reply = JSON.stringify({
+      scene: "Office, 9PM", statChanges: { selfId: 1, secrecy: 0, mood: 0 },
+      affectionChanges: { irene: 8, seulgi: -8 },
+      story: "Irene looked up from the desk and said nothing for a long moment, then she smiled.",
+      summary: "Irene and the player share a quiet moment at the office.",
+      socialContent: {}, kktMessages: {}, options: ["A. a", "B. b", "C. c", "D. d"],
+    });
+    const realFetch = globalThis.fetch, realLog = console.log, realWarn = console.warn;
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: reply }, finish_reason: "stop" }] }) });
+    console.log = () => {}; console.warn = () => {};
+    const played = [];
+    try {
+      for (const week of [0, 6, 14]) {
+        const res = await executeRound({
+          playerChoice: "A", memory: createEmptyMemory(), form: form(),
+          stats: { affection: 40, selfId: 30, secrecy: 90, mood: 60, week, scene: "x", chapter: "start", multiAff: { seulgi: 40 } },
+          members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
+          world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
+          reasoningEnabled: false,
+        });
+        played.push([res.newStats.affection, res.newStats.multiAff.seulgi]);
+      }
+    } catch (e) { played.push(["threw", e.message]); }
+    finally { globalThis.fetch = realFetch; console.log = realLog; console.warn = realWarn; }
+    check("executeRound applies the cap of the round being generated, and a fall in full",
+      JSON.stringify(played) === "[[44,32],[46,32],[48,32]]",
+      `${JSON.stringify(played)} (want rounds 1, 7, 15 -> +4, +6, +8 and -8)`);
+
+    // ── v1.4.4 P6: the narrator's prologue, round 1 only ───────────────────
+    const proOff = [];
+    for (let r = 2; r <= 40; r++) if (buildPrologueLine(r) !== "") proOff.push(r);
+    check("[Prologue] is written for round 1 and for no other round",
+      buildPrologueLine(1).startsWith("[Prologue] ") && proOff.length === 0,
+      `round 1: ${JSON.stringify(buildPrologueLine(1).slice(0, 60))}; also on ${proOff.join(",") || "none"}`);
+    // A prologue that ignores the static rules beside it wins in round 1: the scene
+    // would open on scenery, the cast would be closer than the first meeting allows,
+    // or a stranger would get a name.
+    const pro = buildPrologueLine(1);
+    check("...and points at the three static rules it could contradict, and the length",
+      // P7: it POINTS at section 3's opening rule rather than restating it, so the
+      // two cannot disagree when that rule changes.
+      pro.includes("as section 3 says every round opens") && !/on a person|atmosphere/.test(pro)
+        && pro.includes("section 6") && pro.includes("MEMBER PROFILES")
+        && pro.includes("counts toward the story's length"),
+      pro);
+    // Through the real round: what executeRound SENDS on round 1 and round 2.
+    const sent = [];
+    const realFetch6 = globalThis.fetch, realLog6 = console.log, realWarn6 = console.warn;
+    globalThis.fetch = async (u, init) => {
+      sent.push(JSON.parse(init.body).messages);
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: reply }, finish_reason: "stop" }] }) };
+    };
+    console.log = () => {}; console.warn = () => {};
+    try {
+      for (const week of [0, 1]) {
+        await executeRound({
+          playerChoice: "A", memory: createEmptyMemory(), form: form(),
+          stats: { affection: 12, selfId: 30, secrecy: 90, mood: 60, week, scene: "x", chapter: "start", multiAff: { seulgi: 8 } },
+          members: library.red_velvet.en, mainId: "irene", subIds: ["seulgi"], groupConfig: { groupLore: "lore" },
+          world: allWorlds.kpop_idol.en, apiKey: "sk-test", selectedModel: "deepseek", kktUnlocked: {}, language: "en",
+          reasoningEnabled: false,
+        });
+      }
+    } catch (e) { sent.push(["threw", e.message]); }
+    finally { globalThis.fetch = realFetch6; console.log = realLog6; console.warn = realWarn6; }
+    const tailOf = (m) => (Array.isArray(m) ? (m.at(-1)?.content || "") : "");
+    const sysOf = (m) => (Array.isArray(m) ? (m[0]?.content ?? null) : null);
+    check("executeRound sends [Prologue] in round 1's tail and not in round 2's",
+      sent.length === 2 && tailOf(sent[0]).split(pro).length === 2 && !tailOf(sent[1]).includes("[Prologue]"),
+      `${sent.length} calls; round 1 tail has it ${tailOf(sent[0]).split(pro).length - 1}x; round 2 ${tailOf(sent[1]).includes("[Prologue]")}`);
+    // Either half alone is vacuous: the static prompt must not move between the two
+    // rounds, and must not carry the line in either.
+    check("...and the static system prompt is the same in both rounds and never carries it",
+      sysOf(sent[0]) !== null && sysOf(sent[0]) === sysOf(sent[1]) && !sysOf(sent[0]).includes("[Prologue]"),
+      `same: ${sysOf(sent[0]) === sysOf(sent[1])}; carries: ${String(sysOf(sent[0])).includes("[Prologue]")}`);
+
+    // Rule in section 3: every chapter, in order, with its goal, THIS world's texture
+    // and its end beat - in every world and every language.
+    const arcOff = [];
+    for (const [id, w] of Object.entries(allWorlds)) for (const lang of ["zh", "en", "ko"]) {
+      const pr = buildSystemPrompt(form(), library.red_velvet[lang], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", lang, w[lang]);
+      const lines = pr.split("\n");
+      const at = CHAPTERS.map((c) => lines.findIndex((l) =>
+        l.startsWith(`- ${c.label} ${c.gloss} (`) && l.includes(`: ${c.goal.split("{player}").join("Summer").slice(0, 40)}`)
+          && l.includes(`In this world: ${w[lang].phases[c.id]} `)
+          && l.endsWith(c.end.split("{player}").join("Summer"))));
+      if (at.some((i) => i < 0) || at.some((i, k) => k > 0 && i !== at[k - 1] + 1)) arcOff.push(`${id}/${lang} ${at}`);
+      if (pr.includes("{player}")) arcOff.push(`${id}/${lang} unfilled {player}`);
+      if (!/STORY ARC[^\n]*\[Chapter\] in CURRENT STATE/.test(pr)) arcOff.push(`${id}/${lang} no pointer at [Chapter]`);
+    }
+    check("section 3 renders the four chapters in order: goal, this world's texture, end beat",
+      arcOff.length === 0, arcOff.join(" | ").slice(0, 300));
+    // The old shape carried its own round range and a "Phase N" label in every world
+    // file - a second copy of the boundaries. A world's texture must not bring it back.
+    const staleTexture = Object.entries(allWorlds).flatMap(([id, w]) =>
+      CHAPTER_IDS.filter((c) => /Phase \d|Rounds? \d/.test(w.zh.phases[c])).map((c) => `${id}.${c}`));
+    check("a world's chapter texture carries no round range of its own",
+      staleTexture.length === 0, staleTexture.join(", "));
+    // Phase 4 told every world the relationship was established by round 25, whatever
+    // the scores said - which is what the stage rules below exist to forbid.
+    const established = Object.entries(allWorlds).filter(([, w]) =>
+      /established relationship/i.test(JSON.stringify(w.zh.phases)));
+    check("no chapter asserts the relationship exists by round count",
+      established.length === 0, established.map(([id]) => id).join(", "));
+
+    // Section 9: what each stage allows, beside the localized name the tail prints,
+    // and the design doc's three prohibitions.
+    check("every stage has a behaviour line",
+      STAGE_BEHAVIOUR.length === STAGE_NAMES.en.length && STAGE_BEHAVIOUR.every((b) => typeof b === "string" && b),
+      `${STAGE_BEHAVIOUR.length} behaviours for ${STAGE_NAMES.en.length} stages`);
+    const stageOff = [];
+    for (const lang of ["zh", "en", "ko"]) {
+      const pr = buildSystemPrompt(form(), library.red_velvet[lang], "irene", ["seulgi"],
+        { groupLore: "lore" }, "", "qwen", lang, worldFor[lang]);
+      const sec9 = pr.slice(pr.indexOf("9. GAME RULES"), pr.indexOf("10. STAT SYSTEM"));
+      const names = STAGE_NAMES[lang];
+      const rows = names.map((n, i) => sec9.indexOf(`  - ${STAGE_BANDS[i]} ${n}: ${String(STAGE_BEHAVIOUR[i] ?? "").split("{player}").join("Summer")}\n`));
+      if (rows.some((i) => i < 0) || rows.some((i, k) => k > 0 && i < rows[k - 1])) stageOff.push(`${lang} rows ${rows}`);
+      if (!sec9.includes("A member behaves by HER OWN stage in [Affections]")) stageOff.push(`${lang} no pointer at [Affections]`);
+      if (!sec9.includes(`no confirmed relationship before ${names[3]} has been played out`)) stageOff.push(`${lang} skip rule`);
+      if (!sec9.includes("Nobody is drawn to Summer without a reason the story has shown")) stageOff.push(`${lang} no-reason rule`);
+      if (!sec9.includes("Not every round is sweet")) stageOff.push(`${lang} not-every-round rule`);
+    }
+    check("section 9 says what each stage allows, by the tail's own stage names, and the three prohibitions",
+      stageOff.length === 0, stageOff.join(" | "));
+  }
 
   // ── round 1 is a first meeting ───────────────────────────────────────────
   // Every member starts at Stranger, and the step-7 identities described a
@@ -4485,9 +5167,6 @@ async function layerI() {
         && new Set(w.zh.places.map((p) => p.id)).size === 10
         && ["zh", "en", "ko"].every((l) => w[l].places.every((p) => p.name)),
       `${w.zh.places.length} places`);
-    check(`[${id}] covers all four round phases and the last one is open-ended`,
-      w.zh.phases.length === 4 && w.zh.phases[3].to === null,
-      JSON.stringify(w.zh.phases.map((p) => `${p.from}-${p.to}`)));
   }
 
   // A world's display name and an identity's must differ ACROSS worlds, not only
@@ -4736,6 +5415,47 @@ async function layerI() {
       check("...and says nothing about whom when nobody has been translated, so no golden moves",
         !/and to no one else/.test(none) && !/are literal/.test(none),
         "every fixture is in this state; a clause here would move three goldens");
+
+      // THE OTHER HALF, and the reason the reading rule is not enough on its own.
+      // Live, 2026-10-20: a chaebol cast restaged five of five - so the rule above
+      // was correctly absent - and Seulgi still remembered her trainee years and her
+      // dance practice, none of which was in the prompt. That is the model's own
+      // knowledge of the real person, and a restaged profile cannot reach it. So the
+      // statement that nobody here is an idol is a fact about the WORLD and must not
+      // depend on who was restaged: all three states carry it.
+      const NOT_IDOLS = /NO ONE IN THIS CAST IS AN IDOL/;
+      check("the not-an-idol rule stays when every member has been restaged",
+        NOT_IDOLS.test(all) && NOT_IDOLS.test(some) && NOT_IDOLS.test(none),
+        "a fully restaged cast is the one case the reading rule leaves silent");
+      check("...and tells the model not to complete a member from her real namesake",
+        /real performers/.test(all) && /Never draw on anything you know/.test(all),
+        "the defect it exists for is knowledge the prompt never supplied");
+      // ONE list, stated once. Before this split the enumeration lived in the reading
+      // rule; if both carried it, a rank added to one would be a rank the other
+      // treats as unconstrained.
+      check("...and the rank list is stated once, not in both rules",
+        (all.match(/performing group such as/g) || []).length === 1
+          && (none.match(/performing group such as/g) || []).length === 1,
+        "two copies of one list is how they come to disagree");
+    }
+    {
+      const placement = [];
+      for (const [id, byLang] of Object.entries(allWorlds)) {
+        const w = byLang.en;
+        if (!w) continue;
+        const roster = loader.buildClassicRoster("red_velvet", "irene", ["seulgi"],
+          members.map((m) => m.id));
+        const cast = await fromDisk(() => loader.resolveRoster(roster, "en", w));
+        const restaged = cast.members.map((m) => ({ ...m, world_position: "restaged" }));
+        const pr = buildSystemPrompt(form({ identity: w.identities[0].id }), restaged,
+          "irene", ["seulgi"], cast.groupConfig, "", "qwen", "en", w);
+        const head = pr.slice(pr.indexOf("CRITICAL: \u2605"), pr.indexOf("\n  Age: "));
+        const wants = w.castLore.useRole === false;
+        if (/NO ONE IN THIS CAST IS AN IDOL/.test(pr) !== wants) placement.push(id + ": wrong side");
+        else if (wants && !/NO ONE IN THIS CAST IS AN IDOL/.test(head)) placement.push(id + ": after the profiles");
+      }
+      check("...in every non-idol world and no idol one, before the profiles",
+        placement.length === 0, placement.join(" | "));
     }
   }
 
@@ -4745,7 +5465,13 @@ async function layerI() {
     const overrideFor = (identity) => {
       const pr = buildSystemPrompt(form({ identity }), campusCast.members, "irene", ["seulgi"],
         campusCast.groupConfig, "", "qwen", "en", campusWorld);
-      return pr.split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+      return pr.split(String.fromCharCode(10)).find((l) => l.startsWith("Title:")) || "";
+    };
+    // ...and the ladders it decides, which is where a backwards title would show.
+    const campusLadder = (identity, dir) => {
+      const pr = buildSystemPrompt(form({ identity }), campusCast.members, "irene", ["seulgi"],
+        campusCast.groupConfig, "", "qwen", "en", campusWorld);
+      return pr.split(String.fromCharCode(10)).filter((l) => l.trim().startsWith(dir)).join(" | ");
     };
     // In a ko world file `form` is already Hangul, so the gloss would translate a
     // word into itself: `"선배님" (선배님)`. Invisible in zh and en, which is
@@ -4754,18 +5480,23 @@ async function layerI() {
     const koOverride = buildSystemPrompt(
       form({ identity: "junior_student", name: "Nari" }), campusCast.members, "irene", ["seulgi"],
       campusCast.groupConfig, "", "qwen", "ko", koCampus)
-      .split(String.fromCharCode(10)).find((l) => l.startsWith("Work override:")) || "";
+      .split(String.fromCharCode(10)).find((l) => l.startsWith("Title:")) || "";
     check("[campus/ko] a work title whose gloss would repeat it is printed once",
       koOverride.includes('"선배님"')
         && !koOverride.includes('"선배님" (선배님)'),
       koOverride);
-    check("[campus] a title pointed at the player relaxes toward HER name",
-      /she addresses Summer as .*relaxing toward "Summer"/.test(overrideFor("prof_of_cast")),
-      overrideFor("prof_of_cast"));
-    check("[campus] a title pointed at the cast relaxes toward the MEMBER name",
-      /Summer also uses .* for them/.test(overrideFor("junior_student"))
-        && /relaxing toward a member.s plain name/.test(overrideFor("junior_student")),
-      overrideFor("junior_student"));
+    // A non-idol world: the ladder calls her by her GIVEN name, and the title sits
+    // on the junior's side - the cast's side for a cafe owner, hers for a junior.
+    check("[campus] a title pointed at the player opens the members' ladders, on given names",
+      /they address Summer as "sajang-nim"/.test(overrideFor("prof_of_cast"))
+        && /Address, she -> Summer: R1 "sajang-nim"/.test(campusLadder("prof_of_cast", "Address, she ->"))
+        && /Address, Summer -> her: R1 "Ju-hyun-ssi"/.test(campusLadder("prof_of_cast", "Address, Summer ->")),
+      campusLadder("prof_of_cast", "Address, ").slice(0, 240));
+    check("[campus] a title pointed at the cast opens the player's ladders",
+      /^Title: Summer .*, so Summer uses "sunbae-nim" \(선배님\) for them on campus\.$/.test(overrideFor("junior_student"))
+        && /Address, Summer -> her: R1 "sunbae-nim"[^|]*\| R2 [^|]*"Ju-hyun-unnie" in private/.test(campusLadder("junior_student", "Address, Summer ->"))
+        && !/sunbae-nim/.test(campusLadder("junior_student", "Address, she ->")),
+      campusLadder("junior_student", "Address, ").slice(0, 240));
     check("[campus] ...and both are set on campus rather than on the job",
       /on campus/.test(overrideFor("prof_of_cast"))
         && /on campus/.test(overrideFor("junior_student"))
@@ -4835,6 +5566,21 @@ async function layerI() {
     check(`[${lang}] a place renders as emoji and name, and nothing else`,
       drawTags.length > 0 && worlds[lang].places.every((x) => pl.includes(`\n${x.emoji} ${x.name}\n`)),
       worlds[lang].places.filter((x) => !pl.includes(`\n${x.emoji} ${x.name}\n`)).map((x) => x.id).join(", "));
+  }
+  // The data guard above ("ships no place descriptions") stops a blurb coming back
+  // in a world file; this stops the READER coming back. With no data on disk the
+  // check above cannot tell a deleted reader from a live one, so it is fed one.
+  {
+    const SENTINEL = "PLACE_DESC_SENTINEL_0610";
+    const w = worldFor.zh;
+    const withDesc = { ...w, places: w.places.map((pl, i) => (i === 0 ? { ...pl, desc: SENTINEL } : pl)) };
+    const pd = buildSystemPrompt(form(), members, "irene", ["yeri"], GROUP, "", "qwen", "zh", withDesc);
+    check("a place description is not rendered even when a world carries one",
+      !pd.includes(SENTINEL), "section 11 renders place.desc again; see the 2026-10-01 translationese entry");
+    const mapSrc = readFileSync(join(ROOT, "src/platforms/MapOverlay.jsx"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    check("...and the map picker reads no place description either",
+      !/\.desc\b/.test(mapSrc), "MapOverlay reads p.desc again");
   }
 
   // The section numbers are load-bearing: the prompt refers to its own sections by
@@ -5279,6 +6025,29 @@ async function layerI() {
     try { parseW(broken); } catch (e) { msg = e.message; }
     check(`parseWorld rejects a world missing "${key}"`,
       msg !== null && msg.includes(key), msg || "parsed without complaint");
+  }
+  // A world's chapter texture is keyed by chapter id (v1.4.4 P2). A world missing
+  // one would render `In this world: undefined` in section 3, so it is refused.
+  {
+    const { CHAPTER_IDS } = await import(pathToFileURL(join(ROOT, "src/config/chapters.js")).href);
+    const unrefused = CHAPTER_IDS.filter((id) => {
+      const broken = { ...good, phases: { ...good.phases } };
+      delete broken.phases[id];
+      try { parseW(broken); return true; } catch (e) { return !e.message.includes(id); }
+    });
+    check("parseWorld rejects a world missing any one chapter's texture",
+      unrefused.length === 0, unrefused.join(", ") + " parsed without complaint");
+  }
+  // Typical events were removed in v1.4.4 ("P3 removed"). A world file that brings
+  // the field back would be data with no reader, so the loader refuses it.
+  {
+    let refused = false;
+    try { parseW({ ...good, identities: good.identities.map((i, n) => (n === 0 ? { ...i, events: [{ from: 0, text: "x" }] } : i)) }); }
+    catch (e) { refused = /events/.test(e.message); }
+    let goodParses = true;
+    try { parseW(good); } catch { goodParses = false; }
+    check("parseWorld refuses an identity carrying typical events, and parses one without",
+      refused && goodParses, `refused: ${refused}; plain world parsed: ${goodParses}`);
   }
   // The Setup field's three strings, v1.4.1 step 3. `orgSuffix` MAY be empty - a
   // university's name is already the university - so it is rejected for not being
@@ -6142,12 +6911,12 @@ async function layerI() {
     const p5 = promptOf(f);
     const lines = p5.slice(p5.indexOf("5. MEMBER PROFILES")).split("\n");
     const i = lines.findIndex((l) => l.includes("Sana("));
-    const j = lines.slice(i, i + 14).findIndex((l) => l.startsWith("  Address: "));
-    return i === -1 || j === -1 ? "" : lines[i + j];
+    const j = lines.slice(i, i + 14).findIndex((l) => l.startsWith("  Address, "));
+    return i === -1 || j === -1 ? "" : `${lines[i + j]} / ${lines[i + j + 1]}`;
   };
   check("...and flips the honorific direction it decides",
     /Sana-unnie/.test(sanaAt(migrated.form))
-      && !/-unnie/.test(sanaAt(corrected)) && /plain given name/.test(sanaAt(corrected)),
+      && !/-unnie/.test(sanaAt(corrected)) && /Neither ever calls the other "unnie"/.test(sanaAt(corrected)),
     `${sanaAt(migrated.form)} -> ${sanaAt(corrected)}`);
   // Everything that is not seniority must stay byte-identical, or correcting a
   // year silently rewrites the run's premise as well as its honorifics.
@@ -6159,7 +6928,7 @@ async function layerI() {
   // and a check that cannot fail is not a check — the fixture's own identity is
   // one of those, which is why the form is overridden here.
   const stripAges = (s) => s.split("\n")
-    .filter((l) => !/^ {2}(Age|Address): /.test(l)).join("\n")
+    .filter((l) => !/^ {2}(Age|Address)\b/.test(l)).join("\n")
     .replace(/age \d+, born \d{4}/, "");
   const exForm = { ...migrated.form, identity: "主线成员前女友" };
   check("...and moves nothing else in the prompt, backstory included",
@@ -6874,6 +7643,64 @@ async function layerI() {
     check("...and names each rank in the scripts the game actually writes in",
       missing.length === 0,
       "an English-only list is followed and still broken: " + missing.join(" "));
+
+    // THE PLAYER'S POSITION. Live, 2026-10-20: a campus player who OWNS the cafe got
+    // a cast in which Joy was restaged as a campus cafe barista - a member staffing
+    // the player's own business. The restaging prompt never said who the player was.
+    if (w) {
+      const two = [
+        { id: "a", name: "Joy", birthday: "1996-09-03", public_image: "the maknae" },
+        { id: "b", name: "Yeri", birthday: "1999-03-05", public_image: "the youngest" },
+      ];
+      const ROLE = "Owner of the campus cafe";
+      const castP = cg.buildCastDetailPrompt(two, w, "en", null, ROLE);
+      const oneP = cg.buildWorldDetailPrompt(two[0], w, "en", two, ROLE);
+      check("the restaging prompts carry the player's position and keep every member out of it",
+        [castP, oneP].every((p) => p.includes(ROLE) && /hers alone/.test(p) && /nobody in the cast is its\s+staff/.test(p)),
+        "a member cast into the player's own job is a premise nobody can play");
+      check("...and render nothing about her when there is no position to give",
+        !/ONE CHECK BEFORE YOU ANSWER/.test(cg.buildCastDetailPrompt(two, w, "en"))
+          && !/ONE CHECK BEFORE YOU ANSWER/.test(cg.buildWorldDetailPrompt(two[0], w, "en", two)),
+        "an empty 'position:' line is a blank the model fills");
+      // A CONSTRAINT, NOT A FRAME - measured. Placed after the setting with no
+      // disclaimer, a new-employee player turned a chaebol family into its staff
+      // (board secretary 3 of 5 runs, against 0 of 5 with the role withheld). So
+      // the block must say her position describes nobody else, come AFTER the law,
+      // and keep her out of the fields (a ko run wrote "not at your cafe" into one).
+      check("...as a constraint that frames nobody: after the law, disclaiming the cast, and out of the fields",
+        [castP, oneP].every((p) => p.indexOf("ONE CHECK BEFORE YOU ANSWER") > p.indexOf("KEEP WHO SHE IS")
+          && /says nothing about what the\s+cast are/.test(p) && /Mention her in none of the fields/.test(p)),
+        "a player position read before the cast is written becomes the cast's frame");
+    }
+    // COUNTED, not sampled: every call that restages - the Start sweep, the editor,
+    // the sweep's own fallback pass, and the harness that mirrors the sweep - must
+    // hand the position on. One of four is the extractStoryText failure.
+    {
+      const files = [];
+      const walk = (dir) => {
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+          const p = join(dir, e.name);
+          if (e.isDirectory()) walk(p);
+          else if (/\.(js|jsx)$/.test(e.name)) files.push(p);
+        }
+      };
+      walk(join(ROOT, "src"));
+      files.push(join(ROOT, "test", "playthrough.mjs"));
+      const calls = [];
+      for (const f of files) {
+        const code = readFileSync(f, "utf8");
+        const re = /generate(?:Cast|World)Detail\(\{/g;
+        let m;
+        while ((m = re.exec(code))) {
+          const body = code.slice(m.index, code.indexOf("})", m.index));
+          calls.push({ f: f.slice(ROOT.length + 1), ok: /playerRole/.test(body) });
+        }
+      }
+      const without = calls.filter((c) => !c.ok).map((c) => c.f);
+      check("every restaging call site passes the player's position",
+        calls.length >= 4 && without.length === 0,
+        calls.length + " call sites; missing in: " + without.join(", "));
+    }
   }
   // ---------------------------------------- the cast block, and why it exists
   //
@@ -7513,10 +8340,15 @@ async function layerI() {
   // a 34px chip in a two-button row whose other button WIPES THE CAST. A
   // destructive control and the best thing on the screen should not be the same
   // shape. Reported from hand play, 2026-09-29.
-  const imagesAt = builderSrc.indexOf("onClick={() => setShowImages(true)}");
-  const imagesBtn = builderSrc.slice(imagesAt, builderSrc.indexOf("</button>", imagesAt));
+  // The card is ONE definition since the classic door gained it too
+  // (CastImagesCard in CastImageSheet.jsx), so its shape is read there and the
+  // builder is asserted to render it.
+  const imgSheetSrc = readFileSync(join(ROOT, "src/platforms/CastImageSheet.jsx"), "utf8");
+  const cardAt = imgSheetSrc.indexOf("export function CastImagesCard");
+  const cardDef = cardAt < 0 ? "" : imgSheetSrc.slice(cardAt, imgSheetSrc.indexOf("</button>", cardAt));
+  const imagesAt = builderSrc.indexOf("<CastImagesCard");
   check("the cast-images entry is a full-width card, like the main-member slot",
-    /width: "100%"/.test(imagesBtn) && /minHeight: 62/.test(imagesBtn),
+    imagesAt >= 0 && /width: "100%"/.test(cardDef) && /minHeight: 62/.test(cardDef),
     "the main-member slot is the size this screen uses for `the thing to tap`");
   // The two used to be siblings in one flex row, which is what made the bigger-
   // looking half the one that wipes the cast. The card closes before the row
@@ -7524,7 +8356,7 @@ async function layerI() {
   // read on its own looks fine.
   const betweenBtns = builderSrc.slice(imagesAt, builderSrc.indexOf("{c.clearCast}"));
   check("...and it no longer shares a row with the control that wipes the cast",
-    /<\/button>[\s\S]*<div style=\{\{ display: "flex"[\s\S]*<button/.test(betweenBtns),
+    /^<CastImagesCard[\s\S]*?\/>\s*<div style=\{\{ display: "flex"[\s\S]*<button/.test(betweenBtns),
     "a mis-tap between adjacent targets was what made the previous builder unusable");
   // A number the player can see beats a cap that only speaks when it refuses -
   // which the save slots and the member palette each cost a bug to learn.
@@ -7537,8 +8369,55 @@ async function layerI() {
   check("...and it says how many of the members who CAN show a face have one",
     /facedIds = roster\.entries\.filter\(\(e\) => e\.slot !== "npc"\)/.test(builderSrc)
       && /const withPhoto = facedIds\.filter/.test(builderSrc)
-      && /castCount\?\.\(withPhoto, facedIds\.length\)/.test(builderSrc),
+      && /withPhoto=\{withPhoto\} total=\{facedIds\.length\}/.test(builderSrc)
+      && /castCount\?\.\(withPhoto, total\)/.test(cardDef),
     "an NPC has no surface that draws her, so counting her is counting nothing");
+
+  // THE CLASSIC DOOR GIVES FACES TOO (Yuhan's design, 2026-10-20): the same card
+  // on the one-page setup, below the identities, for the main and subs chosen -
+  // and nothing else from the builder. Asserted on the setup branch's own slice,
+  // so a card rendered on some other page does not satisfy it.
+  {
+    const appS = readFileSync(join(ROOT, "src/App.jsx"), "utf8");
+    const setupAt = appS.indexOf('if (phase === "setup") {');
+    const setupEnd = appS.indexOf("// ── Game Main Screen ──", setupAt);
+    const setupSrc = setupAt < 0 ? "" : appS.slice(setupAt, setupEnd);
+    const gridAt = setupSrc.indexOf("{renderIdentityGrid()}");
+    const cardAtApp = setupSrc.indexOf("<CastImagesCard");
+    // Gated on the main member and nothing else: presence alone passed against a
+    // card wrapped in `{false && (...)}`, which is written and never reachable.
+    check("the classic door's setup page offers the cast-images card, below the identities",
+      gridAt >= 0 && cardAtApp > gridAt && /<CastImageSheet/.test(setupSrc)
+        && /\{form\.mainMember && \(\s*<CastImagesCard/.test(setupSrc),
+      "a prebuilt group's player had no way to give her cast faces");
+    // Main and subs, never an NPC - the builder's rule, for the builder's reason.
+    // Derived from what the rows are built from: form.mainMember and
+    // form.subMembers, and nothing that lists the whole group.
+    check("...offering the main and the subs she chose, and no NPC",
+      /const classicFaced = \[form\.mainMember, \.\.\.\(form\.subMembers \|\| \[\]\)\]/.test(setupSrc)
+        && /rows=\{classicFaced\.map/.test(setupSrc)
+        && /total=\{classicFaced\.length\}/.test(setupSrc),
+      "an NPC's photo has no reader in the running game and still spends a capped slot");
+    // ONE WRITER SEQUENCE. Two screens now write the stores, and the refuse /
+    // save / notify sequence around putPhoto lives once, in useCastImages.
+    // Derived over src/: no other file may call putPhoto, so a third screen
+    // cannot grow a copy.
+    const strip = (src) => src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const putters = [];
+    const walkPut = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { walkPut(p); continue; }
+        if (!/\.(js|jsx)$/.test(e.name) || /imageStore\.js$/.test(e.name)) continue;
+        if (/\bputPhoto\(/.test(strip(readFileSync(p, "utf8")))) putters.push(e.name);
+      }
+    };
+    walkPut(join(ROOT, "src"));
+    check("the photo stores have ONE writer sequence, and both doors use it",
+      putters.length === 1 && putters[0] === "useCastImages.js"
+        && /useCastImages\(/.test(builderSrc) && /useCastImages\(/.test(appS),
+      `putPhoto called from: ${putters.join(", ") || "nowhere"}`);
+  }
   check("...and the sheet it opens offers an upload for exactly those members",
     /rows=\{facedIds\.map/.test(builderSrc),
     "a row offering something no screen can ever show");
@@ -8135,8 +9014,8 @@ async function layerI() {
   // line from the delete path left the guard green. That is this file's own
   // "count the call sites, do not test presence" rule, failed by its own guard.
   check("deleting a custom member drops her photo and her wallpaper",
-    /if \(photos\[id\]\) \{[^}]*removePhoto\(photos, id\)/.test(builderSrc)
-      && /if \(walls\[id\]\) \{[^}]*removePhoto\(walls, id\)/.test(builderSrc),
+    /if \(photos\[id\]\) setPhotoFor\(id, null\)/.test(builderSrc)
+      && /if \(walls\[id\]\) setWallFor\(id, null\)/.test(builderSrc),
     "her wallpaper outlives her otherwise, in a store capped at 8");
   // Comments stripped first: this guard is about what the builder DOES, and the
   // source carries a comment naming the call precisely so nobody puts it back.
@@ -9254,6 +10133,19 @@ async function layerL() {
   // The narrowing is scoped to a BARE name, so the bug it was built for survives: a
   // real name used to address someone stays a violation however the narration
   // describes it.
+  // SEVENTH, live 2026-10-20 in en, verbatim: she names herself and the NEXT LINE
+  // of her own speech says so. The counter-case is the bug this grader exists for,
+  // split by an attribution the same way: it must still fire.
+  const enCast = { members: [{ id: "irene", name: "Irene", name_kr: "Bae Ju-hyun" }] };
+  const enSelfIntro = "When you slid the cup toward her, she wrapped both hands around it.\n\n"
+    + "\"Bae Ju-hyun,\" she said, after the first sip. \"Everyone calls me Irene. I teach the "
+    + "intro seminar in the humanities building, so I'll be in here more than you'd like.\"";
+  check("...nor a member naming herself when her next line says it is her name",
+    none(g.selfNameErrors(enSelfIntro, enCast)),
+    JSON.stringify(g.selfNameErrors(enSelfIntro, enCast)));
+  check("...while the same shape carrying a message is still flagged",
+    g.selfNameErrors("\"Bae Ju-hyun,\" she said. \"Thanks for the coffee.\"", enCast).length > 0,
+    "an attribution splitting a vocative from its message must not buy the exemption");
   check("...and the narrowing does not excuse a name with a message attached",
     g.selfNameErrors("“裴珠泫，你听我说。”她说，用的是自己的名字。", cast).length > 0,
     "a span carrying a message is a vocative whatever the attribution claims");
@@ -9937,6 +10829,7 @@ async function layerL() {
   await layerA(mod, MODEL_CONFIGS, ALIYUN_PAID_MODELS, cfg);
   await layerB(mod.callLLM, MODEL_CONFIGS, mod);
   layerC();
+  layerZhReview();
   await layerD();
   layerE(mod);
   await layerEi18n();

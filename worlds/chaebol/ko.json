@@ -10,7 +10,7 @@
     "name": "한국",
     "register": "korea"
   },
-  "setting": "이야기는 현대 서울의 재벌 세계를 배경으로 한다. 본가의 응접실, 이사회, 개인 갤러리, 호텔 연회장, 그리고 기사가 늘 문밖에서 기다리는 차가 하루를 이룬다. 여기서는 아무도 해고되지 않고 아무도 출근을 찍지 않는다 — 제약은 성(姓)에서 온다. 혼사, 지분, 이번 분기에 두 회사가 같이 일하는지 맞붙는지. 연애는 금지되어 있지 않지만 이들의 혼사가 이들만의 것이었던 적은 없고, 찍힌 것은 무엇이든 다음 날 아침 경제면의 한 줄이 된다.",
+  "setting": "이야기는 평행세계 현대 서울의 재벌가 사교계를 배경으로 한다. 일상은 기업 간 경쟁, 지분, 정략결혼, 재벌 가문들 사이의 합종연횡을 중심으로 돌아간다. 연애와 재벌가의 비즈니스 전쟁, 그리고 사진 한 장이면 경제면 헤드라인에 오르는 열애설이 이 이야기의 긴장이 사는 자리다.",
   "tone": "slow-burn, family obligation, reputational stakes",
   "statNotes": {
     "selfId": "Rises when she chooses something her family would not have chosen for her, in front of someone who will report it. Falls when she performs the daughter the name requires.",
@@ -27,17 +27,19 @@
     "useRole": false,
     "orgSuffix": "Group",
     "orgNoun": "가문 기업",
-    "orgHint": "이 멤버들은 한 사교 범위 안의 서로 다른 가문 후계자들입니다. 중심 가문 기업: {org}",
+    "orgHint": "이 멤버들은 한 재벌 가문이며, 메인 멤버의 성이 가문의 성입니다. 가문 기업: {org}",
     "composed": [
       "[{name} Background]",
-      "{name} is the circle these {n} women move in: each of them an heir of a different chaebol house.",
-      "{org} is the largest of those houses and the one the others orbit. {name} exists only in this story. These {n} have known each other since childhood - the same schools, the same weddings, the same board dinners - and their families do business with and against each other constantly. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
+      "These {n} women are one chaebol family, and {org} is the family's company. {name} exists only in this story.",
+      "The family name is {family}. A member who carries that surname is a daughter of the house; a member with any other surname is a cousin, the child of one of the house's daughters, and belongs to the family just as fully.",
+      "They grew up inside it together - the same schools, the same weddings, the same board dinners - and each of them holds a seat in the family and in the company that the others can see. Rival houses exist around them and do business with and against them constantly, but no member of this cast belongs to another house. Whatever groups these members belong to outside this story are not part of this world and must never be mentioned.",
       "ONLY the members listed in MEMBER PROFILES are named people in this story. Everyone else is unnamed - a driver, a house staff member, an executive, a reporter - and no other name may be used, not even in passing or over a phone."
     ],
     "subset": [
       "[{label} Background]",
       "The cast of this story is {members}.",
-      "In this world they are heirs of chaebol houses who have known each other since childhood. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "In this world they are one chaebol family who grew up inside it together. Nothing about their lives outside this story - a group, an agency, a discography, a fandom - exists here or may be mentioned.",
+      "The family name is {family}. A member who carries that surname is a daughter of the house; a member with any other surname is a cousin, the child of one of the house's daughters, and belongs to the family just as fully.",
       "ONLY these members of {label} exist in this story. No other member of {label} appears, and none may be named or referred to."
     ]
   },
@@ -46,91 +48,75 @@
     {
       "id": "rival_heiress",
       "name": "경쟁 가문 후계자",
-      "background": "[신분: 경쟁 가문 후계자] 당신은 다른 재벌 가문의 딸이고, 당신 집안과 {name}의 집안은 같은 업종에서 정면으로 경쟁합니다. 주요 이벤트: 같은 연회에서 나란히 배치되어 무슨 말을 하는지 온 자리가 지켜봄; 두 집안이 같은 사업에 입찰해 회의실 맞은편에서 그녀를 봄; 기자가 그 집안에 대한 평을 묻자 아무 내용도 없는 답을 함; 파한 뒤 주차장에서 기다리던 그녀가 묻는 건 사업이 아님. 장점: 대등한 위치 — 이 범위에서 그녀를 올려다보지 않아도 되는 몇 안 되는 사람. 단점: 두 사람의 모든 접촉이 먼저 상업적 수로 읽히며, 진심인 것들도 예외가 아님. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 당신은 이 자리에 새로 온 사람입니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 그녀에게 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
+      "background": "[신분: 경쟁 가문 후계자] 당신은 다른 재벌 가문의 딸이고, 당신 집안과 {name}의 집안은 같은 업종에서 정면으로 경쟁합니다. 장점: 대등한 위치 — 이 범위에서 그녀를 올려다보지 않아도 되는 몇 안 되는 사람. 단점: 두 사람의 모든 교류가 먼저 비즈니스 행위로 받아들여지며, 진심인 것들도 예외가 아님. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
     },
     {
       "id": "heiress_fallen",
       "name": "몰락한 집안의 딸",
-      "background": "[신분: 몰락한 집안의 딸] 당신의 집안도 한때 이 안에 있었고, 몇 년 전 전부를 잃었습니다. 당신은 여전히 이 사람들 사이에 남아 있지만 위치는 예전과 다릅니다. 주요 이벤트: 연회에서 누군가 당신의 성을 기억하는데 말투에 동정이 섞여 있음; 두 시즌 지난 옷을 입은 당신에게 그녀는 아무 말도 하지 않고 조금 더 가까이 서 있음; 누가 면전에서 집안 일을 꺼내자 그녀가 화제를 돌림; 일자리가 필요한데 줄 수 있는 사람이 맞은편에 앉아 있음. 장점: 안에 있어 봤기에 이 범위의 규칙을 누구보다 잘 앎. 단점: 지금 당신의 위치를 모두가 기억하고 당신도 기억하므로, 그녀가 주는 무엇이든 시혜처럼 보임. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 당신은 이 자리에 새로 온 사람입니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 그녀에게 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
+      "background": "[신분: 몰락한 집안의 딸] 당신의 집안도 한때 이 재벌가 사교계에 있었고, 몇 년 전 전부를 잃었습니다. 지금도 사교계의 자리에 나서야 하지만 위치는 예전과 다릅니다. 장점: 당신도 한때 그 안에 있었기에 이 범위의 규칙을 누구보다 잘 앎. 단점: 지금 당신의 위치를 모두가 알고 당신도 알고 있으므로, 그녀가 주는 무엇이든 시혜처럼 보임. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
     },
     {
       "id": "lawyer",
-      "name": "가문 법률고문",
-      "background": "[신분: 가문 법률고문] 당신은 {name} 집안의 법률고문으로 상속과 지분, 그리고 법정에 가서는 안 되는 일들을 다룹니다. 주요 이벤트: 그녀의 서명이 필요한 서류가 있는데 서명이 무엇을 약속하는지 당신은 앎; 다음 날 신문에 실리면 안 되는 일로 한밤중에 본가로 불려감; 가정적인 법률 질문을 하는데 가정이 아니라는 게 들림; 집안이 혼전 계약서 초안을 요구하는데 당사자가 그녀임. 장점: 이 집안의 모든 비밀을 알고 있고, 지켜야 할 의무도 있음. 단점: 당신은 집안을 위해 일하지 그녀를 위해 일하지 않으며, 둘이 충돌할 때 어느 편인지는 계약서에 적혀 있음. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 당신은 이 자리에 새로 온 사람입니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 그녀에게 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다.",
+      "name": "신입 사원",
+      "background": "[신분: 신입 사원] 당신은 {name}의 가문 기업에 막 입사한 신입 사원으로, 말단 직장인으로서 온갖 업무의 어려움을 마주하고 있습니다. 장점: 업무 속 자연스러운 접촉. 단점: 신분 격차, 일과 감정의 경계. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다.",
       "workTitle": {
-        "form": "변호사님",
-        "kr": "변호사님"
+        "form": "대표님",
+        "kr": "대표님",
+        "direction": "to_cast",
+        "because": "is a new entry-level employee at the main member's family company, where every member of the family is one of its executives and she is expected to defer to them"
       }
     },
     {
       "id": "secretary",
       "name": "실장",
-      "background": "[신분: 실장] 당신은 {name}의 집안에서 일하는 수행 비서입니다 — 그녀의 일정, 동선, 누구를 만나고 만나지 않는지가 전부 당신을 거칩니다. 주요 이벤트: 다음 주 그녀가 만날 선 상대를 본인보다 먼저 알고 있음; 늦은 차 안에 둘만 있고, 백미러로 그녀가 표정을 내려놓는 걸 봄; 집안이 그녀의 행선지를 보고하라 하는데 올린 보고에는 한 대목이 비어 있음; 오늘 밤은 적지 않아도 된다는 말을 듣고도 기억함. 장점: 그녀에게 가장 가까운 사람이고, 입 밖에 내지 않는 것까지 알 만큼 가까움. 단점: 급여를 주는 쪽이 그녀의 집안이라, 충성의 절반은 만나기 전부터 팔려 있었음. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 당신은 이 자리에 새로 온 사람입니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 그녀에게 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다.",
+      "background": "[신분: 실장] 당신은 {name}의 가문에서 새로 그녀를 맡게 된 수행 비서로, 그녀의 일정을 관리하고 곁에서 챙깁니다. 장점: 그녀의 사적인 진짜 모습을 볼 수 있음. 단점: 신분 격차, 업무와 감정의 경계. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다.",
       "workTitle": {
-        "form": "실장님",
-        "kr": "실장님",
-        "direction": "to_cast",
-        "because": "works for the main member's house and every member of the circle outranks her inside it"
+        "form": "실장",
+        "kr": "실장"
       }
     },
     {
       "id": "bodyguard",
-      "name": "수행 경호원",
-      "background": "[신분: 수행 경호원] 당신은 {name}의 경호를 맡고 있습니다. 하루 종일, 거의 매일, 그녀의 두 걸음 뒤에 서 있습니다. 주요 이벤트: 연회에서 누가 너무 가까이 오자 반걸음 나서는데 그녀가 팔을 눌러 세움; 기자들이 입구를 막아 길을 트는 동안 그녀는 뒤에서 아무 말도 하지 않음; 일정을 빠져나가 혼자 나간 그녀를 찾아낸 사람이 당신이고, 보고하지 않음; 새벽에 데려다주는 길에 피곤하지 않냐고 묻는데, 그렇게 물어본 사람은 처음임. 장점: 물리적으로 가장 가깝고, 그녀의 거의 모든 시간에 함께 있음. 단점: 여기서 아무런 사회적 위치가 없음 — 당신은 그녀에게 존댓말을 쓰고 아무도 당신에게 쓰지 않으며, 지키는 것은 허락되고 아는 것은 허락되지 않음. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 당신은 이 자리에 새로 온 사람입니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 그녀에게 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
+      "name": "밀착 경호원",
+      "background": "[신분: 밀착 경호원] 당신은 {name}의 새 밀착 경호원으로, 그녀의 안전을 책임지며 한 걸음도 곁을 떠나지 않습니다. 장점: 물리적으로 가장 가깝고, 거의 한 걸음도 떨어지지 않음. 단점: 신분 격차, 업무와 감정의 경계. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
     },
     {
       "id": "journalist",
       "name": "기자",
-      "background": "[신분: 기자] 당신은 이 집안을 취재하는 기자입니다. 그녀에게 접근한 건 기사 때문이었습니다 — 적어도 처음에는. 주요 이벤트: 다른 이름으로 연회에 들어가는데 그녀는 당신이 이곳 사람이 아니라는 걸 한눈에 앎; 그 집안을, 그리고 그녀까지 무너뜨릴 수 있는 자료를 입수함; 당신이 누구인지 알고도 경호를 부르지 않고 앉아서 뭘 알고 싶냐고 물음; 마감이 가까워질수록 자신이 쓴 문장을 지우기 시작함. 장점: 이 범위 밖에 있고 빚진 것도 없어서, 아무도 못 하는 질문을 할 수 있음. 단점: 두 사람 관계의 출발점이 속임수였고, 뒤에 무엇이 되든 그 페이지는 남아 있음. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 당신은 이 자리에 새로 온 사람입니다 - 갓 부임했거나, 갓 입학했거나, 막 인수받았거나, 막 그녀에게 소개받았습니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
+      "background": "[신분: 기자] 당신은 이 집안을 취재하라는 일을 막 맡은 기자입니다. 그녀에게 접근한 건 폭로 기사 때문이었습니다 — 적어도 처음에는. 장점: 재벌가 사람이 아니라서, 아무도 못 하는 질문을 할 수 있음. 단점: 두 사람 관계의 출발점이 속임수였고, 뒤에 무엇이 되든 그것은 마음속에 묻힌 매듭으로 남음. [첫 만남] 이야기는 두 사람이 처음 만나는 순간에서 시작합니다. 1라운드 전까지 당신과 {name}은/는 제대로 만난 적이 없고, 이름을 들어 봤거나 얼굴을 스친 정도입니다. 그래서 이 관계는 0에서 시작합니다: 1라운드는 처음 마주쳤을 때의 거리감과 탐색으로 쓰고, 그 뒤로 라운드마다 호감이 조금씩 자라납니다."
     },
     {
       "id": "主线成员前女友",
       "name": "메인 멤버의 전 여자친구",
-      "background": "[특별 신분: 메인 멤버의 전 여자친구]\n- 당신과 {name}은/는 연인이었으며, 몇 년 전 {reason}으로/로 인해 헤어졌습니다\n- 당신은 아직도 {keepsake}을/를 간직하고 있습니다\n- 지금 두 집안의 사업이 다시 두 사람을 같은 방에 놓았습니다: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠\n- 이 범위의 사람들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다",
+      "background": "[특별 신분: 메인 멤버의 전 여자친구]\n- 당신과 {name}은/는 연인이었으며, 몇 년 전 {reason}으로/로 인해 헤어졌습니다\n- 당신은 아직도 {keepsake}을/를 간직하고 있습니다\n- 지금 두 집안의 사업이 다시 두 사람을 만나게 했습니다: 어색함, 복잡한 감정, 하지 못한 말들. 초기에는 의도적으로 거리를 두고, 눈을 마주치지 못하며, 예의 바르지만 거리를 둠\n- 이 범위의 사람들은 당신들의 과거를 알 수도, 모를 수도 있습니다. 게임이 진행되며 재결합할 수도, 각자의 길을 갈 수도 있습니다",
       "variants": {
         "reason": [
-          "무산된 그 합병",
-          "집안이 정해 둔 약혼",
+          "철없던 어린 시절",
+          "집안의 압박",
           "그때의 그 사건",
           "당신 집안의 몰락"
         ],
         "keepsake": [
           "그녀가 준 커프스단추",
-          "연회 명패에 그녀가 고쳐 쓴 이름",
-          "청첩장 뒷면에 그녀가 적은 말",
-          "둘이 함께 빠진 그 만찬의 차표"
+          "그녀가 남긴 쪽지",
+          "그녀가 써 준 편지",
+          "커플 여행 때의 비행기표"
         ]
       }
     }
   ],
   "modes": {
     "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: what is said in front of staff, what is said in the car, what is never said at the table. No rushing into relationship.",
-    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt once their own stage in [Affections] allows it (section 9), never before.",
     "pressure": "[Story Mode: Pressure] Press attention and family obligation higher, secrecy changes doubled. Being seen together carries weight: a photographer outside a hotel, a line in a business column, an engagement someone else has already agreed to.",
     "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
   },
-  "phases": [
-    {
-      "from": 1,
-      "to": 6,
-      "line": "- Phase 1 (Rounds 1-6): First encounters. Dinners and obligations, practised politeness, subtle curiosity. No romantic moves."
-    },
-    {
-      "from": 7,
-      "to": 14,
-      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, conversations in cars, accidental touches, first hints of jealousy."
-    },
-    {
-      "from": 15,
-      "to": 24,
-      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Press interest, an arrangement made on her behalf, what the families owe each other, duty against feelings."
-    },
-    {
-      "from": 25,
-      "to": null,
-      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
-    }
-  ],
+  "phases": {
+    "start": "Dinners and obligations, practised politeness, subtle curiosity. No romantic moves.",
+    "develop": "Growing familiarity, conversations in cars, accidental touches, first hints of jealousy.",
+    "climax": "Press interest, an arrangement made on her behalf, what the families owe each other, duty against feelings.",
+    "resolve": "Exposure risk, possible proposal or separation."
+  },
   "places": [
     {
       "id": "main_house",
@@ -156,7 +142,7 @@
     },
     {
       "id": "members_club",
-      "name": "회원제 클럽",
+      "name": "멤버십 클럽",
       "emoji": "🥃",
       "draws": [
         "social"
@@ -164,8 +150,8 @@
     },
     {
       "id": "greenhouse",
-      "name": "온실",
-      "emoji": "🌿",
+      "name": "가문 기업 사무실",
+      "emoji": "🏢",
       "draws": [
         "quiet"
       ]
@@ -180,8 +166,8 @@
     },
     {
       "id": "back_seat",
-      "name": "차 뒷좌석",
-      "emoji": "🚘",
+      "name": "전용 밴",
+      "emoji": "🚐",
       "draws": []
     },
     {
@@ -216,7 +202,7 @@
     "toCast": "in their circle"
   },
   "castLife": {
-    "theirs": "board dinners, the family calendar, the companies their names are on, the houses they grew up in",
+    "theirs": "board dinners, the family calendar, the family company and their seats in it, the one house they all grew up in",
     "notHers": "no seat at their family's table and no name on any of it",
     "recentBeat": "the dinner she just left",
     "sceneExample": "Drawing room, 11PM",

@@ -12,6 +12,7 @@
 // smoke imports this file RAW under Node - no bundler - and Node needs the extension. Same
 // reason imageStore.js names its own import "../utils.js".
 import { SOCIAL_PLATFORM_IDS, PRIVATE_PLATFORM_IDS } from "../config/platformConfig.js";
+import { CHAPTER_IDS } from "../config/chapters.js";
 
 const base = () => import.meta.env.BASE_URL;
 
@@ -36,7 +37,7 @@ export const MODE_IDS = ["free", "romance", "pressure", "dramatic"];
 // language — the releaseNotes.js lesson, where a hole is invisible until a Korean
 // player opens the game.
 export const PROSE_KEYS = [
-  "length", "style", "openWith", "profileCritical",
+  "length", "style", "openWith", "pov", "profileCritical",
   "socialFreshness", "tone", "sceneRule", "storyRule",
 ];
 
@@ -173,14 +174,22 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
   const { world, country, setting, tone, statNotes, platforms, castLore, useGroupLore,
     identities, modes, phases, places, npcArchetypes, addressContext, castLife } = config;
 
-  for (const [key, value] of [["identities", identities],
-    ["phases", phases], ["places", places]]) {
+  for (const [key, value] of [["identities", identities], ["places", places]]) {
     if (!Array.isArray(value) || value.length === 0) {
       throw new Error(`world ${where}: "${key}" must be a non-empty array`);
     }
   }
   for (const p of places) {
     if (!p?.id || !p?.name) throw new Error(`world ${where}: every place needs an id and a name`);
+  }
+  // A world's texture for each of the four chapters, keyed by chapter id like
+  // `modes` (v1.4.4 P2). It was an array carrying its own from/to - a second copy
+  // of the boundaries getChapterByRound hardcoded, tied to it by nothing. The
+  // boundaries, labels and end beats now live once, in config/chapters.js.
+  for (const id of CHAPTER_IDS) {
+    if (typeof phases?.[id] !== "string" || !phases[id]) {
+      throw new Error(`world ${where}: "phases" is missing "${id}"`);
+    }
   }
   for (const id of MODE_IDS) {
     if (typeof modes?.[id] !== "string" || !modes[id]) {
@@ -307,6 +316,14 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
       throw new Error(`world ${where}: identity "${ident.id}" has workTitle.because with no direction, which nothing renders`);
     }
   }
+  // Typical events were REMOVED in v1.4.4 (docs/V144_PLAN.md, "P3 removed"): a line
+  // in the tail read as a cue and the events bought nothing measurable. A world file
+  // that brings the field back would be data with no reader, so it is refused.
+  for (const ident of identities) {
+    if (ident?.events !== undefined) {
+      throw new Error(`world ${where}: identity "${ident.id}" has "events", which nothing reads (typical events were removed in v1.4.4)`);
+    }
+  }
   // The register is resolved HERE rather than carried in the world file, so
   // `world.addressForms` still exists for buildSystemPrompt while exactly one
   // copy of the table exists on disk.
@@ -384,6 +401,12 @@ export function parseWorld(config, worldId = DEFAULT_WORLD_ID, language = "zh", 
 export const getIdentity = (world, id) =>
   world?.identities?.find((i) => i.id === id) || null;
 
+// The player's position in words: the world's own name for a declared identity, or
+// the text itself for one she typed (formForRound has already swapped "H" for it).
+// A stored id is never shown, because ids are Chinese in every language.
+export const identityName = (world, id) =>
+  getIdentity(world, id)?.name || String(id || "").trim();
+
 // The rule carries its own `[Story Mode: X]` prefix, exactly as the pace rule
 // carried `[Pace: X]`, so the caller adds no label of its own.
 export const getModeRule = (world, id) => world?.modes?.[id] || "";
@@ -458,7 +481,13 @@ export function resolveKoreanParticles(text) {
 export function renderIdentityBackground(world, identityId, mainMemberName, seed = 0) {
   const entry = getIdentity(world, identityId);
   if (!entry?.background) return "";
-  let out = entry.background.replaceAll("{name}", mainMemberName || "her");
+  return renderIdentityText(entry, entry.background, mainMemberName, seed);
+}
+
+// The substitution for identity text: `{name}`, the ex-girlfriend's variants, then
+// Korean particles.
+function renderIdentityText(entry, text, mainMemberName, seed) {
+  let out = text.replaceAll("{name}", mainMemberName || "her");
   const v = entry.variants;
   if (v) {
     if (Array.isArray(v.reason) && v.reason.length > 0) {

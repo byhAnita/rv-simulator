@@ -948,6 +948,159 @@ renumbers the other side.
 
 ---
 
+### A content-hash approval ledger for human-reviewed text — v1.4.3 (unreleased)
+
+**What it is.** Every Chinese string in the data is collected by a script, and a committed ledger
+records a short SHA-256 of each one as Yuhan last saw it, marked `pending` or `approved`. Smoke
+fails when a string's hash is not in the ledger. She edits a Markdown sheet per data file and ticks
+a box per string; `sync` writes ticked text back into the JSON and moves its hash. Nothing else
+moves a hash.
+
+**What it replaced.** A sentence in `CLAUDE.md` and `docs/AGENTS.md`: *no agent adds Chinese prose
+without Yuhan's review*. A rule an agent has to remember is a rule a stand-in agent in a fresh
+context will not see in time, and nothing failed when it was broken - the v1.4.2 translationese
+came from exactly such text sitting in the prompt unnoticed. A PR-style "she reads the diff" does
+not work either: the data is hand-formatted JSON with 500-character strings on one line, and a
+diff of that is not something anyone reviews prose in.
+
+**What it bought.** The rule is a red suite rather than a memory, so it gates `deploy.sh`. The
+property that matters is mutation-verified: an agent that edits the JSON and then runs `sync`
+without a tick stays red, because `sync` only moves hashes for ticked blocks. Each sheet block
+also carries the hash of the text it was generated from - **optimistic concurrency** - so a sheet
+edited against data that has since changed is refused rather than overwriting the newer text.
+Not measured: whether it changes what ships, since the review has not happened yet.
+
+**What it costs.** A second copy of every string's identity (the ledger) that must be pruned when
+a field is deleted - smoke says so. Writing back is a surgical string replacement, because the files
+do not round-trip through `JSON.stringify`; short values repeat (two members whose animal is the
+same word), so the occurrence is chosen by ordinal in document order, and a count that disagrees is
+refused. Provenance comes from `git blame` and is line-level. And it trusts that only Yuhan ticks a
+box: nothing technical stops an agent doing so, which is a rule in `docs/AGENTS.md`.
+
+**Where it lives.** `scripts/zh-review.mjs` (`collectZh`, `locate`, `replaceInRaw`, `sync`),
+`docs/zh-review/` (the sheets and `ledger.json`), smoke `layerZhReview`, workflow in
+`docs/ZH_REVIEW.md`.
+
+**Short form.** Hash every string a human must approve, commit the hashes, and fail the build on
+any string whose hash is not on the list. Let only the human's own action move a hash.
+
+**Two defaults that assumed the human was the only actor (fixed 2026-10-21).** P3 was the first
+time an agent moved approved text. `sync` re-stamped every approved string's date on every run,
+because a regenerated sheet shows them ticked. And on a conflict it kept an unedited block's old
+text as a "draft". Now a tick on a string already approved at that hash is a no-op, and only a
+block whose text no longer hashes to its own base counts as her edit.
+
+---
+
+### Content gated by state, not forbidden by rule — v1.4.4
+
+**What it is.** An identity's typical events used to sit in its static background. Now they are
+data with a stage tag (`events: [{from, text}]`), and the dynamic tail carries only the ones the
+main member's stage has unlocked, as `[Possible events]`. One cached rule in section 6 points at
+that line.
+
+**What it replaced.** The plan's first version was a rule: "do not use an event before its stage".
+That leaves every intimate beat in the prompt from round 1, and a model shown a beat it is told
+not to use yet is primed by it anyway.
+
+**What it bought.** Not measured live yet. Structurally, a beat the model never sees cannot
+leak into round 1. The static prompt also got shorter.
+
+**What it costs.** About 60-150 uncached tail tokens per round, calculated from the event lengths.
+Also a stage tag per event, decided by hand (Yuhan confirmed all 82). The data move needed a
+script with a no-text-lost proof, because hand-splitting 69 backgrounds is how text goes missing.
+
+**Where it lives.** `worldLoader.js#renderIdentityEvents` (shares one substitution with the
+background), `mainAgent.js#buildEventsLine` and `EVENTS_RULE`, `parseWorld`'s validation.
+
+**Short form.** Withhold what the state has not unlocked; don't show it and then forbid it.
+
+**REMOVED on 2026-10-21, and the reason is the useful part.** The gating worked as gating: no
+event reached round 1 early. What it could not fix is that **a line in the dynamic tail reads as
+a cue**. Unlocked by stage, an event was staged the round it unlocked (4 of 4). Offered once with
+a 3-round cooldown, it was staged the round it was offered in 4 of 6 runs, so the events landed
+on a four-round clock. A rule saying "most rounds stage none" did not hold against a line sitting
+at the end of the context. And a three-arm comparison (tail / static / none, 18 runs) found the
+events bought nothing: cross-game sameness was the same in every arm, and the `none` arm still
+had direction from the background and `[Chapter]`. So the content was deleted rather than
+re-gated. The technique stands for content the model *must* eventually use. For optional
+inspiration, the tail is the wrong place, because the position itself is an instruction.
+See `docs/V144_PLAN.md`, *P3b results* and *P3 removed*.
+
+---
+
+### A display heading kept out of the ledger — v1.4.4 P8
+
+**Status: removed from v1.4.4 before release (2026-10-22), with the feature; v1.4.5 rebuilds random
+events from `2be2a65` (`docs/PROPOSALS.md` §15). The reasoning below still holds.**
+
+**What it is.** A random event is shown to the player as its own paragraph under a heading
+(`【随机事件】`). The heading is added to what the screen shows and never to the history the
+model reads back; that keeps the plain story, which already contains the event as prose.
+
+**What it replaced.** The first build stored the screen's text, heading included, in the
+history entry, so the screen, the save and the ledger were one string. Simpler, and the ledger
+could show the model when the last event happened. In the first live check the model copied the
+heading into its own story by round 6, against a RULES line forbidding exactly that, and the
+screen showed it twice.
+
+**What it bought.** 0 duplicated headings in the next 16 live rounds (the first check had 1 in
+8 events). The prohibition was deleted, so the static prompt carries one rule fewer.
+
+**What it costs.** Two texts for one round: the message log carries the heading, the ledger does
+not, so `saveStoryEdit` has to strip it before writing an edit to the ledger (`splitEvent`, the
+same function the validator uses as a backstop). The model also loses an explicit marker of when
+the last event was, which a rate rule could have used; the rate is drawn in code since, so
+nothing needs it (next entry).
+
+**Where it lives.** `withEvent`, `splitEvent`, `normalizeEvent` in `src/agent/mainAgent.js`;
+`saveStoryEdit` in `src/App.jsx`.
+
+**Short form.** Anything added to text for the UI's sake stays out of what is fed back to the
+model: a label in the history is a format it continues, and a rule against it loses.
+
+---
+
+### A frequency drawn in code, not asked of the model — v1.4.4 P8
+
+**Status: removed from v1.4.4 before release (2026-10-22), with the feature; v1.4.5 rebuilds random
+events from `2be2a65` (`docs/PROPOSALS.md` §15). The reasoning below still holds.**
+
+**What it is.** Random events should come on about one round in three (romance, pressure and
+dramatic; pressure and dramatic were one in two until Yuhan lowered them for continuity). Instead of telling the model that rate and trusting it to keep it,
+`executeRound` rolls a die before each call (`drawEvent`) and the tail says, for this round
+only, "this round has one" or "none this round". The model decides what the event is; the code
+decides whether there is one.
+
+**What it replaced.** The first build sent the rate as a sentence (`about one round in two`) and
+let the model choose each round. It overshot in both modes, and when Yuhan asked for the
+obvious fix, a lower number, a live A/B showed the number barely mattered: told "one in four",
+pressure mode still ran 22 events in 33 rounds, 16 of them back to back. The model has no
+counter. It cannot see that the last three rounds had events, and pressure's own mode rule asks
+for scrutiny incidents, which it then labelled as events. A rate is a property of many rounds;
+each call sees one.
+
+**What it bought.** The frequency is the draw's by construction, and the model followed it:
+17 of 17 drawn rounds carried an event, 2 of 49 undrawn ones did. The events also changed kind:
+none of the 19 events in the drawn arm was a member's own gesture, against 5 of 32 in the described arm.
+A yes seems to send the model looking for something that happens to the scene; a rate let it
+relabel a beat it was writing anyway. Measurement: `docs/V144_PLAN.md`, *P8 A/B*.
+
+**What it costs.** The model no longer chooses *when* an event fits, so one can land at a bad
+moment; none of the 17 did in that run, but nobody has read for it on purpose. ↺ Retry draws
+again, so a player can retry an event away (or into existence). `Math.random()` is safe only
+because the line is in the dynamic tail, the always-miss message; the same draw in the static
+prompt would cost the whole cached prefix every round.
+
+**Where it lives.** `EVENT_RATES`, `drawEvent`, `eventLine` and `buildTailRules` in
+`src/agent/mainAgent.js`; the graders `event-not-drawn` and `drawn-event-missing` in
+`test/playthrough.mjs`.
+
+**Short form.** Ask a model for a choice it can make inside one round. A rate, a quota or a
+spacing spans many rounds, so roll it in code and hand the model the outcome.
+
+---
+
 ## To backfill
 
 Not yet written; add when next touched.

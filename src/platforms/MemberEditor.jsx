@@ -77,7 +77,7 @@ const MULTILINE = new Set([
 
 export default function MemberEditor({
   member, isNew = false, language = "zh", theme = "dark", t, fontScale = 1,
-  apiKey, modelId, aliyun, world,
+  apiKey, modelId, aliyun, world, playerRole = "",
   photo, onPhotoChange,
   wall, onWallChange,
   onSave, onCancel, notify,
@@ -242,7 +242,7 @@ export default function MemberEditor({
         const base = { ...next }; delete base[WORLD_DETAIL_KEY];
         if (!String(base.name || "").trim()) { notify?.(c.detailNeedName, "error"); return; }
         const res = await generateWorldDetail({
-          member: base, world, language, apiKey, modelId, aliyun,
+          member: base, world, language, apiKey, modelId, aliyun, playerRole,
         });
         if (!res.ok) {
           // The tab stays exactly as it was, her own lines are still what the prompt

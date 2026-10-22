@@ -10,7 +10,7 @@
     "name": "韩国",
     "register": "korea"
   },
-  "setting": "故事发生在当代首尔的一所大学。课程表、社团活动室、通宵的自习室和从不熄灯的便利店，构成她们的日常。这里没有合约，也没有公司能开除谁——正因为如此，所有的约束都来自人：同届的眼睛、前后辈之间的位置、在系里传得比课程进度还快的话。恋爱不被禁止，但一旦被看见，就会变成别人的话题。",
+  "setting": "故事发生在当代首尔的一所大学。故事日常围绕青涩好感、社团活动、学业日常、24小时便利店等。玩家和成员在韩国前后辈关系带来的距离感、青涩的情感试探是整个故事的张力所在。",
   "tone": "slow-burn, campus seasons, social exposure",
   "statNotes": {
     "selfId": "Rises when she says what she actually wants in a room where an answer is expected - a seminar, a club meeting, a group project. Falls when she gives the answer that keeps things smooth.",
@@ -26,8 +26,8 @@
   "castLore": {
     "useRole": false,
     "orgSuffix": "University",
-    "orgNoun": "学校",
-    "orgHint": "这些成员是同一所学校、同一届的学生。学校：{org}",
+    "orgNoun": "大学",
+    "orgHint": "这些成员是同一所大学的学生。大学：{org}",
     "composed": [
       "[{name} Background]",
       "{name} is a circle of {n} students at {org}.",
@@ -45,22 +45,22 @@
   "identities": [
     {
       "id": "prof_of_cast",
-      "name": "教授",
-      "background": "[身份背景] 你是{name}所在系的年轻教授，她这学期选了你的课。 典型事件：下课后她留下来问一个其实早就懂了的问题； 办公时间你发现她的笔记比你的讲义还细； 系里聚餐结束时，你们是最后两个离开的人； 期末评分的时候，你必须向自己证明没有偏心。 优势：你有她需要的东西——指导、推荐信、注意力。劣势：这层关系写在学校规章明令禁止的那一条里，每一次单独见面都要有解释。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。",
+      "name": "咖啡馆老板",
+      "background": "[身份背景] 你是{name}所在大学的咖啡店老板，她们经常来你的咖啡馆买咖啡/自习/小组讨论/聚会。 优势：你与她们有自然的日常接触机会。劣势：你总是只能在咖啡店等她来，缺少主动见她的理由。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。",
       "workTitle": {
-        "form": "教授nim",
-        "kr": "교수님"
+        "form": "老板",
+        "kr": "사장님"
       }
     },
     {
       "id": "peer_student",
       "name": "同届学生",
-      "background": "[身份背景] 你和{name}是同一届、同一个系的学生，从入学那天起就在同一张点名表上。 典型事件：被分到同一个小组作业，熬到便利店买第三杯咖啡； 选课的时候发现你们又选了同一门； 她在旁边的座位上睡着，头一点一点地靠过来； 期末结束那天，全系都在庆祝，你们却先走了。 优势：距离最近，理由最多，待在同一个房间不需要任何解释。劣势：也正因为如此，任何变化都会被同一批人看见。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。"
+      "background": "[身份背景] 你和{name}是成员们同一届、同一个系的学生，入学自然相识。 优势：距离最近，见面理由最多。劣势：也正因为如此，爱情和友情的界限模糊   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。"
     },
     {
       "id": "senior_student",
       "name": "学姐",
-      "background": "[身份背景] 你比{name}高一届，同一个系。 典型事件：新生说明会上，你是被派去带她的那个人； 她拿着选课表来问你哪门课值得选； 社团聚餐结束，你送她回宿舍； 她第一次做展示紧张到手抖，你坐在最后一排。 优势：你天然有她会来找你的理由，前辈的身份让照顾她显得理所当然。劣势：前后辈的位置一旦变成别的东西，整个系都会知道是谁先越的线。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。",
+      "background": "[身份背景] 你是比成员们高一届，同一个系的mentor学姐，成员作为新生入学时自然相识。优势：天然的互动理由，前辈的身份让照顾她显得理所当然。劣势：也正因为如此，前后辈的身份让情感越线小心翼翼。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。",
       "workTitle": {
         "form": "前辈nim",
         "kr": "선배님"
@@ -69,7 +69,7 @@
     {
       "id": "junior_student",
       "name": "学妹",
-      "background": "[身份背景] 你比{name}低一届，她是系里你最先记住名字的前辈。 典型事件：你抢不到的课，她把自己的笔记整本给了你； 社团里她替你挡下了不该你做的杂事； 聚餐时你被灌酒，她把杯子拿走了； 你熬夜赶作业，她在自习室陪到最后。 优势：向前辈求助是最自然的接近方式，没有人会觉得奇怪。劣势：前后辈之间的照顾很容易被解释成别的，而解释的人不会是你们两个。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。",
+      "background": "[身份背景] 你是比成员们低一届的学妹，你新生入学时自然相识，她是系里你最先记住名字的前辈。 优势：向前辈求助是最自然的接近方式 劣势：也正因为如此，前后辈的身份让情感越线小心翼翼   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。",
       "workTitle": {
         "form": "前辈nim",
         "kr": "선배님",
@@ -80,17 +80,17 @@
     {
       "id": "ta",
       "name": "助教",
-      "background": "[身份背景] 你是这门课的助教，{name}是课上的学生——你不是她的教授，但你批她的作业。 典型事件：你在她的报告边上写了比评语更长的一段话； 答疑时间只剩你们两个人，话题早就离开了课程； 她把作业拖到最后一刻交，理由你没有追问； 期末登分时你发现自己反复确认了她那一行。 优势：位置暧昧——你有一点权力，但不多，这让接近比教授容易得多。劣势：也正因为权力不多，你无法保护她，也无法保护自己；一旦被说起，你会是那个被认为该懂事的人。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。"
+      "background": "[身份背景] 你是成员们这学期新课的助教，你指导成员们课程项目、课后答疑、作业批改等，在课程中自然相识。优势：位置暧昧——你有一点权力并可以提供帮助，接近她变得容易。劣势：作为助教的公正不偏袒的规则   [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。"
     },
     {
       "id": "exchange_student",
       "name": "交换生",
-      "background": "[身份背景] 你是来韩国交换的学生，只有这一学期，或者一年。 典型事件：小组讨论你跟不上语速，她放慢了自己的； 她带你去只有本地学生才知道的那家店； 你把一个词说错，她笑了很久，然后教你正确的说法； 你们聊到你什么时候走，两个人都换了话题。 优势：外来者的身份让你不在任何既有的关系网里，规则对你宽松一些。劣势：所有人都知道你会走，包括她——这件事从第一天起就在所有对话的底下。 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。你是最近新来这个位置上的——刚到任、刚入学、刚接手、或刚被介绍给她。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。"
+      "background": "[身份背景] 你是刚来大学交换一学期的留学生，成为成员们同一届、同一个系的交换生同学，你对韩语和韩国不熟悉。优势：留学生的身份让这段关系关注度低 舆论压力小 劣势：所有人都知道你会走，包括她——这件事从第一天起就是你们都知道的前提 [初见] 故事从你们第一次见面开始：第一回合之前，你和{name}没有真正见过面，彼此只是听过名字、照过面。所以这段关系从零开始：第一回合写的是初次碰面的距离感与试探，之后每一回合好感才一点点发展。"
     },
     {
       "id": "主线成员前女友",
       "name": "主线成员前女友",
-      "background": "[特殊身份背景-主线成员前女友]\n- 你和{name}曾是恋人，几年前因{reason}分手\n- 你至今保留着{keepsake}\n- 现在她回到了同一所学校——转学、复学，或者只是选了同一门课。重逢是尴尬的：心情复杂，话没说完。初期互动刻意保持距离、眼神闪躲、礼貌但疏离\n- 其他人可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行",
+      "background": "[特殊身份背景-主线成员前女友]\n- 你和{name}曾是恋人，几年前因{reason}分手\n- 你至今保留着{keepsake}\n- 现在因升学和她进入了同一所大学成为同学重逢：尴尬、心情复杂、未说出口的话。初期互动刻意保持距离、眼神闪躲、礼貌但疏离\n- 其他人可能知道或不知道你们的过去。随着游戏推进，可能复合也可能各自前行",
       "variants": {
         "reason": [
           "毕业后的打算不同",
@@ -100,8 +100,8 @@
         ],
         "keepsake": [
           "她借给你的那本书",
-          "一起拍的学生证照片",
-          "她写在讲义背面的字条",
+          "一起拍的人生四格",
+          "她写在讲义背面的笔记",
           "你们共用过的那副耳机"
         ]
       }
@@ -109,32 +109,16 @@
   ],
   "modes": {
     "free": "[Story Mode: Free] No authored plot events - the relationship itself is the plot. Affection grows slowly. Focus on details and subtle tension: the same seats, the same walk back, a semester passing. No rushing into relationship.",
-    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt during Flirting stage.",
+    "romance": "[Story Mode: Romance] Ambiguous & Romantic. Natural progression with mutual attraction. Members flirt once their own stage in [Affections] allows it (section 9), never before.",
     "pressure": "[Story Mode: Pressure] Department gossip and social visibility higher, secrecy changes doubled. Being seen together carries weight: a classmate's photo, a club group chat, a name that travels faster than the syllabus.",
     "dramatic": "[Story Mode: Dramatic] Light comedic. Love triangle scenes probability doubled. Members compete more openly for your attention."
   },
-  "phases": [
-    {
-      "from": 1,
-      "to": 6,
-      "line": "- Phase 1 (Rounds 1-6): First encounters. Shared classes and corridors, polite distance, subtle curiosity. No romantic moves."
-    },
-    {
-      "from": 7,
-      "to": 14,
-      "line": "- Phase 2 (Rounds 7-14): Repeated encounters. Growing familiarity, late-night study rooms, accidental touches, first hints of jealousy."
-    },
-    {
-      "from": 15,
-      "to": 24,
-      "line": "- Phase 3 (Rounds 15-24): Reality pressure. Department talk, a photo someone else posted, family expectations, plans after graduation against feelings."
-    },
-    {
-      "from": 25,
-      "to": null,
-      "line": "- Phase 4 (Rounds 25+): Consequences. Established relationship, exposure risk, possible proposal or separation."
-    }
-  ],
+  "phases": {
+    "start": "Shared classes and corridors, polite distance, subtle curiosity. No romantic moves.",
+    "develop": "Growing familiarity, late-night study rooms, accidental touches, first hints of jealousy.",
+    "climax": "Department talk, a photo someone else posted, family expectations, plans after graduation against feelings.",
+    "resolve": "Exposure risk, possible proposal or separation."
+  },
   "places": [
     {
       "id": "lecture_hall",
@@ -152,7 +136,7 @@
     },
     {
       "id": "seminar_room",
-      "name": "研讨室",
+      "name": "讨论室",
       "emoji": "🗒️",
       "draws": [
         "organiser"

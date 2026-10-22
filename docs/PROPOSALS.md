@@ -381,6 +381,16 @@ rather than differently shaped:
 
 **Written 2026-09-27, during v1.4.0 step 7.**
 
+> **2026-10-20: the probe half is DONE.** `rawResponse` was read, as this entry asked: 7 of 64
+> `deepseek-flash` rounds in one window were complete responses (`finish: stop`) with **one
+> stray `}`** after an Instagram object, which closes `socialContent` early. The fallback is
+> now marked `parseFailed` and `isUsableRound` rejects it, so `bad_response` retries instead of
+> rendering raw JSON - the fix stated below, with no threshold involved. The English buttons
+> are therefore no longer reachable from `executeRound`. **Still open:** `MIN_STORY_CHARS` (40)
+> against a truncated-but-parseable story, the first case below, which is a threshold
+> judgement; and whether a stray-brace repair level is worth having, which retry rate on a
+> real route would decide.
+
 **What is true today.** `validateAndFixOutput` pads a short option list with `"D. Custom"`, and
 `parseLLMOutput`'s level-4 fallback returns `["A. Continue", "B. Change topic", "C. Stay silent",
 "D. Custom"]`. Both are English literals. So a Chinese or Korean player whose round fails to parse is
@@ -481,3 +491,245 @@ argument wearing a correctness costume until something shows the model mis-readi
 **What would settle it.** A round where the model attributes an event to the wrong round number, or
 treats the summary block as something other than earlier history. Worth watching for; not worth
 looking for.
+
+---
+
+## 9. A hidden feeling basis, revealed after round 20
+
+**Written 2026-10-20, from Yuhan's design doc (§五.2). Agreed for a version after v1.4.4.**
+
+**What.** At setup each romanceable member draws a hidden reason she is drawn to the player. The
+design doc's list:
+- she really likes the player;
+- each takes what she needs from the other;
+- a passing impulse;
+- she is using the relationship to work out her own orientation;
+- a hidden motive, such as distracting herself or escaping another relationship.
+
+The draw is never stated. From round 20 it shows through small details only.
+
+**Why.** It is the main source of depth after the confession: two runs with the same affection
+curve would read differently.
+
+**Cost.**
+- The draw must be seeded from setup fields (`backstorySeed`), because it lives in the cached
+  prefix. A `Math.random()` here is the 26.7-point cache defect again.
+- It needs a rule for "revealed only through detail". The model's habit is to say it outright.
+
+**What would settle it.** Blind read: from round 20, can Yuhan tell which basis a run drew, from the
+prose alone, more often than chance? Never would mean it is invisible. Always by round 21 would
+mean it is announced rather than shown.
+
+---
+
+## 10. An intimate-moment opportunity every 4 rounds
+
+**Written 2026-10-20, from Yuhan's design doc (§五.1 and §十.5). Agreed for a version after
+v1.4.4.**
+
+**What.** Every 4th round, the tail tells the model to offer the player one option that opens an
+intimate moment. Its weight depends on the stage: at 陌生人 it might be sharing an umbrella, at
+确认关系 something more. It is offered as an option, never forced into the prose.
+
+**Why.** Pacing. Without it, a run can go long stretches with no closeness to choose.
+
+**Cost.** A tail line on one round in four, so nothing cached. It interacts with P3 of
+`docs/V144_PLAN.md` (stage-unlocked events) and with P8 (random events), so it waits until both
+have been measured. Three changes at once would make each one unmeasurable.
+
+**What would settle it.** Over 3 runs of 24 rounds, count the rounds with an intimate option,
+with and without the rule, and Yuhan reads whether those options fit the stage.
+
+---
+
+## 11. The player posts, and replies to the cast's posts
+
+**Written 2026-10-20, from Yuhan's design doc (§八). Deferred by her from v1.4.4: "no big new
+features".**
+
+**What.**
+- A composer for the player's own Instagram post.
+- Replies to a member's post.
+- Free-text replies in KakaoTalk. §八 says the chat goes one line each, and the model never writes
+  the player's line.
+
+**Cost.** This is a new input surface and a new kind of round, not a prompt rule. It needs a
+schema, a place in the ledger (a post is history), and a decision on whether a post costs a round.
+`docs/V140_PLAN.md` §8 already sketches the KKT and IG composers.
+
+**What would settle it.** Nothing measurable decides whether to build it; it is a feature. What
+settles the design is whether a posted line visibly changes the next round. Test it with a
+sentinel post, then read the round that follows.
+
+---
+
+## 12. Write `summary` in the player's language
+
+**Written 2026-10-20, from Yuhan's question during v1.4.4. Deliberately NOT in v1.4.4.**
+
+**DECIDED 2026-10-21 (Yuhan): do it in a later version** - the summary is generated and stored in
+the playing language. Scheduled after v1.4.4 so it does not confound P7's blind read; the A/B
+below is still how its effect is measured.
+
+**MOVED TO v1.4.5, 2026-10-22 (Yuhan), the same day it was proposed for v1.4.4.** v1.4.4 fixes
+P7's opening instead (V144_PLAN *P7b*). Nobody has yet read rounds 10-25 and found a stiff
+callback, so **step zero is a blind read of rounds 10-25 from the current build**: if the
+callbacks read fine, this change is not needed. Both arms of the A/B below carry P7b's opening.
+How it would be measured, so the answer means something:
+- **Control = `dev` as it is; treatment = only this change.** Same model pinned and recorded
+  (`deepseek-flash`), same world, identity and language (kpop_idol / zh / 练习生).
+- **Free mode, or a seeded event draw.** `drawEvent` is unseeded, so in an event mode the two
+  arms get different event rounds, which is noise the read would attribute to the summary.
+- **25 rounds, 3 runs per arm**; the read covers **rounds 10-25 only**, where summaries are
+  most of the ledger. Rounds 1-3 have no summary at all, which is why the P7 read cannot show it.
+- **Blind, ask where:** mark a callback to an earlier round that reads as translated, and keep
+  marking stiff openings, which answers whether P7's opening improves late in a game. Count
+  offline whether a place or object keeps one word across its callbacks.
+- Cost: about 150 live rounds and a long read; it gates the release like P7 did.
+
+**What.** `summary` is "ONE English sentence, 100-150 characters" in every language. It is the
+collapse target, so from round 4 on most of the history ledger is English summaries of Chinese
+(or Korean) stories. The change: write it in the language of the story.
+
+**Why it might help: the hypothesis.** When a round calls back to an earlier event, the model can
+only see that event as an English sentence. The callback is then written by **translating** from
+it. That is exactly the move that produces translationese, and it gets more frequent as the game
+gets longer, because summaries become most of the ledger. Two concrete losses:
+- the names and address forms the prose used (`涩琪`, `欧尼`) are lost; the summary says `Seulgi`;
+- the place and object words the story chose are lost; the callback re-translates them, so the
+  same rooftop or the same keepsake can come back under a different word.
+
+**Why it might hurt.**
+- **Model-written Chinese in the prompt is a style example** (*The translationese bug*, lesson 3).
+  Up to 45 terse Chinese summaries would sit in the cached prefix. The risk is limited: the three
+  full stories in the ledger are already model-written Chinese, and they are longer.
+- **Cost, calculated rather than measured:** a zh summary carrying the same content is roughly
+  50-70 characters, which is about 1.5x the tokens of a 125-character English sentence. It sits in
+  the cached block, so the per-round cost is small, but it is permanent.
+
+**What it touches.**
+- Three schema lines in `mainAgent.js` (the `summary` example, its rule, and "summary is always in
+  English"), and the length unit: "100-150 characters" is wrong for zh. See §2.
+- The collapse fallback `text.substring(0,150)`, and the comment in `App.jsx#saveStoryEdit`.
+- `analyze-prose.mjs` flags CJK in a summary as a defect, so that metric would have to be inverted.
+- All six goldens move.
+- No migration. An old save keeps its English summaries and gains in-language ones; nothing
+  already cached changes.
+
+**A middle option, if the cost matters.** Keep the summary in English, but quote the names, the
+place and the one object **exactly as the story wrote them**: `Seulgi ("涩琪") left the 保温杯 on
+the 天台 rail`. Callbacks get verbatim anchors and the rule text stays English. Test this only if
+the full change wins and its cost shows.
+
+**Why not in v1.4.4.** v1.4.4 already changes the address ladder, stage behaviour, events and the
+prose register (P1-P3, P7), and P7 has a blind read of its own. A second register change in the
+same release makes that read unattributable. One change at a time when the point is to measure.
+
+**What would settle it.** A run of 25 rounds in each arm, with the same model pinned and recorded.
+Then Yuhan reads it blind, **rounds 10-25 only**, because that is where summaries dominate the
+ledger, with several runs per arm. Ask *where* a callback reads as translated, not *which arm* is
+better. Also count whether a place or object keeps the same word across its callbacks.
+
+## 13. Draw the random-event rounds in code, instead of asking the model for a rate
+
+**Removed with P8 from v1.4.4 (2026-10-22); v1.4.5's §15 starts from the draw, at `2be2a65`.**
+
+**Status: BUILT 2026-10-21, after a live A/B Yuhan asked for (`docs/V144_PLAN.md`, *P8 A/B*). Described at one in four, pressure ran 22/33; drawn, the model followed the draw 17/17 and wrote 2 events on 49 undrawn rounds. Kept below as the reasoning it was built on.**
+
+**What P8 does.** The tail says `[Random Events] about one round in three` (romance) or `about
+one round in two` (pressure, dramatic), and the model decides each round whether this is one.
+
+**What was measured.** `deepseek-flash`, `kpop_idol` / zh, two checks (6 and 8 rounds per mode):
+free **0/6**, romance **7/14** against ~5, pressure **11/14** against ~7. Under the target rate,
+11 or more of 14 in pressure has a probability of about 0.03. The model overshoots, and pressure
+most, possibly because that mode's own rule already asks for scrutiny incidents.
+
+**The alternative.** Draw the event rounds in `executeRound`, before the call, at the mode's rate
+(`Math.random()` is fine here: the tail is the always-miss message, so nothing cached depends on
+it), and send `[Random Events] this round has one` or `this round has none`. P3 showed a tail
+line is taken as a cue every time; here that is what is wanted, and the spacing would be random
+rather than a clock.
+
+**What it costs.** The model loses the judgement of *when* an event fits the story; a drawn round
+may land in the middle of a confession. And a rate the player cannot see may not need to be exact.
+
+**What would settle it.** ≥3 runs × 14 rounds per mode on the current build, the same model
+pinned, counting event rounds. If romance and pressure both stay well above target, build the
+draw and run the same count; then Yuhan reads a few event rounds from each arm for whether the
+event fits the scene it lands in.
+
+## 14. Name dance and singing in the trade's own words, and verbs the way Chinese uses them
+
+**Widened 2026-10-22 by the P7b blind read (Yuhan).** The stiffness is not only dance and
+singing. In 9 of 12 stories, both arms, she corrected a verb or a clipped line. Her corrections,
+verbatim (her Chinese, recorded as evidence; any use in a prompt still goes through her):
+
+- **A body movement described instead of named:** `把手掌摊在那里` → `向你伸出手`;
+  `力道很稳，…几乎没有让你晃一下` → `稳稳把你扶起来/拉起来`; `脚还是滑了一下` → `还是脚下一滑`;
+  `一寸一寸地看` → `仔细地看你/看你每一个动作`; also marked: `毛巾已经滑到脚边`, `进来的人换了一个`.
+- **Dialogue that drops its verb or object:** `跟着我，往门口` → `跟着我，往门口走`;
+  `别空着跳` → `别空着肚子跳`; `这两天先别跳那个转体` → `这两天先别做那个转体动作`; `松掉` → `放松`;
+  `刚才是你第二次差点摔了` → `你刚才差点摔第二次/你刚才差点又摔一次`; also marked: `不跳，只看`.
+- **An abstraction where a plain verb would do:** `好像刚才那两步根本没有发生过` → `好像刚才没向你走那两步`;
+  `那笑里有种很单纯的、替人高兴的意思` → `笑得很单纯，替你们高兴`; `把音乐重新放开——这就是过了` →
+  `继续放音乐—这遍过了`; also marked: `那半秒被她自己抓住了`.
+
+Source: `test/.out/p7b-blind/ratings/ratings/S*.json`, `note` and `stiffText`. Baseline for the
+v1.4.5 measurement: 9 of 12 stories with at least one such mark (P7b live set, rounds 2-3). The
+original dance-and-singing write-up follows.
+
+
+**Moved to v1.4.5, 2026-10-22 (Yuhan).** Older than P7 (3 of the 4 stories it was seen in were the pre-P7 control), so it does not hold v1.4.4 back. Measured alone, never in the same run as §12.
+
+**Status: proposed 2026-10-21, from the P7 blind read. Not built: the fix needs either Chinese
+example words in a rule (Yuhan writes or reviews those) or an English rule nobody has tested.**
+
+**What was seen.** In the P7 blind read, 4 of 12 stories (three of them the pre-P7 control, so
+not caused by P7) had a dance or singing move described in body mechanics, where a dancer or
+singer would use one plain word: `踩错的那段` and `先踩脚` (twice, in two different runs), `先看镜子，再动`
+(→ 跳), `拉长音` (→ 练习长音/唱长音), `从后面托过去`, `没成形的动作`, `肩膀沉下去又起来`. Yuhan marked each one.
+The kpop_idol trainee identity puts a practice room in almost every round, so this recurs.
+
+**The options.**
+- **An English rule in the register's `style`:** "name a dance or vocal move the way the people
+  who practise it would, in one ordinary word; never as a description of what the body does."
+  No Chinese is authored. Untested: an abstract English rule about Chinese is the shape that
+  failed in v1.4.3 (lesson 4 of the translationese bug).
+- **A few words of the trade in the kpop_idol world's zh text, written by Yuhan**, e.g. what the
+  model should say instead of `踩`/`动`. Stronger, per lesson 3 (in-language text in the prompt
+  teaches the register), and it is her text by the zh-review rule.
+
+**What would settle it.** The P7 live set (`deepseek-flash`, kpop_idol / zh / 练习生, 3 runs × 3
+rounds per arm), then a blind read where she marks only trade-word errors, counted per story.
+Today's baseline is 4 of 12 stories.
+
+## 15. Random events as a short passage of story (v1.4.5)
+
+**Status: decided for v1.4.5 by Yuhan, 2026-10-22. P8 built random events for v1.4.4 and was
+removed before release; this is its redesign.**
+
+**What P8 did, and why it came out.** `executeRound` drew one round in three (romance,
+pressure, dramatic) and the model wrote the event into the story and named it in a one-sentence
+`event` field, shown under a heading after the story. Yuhan: a one-line statement does not read
+well. The code is at `2be2a65`; `docs/V144_PLAN.md` *P8* and *P8 A/B* hold its measurements
+(described rate overshot, 22/33 in pressure; drawn, followed 17/17).
+
+**What she wants.** The event told like story text, shorter than a round: about **1/2 to 2/3 of a
+round's story length** (the story is 350-450 words, so roughly 175-300), not a one-line notice.
+
+**Open design questions, to settle in the plan before code:**
+- Where the passage sits: a separate field shown after the round's story under the heading, or a
+  longer story on an event round. A separate field keeps the round's own length rule intact and
+  lets the screen mark it; a longer story keeps one voice.
+- Whether the passage enters the ledger: it is story, so it probably should, with the heading
+  kept out (P8 found the model copies a heading it sees in its history).
+- Output cost: an event round writes 50-65% more prose. Measure tokens and latency per event
+  round, since the median round is 6.3s on DeepSeek Official.
+- Keep from P8: the draw in code (§13), no example events (P3's lesson), an event happens TO the
+  scene and is never a member's own gesture (P8 live still had about 2 of 10 gestures).
+
+**What would settle it.** Build it, then `deepseek-flash`, kpop_idol / zh, 3 runs × 14 rounds
+in each event mode. Count drawn rounds against written passages and passage length against the
+1/2-2/3 band, and log tokens and latency on event rounds. Then Yuhan blind-reads a set of event
+passages: 自然 / 一般 / 翻译腔, and whether the event fits the moment it lands in (P8's open
+question: a drawn event mid-confession).

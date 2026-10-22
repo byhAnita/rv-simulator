@@ -14,7 +14,7 @@ stop and say so rather than guessing.
 | --- | --- | --- |
 | **Claude Opus 5** | VS Code extension | **Main developer and designer**, working with Yuhan. Owns design, architecture, prompt design, new features, releases. |
 | **Claude Opus 5.5** | Claude Code Cloud | **Bug fixes only.** Stand-in when the main session runs out of credits. |
-| **GPT** | VS Code extension | Possible future stand-in. Same scope as above. |
+| **Codex (GPT)** | VS Code extension | Stand-in when a Claude session nears its limit. Same scope as above. Loads the root `AGENTS.md`, which points here. |
 
 **The stand-ins fix bugs. They do not design.** No new features, no architecture changes, no prompt
 redesign, no refactors "while I'm here", no renaming, no restructuring of documents. If the task in
@@ -31,14 +31,19 @@ honestly.
 
 | File | What it is |
 | --- | --- |
-| `CLAUDE.md` | **The authority on how the system behaves**, plus its post-mortems. Its newest `## Pick up here` block is the authority on what is open. Long — read the pick-up block first. |
-| `docs/HANDOFF.md` | **The baton.** The one task in flight, its state, and the exact next command. Short by design. |
-| `docs/V140_PLAN.md` | The feature plan and its numbered sections. |
+| `CLAUDE.md` | **The authority on how the system behaves now**, plus a *Lessons index* of the archived rules that still bind. Split on 2026-10-21 to stay under the 150k-character load limit. |
+| `docs/MODEL_LAYER.md` | Providers, the Aliyun route, the error layer, reasoning flags, caps, usage metering. Moved verbatim from `CLAUDE.md`. |
+| `docs/RELEASE.md` | Branches, release, hotfix, version strings, CI, mirrors, deploy. Moved verbatim from `CLAUDE.md`. |
+| `docs/CLAUDE_HISTORY.md` | Every post-mortem, phone pass and old `Pick up here` block, verbatim. A section *CLAUDE.md* names that is not in it lives here or in the two files above. |
+| `docs/HANDOFF.md` | **The baton.** The one task in flight, its state, and the exact next command. Short by design. **The authority on what is open.** |
+| `docs/V144_PLAN.md` | The v1.4.4 plan (P1-P12); its table's Done column is the authority on progress. |
+| `docs/V140_PLAN.md` | The v1.4.0-v1.4.2 feature plan and its numbered sections. |
 | `docs/PROPOSALS.md` | Changes deliberately NOT made, each with the measurement that would settle it. |
 | `docs/TECH_NOTES.md` | One entry per technique: what it replaced, what it bought, what it costs. |
 
-**Never rewrite history in `CLAUDE.md`.** It is largely changelog and post-mortem; "fixed in v1.3.7"
-is a record, not a stale version string.
+**Never rewrite history in `docs/CLAUDE_HISTORY.md`.** It is changelog and post-mortem; "fixed in
+v1.3.7" is a record, not a stale version string. A new post-mortem is appended there, with one line
+in `CLAUDE.md`'s *Lessons index* if its rule still binds; keep `CLAUDE.md` under ~120k characters.
 
 ---
 
@@ -49,6 +54,8 @@ agent does not see her personal config.
 
 **Shell**
 - **Use the Bash tool for shell commands, never PowerShell.** Unix syntax throughout.
+  Codex has no Bash tool here: run commands through Git Bash
+  (`D:\download\Git\bin\bash.exe -lc "<command>"`) so the documented commands work unchanged.
 - Multi-line commit messages go through `git commit -F - <<'MSGEOF'`. PowerShell here-string syntax
   (`@'...'@`) silently corrupts the message.
 - Windows line endings: most tracked files are **CRLF**. A multi-line patch anchor written with `\n`
@@ -97,6 +104,9 @@ Approval for one instance is not approval for the next one. Committing locally i
   rule text and translations all count. In-language text in the prompt is the strongest style
   example the model gets, and model-written Chinese is what made v1.4.2 read like a translation —
   see *The translationese bug* in `CLAUDE.md`. Write the English, propose the Chinese, and wait.
+  **The mechanism is `docs/ZH_REVIEW.md`**: a proposed change to existing Chinese goes into her
+  sheet in `docs/zh-review/` as an *unticked* draft, never into the JSON; never tick a box; never
+  edit `ledger.json`. Smoke Layer Z fails on any Chinese data string she has not reviewed.
 - **A prompt is not append-only.** When you add a rule, grep for what the old one said about the same
   thing and delete it. Nothing fails when two sections disagree; the model just picks.
 - `buildSystemPrompt` must be a **pure function of the save** — no `Math.random()`, no `Date.now()`,
@@ -107,6 +117,7 @@ Approval for one instance is not approval for the next one. Committing locally i
 - Sign with **your own** model name, so the history says who did what:
   - `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
   - `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
+  - Codex: a trailer line `Agent: Codex (<model as Codex reports it>)`, with no invented email.
 - Author must remain `byhAnita <52732052+byhAnita@users.noreply.github.com>` — Vercel refuses to
   deploy a commit whose author it cannot match to a GitHub account.
 - Work on `dev`. Never commit directly to `main`.
@@ -119,6 +130,9 @@ Approval for one instance is not approval for the next one. Committing locally i
   environment variable is visible to anyone using that environment. Every live test
   (`playthrough.mjs`, `smoke.mjs --live`, `--live-free`) is therefore **local-only** — hand those
   back rather than trying to make them run.
+- **One recorded exception:** Yuhan supplied a capped-billing DeepSeek key to one cloud session on
+  2026-10-01, for the translationese blind reads. It was her call for that session only; approval
+  for one instance is not approval for the next.
 - **`node test/smoke.mjs` runs fully offline** and skips every live layer when no key is present.
   That is your gate, together with `npm run build`.
 - **`vite` is a devDependency.** `NODE_ENV=production` makes npm omit it and the build then fails,
@@ -141,5 +155,5 @@ Approval for one instance is not approval for the next one. Committing locally i
 7. **Stop.** Do not start the next item.
 
 **If you finish the baton and nothing is in flight**, update `HANDOFF.md` to say so and stop. Do not
-pick work out of `CLAUDE.md`'s open list — that list is prioritised by Yuhan, and most of it is
+pick work out of the open lists in `docs/HANDOFF.md` or `docs/CLAUDE_HISTORY.md` — those lists is prioritised by Yuhan, and most of it is
 design.

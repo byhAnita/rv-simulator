@@ -3,7 +3,7 @@ import { stageNameIn, getStageColor, getStageIdx } from "./config/stageConfig";
 import { useTranslation } from "./i18n";
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { loadGroupConfig, loadGroupIndex } from "./rag/groupLoader";
-import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles } from "./rag/worldLoader";
+import { loadWorld, loadWorldIndex, DEFAULT_WORLD_ID, MODE_IDS, resolveStoryMode, resolveKoreanParticles, identityName } from "./rag/worldLoader";
 import {
   resolveRoster, buildClassicRoster, DEFAULT_CAST_NAME, orgNameFor,
   applyWorldDetail, WORLD_DETAIL_KEY,
@@ -16,7 +16,7 @@ import { getTopMember } from "./agent/memoryPool";
 import { MODEL_CONFIGS, ALIYUN_PAID_MODELS, ALIYUN_TOKEN_PLAN_SUPPORTED, ALIYUN_TOKEN_PLAN_URL } from "./config/modelConfigs";
 import { getFreeRouteStatus, resolvePaidModel, resetFreeRoute } from "./tools/aliyunRoute";
 import { KKT_THRESHOLD, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, PLAYER_BIRTH_YEAR_MIN, PLAYER_BIRTH_YEAR_MAX, validPlayerBirthYear } from "./config/constants";
-import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime } from "./utils";
+import { STORAGE_KEYS, loadFromStorage, saveToStorage, nowTime, displayNameIn } from "./utils";
 import { checkRelationshipEvents } from "./config/relationshipEvents";
 import { checkAchievement } from "./config/achievements";
 import BubbleOverlay from "./platforms/BubbleOverlay";
@@ -32,8 +32,10 @@ import RosterBuilder from "./platforms/RosterBuilder";
 import DebugPanel from "./platforms/DebugPanel";
 import MemberFace from "./platforms/memberFace";
 import YearWheel, { DEFAULT_YEAR } from "./platforms/YearWheel";
-import { loadPhotos, loadWalls } from "./utils/imageStore";
+import { useCastImages } from "./platforms/useCastImages";
+import CastImageSheet, { CastImagesCard } from "./platforms/CastImageSheet";
 import { debugEnabled } from "./tools/debugConsole";
+import { storyScrollAction } from "./utils/storyScroll.js";
 
 // Normalises a player choice before it reaches the prompt: fullwidth dashes and
 // brackets confuse the JSON schema, control characters break it outright.
@@ -397,14 +399,24 @@ export default function App() {
   // Re-read on entering the game rather than only at mount: the roster builder
   // writes to localStorage synchronously, so a photo added while choosing the
   // cast must be on screen in the game that starts immediately after.
-  const [castPhotos, setCastPhotos] = useState(() => loadPhotos());
-  const [castWalls, setCastWalls] = useState(() => loadWalls());
-  const refreshCastImages = () => { setCastPhotos(loadPhotos()); setCastWalls(loadWalls()); };
+  //
+  // The same hook the cast builder uses, because the classic door's setup page
+  // WRITES them too - one writer sequence for both doors.
+  // `showNotif` is declared further down, so it is reached through a closure.
+  const {
+    photos: castPhotos, walls: castWalls, setPhotoFor, setWallFor, refresh: refreshCastImages,
+  } = useCastImages({ notify: (msg, type) => showNotif(msg, type), c: t.cast });
+  const [showCastImages, setShowCastImages] = useState(false);
   // On the phase rather than in startNewGame and loadSave, because that is a
   // two-entry list somebody has to remember to extend. Every route into the game
   // passes through here.
   useEffect(() => { if (phase === "game") refreshCastImages(); }, [phase]);
   const bottomRef = useRef(null);
+  // The story panel and the newest assistant message in it: a round that has
+  // just arrived is scrolled to its own top (v1.4.4 P10).
+  const storyPanelRef = useRef(null);
+  const lastRoundRef = useRef(null);
+  const scrollStateRef = useRef({ loading: false, count: 0 });
   const inputRef = useRef(null);
   const preRoundSnapshotRef = useRef(null);
   const phaseRef = useRef("cover");
@@ -661,7 +673,23 @@ export default function App() {
   // caller that ever needed it. An effect with no reachable trigger is the shape
   // this file already tracks seven instances of.
 
-  useEffect(() => { if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  // Scrolling to the end on every change landed a new round on its LAST line,
+  // and the player scrolled back up to find where it began. storyScrollAction
+  // decides; see src/utils/storyScroll.js.
+  useEffect(() => {
+    const prev = scrollStateRef.current;
+    const next = { loading, count: messages.length };
+    scrollStateRef.current = next;
+    const action = storyScrollAction(prev, next);
+    if (action === "bottom") {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else if (action === "round") {
+      const panel = storyPanelRef.current, round = lastRoundRef.current;
+      if (!panel || !round) return;
+      const top = panel.scrollTop + round.getBoundingClientRect().top - panel.getBoundingClientRect().top - 6;
+      panel.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    }
+  }, [messages, loading]);
 
   const showNotif = (msg, type = "info") => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
   const saveApiKey = (key) => {
@@ -970,6 +998,7 @@ export default function App() {
       showNotif(t.cast.restaging(cast.length));
       const { detailById } = await generateCastDetail({
         members: cast, world, language, apiKey, modelId: selectedModel, aliyun: aliyunOptions(),
+        playerRole: identityName(world, formForRound().identity),
       });
       roundRoster = withCastDetail(builtRoster, detailById, world.id);
       roundMembers = cast.map(m => applyWorldDetail(detailById[m.id]
@@ -1486,9 +1515,9 @@ export default function App() {
 
   if (phase === "cover") {
     const coverTexts = {
-      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.3", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
-      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.3", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
-      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.3", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
+      zh: { subtitle: "嫂嫂模拟器", desc: "LLM文游·女团恋爱养成·v1.4.4", newGame: "✨ 开始新游戏", continue: "💾 继续游戏 (读档)", apiKey: "🔑 修改API Key/切换模型" },
+      en: { subtitle: "Idol Dating Simulator", desc: "LLM Text Adventure · Idol Dating Sim · v1.4.4", newGame: "✨ New Game", continue: "💾 Continue (Load Save)", apiKey: "🔑 API Key / Model" },
+      ko: { subtitle: "아이돌 데이트 시뮬레이터", desc: "LLM 텍스트 어드벤처 · 유리 데이트 시뮬레이터 · v1.4.4", newGame: "✨ 새 게임", continue: "💾 이어하기 (불러오기)", apiKey: "🔑 API 키 / 모델" },
     };
     const ct = coverTexts[language] || coverTexts.zh;
     // ONE predicate, read by the button's enabled state AND by its handler. Two
@@ -1907,6 +1936,7 @@ export default function App() {
           fontScale={fontScale}
           apiKey={apiKey} modelId={selectedModel}
           aliyun={selectedModel === "qwen" ? { mode: aliyunMode, paidModel: aliyunPaidModel } : null}
+          playerRole={identityName(world, formForRound().identity)}
           onStart={(r) => startNewGame(r)}
           onBack={() => { setPendingRoster(null); setPhase("playerInfo"); }}
           notify={showNotif}
@@ -1921,6 +1951,10 @@ export default function App() {
     // It is fetched on mount and the player cannot reach this screen faster
     // than that, but a start with no world would throw rather than degrade.
     const canStart = form.mainMember && form.name && validBirthYear(form.birthYear) && form.identity && world;
+    // The members the photo sheet offers: main first, then subs in the order
+    // chosen. The custom door's sheet is likewise main + subs.
+    const classicFaced = [form.mainMember, ...(form.subMembers || [])]
+      .map((id) => members.find((m) => m.id === id)).filter(Boolean);
     // ...and since step 3 the page RENDERS from it too: the identity grid is the
     // world's list and the cast field's label is the world's noun. A world switch
     // nulls it for the length of one fetch, so this is a real state and not only
@@ -2035,6 +2069,20 @@ export default function App() {
           {renderPlayerFields()}
           {renderIdentityGrid()}
 
+          {/* PHOTOS ON THE CLASSIC DOOR, and nothing else from the builder.
+              Yuhan's design: a prebuilt group's player gets the same entry the
+              custom door has - for the main and the subs she has chosen - with no
+              cast editing, so this door stays the fast one. Main and subs only,
+              for the builder's reason: an NPC posts no social and sends no Kakao,
+              so her photo has no reader in the running game. Shown once a main is
+              chosen, because a photo is something you give a member you have
+              already picked. */}
+          {form.mainMember && (
+            <CastImagesCard onClick={() => setShowCastImages(true)}
+              withPhoto={classicFaced.filter((m) => castPhotos[m.id]).length} total={classicFaced.length}
+              theme={theme} t={t} style={{ marginTop: 10 }} />
+          )}
+
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             {/* Back is ONE step, and since §22.10 that step is the cover: this page
                 holds every question the classic door asks, so there is no page
@@ -2051,6 +2099,18 @@ export default function App() {
           </div>
           </div>
         </div>
+        {showCastImages && (
+          <CastImageSheet
+            rows={classicFaced.map((m) => ({ id: m.id, name: displayNameIn(m, language) || m.id, member: m }))}
+            photos={castPhotos} walls={castWalls}
+            onPickPhoto={setPhotoFor} onPickWall={setWallFor}
+            onClearPhoto={(id) => setPhotoFor(id, null)}
+            onClearWall={(id) => setWallFor(id, null)}
+            language={language} theme={theme} t={t}
+            notify={showNotif}
+            onClose={() => setShowCastImages(false)}
+          />
+        )}
       </div>
     );
   }
@@ -2130,7 +2190,7 @@ export default function App() {
         )}
 
         {/* Story Area */}
-        <div id="rv-story-panel" style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
+        <div id="rv-story-panel" ref={storyPanelRef} style={{ flex: 1, overflowY: "auto", padding: "10px 10px" }}>
           {messages.length === 0 && (
             <div style={{ textAlign: "center", padding: "50px 16px", color: th.textFaint }}>
               <div style={{ fontSize: 32, marginBottom: 10, animation: "blink 2s infinite" }}>💗</div>
@@ -2205,7 +2265,7 @@ export default function App() {
                 let af = msg.content.slice(msg.content.indexOf(sb[0]) + sb[0].length);
                 af = af.replace(/\n?[ABCD][.、．]\s*.+/g, '').trim();
                 return (
-                  <div key={i} style={{ marginBottom: 14 }}>
+                  <div key={i} ref={i === lastAsstIdx ? lastRoundRef : undefined} style={{ marginBottom: 14 }}>
                     <div style={{ background: th.statsBg, border: `1px solid ${th.borderAccent}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontFamily: "'Courier New',monospace", fontSize: 10, color: th.textStats, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{sb[0]}</div>
                     {editingIdx === i
                       ? editor(saveStoryEdit, MAX_STORY_EDIT_CHARS)
@@ -2215,7 +2275,7 @@ export default function App() {
                 );
               }
               return (
-                <div key={i} style={{ marginBottom: 14 }}>
+                <div key={i} ref={i === lastAsstIdx ? lastRoundRef : undefined} style={{ marginBottom: 14 }}>
                   {editingIdx === i
                     ? editor(saveStoryEdit, MAX_STORY_EDIT_CHARS)
                     : <div style={{ background: th.storyBg, border: `1px solid ${th.border}`, borderRadius: "3px 14px 14px 14px", padding: "12px 14px", fontSize: Math.round(13 * fontScale), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.textStory }}>{msg.content}</div>}

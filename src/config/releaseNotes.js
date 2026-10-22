@@ -25,6 +25,12 @@
 
 export const RELEASE_NOTES = [
   {
+    version: "1.4.4",
+    zh: "故事放慢了脚步，也知道自己写到了哪里：成员对你的称呼会随着关系从敬称慢慢变成名字，每个关系阶段都有它的分寸，剧情按起承转合四章推进，开头的好感涨得最慢。校园、职场和财阀世界里不再有人是偶像，财阀卡司是以主线成员姓氏为名的一家人，路人配角也不会再被起名字。第一回合由旁白的序章开场，每一幕先用一句平实的话写你听到或看到的东西，再写她今天的样子；新回合从开头显示。所有世界的设定文字都由母语者重写，选现成女团开局时也能上传头像和壁纸了。",
+    en: "The story takes its time and knows where it is: what a member calls you climbs from a title to her name as you grow close, each relationship stage says what it allows, the story follows four chapters (起承转合), and affection rises slowest at the start. In the campus, office and chaebol worlds nobody is an idol any more, the chaebol cast is one family named for your main member, and strangers are never given names. Round 1 opens with a narrator's prologue, each scene opens on one plain thing you hear or see and then shows how she looks, and a new round opens at its beginning. Every world's text was rewritten by a native speaker, and ready-made groups can now be given photos on the New Game page.",
+    ko: "이야기가 천천히 흘러가고, 지금 어디쯤인지 알게 되었어요. 멤버가 당신을 부르는 호칭은 가까워질수록 직함에서 이름으로 바뀌고, 관계 단계마다 허용되는 선이 정해져 있으며, 이야기는 기승전결 네 장으로 흘러가고, 호감은 초반에 가장 천천히 올라요. 캠퍼스·직장·재벌 세계에서는 더 이상 아무도 아이돌이 아니고, 재벌 출연진은 메인 멤버의 성을 딴 한 가족이며, 지나가는 인물에게는 이름이 붙지 않아요. 첫 라운드는 내레이터의 프롤로그로 시작하고, 장면마다 당신이 듣거나 보는 담백한 한 줄로 시작해 그녀의 오늘 모습을 보여주며, 새 라운드는 처음부터 보여요. 모든 세계의 설정 문장을 원어민이 다시 썼고, 기존 그룹으로 시작할 때도 새 게임 화면에서 사진을 올릴 수 있어요.",
+  },
+  {
     version: "1.4.3",
     zh: "文字更像一本用中文写成的言情小说，而不是翻译过来的：每一回合从一个人开始——她在做什么、说什么——不再先描写光线、天气和走廊。第一回合从你的身份所在的地方开场，世界里的地点描述和固定开场已删除；初见的设定改写得更直白；成员的「习惯」字段也已移除。",
     en: "The writing reads like a romance novel written in your language rather than a translation: each round opens on a person doing or saying something instead of on the light, the weather or the corridor. Round 1 opens where your identity puts you, the worlds' place descriptions and scripted opening are gone, the first meeting is rewritten in plainer words, and the members' habit field has been removed.",

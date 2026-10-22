@@ -39,11 +39,8 @@ import {
   overrideFrom, editorTargetFor,
   assignSlot, savedRosterEntry, newMemberId,
 } from "../rag/customCast";
-import {
-  loadPhotos, savePhotos, loadWalls, saveWalls, putPhoto, removePhoto,
-  PHOTO_LIMITS, WALL_LIMITS, WALL_MAX_COUNT,
-} from "../utils/imageStore";
-import CastImageSheet from "./CastImageSheet";
+import CastImageSheet, { CastImagesCard } from "./CastImageSheet";
+import { useCastImages } from "./useCastImages";
 import { castTokens, scaleFont, safeInset, Z } from "./castTheme";
 import { photoFill } from "./memberFace";
 import MemberEditor from "./MemberEditor";
@@ -57,7 +54,7 @@ const ROSTER_MAX = 20;
 
 export default function RosterBuilder({
   language = "zh", theme = "dark", t, world, fontScale = 1,
-  apiKey, modelId, aliyun,
+  apiKey, modelId, aliyun, playerRole = "",
   onStart, onBack, notify,
 }) {
   const isLight = theme === "light";
@@ -71,8 +68,7 @@ export default function RosterBuilder({
   const [configs, setConfigs] = useState({});
   const [picks, setPicks] = useState({});
   const [cast, setCast] = useState(() => loadCustomCast());
-  const [photos, setPhotos] = useState(() => loadPhotos());
-  const [walls, setWalls] = useState(() => loadWalls());
+  const { photos, walls, setPhotoFor, setWallFor } = useCastImages({ notify, c });
   const [showImages, setShowImages] = useState(false);
   const [editing, setEditing] = useState(null);   // {id, profile} | {} for new
   const [saved, setSaved] = useState(() => loadFromStorage(STORAGE_KEYS.ROSTERS) || []);
@@ -284,36 +280,12 @@ export default function RosterBuilder({
     // id, which this screen does not — group configs are fetched per tab, so the
     // groups the player has not opened are indistinguishable from groups that
     // are gone.
-    if (photos[id]) { const p = removePhoto(photos, id); savePhotos(p); setPhotos(p); }
-    if (walls[id]) { const w = removePhoto(walls, id); saveWalls(w); setWalls(w); }
+    if (photos[id]) setPhotoFor(id, null);
+    if (walls[id]) setWallFor(id, null);
   };
 
-  const setPhotoFor = (id, dataUrl) => {
-    const res = dataUrl === null
-      ? { ok: true, photos: removePhoto(photos, id) }
-      : putPhoto(photos, id, dataUrl, PHOTO_LIMITS);
-    if (!res.ok) {
-      notify?.(res.reason === "full" ? c.photoFull : c.photoTooLarge, "error");
-      return;
-    }
-    if (!savePhotos(res.photos)) { notify?.(c.saveFailed, "error"); return; }
-    setPhotos(res.photos);
-  };
-
-  // Her wallpaper. Same refusal rules through the same function, different caps
-  // and a different key — a second copy of the rules is what `extractStoryText`
-  // is a warning about.
-  const setWallFor = (id, dataUrl) => {
-    const res = dataUrl === null
-      ? { ok: true, photos: removePhoto(walls, id) }
-      : putPhoto(walls, id, dataUrl, WALL_LIMITS);
-    if (!res.ok) {
-      notify?.(res.reason === "full" ? c.wallFull?.(WALL_MAX_COUNT) : c.photoTooLarge, "error");
-      return;
-    }
-    if (!saveWalls(res.photos)) { notify?.(c.saveFailed, "error"); return; }
-    setWalls(res.photos);
-  };
+  // `setPhotoFor` / `setWallFor` come from useCastImages, shared with the
+  // classic door's setup page.
 
   // `setPhotoFor` / `setWallFor` are what the sheet and the editor both call, and
   // they take a data URL rather than a File: the cropper produced it, because the
@@ -537,28 +509,10 @@ export default function RosterBuilder({
               a member you have already chosen. */}
           {chosen.length > 0 && (
             <>
-              {/* A CARD, THE SIZE OF THE MAIN-MEMBER SLOT, not a pill beside Clear.
-                  Giving the cast faces is the single biggest thing a player can do
-                  to how the game reads - every overlay, the top bar and the chat
-                  wallpapers all draw from it - and it was a 34px chip in a row of
-                  two, the smaller-looking of which wipes the cast. A destructive
-                  control and the best thing on the screen should not be the same
-                  shape. Reported from hand play, 2026-09-29.
-
-                  It carries the count for the reason the save slots and the
-                  palette both had to learn: a number the player can see beats a
-                  cap that only speaks when it refuses. */}
-              <button onClick={() => setShowImages(true)}
-                style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", marginTop: 14, padding: 11, minHeight: 62, borderRadius: 12, border: `1px solid ${k.accent}`, background: k.tint, color: k.textMain, cursor: "pointer", textAlign: "left" }}>
-                <span style={{ fontSize: fs(24), lineHeight: 1, flexShrink: 0 }}>{"📷"}</span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: fs(13), color: k.accent, fontWeight: 700 }}>{c.castImages}</span>
-                  <span style={{ display: "block", fontSize: fs(11), color: k.textFaint, marginTop: 2, lineHeight: 1.35 }}>
-                    {c.photo} {c.castCount?.(withPhoto, facedIds.length)}
-                  </span>
-                </span>
-                <span aria-hidden style={{ color: k.textFaint, fontSize: fs(14), flexShrink: 0 }}>{"›"}</span>
-              </button>
+              {/* The card is CastImagesCard, one definition for both doors. */}
+              <CastImagesCard onClick={() => setShowImages(true)}
+                withPhoto={withPhoto} total={facedIds.length}
+                theme={theme} t={t} fontScale={fontScale} style={{ marginTop: 14 }} />
               <div style={{ display: "flex", marginTop: 8 }}>
                 <button onClick={() => setPicks({})}
                   style={{ padding: "8px 12px", minHeight: 34, borderRadius: 16, border: `1px solid ${k.border}`, background: "transparent", color: k.textFaint, fontSize: fs(11), cursor: "pointer" }}>
@@ -619,6 +573,7 @@ export default function RosterBuilder({
           member={editing} isNew={Boolean(editing.isNew)}
           language={language} theme={theme} t={t} fontScale={fontScale}
           apiKey={apiKey} modelId={modelId} aliyun={aliyun} world={world}
+          playerRole={playerRole}
           photo={photos[editing.id]}
           onPhotoChange={(d) => setPhotoFor(editing.id, d)}
           wall={walls[editing.id]}

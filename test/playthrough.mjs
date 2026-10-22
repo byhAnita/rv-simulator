@@ -631,6 +631,7 @@ async function runWorker(model) {
       const swept = await generateCastDetail({
         members, world, language: LANG, apiKey: API_KEY, modelId: PROVIDER,
         aliyun: ROUTED ? { mode: "free" } : null,
+        playerRole: mod.identityName(world, IDENTITY),
       });
       const detailById = swept.detailById;
       members = members.map((m) => applyWorldDetail(detailById[m.id]
@@ -887,6 +888,18 @@ async function runWorker(model) {
           stageChanges: res.stageChanges || [],
           kktDelivered: Object.entries(res.kktUpdate || {})
             .filter(([, v]) => Array.isArray(v) && v.length).map(([k]) => k),
+          // The TEXT, not only who: a `kkt-transcribed-in-story` flag cannot be
+          // judged afterwards from a list of ids, and social posts are where the
+          // idol-past leak was first seen (an Instagram caption in a chaebol run),
+          // so a scan that reads only the prose cannot clear them.
+          kktText: Object.fromEntries(Object.entries(res.kktUpdate || {})
+            .filter(([, v]) => Array.isArray(v) && v.length)
+            .map(([k, v]) => [k, v.map((m) => (typeof m === "string" ? m : m?.content || ""))])),
+          socialText: Object.fromEntries(Object.entries(res.socialFeedsUpdate || {}).map(([k, f]) => [k, [
+            ...(f.bubble || []).map((b) => b?.content || ""),
+            f.instagram?.caption || "",
+            typeof f.weverse === "string" ? f.weverse : f.weverse?.content || "",
+          ].filter(Boolean)])),
           summaryText: res.updatedMemory.history.at(-1)?.summary || "",
         },
       });

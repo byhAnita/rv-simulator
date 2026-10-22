@@ -4,7 +4,9 @@ import { callLLM } from "../tools/llmTool";
 import { buildHistoryLedger, buildDynamicTail, collapseHistoryIfNeeded, updateMemory, getTopMember, createEmptyMemory, isLegacyMemory } from "./memoryPool";
 // `probabilityEngine` is deliberately NOT imported any more — see the note beside
 // where pickPrimaryMember used to be called, and docs/PROPOSALS.md §4.
-import { getStageIdx, stageNameIn, stageNamesFor, STAGE_BANDS } from "../config/stageConfig";
+import { getStageIdx, stageNameIn, stageNamesFor, rungStagesFor, STAGE_BANDS, STAGE_BEHAVIOUR } from "../config/stageConfig";
+import { CHAPTERS, chapterForRound, chapterRange } from "../config/chapters";
+import { givenNameOf, narrationNameOf } from "../rag/memberNames";
 import { KKT_THRESHOLD, KKT_MAX, MAIN_INITIAL_AFFECTION, SUB_INITIAL_AFFECTION_MIN, SUB_INITIAL_AFFECTION_MAX, GAME_YEAR, AFFECTION_MAX_DELTA } from "../config/constants";
 import { checkRelationshipEvents } from "../config/relationshipEvents";
 import { checkAchievement } from "../config/achievements";
@@ -36,11 +38,44 @@ export function resetPendingSocial() {
 // ============================================================
 // Game chapter based on round number
 // ============================================================
+// The boundaries are config/chapters.js's, the same table the [Chapter] tail line
+// reads - this used to hardcode 6 / 14 / 24 beside a second copy in every world file.
 function getChapterByRound(roundNum) {
-  if (roundNum <= 6) return "start";
-  if (roundNum <= 14) return "develop";
-  if (roundNum <= 24) return "climax";
-  return "resolve";
+  return chapterForRound(roundNum).id;
+}
+
+// The chapter the model is writing in (v1.4.4 P2). Section 3 has always printed all
+// four phases and never said which one this round is in, while the stats box above
+// the story showed the player a chapter the model was never told. Fact in the tail,
+// rule in section 3, rule pointing at the fact. `round` is the round being
+// GENERATED (stats.week + 1), the same number getChapterByRound is given.
+export function buildChapterLine(round) {
+  const c = chapterForRound(round);
+  const last = c.to === round ? ", the last round of this chapter" : "";
+  return `[Chapter] ${c.label} ${c.gloss} (${chapterRange(c)}): this is round ${round}${last}. Affection rises at most +${c.maxRise} a round in this chapter`;
+}
+
+// The narrator's prologue (v1.4.4 P6), round 1 only. Round 1 opened straight into a
+// scene, so the player met the cast before the story had said where she is or who
+// they are to her. In the tail, because a line there reads as a cue to act on now -
+// the failure of the typical events, and here exactly the point. It names the three
+// static rules it could otherwise contradict. `round` is the round being generated,
+// as for buildChapterLine; every other round gets the empty string.
+export function buildPrologueLine(round) {
+  if (round !== 1) return "";
+  return "[Prologue] This is the first round, so \"story\" begins with a prologue of 2-4 sentences in the narrator's voice, addressed to the player as \"you\": this world, who she is in it, and who the cast are to her, as her identity in section 6 sets it at the start and no closer. Then a blank line, and the first scene begins, opening as section 3 says every round opens. The prologue counts toward the story's length, names nobody outside MEMBER PROFILES, and is never written again.";
+}
+
+// The chapter's cap on a RISE (v1.4.4 P4), applied after validateAndFixOutput's
+// +/-AFFECTION_MAX_DELTA. That clamp bounds one round's speed and says nothing about a
+// run's shape: the P3b baseline reached Confirmed by round 14 in 17 of 18 runs, at the
+// end of the chapter where the two are only meant to begin noticing. Falls pass
+// through untouched. `round` is the round being generated - the number [Chapter]
+// prints - so the cap the model was told is the cap applied. Pure, and returns a new
+// object, so the parsed response is not rewritten under anyone else reading it.
+export function capAffectionRise(changes, round) {
+  const cap = chapterForRound(round).maxRise;
+  return Object.fromEntries(Object.entries(changes || {}).map(([id, d]) => [id, d > cap ? cap : d]));
 }
 
 // ============================================================
@@ -121,7 +156,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // Identity background. The seed is what keeps this stable round to round —
   // see backstorySeed below, and "buildSystemPrompt must be a pure function of
   // the save" in CLAUDE.md.
-  const identityBg = renderIdentityBackground(world, form.identity, mainMember?.name, backstorySeed(form, mainId));
+  const identityBg = renderIdentityBackground(world, form.identity, narrationNameOf(mainMember, !!world.castLore?.useRole), backstorySeed(form, mainId));
 
   // The identity and the pace both reached the model as their raw ids, which are
   // authored in Chinese for every language — so an English player's prompt said
@@ -208,10 +243,16 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   //     did, and every English prompt emitted "Alex--ya" from v1.3.6 to v1.3.9.
   const tk = world.addressForms.tokens;
   const call = (name, token) => `${name}${tk.sep}${token}`;
-  // The casual form only exists where the language has a vocative particle that
-  // survives transliteration. zh does not (see the token table), so the clause
-  // is dropped rather than rendered as a duplicate of the plain name.
-  const casually = (name) => tk.ya ? `, or "${call(name, tk.ya)}" once close` : "";
+
+  // WHICH NAME a member goes by (v1.4.4 P1). In the idol world her stage name is her
+  // name, in narration and in dialogue alike. In every other world NO ONE IN THIS CAST
+  // IS AN IDOL, so the stage name is the one name the prose must not use: dialogue
+  // calls her by her Korean given name (`珠泫`) and narration by her real name, in full
+  // or given. Yuhan's play found `裴代表nim走了过来`: with the stage name ruled out and
+  // nothing else offered, the model narrated with the only name-shaped thing it had,
+  // a title. A member with no real name (a custom one without `name_kr`) keeps `name`.
+  const idolWorld = !!world.castLore?.useRole;
+  const spokenName = (m) => (idolWorld ? m?.name : (givenNameOf(m) || m?.name)) || "";
 
   // The narration example in the SPEAKER CONTRACT, one clause per language. The ko
   // frame is possessive on purpose: the natural "<name>는 창가에 서 있다" hardcodes a
@@ -222,11 +263,33 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   const stoodByTheWindow = language === "zh" ? "正站在窗边"
     : language === "ko" ? "의 시선이 창가로 향했다"
     : " was standing by the window";
+  // ...and since v1.4.4 P1 the example follows the WORLD (F8). It used to name the
+  // stage name in every world, which in a chaebol run contradicted NO ONE IN THIS CAST
+  // IS AN IDOL two sections earlier: the one name the example taught was the one name
+  // the prose must not use. Outside the idol world she is narrated by her real name,
+  // and the stage name and a title are both shown as the wrong answer.
+  const mainStage = mainMember?.name || "She";
+  const mainReal = !idolWorld && mainMember?.name_kr ? mainMember.name_kr : "";
+  // A function: it names the work title, which is declared further down.
+  const narrationRule = () => mainReal
+    ? `In narration a member is her real name, the one in brackets in MEMBER PROFILES, in full or her given name alone (a member with nothing in brackets is her name alone) - never the name before the brackets, and never a title or an address form: "${mainReal}${stoodByTheWindow}", NEVER "${mainStage}${stoodByTheWindow}"${titleForCast ? `, "${titleForCast}${stoodByTheWindow}"` : ""} or "${call(spokenName(mainMember), tk.ssi)}${stoodByTheWindow}".`
+    : `In narration a member is her name alone: "${mainStage}${stoodByTheWindow}", NEVER "${call(mainStage, tk.unnie)}${stoodByTheWindow}"${titleForCast ? ` or "${titleForCast}${stoodByTheWindow}"` : ""}.`;
 
-  // Round-phase beats and the archetypes an unnamed supporting role may be.
-  // Both are English rule text in every language file, so the three world files
-  // must agree on them - smoke Layer I asserts they do.
-  const phaseLines = world.phases.map(p => p.line).join("\n");
+  // The story arc (v1.4.4 P2): the four chapters, each with the design doc's goal and
+  // end beat from config/chapters.js and THIS world's texture for it. The world text
+  // is English rule text in every language file, so the three files must agree on
+  // it - smoke Layer I asserts they do.
+  // String(): a stage missing its behaviour line renders an empty one, which smoke
+  // names, rather than throwing out of the whole prompt with a stack trace.
+  const withPlayer = (text) => String(text ?? "").split("{player}").join(playerName);
+  const phaseLines = [
+    `STORY ARC, four chapters by round: ${CHAPTERS.map(c => `${c.label} ${c.gloss}`).join(", ")}. Never jump from distance straight to romance: every chapter needs a cause, a cost, and something one of them does not know yet. [Chapter] in CURRENT STATE says which chapter this round belongs to and when it is that chapter's last round; build toward the chapter's end and let it land there. The chapter is the shape of the story; how close each member is to ${playerName} comes from HER stage (section 9), never from the chapter.`,
+    ...CHAPTERS.map(c => `- ${c.label} ${c.gloss} (${chapterRange(c)}): ${withPlayer(c.goal)} In this world: ${world.phases[c.id]} ${withPlayer(c.end)}`),
+  ].join("\n");
+  // Section 9: what each stage allows, beside the localized name the tail prints.
+  const stageNames = stageNamesFor(language);
+  const stageBehaviourLines = stageNames
+    .map((n, i) => `  - ${STAGE_BANDS[i]} ${n}: ${withPlayer(STAGE_BEHAVIOUR[i])}`).join("\n");
 
   // Section 10: what actually moves each stat IN THIS WORLD. The stat KEYS never
   // change (they are in the JSON schema, in validateAndFixOutput and in every
@@ -247,15 +310,17 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     .map(k => `- ${STAT_FACE[k]}: ${world.statNotes[k]}`).join("\n");
 
   // Section 11: the canon places, and the one sentence that makes going somewhere
-  // mean something. `desc` is conditional for the same reason every member field
-  // is - an absent one renders nothing, never a dangling separator.
+  // mean something. A place is its emoji and its name and nothing else. The
+  // descriptions were deleted from every world on 2026-10-01 (model-written Chinese
+  // that the prose copied), and their reader followed on 2026-10-06: a branch with
+  // no data is where an unreviewed blurb would quietly start rendering again.
   //
   // `draws` is deliberately NOT rendered. It is a tag vocabulary feeding the
   // affinity matrix in docs/V140_PLAN.md section 7.3, whose reader is v1.4.2;
   // printing it would hand the model a lookup table for exactly the judgement
   // section 7.4 argues the model makes better than a table does.
   const placeLines = world.places
-    .map(p => `${p.emoji ? `${p.emoji} ` : ""}${p.name}${p.desc ? ` \u2014 ${p.desc}` : ""}`)
+    .map(p => `${p.emoji ? `${p.emoji} ` : ""}${p.name}`)
     .join("\n");
   const a = world.npcArchetypes;
   const archetypeList = a.length > 1
@@ -292,27 +357,67 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // `because` carries the identity-specific reason and `addressContext` the world's
   // register - a student does not address her professor "on the job". Both are
   // English, like the rest of section 6, so both sit in the language-invariant half.
-  const identityAddress = !workTitle ? null
-    : WORK_TITLE.direction === "to_cast"
-      ? `${playerName} ${WORK_TITLE.because}, so ${playerName} also uses ${workTitle} for them ${world.addressContext.toCast}, relaxing toward a member's plain name as that member grows close to her`
-      : `she addresses ${playerName} as ${workTitle} ${world.addressContext.toPlayer} whatever their ages, relaxing toward "${playerName}" as they grow close`;
+  //
+  // v1.4.4 P1: this was the "Work override" sentence, one line in REGISTER far from
+  // the members it applied to, while each member's own Address line named only the
+  // age form. A specific per-member line beats a general note, so a new employee
+  // called her CEO 欧尼 from round 1. The title now sits on every member's ladder
+  // below, and what is left here is only WHY the title exists, which no ladder says.
+  // The "relaxing toward ..." clauses are gone: how a title relaxes is the ladder.
+  const TO_CAST = WORK_TITLE?.direction === "to_cast";
+  const titleReason = !workTitle ? ""
+    : TO_CAST
+      ? `\nTitle: ${playerName} ${WORK_TITLE.because}, so ${playerName} uses ${workTitle} for them ${world.addressContext.toCast}.`
+      : `\nTitle: they address ${playerName} as ${workTitle} ${world.addressContext.toPlayer}, whatever their ages.`;
+  // The title the player uses FOR a member, and the one a member uses for HER.
+  const titleForCast = workTitle && TO_CAST ? WORK_TITLE.form : null;
+  const titleForPlayer = workTitle && !TO_CAST ? WORK_TITLE.form : null;
+
+  // One direction of the address ladder: what the speaker calls `toName` at each rung.
+  //   title     - the work title the speaker uses for her, or null
+  //   toOlder   - she was born in an earlier year, so the speaker may say unnie
+  //   toYounger - she was born later, so the speaker may add the casual vocative at R3
+  // Direction stays hard: unnie only ever points at the elder, a title only at the
+  // senior in position. What moves with the rung is how much of that is spoken, and
+  // "in front of others" is where the earlier, public form holds (secrecy).
+  const q = (s) => `"${s}"`;
+  const ladder = (toName, title, toOlder, toYounger) => {
+    const r1 = title ? q(title) : q(call(toName, tk.ssi));
+    const r2Private = toOlder ? `${q(tk.unnie)} or ${q(call(toName, tk.unnie))}` : q(toName);
+    const publicForm = title ? q(title) : toOlder ? q(tk.unnie) : "";
+    const r2 = title ? `${r2Private} in private, ${publicForm} in front of others` : r2Private;
+    // The casual vocative exists only where the language has one that survives
+    // transliteration. zh does not (see the token table), so it is simply absent.
+    const r3Forms = [q(toName), ...(toYounger && tk.ya ? [q(call(toName, tk.ya))] : [])].join(", ");
+    const r3 = `${r3Forms} or a couple's word${publicForm ? `; in front of others ${publicForm}` : ""}`;
+    return `R1 ${r1} | R2 ${r2} | R3 ${r3}`;
+  };
+  // Every name the main member answers to, for the SPEAKER CONTRACT's own-name rule.
+  // It printed `"undefined"` for a custom main with no `name_kr`.
+  const ownNames = [...new Set([mainMember?.name, mainMember?.name_kr, givenNameOf(mainMember)]
+    .filter(Boolean))].map(q).join(", ");
+  const [rungDistant, rungWarming, rungClose] = rungStagesFor(language);
 
   const memberDetails = members.map(m => {
     const memberBirthYear = parseInt((m.birthday || "2000-01-01").split('-')[0]) || 2000;
     // Positive => born earlier => the member is the elder.
     const memberIsOlderBy = playerBirthYear - memberBirthYear;
 
-    let ageLine, addressLine;
+    let ageLine, never;
     if (memberIsOlderBy > 0) {
       ageLine = `b.${memberBirthYear} — ${memberIsOlderBy} yr OLDER than ${playerName} (b.${playerBirthYear}). She is ${playerName}'s unnie (언니).`;
-      addressLine = `${playerName} -> "${call(m.name, tk.unnie)}". She -> "${playerName}"${casually(playerName)}. She must NEVER call ${playerName} "${tk.unnie}".`;
+      never = `She must NEVER call ${playerName} "${tk.unnie}".`;
     } else if (memberIsOlderBy < 0) {
       ageLine = `b.${memberBirthYear} — ${Math.abs(memberIsOlderBy)} yr YOUNGER than ${playerName} (b.${playerBirthYear}). ${playerName} is her unnie (언니).`;
-      addressLine = `She -> "${call(playerName, tk.unnie)}". ${playerName} -> "${m.name}"${casually(m.name)}. ${playerName} must NEVER call her "${tk.unnie}".`;
+      never = `${playerName} must NEVER call her "${tk.unnie}".`;
     } else {
       ageLine = `b.${memberBirthYear} — same birth year as ${playerName}. 동갑, no unnie in either direction.`;
-      addressLine = `Both use the plain given name; 반말 comes easily after a few meetings.`;
+      never = `Neither ever calls the other "${tk.unnie}".`;
     }
+    const toHer = ladder(spokenName(m), titleForCast, memberIsOlderBy > 0, memberIsOlderBy < 0);
+    const toPlayer = ladder(playerName, titleForPlayer, memberIsOlderBy < 0, memberIsOlderBy > 0);
+    const addressLines = `Address, ${playerName} -> her: ${toHer}
+  Address, she -> ${playerName}: ${toPlayer}. ${never}`;
     const role = m.id === mainId ? "[MAIN - Core Romance Line]"
       : subIds.includes(m.id) ? "[SUB - Romanceable]"
       : "[NPC - Non-romanceable, must appear in background]";
@@ -343,7 +448,7 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
     const krPart = m.name_kr ? `(${m.name_kr})` : "";
     return `${emojiPart}${m.name}${krPart} ${role}
   Age: ${ageLine}
-  Address: ${addressLine}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Hidden Conflict", m.hidden_conflict)}`;
+  ${addressLines}${line("Animal", m.animal_plastic)}${line("Public", m.public_image)}${line("Private", m.private_personality)}${line("Queer Texture", m.queer_texture)}${line("Speech Style", m.speech_style)}${line("Hidden Conflict", m.hidden_conflict)}`;
   }).join("\n\n");
 
   // JSON schema. Written without the spaces a formatter would add: the schema is
@@ -401,10 +506,27 @@ export function buildSystemPrompt(form, members, mainId, subIds, groupConfig, me
   // with useRole:true renders byte-identically - not even a newline moves - and it sits
   // BEFORE the profiles, because a rule about how to read the prose has to reach the
   // model before the prose does.
+  // WORLD-LEVEL, and it renders whenever useRole is false - restaged or not. Found by
+  // the live run of 2026-10-20: a chaebol cast restaged five of five, so the reading
+  // rule below was (correctly) absent, and Seulgi still said she ate this soup as a
+  // trainee and practised dance until dawn, carrying sheet music. NONE of that was in
+  // the prompt; the model supplied it from what it knows of the real person. A restaged
+  // profile fixes the DATA and says nothing about the model's own knowledge, so the fact
+  // that nobody here is an idol cannot depend on who was restaged. It names the real
+  // performers explicitly, because the defect is the model completing a member from her
+  // namesake - the same leak composed lore closes for the group, one level down.
+  //
+  // The enumeration lives HERE now and not in the reading rule, so the two never state
+  // one list twice. zh forms are named because the model copies tokens out of Chinese
+  // prose; ko forms are not, because there the word for maknae is the ordinary word for
+  // the youngest of any group and has no neutral substitute.
+  const notIdols = world.castLore.useRole ? "" : `
+NO ONE IN THIS CAST IS AN IDOL, and this story is not about the real performers some of them share a name with. Never draw on anything you know about those people - their careers, their pasts, their colleagues, their habits: none of it happened here. No member has a stage, a debut, a comeback, a fandom, a trainee past, idol dance or vocal training, an album, or a rank in a performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185, \u7ec3\u4e60\u751f, \u51fa\u9053. What they have instead is ${world.castLife.theirs}; their pasts, their routines and what they talk about come from there.`;
+
   const untranslated = members.filter((m) => !m.world_position);
   const literalOnes = untranslated.length === members.length ? "" : ` This applies to ${untranslated.map((m) => m.name).join(", ")} and to no one else: every other member's three fields were rewritten for this world and are literal.`;
-  const textureCaveat = (world.castLore.useRole || untranslated.length === 0) ? "" : `
-READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting and this story is not one. Take from them who she IS — how she carries herself, what she shows and what she hides, how she behaves while she is being watched — and never the circumstances they describe it through: here she has no stage, no debut, no comeback, no fandom, and no rank in a performing group such as leader, main vocal, visual or maknae - IN ANY LANGUAGE OR TRANSLITERATION, including \u961f\u957f, \u4e3b\u5531, \u95e8\u9762, \u5fd9\u5185. What she has instead is ${world.castLife.theirs}. Where a line describes her through idol work, keep the trait and restage it there.${literalOnes}`;
+  const textureCaveat = notIdols + ((world.castLore.useRole || untranslated.length === 0) ? "" : `
+READ THOSE THREE FIELDS FOR TRAITS, NEVER FOR FACTS. They were authored for a performing-idol setting. Take from them who she IS \u2014 how she carries herself, what she shows and what she hides, how she behaves while she is being watched \u2014 and never the circumstances they describe it through. Where a line describes her through idol work, keep the trait and restage it in ${world.castLife.theirs}.${literalOnes}`);
 
   // One context for both renderers, so a catalog entry that needs a world-varying
   // value cannot get it in one list and not the other.
@@ -448,8 +570,9 @@ NO introductory text, NO closing remarks, NO markdown code blocks.
 - ${P("length")}
 - ${P("style")}
 - ${P("openWith")}
-- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by name or by the title given on her Address line in section 6 — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
-- UNKNOWN CHARACTER RULE: Only characters listed in MEMBER PROFILES may appear by name. Supporting roles are limited to unnamed archetypes: ${archetypeList}.
+- ${P("pov")}
+- PRONOUN RULE: In NARRATION, always refer to the player as "you/your". In DIALOGUE (inside quotation marks), a member addresses the player by the form her Address lines in section 6 give for her current rung — never by her own name, and never by another member's name. Section 6 SPEAKER CONTRACT is binding.
+- UNKNOWN CHARACTER RULE: The only people with names in this story are the ones in MEMBER PROFILES and ${playerName}. Everyone else is a role and stays one: no given name, no surname, no nickname, no initial, and nothing about them beyond one visible detail. Supporting roles are limited to unnamed archetypes: ${archetypeList}. Refer to them by role ("the secretary", "a director", "that driver"); one who comes back is the same role with the same one detail ("the secretary with the silver pen"), never a name.
 - NO SOCIAL MEDIA IN STORY: ABSOLUTELY FORBIDDEN to include phone notifications, messages, social media updates, or a Kakao transcript. Every one of those is delivered by the app, not by the prose — section 7.
 - HER PHONE BELONGS TO THE APP, NOT TO THE STORY. Nothing in the prose lights up ${playerName}'s screen, buzzes in her pocket, arrives on it or is read off it — whatever the channel is called. Not Kakao, not a company system, not an unnamed message, not a reply she types. When a member wants to reach her and is not in the room, she leaves something instead: a note pushed under the door, food in the fridge with her name on it, a jacket over the back of her chair. That is the same beat and it is yours to write.
 ${phaseLines}
@@ -477,23 +600,27 @@ ${castLines}
 -- SPEAKER CONTRACT (the most common failure — apply it literally) --
 - Inside quotation marks, "I"/"me"/"my" = the character who is speaking; "you"/"your" = the character she is speaking TO.
 - In the player's choice text, "I" is always ${playerName} and "you" is the member being addressed. Do not swap them when you continue the scene.
-- A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, "${mainMember?.name}" and "${mainMember?.name_kr}" refer to herself — she cannot use either to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
+- A character's own name is never a way to address someone else. When ${mainMember?.name || "a member"} speaks, ${ownNames} refer to herself — she cannot use any of them to address ${playerName}. Thanking ${playerName} by speaking her own name is always wrong.
 - No member ever addresses ${playerName} by another member's name. ${playerName} is the only character who may be addressed as "${playerName}".
 - In NARRATION (outside quotation marks) the player is always "you/your"; members are named, or "she/her".
-- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}" and every Address line above belong INSIDE quotation marks, where one character is speaking to another. In narration a member is her name alone: "${mainMember?.name || "She"}${stoodByTheWindow}", NEVER "${call(mainMember?.name || "She", tk.unnie)}${stoodByTheWindow}".
+- Address forms are SPOKEN, not narrated. "${tk.unnie}", "${tk.nim}", "${tk.ssi}"${workTitle ? `, ${q(WORK_TITLE.form)}` : ""}, every title and every form on an Address line belong INSIDE quotation marks, where one character is speaking to another. ${narrationRule()}
 
 -- ROLE CONTRACT (whose life is whose — apply it as literally as the one above) --
 - ${playerName}'s identity above describes HER position in this world and no one else's. No member holds it, is described by it, or speaks as if she held it. Where that role carries a title, the title names ${playerName} alone — and narration never sends a member off to that title as though its holder were a third person elsewhere in the building. In narration she is "you".
 - The members' working life — ${world.castLife.theirs} — is THEIRS. ${playerName} does not inherit it; she has exactly what her own identity gives her and nothing more. Unless that identity places her inside this group's working day, she has ${world.castLife.notHers}, and no member reminds her of one.
 - When the scene needs somewhere for ${playerName} to be, or something for her to be doing, take it from her identity — never from theirs.
 
--- REGISTER: blend these, do not look one up --
-Each member's Address line fixes WHICH titles exist between her and ${playerName} and which way they point. That direction comes from birth year and NEVER reverses, at any affection level.${identityAddress ? `\nWork override: ${identityAddress}.` : ""}
-How much of that formality she actually speaks is a blend of three things, none of which decides alone:
-  1. Age gap — a wide gap keeps a trace of deference even at the highest affection. That trace is texture, not distance.
-  2. Closeness — read her score in [Affections] in CURRENT STATE. Formality loosens as the score rises.
-  3. Her Private Personality — a blunt member drops honorifics early; a reserved one keeps them long after the score says they are close.
-A same-age or near-age member is already casual while the score is still low. A much older member is warm but careful early, and grows protective rather than informal.
+-- REGISTER: a ladder of three rungs --
+Each member's two Address lines give the exact forms between her and ${playerName}, in both directions, at each rung. Read one; do not derive one. Her rung is her stage in [Affections] in CURRENT STATE:
+  R1 = ${rungDistant.join(", ")} | R2 = ${rungWarming.join(", ")} | R3 = ${rungClose.join(", ")}${titleReason}
+- Direction is fixed. Only the younger of the two ever says "${tk.unnie}", and only the junior in position uses a title. Neither form ever points the other way.
+- Every step down happens ON SCREEN, as a beat: one of them says to drop the title, or asks to speak casually. Never silently. Her Private Personality decides who moves first and how soon after her stage allows it: a blunt member offers it the moment it opens, a reserved one well after.
+- A rung is never skipped, and no step comes before her stage allows it.
+- Going back up a rung is only a deliberate cold move: after a fight one of them returns to the R1 form, and both of them hear it.
+- "In front of others" means anyone but the two of them. There the public form holds even at R3, and a slip is a secrecy risk the story may use.
+- A couple's word is a term of endearment native to ${lr.lang}, your choice${language === "ko" ? "" : ", never a Korean word transliterated"}.
+- A wide age gap keeps a trace of deference even at R3. That trace is texture, not distance.
+- An NPC member has no score. She stays at R1 until the story has made the two of them familiar, then R2, never R3.
 -- KOREAN ADDRESS FORMS: transliterate, never localize --
 This is South Korea. Korean address forms are kept in ${lr.lang} as transliterations, because swapping them for a native equivalent throws away the setting.
 ${world.addressForms.guide}
@@ -516,7 +643,10 @@ ${platformRules}
 ╔══════════════════════════════════════════╗
 ║ 9. GAME RULES                            ║
 ╚══════════════════════════════════════════╝
-- Relationship stages, in order: ${stageNamesFor(language).map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
+- Relationship stages, in order: ${stageNames.map((n, i) => `${STAGE_BANDS[i]} ${n}`).join(", ")}. [Affections] in CURRENT STATE gives each member's score and her stage by these exact names.
+- What each stage allows. A member behaves by HER OWN stage in [Affections] - never by the chapter, and never by another member's:
+${stageBehaviourLines}
+- Nobody is drawn to ${playerName} without a reason the story has shown. Never skip the ambiguity: no confession and no confirmed relationship before ${stageNames[3]} has been played out on screen. Not every round is sweet: keep the real pressure and the tension.
 - ${P("tone")}
 
 ╔══════════════════════════════════════════╗
@@ -556,7 +686,7 @@ WHERE SHE IS DECIDES WHO IS THERE. When the player's choice says she goes somewh
 RULES:
 - scene: ${P("sceneRule")}
 - statChanges: at least 1 field non-zero (+/-1 to +/-10). Values are numbers.
-- affectionChanges: at least 1 member non-zero (+/-1 to +/-10). Values are numbers.
+- affectionChanges: at least 1 member non-zero (+/-1 to +/-10), and never above the rise [Chapter] allows. Values are numbers.
 ${platformFormatRules}
 - story: ${P("storyRule")}
 - summary: ALWAYS required. ONE English sentence, 100-150 characters — not two, not a paragraph. This replaces the whole story in your memory of this round three rounds from now, so it is the only thing you will still know about it: short enough to keep, specific enough to be worth keeping.
@@ -631,8 +761,9 @@ export function membersNamedIn(story, members = []) {
   const found = [];
   const aliases = (m) => {
     const kr = m?.name_kr || "";
-    // One syllable of surname in Korean and in its zh/en renderings alike.
-    const given = kr.includes(" ") ? kr.slice(kr.indexOf(" ") + 1) : kr.slice(1);
+    // The same given name the address ladder teaches (v1.4.4 P1), so the name the
+    // prompt asks for is the name this sees: `Aeri`, `Lily`, `Ningning` included.
+    const given = givenNameOf(m);
     // Two characters minimum for either real-name form. A single CJK character occurs
     // inside ordinary words constantly — the same reason the prose analyzer stopped
     // counting a bare 아 as an address form after it reported 194 of them in 20 rounds.
@@ -773,9 +904,12 @@ function parseLLMOutput(text) {
     return validateAndFixOutput(r);
   } catch (e4) { console.log("[parse] Regex fix fail:", e4.message); }
 
-  // Fallback
+  // Fallback. MARKED, so the retry probe can tell it from a story: its `story` is
+  // the first 500 characters of raw JSON, which is longer than any length floor
+  // and was therefore passing as usable. See isUsableRound.
   console.log("[parse] ALL FAILED - using fallback");
   return {
+    parseFailed: true,
     statChanges: { selfId: 1, secrecy: 0, mood: 1 },
     affectionChanges: {},
     socialContent: {},
@@ -783,6 +917,29 @@ function parseLLMOutput(text) {
     story: text.substring(0, 500) || "The story continues...",
     options: ["A. Continue", "B. Change topic", "C. Stay silent", "D. Custom"],
   };
+}
+
+// The retry probe callLLM consults: false means bad_response, so the round is
+// retried and, in free mode, moved to another model, instead of rendered.
+//
+// A response that parses but carries no real story is a wasted round - and so,
+// worse, is one that does NOT parse. That case used to pass: on a total failure
+// parseLLMOutput returns the first 500 characters of raw JSON as the story, and
+// 500 clears every length floor, so the one output least fit to show a player was
+// the one the retry could never catch (docs/PROPOSALS.md section 7). Live, 2026-10-20:
+// 7 of 64 deepseek-flash rounds in one window, each a COMPLETE response (finish:
+// stop) with one stray closing brace after an Instagram object - the player would
+// have read raw JSON under four English buttons. Rejecting the marked fallback is
+// the fix section 7 named; it needs no threshold, because it asks the parser what it did
+// instead of measuring what it returned.
+export function isUsableRound(content) {
+  try {
+    const parsed = parseLLMOutput(content);
+    if (!parsed || parsed.parseFailed) return false;
+    return String(parsed.story || "").trim().length >= MIN_STORY_CHARS;
+  } catch {
+    return false;    // unparseable is the client's problem to retry, not ours
+  }
 }
 
 export function validateAndFixOutput(result) {
@@ -943,6 +1100,8 @@ export async function executeRound({
   // Tier 3 (dynamic) — stats, affections, KKT: always cache miss, kept small
   const systemPrompt = buildSystemPrompt(form, members, mainId, subIds, groupConfig, '', selectedModel, language, world);
   const historyLedger = buildHistoryLedger(memory);
+  const prologueLine = buildPrologueLine(roundNum + 1);
+  const prologue = prologueLine ? `\n${prologueLine}` : "";
   const dynamicTail   = buildDynamicTail(memory, members, roundMemberIds, language);
 
   // Step 1.5: Init round variables
@@ -953,22 +1112,10 @@ export async function executeRound({
   const cacheOptimizedMessages = [
     { role: "system", content: systemPrompt },
     { role: "user",   content: historyLedger ? `[HISTORY]\n${historyLedger}` : "[HISTORY]\n(no history yet)" },
-    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
+    { role: "user",   content: `[CURRENT STATE]\n${dynamicTail}\n${buildChapterLine(roundNum + 1)}${prologue}${buildTailRules(world, storyMode, timeSpeed)}\n\nPlayer choice: ${playerChoice}\n\nGenerate the next round. Output ONLY valid JSON.` },
   ];
 
-  // A response that parses but carries no real story is a wasted round. Rather
-  // than let validateAndFixOutput quietly swap in a placeholder, tell the client
-  // it is unusable so it retries and, in free mode, moves to another model.
-  const hasUsableStory = (content) => {
-    try {
-      const story = parseLLMOutput(content)?.story || "";
-      return story.trim().length >= MIN_STORY_CHARS;
-    } catch {
-      return false;    // unparseable is the client's problem to retry, not ours
-    }
-  };
-
-  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, hasUsableStory);
+  const llmOutput = await callLLM('', [], '', apiKey, selectedModel, cacheOptimizedMessages, reasoningEnabled, aliyun, isUsableRound);
   const parsed = parseLLMOutput(llmOutput);
 
   // Step 3: Compute
@@ -984,7 +1131,7 @@ export async function executeRound({
 
   if (parsed.affectionChanges) {
     newStats.multiAff = { ...stats.multiAff };
-    for (const [id, delta] of Object.entries(parsed.affectionChanges)) {
+    for (const [id, delta] of Object.entries(capAffectionRise(parsed.affectionChanges, roundNum + 1))) {
       if (id === mainId) newStats.affection = Math.max(0, Math.min(100, stats.affection + (delta || 0)));
       else if (subIds.includes(id)) newStats.multiAff[id] = Math.max(0, Math.min(100, (stats.multiAff?.[id] || 0) + (delta || 0)));
     }
